@@ -2,6 +2,22 @@
 
 ## 0.1.23 - 2026-08-14
 
+### Context Intelligence, Intent Refinement e Semantic Planning
+
+- Adicionado o runtime M1–M3 versionado no repositório: contexto, refinamento de intenção, planejamento semântico e compatibilidade com o executor legado.
+- Adicionado `orquestrador-maestro run` com execução de tarefas, inspeção, cancelamento e listagem de runs por projeto.
+- Adicionados `projects`, `missions` e `terminal` (agent/shell/attach/close/start/stop) com preservação das interfaces nativas dos agentes.
+- Adicionada a TUI do Maestro (`tui`) com misses, projetos, missões e PTY, mantendo a TUI clássica disponível.
+- Adicionados `bridge --stdio` e `runtime` para integração por protocolo local e extensão VS Code.
+- Adicionados adaptadores AI para Junie, Goose e OpenHands (`adapters`), com dry-run por padrão.
+- Melhorias de compatibilidade de runtime/providers/workspaces, mantendo a CLI e o runtime existentes compatíveis (mudança aditiva).
+- Dependências de runtime adicionadas para o cockpit: `@clack/prompts`, `@xterm/headless`, `node-notifier`, `node-pty`; OpenTUI segue opcional.
+
+### Verificação
+
+- 195 testes automatizados aprovados (0 falhas, 1 skip intencional).
+- Validação pública, validação de skills, gates DEV estritos, empacotamento e `git diff --check` aprovados no fechamento do M3.
+
 ### Sincronização de skills entre clientes
 
 - Corrigida a disponibilidade de `code-review` no OpenCode/DANTE, sincronizando a skill compatível para `.opencode/skills`.

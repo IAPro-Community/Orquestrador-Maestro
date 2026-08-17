@@ -1,0 +1,85 @@
+{
+  "name": "orquestrador-maestro-vscode",
+  "displayName": "Maestro",
+  "version": "0.1.19",
+  "publisher": "iapro",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onView:maestro.runs",
+    "onCommand:maestro.openCockpit",
+    "onCommand:maestro.runTask",
+    "onCommand:maestro.createMission",
+    "onCommand:maestro.startAgentTerminal",
+    "onCommand:maestro.startShellTerminal"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "maestro.openCockpit",
+        "title": "Maestro: Open Cockpit"
+      },
+      {
+        "command": "maestro.runTask",
+        "title": "Maestro: Run Task"
+      },
+      {
+        "command": "maestro.createMission",
+        "title": "Maestro: Create Mission"
+      },
+      {
+        "command": "maestro.refresh",
+        "title": "Maestro: Refresh"
+      },
+      {
+        "command": "maestro.showProject",
+        "title": "Maestro: Show Project"
+      },
+      {
+        "command": "maestro.showRun",
+        "title": "Maestro: Show Run"
+      },
+      {
+        "command": "maestro.showMission",
+        "title": "Maestro: Show Mission"
+      },
+      {
+        "command": "maestro.startAgentTerminal",
+        "title": "Maestro: Start Agent Terminal"
+      },
+      {
+        "command": "maestro.startShellTerminal",
+        "title": "Maestro: Start Shell Terminal"
+      },
+      {
+        "command": "maestro.startTerminal",
+        "title": "Maestro: Start Managed Command (Legacy)"
+      },
+      {
+        "command": "maestro.focusTerminal",
+        "title": "Maestro: Focus Terminal"
+      },
+      {
+        "command": "maestro.stopTerminal",
+        "title": "Maestro: Stop Terminal"
+      },
+      {
+        "command": "maestro.refreshTerminalSessions",
+        "title": "Maestro: Refresh Terminal Sessions"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "maestro.runs",
+          "name": "Maestro"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@xterm/xterm": "^5.5.0"
+  }
+}

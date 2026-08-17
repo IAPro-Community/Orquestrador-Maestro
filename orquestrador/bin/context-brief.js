@@ -52,7 +52,7 @@ function parseArgs(argv) {
     }
 
     const next = args[index + 1];
-    if (!next || next.startsWith("--")) {
+    if (next === undefined || next.startsWith("--") || (next === "" && arg !== "--task")) {
       throw new Error(`A opção ${arg} exige um valor.`);
     }
 

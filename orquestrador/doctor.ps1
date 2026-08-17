@@ -1,5 +1,6 @@
 param(
-  [string]$HomePath = [Environment]::GetFolderPath("UserProfile")
+  [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
+  [switch]$RepairUi
 )
 
 $ErrorActionPreference = "Stop"
@@ -465,6 +466,13 @@ try { $versions.codex = (codex --version 2>$null) } catch { $versions.codex = "u
 try { $versions.opencode = (opencode --version 2>$null) } catch { $versions.opencode = "unavailable" }
 try { $versions.ohMyCodexInstalled = (npm list -g oh-my-codex --depth=0 2>$null | Select-String "oh-my-codex@").ToString().Trim() } catch { $versions.ohMyCodexInstalled = "unavailable" }
 try { $versions.opencodeInstalled = (npm list -g opencode-ai --depth=0 2>$null | Select-String "opencode-ai@").ToString().Trim() } catch { $versions.opencodeInstalled = "unavailable" }
+try { $versions.tmux = (tmux -V 2>$null) } catch { $versions.tmux = "unavailable (manual prerequisite for persistent Maestro terminal sessions)" }
+try { $versions.bun = (bun --version 2>$null) } catch { $versions.bun = "unavailable (optional OpenTUI runtime)" }
+try { $versions.openTui = (bun -e "console.log(require.resolve('@opentui/core'))" 2>$null) } catch { $versions.openTui = "unavailable (optional; install manually with Bun)" }
+try { $versions.nodePty = (node -e "require('node-pty'); console.log('available')" 2>$null) } catch { $versions.nodePty = "unavailable (install build tools, then run npm rebuild node-pty)" }
+if ($RepairUi -and $versions.nodePty -like "unavailable*") {
+  Write-Host "Maestro Cockpit: node-pty precisa de ferramentas de compilação. Windows: Visual Studio Build Tools (Desktop development with C++). macOS: xcode-select --install. Debian/Ubuntu: sudo apt install build-essential python3. Depois execute npm rebuild node-pty."
+}
 
 [pscustomobject]@{
   GeneratedAt = (Get-Date).ToString("s")

@@ -6,7 +6,23 @@ O Orquestrador Maestro organiza regras, contexto, skills, hooks, perfis de ferra
 
 > O Orquestrador não é um modelo de IA, não hospeda agentes e não substitui Codex, Claude, OpenCode, Cursor, Gemini, Windsurf, Antigravity ou outras ferramentas. Ele prepara o ambiente para que essas ferramentas trabalhem com um contrato comum.
 
-[GitHub](https://github.com/FernandoBolzan/Orquestrador-Maestro) · [Pacote npm](https://www.npmjs.com/package/@iapro/orquestrador-maestro-cli) · [Changelog](CHANGELOG.md)
+## Iniciar o cockpit local
+
+No diretório do projeto, mantenha o runtime aberto em um terminal:
+
+```bash
+orquestrador-maestro runtime
+```
+
+Em outro terminal, abra a interface visual:
+
+```bash
+orquestrador-maestro tui
+```
+
+Use `A` para escolher um provider e iniciar um agente, `M` para criar uma missão e `S` para abrir um shell. `Enter` entrega o teclado ao terminal selecionado e `Ctrl+]` retorna ao cockpit. Se estiver executando o repositório sem instalação global, substitua `orquestrador-maestro` por `node bin/orquestrador-maestro.js`.
+
+[📖 Guia Simplificado](docs/guia-leigo-como-funciona.md) · [GitHub](https://github.com/FernandoBolzan/Orquestrador-Maestro) · [Pacote npm](https://www.npmjs.com/package/@iapro/orquestrador-maestro-cli) · [Changelog](CHANGELOG.md)
 
 ## Para quem este projeto é
 
@@ -411,6 +427,7 @@ O fluxo de contribuição é:
 
 ## Documentação complementar
 
+- [Guia simplificado (O que é e como funciona)](docs/guia-leigo-como-funciona.md)
 - [Instalação detalhada](docs/installation.md)
 - [Opções do instalador](docs/installer-options.md)
 - [Referência técnica](docs/orquestrador-reference.md)

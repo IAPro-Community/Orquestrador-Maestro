@@ -34,3 +34,9 @@ Quando a proposta for aceita, registre a decisão em `DEV/ADR/` no projeto de or
 
 As RFCs deste diretório documentam direção pública do pacote. Não inclua logs, sessões, memórias locais, credenciais ou conteúdo privado de projetos.
 
+## RFCs atuais
+
+- [RFC-0001: Contrato de memória entre agentes](0001-contrato-de-memoria-entre-agentes.md) — `Review`.
+- [RFC-0002: Provider opcional baseado em ai-memory](0002-provider-de-memoria-ai-memory.md) — `Review`.
+- [RFC-0003: Captura e privacidade da memória](0003-captura-e-privacidade-da-memoria.md) — `Review`.
+- [RFC-0004: Execution Runtime aditivo para o Maestro](0004-execution-runtime-additivo.md) — `Accepted`.

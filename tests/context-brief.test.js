@@ -142,3 +142,20 @@ test("buildBrief respeita o orçamento e omite histórico sensível", () => {
   assert.ok(result.used <= 1000);
   assert.doesNotMatch(result.content, /WORKLOG\.md/u);
 });
+
+test("parseArgs trata --task ausente como intenção vazia (sem erro)", () => {
+  const options = parseArgs(["brief", "--project-path", "/tmp/projeto-x", "--max-chars", "4000", "--json"]);
+  assert.equal(options.task, "");
+  assert.equal(options.maxChars, 4000);
+  assert.equal(options.json, true);
+});
+
+test("parseArgs trata --task vazio como intenção ausente (sem erro)", () => {
+  const options = parseArgs(["brief", "--project-path", "/tmp/projeto-x", "--task", ""]);
+  assert.equal(options.task, "");
+});
+
+test("parseArgs mantém erro para --task sem valor seguinte (token inválido)", () => {
+  assert.throws(() => parseArgs(["brief", "--task"]), /exige um valor/u);
+  assert.throws(() => parseArgs(["brief", "--task", "--json"]), /exige um valor/u);
+});
