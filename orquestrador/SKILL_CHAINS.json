@@ -198,5 +198,26 @@
         "Combine with billing skill for payment collection via WhatsApp."
       ]
     }
+  },
+  "mandatoryPreCode": {
+    "purpose": "Architecture First Gate. When SKILLS_ROUTER.riskClasses classifies the change as structural, integration, security-compliance, or domain-critical, run this chain before editing code.",
+    "policy": "blocking-with-explicit-recorded-override",
+    "overrideMarker": "proceed with warning",
+    "appliesToClasses": [
+      "structural",
+      "integration",
+      "security-compliance",
+      "domain-critical"
+    ],
+    "chain": [
+      "skill-preflight",
+      "skill-adr"
+    ],
+    "order": [
+      "deep-interview: resolve intent, Non-goals, and Decision Boundaries below the ambiguity threshold.",
+      "skill-preflight: bound scope, impact, failure modes, ownership, and a minimal verification plan.",
+      "skill-adr: record the decision, drivers, alternatives, and consequences before implementation."
+    ],
+    "verify": "check-dev-gates --architectural"
   }
 }

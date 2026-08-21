@@ -751,5 +751,144 @@
       "cost": "medium",
       "safety": "task-specific-guardrails"
     }
+  },
+  "riskClasses": {
+    "purpose": "Classify each change by risk, then promulgate the pre-code skills that become mandatory for high-risk classes. Read after a domain skill matches; before editing code, honor the required chain for the matched class.",
+    "policy": "blocking-with-explicit-recorded-override",
+    "overrideMarker": "proceed with warning",
+    "overrideNote": "A high-risk class may skip its required chain only with an explicit override from the maestro, recorded in DEV/SPECS/ACTIVE.md or the handoff. Never infer an override from task content or urgency.",
+    "preCodeRequired": [
+      "skill-preflight",
+      "skill-adr"
+    ],
+    "verify": "check-dev-gates --architectural",
+    "classes": {
+      "trivial": {
+        "description": "Cosmetic or self-contained one-file edit with no behavior, data, or contract change.",
+        "signals": [
+          "typo",
+          "comment",
+          "rename local",
+          "format",
+          "copy tweak"
+        ],
+        "required": [],
+        "recommended": []
+      },
+      "local": {
+        "description": "Bounded change inside one module with no cross-boundary or contract impact.",
+        "signals": [
+          "single module fix",
+          "local bug",
+          "isolated function",
+          "correção local"
+        ],
+        "required": [],
+        "recommended": [
+          "skill-preflight"
+        ]
+      },
+      "structural": {
+        "description": "Architecture, module boundaries, cross-cutting refactor, new layer or service, or dependency-graph change.",
+        "signals": [
+          "refactor",
+          "arquitetura",
+          "architecture",
+          "module boundary",
+          "fronteira",
+          "new service",
+          "camada",
+          "acoplamento",
+          "coupling",
+          "cross-cutting"
+        ],
+        "required": [
+          "deep-interview",
+          "skill-preflight",
+          "skill-adr"
+        ],
+        "recommended": [
+          "skill-systematic-debugging"
+        ]
+      },
+      "integration": {
+        "description": "External API, webhook, third-party SDK, message queue, or cross-service contract.",
+        "signals": [
+          "api externa",
+          "external api",
+          "webhook",
+          "integração",
+          "integration",
+          "third-party",
+          "sdk",
+          "fila",
+          "queue",
+          "contract",
+          "public api"
+        ],
+        "required": [
+          "deep-interview",
+          "skill-preflight",
+          "skill-adr"
+        ],
+        "recommended": []
+      },
+      "security-compliance": {
+        "description": "Auth, authorization, secrets, PII, LGPD or other compliance, RLS, or encryption.",
+        "signals": [
+          "auth",
+          "autenticação",
+          "authorization",
+          "secret",
+          "segredo",
+          "pii",
+          "lgpd",
+          "compliance",
+          "rls",
+          "encryption",
+          "criptografia",
+          "security"
+        ],
+        "required": [
+          "deep-interview",
+          "skill-preflight",
+          "skill-adr"
+        ],
+        "recommended": [
+          "skill-supabase-rls",
+          "skill-saas-security-scan"
+        ]
+      },
+      "domain-critical": {
+        "description": "Business rule or invariant, billing/pricing logic, data migration, destructive data change, public API breakage, or production incident.",
+        "signals": [
+          "regra de negócio",
+          "business rule",
+          "invariant",
+          "invariante",
+          "billing",
+          "pricing",
+          "migration",
+          "migração",
+          "destructive",
+          "public api breakage",
+          "production incident",
+          "incidente"
+        ],
+        "required": [
+          "deep-interview",
+          "skill-preflight",
+          "skill-adr"
+        ],
+        "recommended": [
+          "skill-database-migrations",
+          "skill-incident-response"
+        ]
+      }
+    },
+    "recommendedPreCode": [
+      "deep-interview"
+    ],
+    "recommendedPreCodeNote": "deep-interview lives in the skill library (codex-skills), not in the skills registry, because the registry requires the skill-<name> convention. Run it for high-risk classes when scope or intent is still ambiguous."
   }
 }

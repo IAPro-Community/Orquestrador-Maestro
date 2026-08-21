@@ -295,6 +295,11 @@ if write_text_file_if_missing "$DEV_ROOT/SPECS/ACTIVE.md" <<'EOF'
 
 -
 
+## Structural Prevention
+
+- Change class:
+- Structural adjustment if this is a local remediation:
+
 ## Constraints
 
 -
