@@ -40,8 +40,14 @@ function readState(orquestradorDir) {
     for (const [toolId, target] of Object.entries(parsed.targets)) {
       if (!target || typeof target !== "object" || Array.isArray(target)) return null;
       if ("enabled" in target && typeof target.enabled !== "boolean") return null;
-      if ("managedFiles" in target && !Array.isArray(target.managedFiles)) return null;
-      if ("managedDirectories" in target && !Array.isArray(target.managedDirectories)) return null;
+      if ("managedFiles" in target) {
+        if (!Array.isArray(target.managedFiles)) return null;
+        if (!target.managedFiles.every(item => typeof item === "string" && item.length > 0)) return null;
+      }
+      if ("managedDirectories" in target) {
+        if (!Array.isArray(target.managedDirectories)) return null;
+        if (!target.managedDirectories.every(item => typeof item === "string" && item.length > 0)) return null;
+      }
     }
     return parsed;
   } catch {

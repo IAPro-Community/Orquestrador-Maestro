@@ -58,26 +58,32 @@ class TerminalManager {
     const completionPromise = new Promise((r) => { completionResolve = r; });
     this.completionPromises.set(id, completionPromise);
     child.on("error", async (error) => {
-      await this.queueWrite(id, async () => {
-        const current = await this.store.getTerminal(id);
-        if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: error.message });
-      });
-      const final = await this.store.getTerminal(id);
-      settle(final);
-      this.completionPromises.delete(id);
-      completionResolve(final);
+      try {
+        await this.queueWrite(id, async () => {
+          const current = await this.store.getTerminal(id);
+          if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: error.message });
+        });
+      } finally {
+        const final = await this.store.getTerminal(id);
+        settle(final);
+        this.completionPromises.delete(id);
+        completionResolve(final);
+      }
     });
     child.on("close", async (exitCode, signal) => {
       this.active.delete(id);
-      await this.queueWrite(id, async () => {
-        const current = await this.store.getTerminal(id);
-        if (current) await this.store.saveTerminal({ ...current, status: exitCode === 0 ? "completed" : "failed", exitCode, signal: signal || null, completedAt: new Date().toISOString() });
-      });
-      await this.emitEvent(null, "terminal.completed", { terminalId: id, projectId: record.projectId, exitCode, signal: signal || null });
-      const final = await this.store.getTerminal(id);
-      settle(final);
-      this.completionPromises.delete(id);
-      completionResolve(final);
+      try {
+        await this.queueWrite(id, async () => {
+          const current = await this.store.getTerminal(id);
+          if (current) await this.store.saveTerminal({ ...current, status: exitCode === 0 ? "completed" : "failed", exitCode, signal: signal || null, completedAt: new Date().toISOString() });
+        });
+        await this.emitEvent(null, "terminal.completed", { terminalId: id, projectId: record.projectId, exitCode, signal: signal || null });
+      } finally {
+        const final = await this.store.getTerminal(id);
+        settle(final);
+        this.completionPromises.delete(id);
+        completionResolve(final);
+      }
     });
     const active = { child, record, finished };
     this.active.set(id, active);

@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main
-          RELEASE_SHA="${{ github.sha }}"
+          RELEASE_SHA="$(git rev-parse HEAD)"
           if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
             echo "ERROR: Release commit $RELEASE_SHA is not a descendant of origin/main"
             echo "This release must be based on main. Rebase first."

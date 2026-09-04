@@ -103,10 +103,10 @@
               "description": "Scope level"
             },
             "repositoryId": { "type": "string", "minLength": 1 },
-            "branch": { "type": ["string", "null"] },
-            "workspaceId": { "type": "string" },
-            "headCommit": { "type": "string" },
-            "taskId": { "type": "string" },
+            "branch": { "type": "string", "minLength": 1 },
+            "workspaceId": { "type": "string", "minLength": 1 },
+            "headCommit": { "type": "string", "minLength": 1 },
+            "taskId": { "type": "string", "minLength": 1 },
             "promoted": { "type": "boolean" }
           },
           "description": "Observation scope"

@@ -1869,7 +1869,16 @@ function handleTargetsCommand(args) {
 
     function isPathContained(relPath) {
       const full = path.resolve(homePath, relPath);
-      const rel = path.relative(homePath, full);
+      // Resolve symlinks to prevent physical path escape
+      let realHome;
+      try { realHome = fs.realpathSync(homePath); } catch { realHome = path.resolve(homePath); }
+      let realFull;
+      try { realFull = fs.realpathSync(full); } catch {
+        // Path doesn't exist yet — check parent directory instead
+        try { realFull = fs.realpathSync(path.dirname(full)); } catch { realFull = path.dirname(full); }
+        realFull = path.join(realFull, path.basename(full));
+      }
+      const rel = path.relative(realHome, realFull);
       return !rel.startsWith("..") && !path.isAbsolute(rel);
     }
 
@@ -2005,6 +2014,10 @@ async function dispatch(command, args) {
   }
 
   if (command === "update") {
+    if (args.includes("--help") || args.includes("-h")) {
+      printHelp();
+      return 0;
+    }
     if (args.includes("--dry-run") || args.includes("--list-targets")) {
       return await runInstall(args);
     }
