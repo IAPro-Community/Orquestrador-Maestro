@@ -138,13 +138,13 @@
     "node": ">=18.0.0"
   },
   "optionalDependencies": {
-    "@opentui/core": "^0.5.1"
+    "@opentui/core": "^0.5.1",
+    "node-pty": "^1.1.0"
   },
   "dependencies": {
     "@clack/prompts": "0.11.0",
     "@xterm/headless": "^5.5.0",
-    "node-notifier": "10.0.1",
-    "node-pty": "^1.1.0"
+    "node-notifier": "10.0.1"
   },
   "overrides": {
     "node-notifier": {
