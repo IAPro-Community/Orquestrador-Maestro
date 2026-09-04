@@ -20,6 +20,25 @@ class TerminalManager {
     this.completionPromises = new Map();
   }
 
+  async finalizeTerminalCompletion({ id, settle, completionResolve, fallbackRecord, error }) {
+    try {
+      const final = await this.store.getTerminal(id);
+      settle(final);
+      completionResolve(final);
+    } catch {
+      const fallback = {
+        ...fallbackRecord,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        error: error ? error.message : "terminal-finalization-failed"
+      };
+      settle(fallback);
+      completionResolve(fallback);
+    } finally {
+      this.completionPromises.delete(id);
+    }
+  }
+
   queueWrite(id, operation) {
     const previous = this.writeQueues.get(id) || Promise.resolve();
     const next = previous.then(operation);
@@ -63,12 +82,8 @@ class TerminalManager {
           const current = await this.store.getTerminal(id);
           if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: error.message });
         });
-      } finally {
-        const final = await this.store.getTerminal(id);
-        settle(final);
-        this.completionPromises.delete(id);
-        completionResolve(final);
-      }
+      } catch {}
+      await this.finalizeTerminalCompletion({ id, settle, completionResolve, fallbackRecord: record, error });
     });
     child.on("close", async (exitCode, signal) => {
       this.active.delete(id);
@@ -78,12 +93,8 @@ class TerminalManager {
           if (current) await this.store.saveTerminal({ ...current, status: exitCode === 0 ? "completed" : "failed", exitCode, signal: signal || null, completedAt: new Date().toISOString() });
         });
         await this.emitEvent(null, "terminal.completed", { terminalId: id, projectId: record.projectId, exitCode, signal: signal || null });
-      } finally {
-        const final = await this.store.getTerminal(id);
-        settle(final);
-        this.completionPromises.delete(id);
-        completionResolve(final);
-      }
+      } catch {}
+      await this.finalizeTerminalCompletion({ id, settle, completionResolve, fallbackRecord: { ...record, exitCode, signal } });
     });
     const active = { child, record, finished };
     this.active.set(id, active);

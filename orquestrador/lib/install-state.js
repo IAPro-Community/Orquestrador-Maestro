@@ -16,6 +16,25 @@ function getDefaultState() {
   };
 }
 
+function validateState(parsed) {
+  if (!parsed || typeof parsed !== "object") return false;
+  if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) return false;
+  if (!parsed.targets || typeof parsed.targets !== "object" || Array.isArray(parsed.targets)) return false;
+  for (const [, target] of Object.entries(parsed.targets)) {
+    if (!target || typeof target !== "object" || Array.isArray(target)) return false;
+    if ("enabled" in target && typeof target.enabled !== "boolean") return false;
+    if ("managedFiles" in target) {
+      if (!Array.isArray(target.managedFiles)) return false;
+      if (!target.managedFiles.every(item => typeof item === "string" && item.length > 0)) return false;
+    }
+    if ("managedDirectories" in target) {
+      if (!Array.isArray(target.managedDirectories)) return false;
+      if (!target.managedDirectories.every(item => typeof item === "string" && item.length > 0)) return false;
+    }
+  }
+  return true;
+}
+
 function getStatePath(orquestradorDir) {
   return path.join(orquestradorDir, STATE_FILENAME);
 }
@@ -34,21 +53,7 @@ function readState(orquestradorDir) {
   try {
     const raw = fs.readFileSync(statePath, "utf8");
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) return null;
-    if (!parsed.targets || typeof parsed.targets !== "object" || Array.isArray(parsed.targets)) return null;
-    for (const [toolId, target] of Object.entries(parsed.targets)) {
-      if (!target || typeof target !== "object" || Array.isArray(target)) return null;
-      if ("enabled" in target && typeof target.enabled !== "boolean") return null;
-      if ("managedFiles" in target) {
-        if (!Array.isArray(target.managedFiles)) return null;
-        if (!target.managedFiles.every(item => typeof item === "string" && item.length > 0)) return null;
-      }
-      if ("managedDirectories" in target) {
-        if (!Array.isArray(target.managedDirectories)) return null;
-        if (!target.managedDirectories.every(item => typeof item === "string" && item.length > 0)) return null;
-      }
-    }
+    if (!validateState(parsed)) return null;
     return parsed;
   } catch {
     return null;
@@ -80,7 +85,7 @@ function writeState(orquestradorDir, state) {
       const existingContent = fs.readFileSync(statePath, "utf8");
       try {
         const parsed = JSON.parse(existingContent);
-        if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== STATE_SCHEMA_VERSION) {
+        if (!validateState(parsed)) {
           const backupPath = statePath + ".corrupt." + Date.now();
           fs.copyFileSync(statePath, backupPath);
         }
@@ -96,6 +101,10 @@ function writeState(orquestradorDir, state) {
     schemaVersion: STATE_SCHEMA_VERSION,
     updatedAt: new Date().toISOString()
   };
+
+  if (!validateState(payload)) {
+    throw new Error("Refusing to write invalid state");
+  }
 
   const content = JSON.stringify(payload, null, 2) + "\n";
 
@@ -167,6 +176,7 @@ module.exports = {
   STATE_FILENAME,
   getDefaultState,
   getStatePath,
+  validateState,
   readState,
   writeState,
   getTargetState,

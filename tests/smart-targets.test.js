@@ -30,6 +30,7 @@ const {
 const {
   STATE_SCHEMA_VERSION,
   getDefaultState,
+  validateState,
   readState,
   writeState,
   getTargetState,
@@ -713,6 +714,58 @@ describe("install-state — corruption backup", () => {
     const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
     assert.equal(corruptBackups.length, 0);
   });
+
+  it("creates .corrupt backup when targets is an array", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, JSON.stringify({ schemaVersion: 1, targets: [] }));
+
+    writeState(orquestradorDir, getDefaultState());
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected backup for targets-as-array");
+    const backup = JSON.parse(fs.readFileSync(path.join(orquestradorDir, corruptBackups[0]), "utf8"));
+    assert.deepEqual(backup.targets, []);
+  });
+
+  it("creates .corrupt backup when target value is null", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, JSON.stringify({ schemaVersion: 1, targets: { codex: null } }));
+
+    writeState(orquestradorDir, getDefaultState());
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected backup for target-null");
+  });
+
+  it("creates .corrupt backup when managedFiles contains null", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, JSON.stringify({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedFiles: [null, "valid/path"] } }
+    }));
+
+    writeState(orquestradorDir, getDefaultState());
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected backup for managedFiles-with-null");
+  });
+
+  it("creates .corrupt backup when managedDirectories contains empty string", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, JSON.stringify({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedDirectories: [""] } }
+    }));
+
+    writeState(orquestradorDir, getDefaultState());
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected backup for managedDirectories-with-empty");
+  });
 });
 
 describe("git-context — SSH port normalization", () => {
@@ -1073,5 +1126,148 @@ describe("install-state — array validation", () => {
     const state = readState(tmpDir);
     assert.ok(state);
     assert.deepEqual(state.targets.codex.managedFiles, ["a/b"]);
+  });
+});
+
+describe("validateState — shared validator", () => {
+  it("returns true for valid state", () => {
+    assert.ok(validateState(getDefaultState()));
+  });
+
+  it("returns false for null", () => {
+    assert.equal(validateState(null), false);
+  });
+
+  it("returns false for targets as array", () => {
+    assert.equal(validateState({ schemaVersion: 1, targets: [] }), false);
+  });
+
+  it("returns false for target as null", () => {
+    assert.equal(validateState({ schemaVersion: 1, targets: { codex: null } }), false);
+  });
+
+  it("returns false for managedFiles containing null", () => {
+    assert.equal(validateState({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedFiles: [null] } }
+    }), false);
+  });
+
+  it("returns false for managedDirectories containing empty string", () => {
+    assert.equal(validateState({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedDirectories: [""] } }
+    }), false);
+  });
+
+  it("returns false for wrong schemaVersion", () => {
+    assert.equal(validateState({ schemaVersion: 999, targets: {} }), false);
+  });
+
+  it("returns true for target with valid managedFiles and managedDirectories", () => {
+    assert.ok(validateState({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedFiles: ["a/b"], managedDirectories: ["c/d"] } }
+    }));
+  });
+
+  it("returns true for target without managedFiles or managedDirectories", () => {
+    assert.ok(validateState({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true } }
+    }));
+  });
+});
+
+describe("targets add — rollback on failure", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("removes created files on copy failure", () => {
+    const skillDir = path.join(tempHome, ".codex", "skills", "orquestrador-maestro");
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), "original");
+
+    const origCopyFileSync = fs.copyFileSync;
+    let copyCount = 0;
+    fs.copyFileSync = function (...args) {
+      copyCount++;
+      if (copyCount === 2) throw new Error("disk full");
+      return origCopyFileSync(...args);
+    };
+
+    try {
+      const { enableTarget } = require("../orquestrador/lib/install-state.js");
+      const state = getDefaultState();
+      enableTarget(state, "codex", "user", "detected");
+      writeState(orquestradorDir, state);
+    } finally {
+      fs.copyFileSync = origCopyFileSync;
+    }
+
+    const markerPath = path.join(tempHome, ".codex", ".maestro-managed");
+    assert.ok(!fs.existsSync(markerPath), "marker should be rolled back");
+  });
+
+  it("restores previous state on writeState failure", () => {
+    const { enableTarget, readState: rs } = require("../orquestrador/lib/install-state.js");
+    const initialState = getDefaultState();
+    enableTarget(initialState, "claude", "user", "detected");
+    writeState(orquestradorDir, initialState);
+
+    const originalContent = JSON.parse(fs.readFileSync(path.join(orquestradorDir, "install-state.json"), "utf8"));
+
+    const origWriteFileSync = fs.writeFileSync;
+    let writeCount = 0;
+    fs.writeFileSync = function (filePath, ...args) {
+      if (typeof filePath === "string" && filePath.includes("install-state.json") && !filePath.includes(".tmp.")) {
+        writeCount++;
+        if (writeCount === 1) throw new Error("disk full");
+      }
+      return origWriteFileSync(filePath, ...args);
+    };
+
+    try {
+      const addState = rs(orquestradorDir) || getDefaultState();
+      enableTarget(addState, "codex", "user", "detected");
+      writeState(orquestradorDir, addState);
+    } catch {}
+    finally {
+      fs.writeFileSync = origWriteFileSync;
+    }
+
+    const finalState = rs(orquestradorDir);
+    assert.ok(finalState, "state should still exist");
+    assert.ok(finalState.targets.claude, "previous target should be preserved");
+  });
+
+  it("preserves preexisting user files on rollback", () => {
+    const skillDir = path.join(tempHome, ".codex", "skills", "orquestrador-maestro");
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, "SKILL.md"), "user content");
+
+    const origCopyFileSync = fs.copyFileSync;
+    fs.copyFileSync = function () {
+      throw new Error("copy fails");
+    };
+
+    try {
+      const { enableTarget } = require("../orquestrador/lib/install-state.js");
+      const state = getDefaultState();
+      enableTarget(state, "codex", "user", "detected");
+      writeState(orquestradorDir, state);
+    } finally {
+      fs.copyFileSync = origCopyFileSync;
+    }
+
+    assert.ok(fs.existsSync(path.join(skillDir, "SKILL.md")), "user file must survive rollback");
+    assert.equal(fs.readFileSync(path.join(skillDir, "SKILL.md"), "utf8"), "user content");
   });
 });

@@ -13,13 +13,11 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
-    name: Validate and publish npm package
-    runs-on: windows-latest
-    environment: npm-release
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -30,8 +28,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
+          node-version: 22
           package-manager-cache: false
 
       - name: Validate tag and package version
@@ -57,11 +54,11 @@ jobs:
           git fetch origin main
           RELEASE_SHA="$(git rev-parse HEAD)"
           if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
-            echo "ERROR: Release commit $RELEASE_SHA is not a descendant of origin/main"
+            echo "ERROR: Release commit $RELEASE_SHA is not contained in origin/main history."
             echo "This release must be based on main. Rebase first."
             exit 1
           fi
-          echo "OK: Release commit is descendant of origin/main"
+          echo "OK: Release commit is contained in origin/main history"
 
       - name: Install and run release gates
         shell: bash
@@ -75,15 +72,65 @@ jobs:
           pwsh -NoProfile -File ./scripts/validate-skills.ps1
           npm pack --dry-run
 
-      - name: Install tarball and smoke test
+  package-smoke:
+    name: Package smoke test
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install and create tarball
         shell: bash
         run: |
           set -euo pipefail
+          npm ci
           tarball="$(npm pack 2>/dev/null | tail -1)"
-          npm install -g "./$tarball"
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Install tarball globally and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g "./$TARBALL"
           orquestrador-maestro --version
           orquestrador-maestro memory --help
+          orquestrador-maestro targets list || true
+          orquestrador-maestro targets detect || true
           npm uninstall -g orquestrador-maestro
+
+  publish:
+    name: Publish to npm
+    needs: [validate, package-smoke]
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Publish stable package
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

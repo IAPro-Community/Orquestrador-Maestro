@@ -67,7 +67,7 @@ runCheck("All JSON files in orquestrador/ are valid", () => {
 });
 
 console.log("\n4. No secrets in tracked files");
-runCheck("No obvious secrets in source files", () => {
+runCheck("No obvious secrets in tracked files", () => {
   const secretPatterns = [
     /ghp_[A-Za-z0-9_]{20,}/,
     /github_pat_[A-Za-z0-9_]{20,}/,
@@ -76,55 +76,63 @@ runCheck("No obvious secrets in source files", () => {
     /AKIA[0-9A-Z]{16}/,
     /xox[baprs]-[A-Za-z0-9-]{20,}/
   ];
-  const scanDirs = ["bin", "orquestrador", "scripts", "runtime"];
-  for (const dir of scanDirs) {
-    const dirPath = path.join(rootDir, dir);
-    if (!fs.existsSync(dirPath)) continue;
-    const walk = (current) => {
-      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-        const full = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          if (!["node_modules", ".git", "logs", "backups"].includes(entry.name)) {
-            walk(full);
-          }
-        } else if (entry.isFile() && /\.(js|ts|json|sh|ps1|md)$/.test(entry.name)) {
-          const content = fs.readFileSync(full, "utf8");
-          for (const pattern of secretPatterns) {
-            if (pattern.test(content)) {
-              const rel = path.relative(rootDir, full);
-              throw new Error(`Possible secret in ${rel}`);
-            }
-          }
+  const gitFiles = spawnSync("git", ["ls-files", "-z"], {
+    cwd: rootDir,
+    encoding: "utf8",
+    shell: false
+  });
+  if (gitFiles.status !== 0) throw new Error("git ls-files failed");
+  const files = gitFiles.stdout.split("\0").filter(Boolean);
+  const textExtensions = /\.(js|ts|json|sh|ps1|md|yml|yaml|txt|cfg|ini|toml|env)$/;
+  for (const rel of files) {
+    if (!textExtensions.test(rel)) continue;
+    if (rel.startsWith("node_modules/") || rel.startsWith(".git/")) continue;
+    const full = path.join(rootDir, rel);
+    try {
+      const content = fs.readFileSync(full, "utf8");
+      for (const pattern of secretPatterns) {
+        if (pattern.test(content)) {
+          throw new Error(`Possible secret in ${rel}`);
         }
       }
-    };
-    walk(dirPath);
+    } catch (err) {
+      if (err.code === "EISDIR" || err.code === "ENOENT") continue;
+      throw err;
+    }
   }
 });
 
 console.log("\n5. No concrete user paths in source");
 runCheck("No concrete Windows/Unix home paths in tracked source", () => {
-  const scanDirs = ["bin", "orquestrador", "scripts", "runtime"];
-  for (const dir of scanDirs) {
-    const dirPath = path.join(rootDir, dir);
-    if (!fs.existsSync(dirPath)) continue;
-    const walk = (current) => {
-      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-        const full = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          if (!["node_modules", ".git", "logs", "backups"].includes(entry.name)) {
-            walk(full);
-          }
-        } else if (entry.isFile() && /\.(js|ts|json|sh|ps1|md)$/.test(entry.name)) {
-          const content = fs.readFileSync(full, "utf8");
-          if (/C:\\Users\\[A-Za-z0-9._-]+/.test(content) || /C\/Users\/[A-Za-z0-9._-]+/.test(content)) {
-            const rel = path.relative(rootDir, full);
-            throw new Error(`Concrete user path in ${rel}`);
-          }
+  const userPathPatterns = [
+    /C:\\Users\\(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\\/,
+    /C\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /\/home\/(?!<user>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
+    /\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//
+  ];
+  const gitFiles = spawnSync("git", ["ls-files", "-z"], {
+    cwd: rootDir,
+    encoding: "utf8",
+    shell: false
+  });
+  if (gitFiles.status !== 0) throw new Error("git ls-files failed");
+  const files = gitFiles.stdout.split("\0").filter(Boolean);
+  const textExtensions = /\.(js|ts|json|sh|ps1|md|yml|yaml)$/;
+  for (const rel of files) {
+    if (!textExtensions.test(rel)) continue;
+    if (rel.startsWith("node_modules/") || rel.startsWith(".git/")) continue;
+    const full = path.join(rootDir, rel);
+    try {
+      const content = fs.readFileSync(full, "utf8");
+      for (const pattern of userPathPatterns) {
+        if (pattern.test(content)) {
+          throw new Error(`Concrete user path in ${rel}`);
         }
       }
-    };
-    walk(dirPath);
+    } catch (err) {
+      if (err.code === "EISDIR" || err.code === "ENOENT") continue;
+      throw err;
+    }
   }
 });
 
@@ -145,12 +153,14 @@ runCheck("All registry tools have required fields", () => {
 console.log("\n7. install-state integrity");
 runCheck("install-state module exports", () => {
   const state = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
+  assert(typeof state.validateState === "function", "validateState not a function");
   assert(typeof state.readState === "function", "readState not a function");
   assert(typeof state.writeState === "function", "writeState not a function");
   assert(typeof state.isTargetEnabled === "function", "isTargetEnabled not a function");
   const defaultState = state.getDefaultState();
   assert(defaultState.schemaVersion === 1, "wrong schemaVersion");
   assert(typeof defaultState.targets === "object", "targets not object");
+  assert(state.validateState(defaultState) === true, "validateState should return true for default state");
   assert(state.isTargetEnabled(defaultState, "codex") === false, "isTargetEnabled should return false for missing target");
   assert(typeof state.isTargetEnabled(defaultState, "codex") === "boolean", "isTargetEnabled must return boolean");
 });
