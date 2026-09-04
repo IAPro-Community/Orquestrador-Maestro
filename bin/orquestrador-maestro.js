@@ -21,6 +21,9 @@ const { createBridge, createStdioServer, runtimePaths, startSocketRuntime } = re
 const { SocketMaestroClient } = require(path.join(rootDir, "runtime", "client", "socket-maestro-client"));
 const { createProtocolV2Server } = require(path.join(rootDir, "runtime", "protocol", "protocol-v2"));
 const { startTui } = require(path.join(rootDir, "runtime", "tui"));
+const { listSupportedTools, getToolDefinition, isSupportedTool, resolveToolConfigPaths } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
+const { DETECTION_STATES, detectTool, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
+const installState = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
 const telemetryTimeoutMs = 1200;
 const telemetryConsentVersion = 1;
 
@@ -36,7 +39,8 @@ const installFlagDefs = {
   "--list-targets": { ps: "-ListTargets", sh: "--list-targets" },
   "--uninstall": { ps: "-Uninstall", sh: "--uninstall" },
   "--non-interactive": { ps: "-NonInteractive", sh: "--non-interactive" },
-  "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" }
+  "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" },
+  "--all-targets": { ps: "-AllTargets", sh: "--all-targets" }
 };
 
 const verifyFlagDefs = {
@@ -107,6 +111,7 @@ Uso:
   orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
+  orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
   orquestrador-maestro changelog [--full]
   orquestrador-maestro uninstall [opcoes]
   orquestrador-maestro list-targets [opcoes]
@@ -120,6 +125,7 @@ Opcoes de install/update/uninstall:
   --only <component>          Limita a um componente: core, codex, agents,
                               claude, opencode, cursor, gemini, windsurf,
                               antigravity
+  --all-targets               Instala em todos os targets suportados (opt-in)
   --no-tool-profiles          Nao instala perfis globais das ferramentas
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
   --skip-skill-sync           Nao roda o sync de skills
@@ -127,6 +133,9 @@ Opcoes de install/update/uninstall:
   --list-targets              Lista os destinos conhecidos
   --non-interactive           Evita prompts interativos
   --verbose-paths             Mostra caminhos reais nos relatorios
+
+Opcoes de targets:
+  --home-path <path>          Caminho home para detectar
 
 Opcoes de verify:
   --home-path <path>
@@ -1633,6 +1642,117 @@ async function handleContextCommand(args) {
   return 0;
 }
 
+function handleTargetsCommand(args) {
+  const [subcommand = "list", ...rest] = args;
+  const isWindows = process.platform === "win32";
+
+  const getHomePath = () => {
+    const hp = getArg(rest, "--home-path");
+    if (hp) return hp;
+    return process.env.HOME || process.env.USERPROFILE || os.homedir();
+  };
+
+  const homePath = getHomePath();
+  const orquestradorDir = path.join(homePath, ".orquestrador");
+
+  if (subcommand === "list" || subcommand === "detect") {
+    const detections = detectAllTools(homePath);
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+
+    const rows = [];
+    for (const [toolId, detection] of Object.entries(detections)) {
+      const def = getToolDefinition(toolId);
+      const targetState = installState.getTargetState(state, toolId);
+      const enabled = targetState ? targetState.enabled : false;
+      rows.push({
+        Target: def.displayName,
+        ToolId: toolId,
+        Detection: detection.state,
+        Enabled: enabled ? "yes" : "no"
+      });
+    }
+
+    if (subcommand === "detect") {
+      for (const [toolId, detection] of Object.entries(detections)) {
+        installState.updateDetectionState(state, toolId, detection);
+      }
+      installState.writeState(orquestradorDir, state);
+    }
+
+    console.log(JSON.stringify(rows, null, 2));
+    return 0;
+  }
+
+  if (subcommand === "add") {
+    const toolId = getArg(rest, null) || rest.find(a => !a.startsWith("-"));
+    if (!toolId || !isSupportedTool(toolId)) {
+      throw new Error(`Invalid target: ${toolId}. Supported: ${listSupportedTools().join(", ")}`);
+    }
+
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const detection = detectToolById(toolId, homePath);
+
+    if (detection.state === DETECTION_STATES.NOT_DETECTED && detection.reason === "maestro-created-directory-only") {
+      throw new Error(`Refusing to enable ${toolId}: directory exists but was created by Maestro, not by an actual CLI installation.`);
+    }
+
+    installState.enableTarget(state, toolId, "user", detection.state);
+    installState.writeState(orquestradorDir, state);
+
+    console.log(JSON.stringify({
+      target: toolId,
+      enabled: true,
+      detection: detection.state,
+      message: `Target ${toolId} enabled.`
+    }, null, 2));
+    return 0;
+  }
+
+  if (subcommand === "remove") {
+    const toolId = getArg(rest, null) || rest.find(a => !a.startsWith("-"));
+    if (!toolId || !isSupportedTool(toolId)) {
+      throw new Error(`Invalid target: ${toolId}. Supported: ${listSupportedTools().join(", ")}`);
+    }
+
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    installState.disableTarget(state, toolId);
+    installState.writeState(orquestradorDir, state);
+
+    console.log(JSON.stringify({
+      target: toolId,
+      enabled: false,
+      message: `Target ${toolId} disabled. Maestro-managed files preserved; use uninstall to remove them.`
+    }, null, 2));
+    return 0;
+  }
+
+  if (subcommand === "sync") {
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const enabledTargets = installState.getEnabledTargets(state);
+
+    const syncScript = path.join(orquestradorDir, "sync-skills.sh");
+    if (isWindows) {
+      const psSync = path.join(orquestradorDir, "sync-skills.ps1");
+      if (fs.existsSync(psSync)) {
+        for (const target of enabledTargets) {
+          run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", psSync, "--apply", "--home-path", homePath, "--only", target]);
+        }
+      }
+    } else {
+      if (fs.existsSync(syncScript)) {
+        for (const target of enabledTargets) {
+          run("bash", [syncScript, "--apply", "--home-path", homePath, "--only", target]);
+        }
+      }
+    }
+
+    console.log(JSON.stringify({ synced: enabledTargets }, null, 2));
+    return 0;
+  }
+
+  throw new Error(`Unknown targets subcommand: ${subcommand}. Use: targets [list|detect|add|remove|sync]`);
+}
+
 async function dispatch(command, args) {
   if (command === "go" || command === "plan") {
     return handleGoCommand(args, command === "plan");
@@ -1744,6 +1864,10 @@ async function dispatch(command, args) {
 
   if (command === "adapters") {
     return runToolAdapters(args);
+  }
+
+  if (command === "targets") {
+    return handleTargetsCommand(args);
   }
 
   if (command === "changelog") {
