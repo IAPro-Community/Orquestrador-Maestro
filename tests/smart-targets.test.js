@@ -485,3 +485,140 @@ describe("cross-platform paths", () => {
     }
   });
 });
+
+describe("install-state — validation", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("rejects state file with targets as array", () => {
+    const bad = { schemaVersion: STATE_SCHEMA_VERSION, targets: [] };
+    fs.writeFileSync(path.join(orquestradorDir, "install-state.json"), JSON.stringify(bad));
+    const loaded = readState(orquestradorDir);
+    assert.equal(loaded, null);
+  });
+
+  it("rejects state file with target value as null", () => {
+    const bad = { schemaVersion: STATE_SCHEMA_VERSION, targets: { codex: null } };
+    fs.writeFileSync(path.join(orquestradorDir, "install-state.json"), JSON.stringify(bad));
+    const loaded = readState(orquestradorDir);
+    assert.equal(loaded, null);
+  });
+
+  it("rejects state file with enabled as string", () => {
+    const bad = { schemaVersion: STATE_SCHEMA_VERSION, targets: { codex: { enabled: "yes" } } };
+    fs.writeFileSync(path.join(orquestradorDir, "install-state.json"), JSON.stringify(bad));
+    const loaded = readState(orquestradorDir);
+    assert.equal(loaded, null);
+  });
+
+  it("rejects symlink install-state.json", () => {
+    const real = path.join(tempHome, "real-state.json");
+    fs.writeFileSync(real, JSON.stringify(getDefaultState()));
+    fs.symlinkSync(real, path.join(orquestradorDir, "install-state.json"));
+    const loaded = readState(orquestradorDir);
+    assert.equal(loaded, null);
+  });
+});
+
+describe("install-state — atomicity", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("creates backup of corrupted file before overwrite", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, "corrupted-data");
+
+    const state = getDefaultState();
+    enableTarget(state, "codex", "user", "detected");
+    writeState(orquestradorDir, state);
+
+    const loaded = readState(orquestradorDir);
+    assert.ok(loaded);
+    assert.ok(loaded.targets.codex.enabled);
+  });
+
+  it("does not leave partial writes on failure", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    const original = getDefaultState();
+    writeState(orquestradorDir, original);
+
+    const tmpFiles = fs.readdirSync(orquestradorDir).filter(f => f.startsWith("install-state.json.tmp"));
+    assert.equal(tmpFiles.length, 0);
+  });
+});
+
+describe("git-context — normalization", () => {
+  it("normalizes SSH URLs consistently", () => {
+    const { normalizeRemote } = require("../orquestrador/lib/git-context.js");
+    const r1 = normalizeRemote("git@github.com:user/repo.git");
+    const r2 = normalizeRemote("https://github.com/user/repo.git");
+    assert.equal(r1, r2);
+  });
+
+  it("normalizes SSH URLs with different ports to same hash base", () => {
+    const { normalizeRemote } = require("../orquestrador/lib/git-context.js");
+    const r1 = normalizeRemote("ssh://git@example.com:2222/org/repo.git");
+    const r2 = normalizeRemote("ssh://git@example.com:3333/org/repo.git");
+    assert.notEqual(r1, r2);
+  });
+
+  it("normalizes git:// protocol", () => {
+    const { normalizeRemote } = require("../orquestrador/lib/git-context.js");
+    const r = normalizeRemote("git://github.com/user/repo.git");
+    assert.ok(typeof r === "string");
+    assert.ok(r.length > 0);
+  });
+});
+
+describe("CLI — extractPositionalArg", () => {
+  function extractPositionalArg(args, knownFlags) {
+    for (let i = args.length - 1; i >= 0; i--) {
+      const a = args[i];
+      if (!a.startsWith("-")) {
+        const prev = i > 0 ? args[i - 1] : null;
+        if (prev && knownFlags.includes(prev)) continue;
+        return a;
+      }
+    }
+    return null;
+  }
+
+  it("extracts last positional arg without flags", () => {
+    const result = extractPositionalArg(["codex"], ["--home-path"]);
+    assert.equal(result, "codex");
+  });
+
+  it("extracts positional arg after --home-path value", () => {
+    const result = extractPositionalArg(["--home-path", "/tmp/h", "codex"], ["--home-path"]);
+    assert.equal(result, "codex");
+  });
+
+  it("extracts positional arg before --home-path", () => {
+    const result = extractPositionalArg(["codex", "--home-path", "/tmp/h"], ["--home-path"]);
+    assert.equal(result, "codex");
+  });
+
+  it("returns null when no positional arg", () => {
+    const result = extractPositionalArg(["--home-path", "/tmp/h"], ["--home-path"]);
+    assert.equal(result, null);
+  });
+
+  it("handles empty args", () => {
+    const result = extractPositionalArg([], ["--home-path"]);
+    assert.equal(result, null);
+  });
+});

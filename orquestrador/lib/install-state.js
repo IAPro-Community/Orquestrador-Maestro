@@ -26,10 +26,21 @@ function readState(orquestradorDir) {
     return null;
   }
   try {
+    const stat = fs.lstatSync(statePath);
+    if (stat.isSymbolicLink()) return null;
+  } catch {
+    return null;
+  }
+  try {
     const raw = fs.readFileSync(statePath, "utf8");
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) return null;
+    if (!parsed.targets || typeof parsed.targets !== "object" || Array.isArray(parsed.targets)) return null;
+    for (const [toolId, target] of Object.entries(parsed.targets)) {
+      if (!target || typeof target !== "object") return null;
+      if ("enabled" in target && typeof target.enabled !== "boolean") return null;
+    }
     return parsed;
   } catch {
     return null;
