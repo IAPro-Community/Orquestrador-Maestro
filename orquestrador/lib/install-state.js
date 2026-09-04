@@ -54,6 +54,35 @@ function writeState(orquestradorDir, state) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
 
+  try {
+    const stat = fs.lstatSync(statePath);
+    if (stat.isSymbolicLink()) {
+      throw new Error("Refusing to write install-state: path is a symlink");
+    }
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      // file does not exist yet, safe to proceed
+    } else {
+      throw err;
+    }
+  }
+
+  if (fs.existsSync(statePath)) {
+    try {
+      const existingContent = fs.readFileSync(statePath, "utf8");
+      try {
+        const parsed = JSON.parse(existingContent);
+        if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== STATE_SCHEMA_VERSION) {
+          const backupPath = statePath + ".corrupt." + Date.now();
+          fs.copyFileSync(statePath, backupPath);
+        }
+      } catch {
+        const backupPath = statePath + ".corrupt." + Date.now();
+        fs.copyFileSync(statePath, backupPath);
+      }
+    } catch {}
+  }
+
   const payload = {
     ...state,
     schemaVersion: STATE_SCHEMA_VERSION,
@@ -78,7 +107,7 @@ function getTargetState(state, toolId) {
 
 function isTargetEnabled(state, toolId) {
   const target = getTargetState(state, toolId);
-  return target && target.enabled === true;
+  return Boolean(target && target.enabled === true);
 }
 
 function enableTarget(state, toolId, selection, detectionState) {

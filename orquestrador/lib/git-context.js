@@ -22,13 +22,43 @@ function gitExec(args, cwd) {
 function normalizeRemote(raw) {
   if (!raw) return null;
   let url = raw.replace(/\.git$/, "");
+
+  const sshMatch = url.match(/^git@([^:]+):(\d+)\/(.+)$/);
+  if (sshMatch) {
+    const host = sshMatch[1];
+    const port = sshMatch[2];
+    const repoPath = sshMatch[3];
+    if (port === "22") {
+      return `https://${host}/${repoPath}`.toLowerCase();
+    }
+    return `https://${host}:${port}/${repoPath}`.toLowerCase();
+  }
+
+  const sshSimple = url.match(/^git@([^:]+):(.+)$/);
+  if (sshSimple) {
+    const host = sshSimple[1];
+    const repoPath = sshSimple[2];
+    return `https://${host}/${repoPath}`.toLowerCase();
+  }
+
+  const sshProto = url.match(/^ssh:\/\/git@([^/]+)\/(.+)$/);
+  if (sshProto) {
+    const hostPort = sshProto[1];
+    const repoPath = sshProto[2];
+    const parts = hostPort.split(":");
+    const host = parts[0];
+    const port = parts[1] || "22";
+    if (port === "22") {
+      return `https://${host}/${repoPath}`.toLowerCase();
+    }
+    return `https://${host}:${port}/${repoPath}`.toLowerCase();
+  }
+
   url = url
-    .replace(/^git@([^:]+):/, "https://$1/")
-    .replace(/^ssh:\/\/git@([^/]+)\//, "https://$1/")
     .replace(/^git:\/\/([^/]+)\//, "https://$1/")
     .replace(/^https?:\/\//, "https://")
-    .replace(/[:/]/g, "/")
     .toLowerCase();
+
   return url;
 }
 

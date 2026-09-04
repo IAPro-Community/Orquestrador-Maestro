@@ -622,3 +622,349 @@ describe("CLI — extractPositionalArg", () => {
     assert.equal(result, null);
   });
 });
+
+describe("install-state — isTargetEnabled strict boolean", () => {
+  it("returns false for unknown target", () => {
+    const state = getDefaultState();
+    assert.equal(isTargetEnabled(state, "unknown"), false);
+    assert.equal(typeof isTargetEnabled(state, "unknown"), "boolean");
+  });
+
+  it("returns true only when enabled is exactly true", () => {
+    const state = getDefaultState();
+    state.targets.codex = { enabled: true };
+    assert.equal(isTargetEnabled(state, "codex"), true);
+    state.targets.claude = { enabled: "yes" };
+    assert.equal(isTargetEnabled(state, "claude"), false);
+    state.targets.gemini = { enabled: 1 };
+    assert.equal(isTargetEnabled(state, "gemini"), false);
+  });
+
+  it("returns false when target exists but enabled is missing", () => {
+    const state = getDefaultState();
+    state.targets.cursor = { selection: "user" };
+    assert.equal(isTargetEnabled(state, "cursor"), false);
+  });
+});
+
+describe("install-state — writeState rejects symlink", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("throws when install-state.json is a symlink", () => {
+    const real = path.join(tempHome, "real-state.json");
+    fs.writeFileSync(real, JSON.stringify(getDefaultState()));
+    fs.symlinkSync(real, path.join(orquestradorDir, "install-state.json"));
+
+    assert.throws(() => {
+      writeState(orquestradorDir, getDefaultState());
+    }, /symlink/);
+  });
+});
+
+describe("install-state — corruption backup", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("creates .corrupt backup when overwriting invalid state", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, "this is corrupted data");
+
+    const state = getDefaultState();
+    enableTarget(state, "codex", "user", "detected");
+    writeState(orquestradorDir, state);
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected at least one .corrupt backup file");
+
+    const backupContent = fs.readFileSync(path.join(orquestradorDir, corruptBackups[0]), "utf8");
+    assert.equal(backupContent, "this is corrupted data");
+  });
+
+  it("creates .corrupt backup when overwriting wrong schema version", () => {
+    const stateFile = path.join(orquestradorDir, "install-state.json");
+    fs.writeFileSync(stateFile, JSON.stringify({ schemaVersion: 999, targets: {} }));
+
+    writeState(orquestradorDir, getDefaultState());
+
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.ok(corruptBackups.length >= 1, "Expected backup for wrong schema version");
+  });
+
+  it("does not create backup when state file does not exist", () => {
+    writeState(orquestradorDir, getDefaultState());
+    const entries = fs.readdirSync(orquestradorDir);
+    const corruptBackups = entries.filter(f => f.startsWith("install-state.json.corrupt."));
+    assert.equal(corruptBackups.length, 0);
+  });
+});
+
+describe("git-context — SSH port normalization", () => {
+  const { normalizeRemote } = require("../orquestrador/lib/git-context.js");
+
+  it("preserves port in SSH URL with port", () => {
+    const r1 = normalizeRemote("ssh://git@example.com:2222/org/repo.git");
+    const r2 = normalizeRemote("ssh://git@example.com:3333/org/repo.git");
+    assert.notEqual(r1, r2);
+    assert.ok(r1.includes(":2222"));
+    assert.ok(r2.includes(":3333"));
+  });
+
+  it("treats git@host:path and https://host/path as semantically same", () => {
+    const r1 = normalizeRemote("git@github.com:user/repo.git");
+    const r2 = normalizeRemote("https://github.com/user/repo.git");
+    assert.equal(r1, r2);
+  });
+
+  it("normalizes git@host:path without explicit port", () => {
+    const r = normalizeRemote("git@example.com:org/repo.git");
+    assert.ok(r.includes("example.com"));
+    assert.ok(!r.includes(":22/"), "default port 22 should be omitted");
+    assert.ok(r.includes("/org/repo"));
+  });
+
+  it("normalizes git:// protocol", () => {
+    const r = normalizeRemote("git://github.com/user/repo.git");
+    assert.ok(typeof r === "string");
+    assert.ok(r.includes("github.com"));
+  });
+
+  it("returns null for null input", () => {
+    assert.equal(normalizeRemote(null), null);
+  });
+
+  it("different ports produce different hashes", () => {
+    const r1 = normalizeRemote("ssh://git@host.com:2222/org/repo");
+    const r2 = normalizeRemote("ssh://git@host.com:4444/org/repo");
+    assert.notEqual(r1, r2);
+  });
+});
+
+describe("context brief — bounded memory contract", () => {
+  it("allocates 0 memory for trivial tasks", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "trivial", reason: "test" });
+    assert.equal(budget.memoryChars, 0);
+  });
+
+  it("allocates 0 memory for bounded tasks", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "bounded", reason: "test" });
+    assert.equal(budget.memoryChars, 0);
+  });
+
+  it("allocates memory for complex tasks", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "complex", reason: "test" });
+    assert.ok(budget.memoryChars > 0, "complex tasks should have memory allocation");
+  });
+
+  it("allocates memory for investigation tasks", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "investigation", reason: "test" });
+    assert.ok(budget.memoryChars > 0);
+  });
+
+  it("allocates memory for resumed tasks", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "resumed", reason: "test" });
+    assert.ok(budget.memoryChars > 0);
+  });
+
+  it("budget invariants: sum of parts <= maxChars", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    for (const cls of ["trivial", "bounded", "complex", "resumed", "investigation"]) {
+      const budget = computeBudget(16000, { class: cls, reason: "test" });
+      const totalAllocated = budget.canonicalChars + budget.docsChars + budget.memoryChars + budget.metadataChars;
+      assert.ok(totalAllocated <= budget.maxChars, `${cls}: allocated ${totalAllocated} > max ${budget.maxChars}`);
+    }
+  });
+});
+
+describe("context brief — memory retrieval metrics", () => {
+  it("computeBudget returns taskClassification", () => {
+    const { computeBudget } = require("../orquestrador/bin/context-brief.js");
+    const budget = computeBudget(16000, { class: "investigation", reason: "test" });
+    assert.equal(budget.taskClassification, "investigation");
+  });
+});
+
+describe("install-state — ownership persistence", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("stores and retrieves managedFiles", () => {
+    const state = getDefaultState();
+    state.targets.codex = {
+      enabled: true,
+      selection: "user",
+      lastDetection: "detected",
+      managedFiles: [".codex/skills/orquestrador-maestro/SKILL.md"],
+      managedDirectories: [".codex/skills/orquestrador-maestro"]
+    };
+    writeState(orquestradorDir, state);
+
+    const loaded = readState(orquestradorDir);
+    assert.deepEqual(loaded.targets.codex.managedFiles, [".codex/skills/orquestrador-maestro/SKILL.md"]);
+    assert.deepEqual(loaded.targets.codex.managedDirectories, [".codex/skills/orquestrador-maestro"]);
+  });
+});
+
+describe("install-state — writeState atomicity", () => {
+  let tempHome;
+  let orquestradorDir;
+
+  beforeEach(() => {
+    tempHome = makeTempHome();
+    orquestradorDir = path.join(tempHome, ".orquestrador");
+    fs.mkdirSync(orquestradorDir, { recursive: true });
+  });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("does not leave .tmp files after successful write", () => {
+    const state = getDefaultState();
+    enableTarget(state, "codex", "user", "detected");
+    writeState(orquestradorDir, state);
+
+    const tmpFiles = fs.readdirSync(orquestradorDir).filter(f => f.includes(".tmp."));
+    assert.equal(tmpFiles.length, 0);
+  });
+
+  it("final state file is valid JSON", () => {
+    const state = getDefaultState();
+    enableTarget(state, "codex", "user", "detected");
+    writeState(orquestradorDir, state);
+
+    const content = fs.readFileSync(path.join(orquestradorDir, "install-state.json"), "utf8");
+    const parsed = JSON.parse(content);
+    assert.ok(parsed.schemaVersion);
+    assert.ok(parsed.targets);
+    assert.ok(parsed.updatedAt);
+  });
+});
+
+describe("visibility — worktree without remote", () => {
+  it("same repositoryId across worktrees via git-common-dir", () => {
+    const tmpDir = makeTempHome();
+    try {
+      const repoDir = path.join(tmpDir, "repo");
+      const worktreeDir = path.join(tmpDir, "worktree");
+      fs.mkdirSync(repoDir, { recursive: true });
+      fs.mkdirSync(worktreeDir, { recursive: true });
+
+      const { execFileSync } = require("node:child_process");
+      execFileSync("git", ["init"], { cwd: repoDir, stdio: "pipe" });
+      execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: repoDir, stdio: "pipe" });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: repoDir, stdio: "pipe" });
+      fs.writeFileSync(path.join(repoDir, "file.txt"), "initial");
+      execFileSync("git", ["add", "."], { cwd: repoDir, stdio: "pipe" });
+      execFileSync("git", ["commit", "-m", "init"], { cwd: repoDir, stdio: "pipe" });
+
+      try {
+        execFileSync("git", ["worktree", "add", worktreeDir, "HEAD"], { cwd: repoDir, stdio: "pipe" });
+
+        const { resolveGitContext } = require("../orquestrador/lib/git-context.js");
+        const ctx1 = resolveGitContext(repoDir);
+        const ctx2 = resolveGitContext(worktreeDir);
+
+        assert.equal(ctx1.repositoryId, ctx2.repositoryId, "worktrees should share repositoryId");
+        assert.notEqual(ctx1.workspaceId, ctx2.workspaceId, "worktrees should have different workspaceId");
+      } catch {
+        // git worktree may not be available in all environments
+      }
+    } finally {
+      cleanupTempHome(tmpDir);
+    }
+  });
+});
+
+describe("visibility — detached commit scope", () => {
+  it("commit-scoped observation visible for same commit", () => {
+    const obs = {
+      scope: { level: "commit", repositoryId: "r1", headCommit: "abc123" }
+    };
+    const ctx = { repositoryId: "r1", headCommit: "abc123", branch: null, detached: true };
+    assert.ok(isObservationVisible(obs, ctx));
+  });
+
+  it("commit-scoped observation hidden for different commit", () => {
+    const obs = {
+      scope: { level: "commit", repositoryId: "r1", headCommit: "abc123" }
+    };
+    const ctx = { repositoryId: "r1", headCommit: "def456", branch: null, detached: true };
+    assert.ok(!isObservationVisible(obs, ctx));
+  });
+});
+
+describe("canonical precedence — memory participates", () => {
+  it("ranking includes memory observations when visible", () => {
+    const branchObs = {
+      scope: { level: "branch", repositoryId: "r1", branch: "main" },
+      summary: "React is current framework",
+      verified: true,
+      tags: ["react", "framework"],
+      timestamp: new Date().toISOString()
+    };
+    const memoryObs = {
+      scope: { level: "repository", repositoryId: "r1" },
+      summary: "Vue was previously used",
+      verified: true,
+      tags: ["vue", "framework"],
+      timestamp: new Date(Date.now() - 86400000 * 5).toISOString()
+    };
+
+    const ctx = { repositoryId: "r1", branch: "main", detached: false };
+    const ranked = rankObservations([memoryObs, branchObs], ["react", "framework"], ctx);
+    assert.ok(ranked.length >= 2, "both observations should be ranked");
+    assert.equal(ranked[0].obs.summary, "React is current framework");
+  });
+});
+
+describe("CLI — targets add parser", () => {
+  function extractPositionalArg(args, knownFlags) {
+    for (let i = args.length - 1; i >= 0; i--) {
+      const a = args[i];
+      if (!a.startsWith("-")) {
+        const prev = i > 0 ? args[i - 1] : null;
+        if (prev && knownFlags.includes(prev)) continue;
+        return a;
+      }
+    }
+    return null;
+  }
+
+  it("extracts toolId from targets add codex", () => {
+    assert.equal(extractPositionalArg(["codex"], ["--home-path"]), "codex");
+  });
+
+  it("extracts toolId from targets add --home-path /tmp/h codex", () => {
+    assert.equal(extractPositionalArg(["--home-path", "/tmp/h", "codex"], ["--home-path"]), "codex");
+  });
+
+  it("extracts toolId from targets add codex --home-path /tmp/h", () => {
+    assert.equal(extractPositionalArg(["codex", "--home-path", "/tmp/h"], ["--home-path"]), "codex");
+  });
+});

@@ -324,6 +324,7 @@ function buildStateSection(state) {
 }
 
 function computeBudget(maxChars, taskClassification) {
+  const useMemory = shouldUseMemory(taskClassification);
   const budget = {
     maxChars,
     usedChars: 0,
@@ -341,39 +342,39 @@ function computeBudget(maxChars, taskClassification) {
 
   switch (taskClassification.class) {
     case "trivial":
-      budget.canonicalChars = Math.floor(available * 0.4);
-      budget.docsChars = Math.floor(available * 0.1);
+      budget.canonicalChars = Math.floor(available * 0.45);
+      budget.docsChars = Math.floor(available * 0.15);
       budget.memoryChars = 0;
       budget.metadataChars = Math.floor(available * 0.1);
       break;
     case "bounded":
-      budget.canonicalChars = Math.floor(available * 0.35);
-      budget.docsChars = Math.floor(available * 0.2);
-      budget.memoryChars = Math.floor(available * 0.1);
+      budget.canonicalChars = Math.floor(available * 0.4);
+      budget.docsChars = Math.floor(available * 0.25);
+      budget.memoryChars = useMemory ? Math.floor(available * 0.1) : 0;
       budget.metadataChars = Math.floor(available * 0.1);
       break;
     case "complex":
       budget.canonicalChars = Math.floor(available * 0.3);
       budget.docsChars = Math.floor(available * 0.25);
-      budget.memoryChars = Math.floor(available * 0.15);
+      budget.memoryChars = useMemory ? Math.floor(available * 0.15) : 0;
       budget.metadataChars = Math.floor(available * 0.1);
       break;
     case "resumed":
       budget.canonicalChars = Math.floor(available * 0.25);
       budget.docsChars = Math.floor(available * 0.2);
-      budget.memoryChars = Math.floor(available * 0.3);
+      budget.memoryChars = useMemory ? Math.floor(available * 0.3) : 0;
       budget.metadataChars = Math.floor(available * 0.1);
       break;
     case "investigation":
       budget.canonicalChars = Math.floor(available * 0.2);
       budget.docsChars = Math.floor(available * 0.2);
-      budget.memoryChars = Math.floor(available * 0.25);
+      budget.memoryChars = useMemory ? Math.floor(available * 0.25) : 0;
       budget.metadataChars = Math.floor(available * 0.1);
       break;
     default:
       budget.canonicalChars = Math.floor(available * 0.35);
       budget.docsChars = Math.floor(available * 0.2);
-      budget.memoryChars = Math.floor(available * 0.1);
+      budget.memoryChars = useMemory ? Math.floor(available * 0.1) : 0;
       budget.metadataChars = Math.floor(available * 0.1);
   }
 

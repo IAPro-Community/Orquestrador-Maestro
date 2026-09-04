@@ -507,7 +507,7 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
     IFS='|' read -r src_sub dest_sub label component tool_cmd <<< "$entry"
     if selected_component tool-profiles "$component"; then
       config_dir=""
-      case "$src_sub" in
+      case "$component" in
         codex) config_dir=".codex" ;;
         opencode) config_dir=".opencode" ;;
         claude) config_dir=".claude" ;;

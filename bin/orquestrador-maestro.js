@@ -369,7 +369,7 @@ function runCliUpdate(args) {
   });
 }
 
-function runInstall(args, injectedFlags = []) {
+async function runInstall(args, injectedFlags = []) {
   const isWindows = process.platform === "win32";
   const script = path.join(rootDir, isWindows ? "install.ps1" : "install.sh");
   if (!commandExists(script)) {
@@ -400,15 +400,40 @@ function runInstall(args, injectedFlags = []) {
     if (detected.length > 0) {
       console.log("\nDetectando ferramentas...\n");
       for (const d of detected) {
-        const marker = d.state === "detected" ? "+" : "~";
-        console.log(`  ${marker} ${d.name}`);
+        const marker = d.state === "detected" ? "✓" : "~";
+        console.log(`  ${marker} ${d.name}          ${d.state}`);
       }
       for (const d of notDetected) {
-        console.log(`  o ${d.name} nao detectado`);
+        console.log(`  ○ ${d.name}          ${d.state}`);
       }
 
-      console.log("\nFerramentas detectadas serao instaladas.");
-      console.log("Use --all-targets para instalar todos, ou --only codex,claude para selecao manual.\n");
+      try {
+        const p = require("@clack/prompts");
+        const options = detected.map((d) => ({
+          value: d.id,
+          label: `${d.name} (${d.state})`,
+          hint: state.targets[d.id]?.enabled ? "already enabled" : undefined
+        }));
+
+        const selected = await p.multiselect({
+          message: "Onde deseja instalar as integracoes Maestro?",
+          options,
+          required: true
+        });
+
+        if (p.isCancel(selected)) {
+          p.cancel("Instalacao cancelada.");
+          return 0;
+        }
+
+        if (Array.isArray(selected) && selected.length > 0) {
+          const onlyFlag = selected.join(",");
+          injectedFlags.push("--only", onlyFlag);
+        }
+      } catch {
+        console.log("\nFerramentas detectadas serao instaladas.");
+        console.log("Use --all-targets para instalar todos, ou --only codex,claude para selecao manual.\n");
+      }
     }
   }
 
@@ -1755,14 +1780,72 @@ function handleTargetsCommand(args) {
       throw new Error(`Refusing to enable ${toolId}: directory exists but was created by Maestro, not by an actual CLI installation.`);
     }
 
-    installState.enableTarget(state, toolId, "user", detection.state);
+    const def = getToolDefinition(toolId);
+    const managedFiles = [];
+    const managedDirectories = [];
+    let installSuccess = false;
+
+    try {
+      for (const skillTarget of def.skillTargets) {
+        const destDir = path.join(homePath, skillTarget, "orquestrador-maestro");
+        const srcDir = path.join(rootDir, "orquestrador", "skills", "orquestrador-maestro");
+        if (fs.existsSync(srcDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+          const files = fs.readdirSync(srcDir, { withFileTypes: true });
+          for (const entry of files) {
+            const srcFile = path.join(srcDir, entry.name);
+            const destFile = path.join(destDir, entry.name);
+            if (entry.isFile()) {
+              fs.copyFileSync(srcFile, destFile);
+              managedFiles.push(path.join(skillTarget, "orquestrador-maestro", entry.name));
+            }
+          }
+          managedDirectories.push(path.join(skillTarget, "orquestrador-maestro"));
+        }
+      }
+
+      for (const configPath of def.configPaths) {
+        const markerDir = path.join(homePath, configPath);
+        if (fs.existsSync(markerDir) || def.configPaths.length > 0) {
+          const markerPath = path.join(homePath, configPath, ".maestro-managed");
+          fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+          fs.writeFileSync(markerPath, `managed by orquestrador-maestro\ntool: ${toolId}\n`);
+          managedFiles.push(path.join(configPath, ".maestro-managed"));
+          break;
+        }
+      }
+
+      installSuccess = true;
+    } catch (err) {
+      installSuccess = false;
+    }
+
+    if (!installSuccess) {
+      console.error(JSON.stringify({
+        target: toolId,
+        enabled: false,
+        detection: detection.state,
+        error: "Failed to install integration files."
+      }, null, 2));
+      return 1;
+    }
+
+    state.targets[toolId] = {
+      enabled: true,
+      selection: "user",
+      lastDetection: detection.state,
+      enabledAt: new Date().toISOString(),
+      managedFiles,
+      managedDirectories
+    };
     installState.writeState(orquestradorDir, state);
 
     console.log(JSON.stringify({
       target: toolId,
       enabled: true,
       detection: detection.state,
-      message: `Target ${toolId} enabled.`
+      managedFiles,
+      message: `Target ${toolId} installed and enabled.`
     }, null, 2));
     return 0;
   }
@@ -1774,13 +1857,57 @@ function handleTargetsCommand(args) {
     }
 
     const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const targetState = installState.getTargetState(state, toolId);
+    const removedFiles = [];
+
+    if (targetState && targetState.managedFiles) {
+      for (const relPath of targetState.managedFiles) {
+        const fullPath = path.join(homePath, relPath);
+        try {
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            removedFiles.push(relPath);
+          }
+        } catch {}
+      }
+    }
+
+    if (targetState && targetState.managedDirectories) {
+      for (const relDir of targetState.managedDirectories) {
+        const fullDir = path.join(homePath, relDir);
+        try {
+          if (fs.existsSync(fullDir)) {
+            const entries = fs.readdirSync(fullDir);
+            if (entries.length === 0) {
+              fs.rmdirSync(fullDir);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    const markerRemoved = [];
+    const def = getToolDefinition(toolId);
+    if (def) {
+      for (const configPath of def.configPaths) {
+        const markerPath = path.join(homePath, configPath, ".maestro-managed");
+        try {
+          if (fs.existsSync(markerPath)) {
+            fs.unlinkSync(markerPath);
+            markerRemoved.push(path.join(configPath, ".maestro-managed"));
+          }
+        } catch {}
+      }
+    }
+
     installState.disableTarget(state, toolId);
     installState.writeState(orquestradorDir, state);
 
     console.log(JSON.stringify({
       target: toolId,
       enabled: false,
-      message: `Target ${toolId} disabled. Maestro-managed files preserved; use uninstall to remove them.`
+      removedFiles: [...removedFiles, ...markerRemoved],
+      message: `Target ${toolId} disabled. Maestro-managed files removed. User files preserved.`
     }, null, 2));
     return 0;
   }
@@ -1794,12 +1921,12 @@ function handleTargetsCommand(args) {
       return 0;
     }
 
-    const syncScript = path.join(orquestradorDir, "sync-skills.sh");
-    const psSync = path.join(orquestradorDir, "sync-skills.ps1");
-    const scriptExists = isWindows ? fs.existsSync(psSync) : fs.existsSync(syncScript);
+    const packageSyncSh = path.join(rootDir, "orquestrador", "sync-skills.sh");
+    const packageSyncPs1 = path.join(rootDir, "orquestrador", "sync-skills.ps1");
+    const scriptExists = isWindows ? fs.existsSync(packageSyncPs1) : fs.existsSync(packageSyncSh);
 
     if (!scriptExists) {
-      console.error(`Error: sync script not found: ${isWindows ? psSync : syncScript}`);
+      console.error(`Error: sync script not found in package: ${isWindows ? packageSyncPs1 : packageSyncSh}`);
       return 1;
     }
 
@@ -1808,8 +1935,8 @@ function handleTargetsCommand(args) {
     for (const target of enabledTargets) {
       try {
         const exitCode = isWindows
-          ? run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", psSync, "--apply", "--home-path", homePath, "--only", target])
-          : run("bash", [syncScript, "--apply", "--home-path", homePath, "--only", target]);
+          ? run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packageSyncPs1, "--apply", "--home-path", homePath, "--only", target])
+          : run("bash", [packageSyncSh, "--apply", "--home-path", homePath, "--only", target]);
         if (exitCode === 0) {
           synced.push(target);
         } else {
@@ -1852,6 +1979,22 @@ async function dispatch(command, args) {
     return 0;
   }
 
+  if (command === "install") {
+    return await runInstall(args);
+  }
+
+  if (command === "update") {
+    if (args.includes("--dry-run") || args.includes("--list-targets")) {
+      return await runInstall(args);
+    }
+    const childResult = runCliUpdate(args);
+    if (childResult) {
+      if (childResult.error) throw childResult.error;
+      return typeof childResult.status === "number" ? childResult.status : 1;
+    }
+    return await runInstall(args);
+  }
+
   if (args.includes("--help") || args.includes("-h")) {
     printHelp();
     return 0;
@@ -1880,17 +2023,16 @@ async function dispatch(command, args) {
     }
     return runInstall(args);
   }
-
   if (command === "uninstall") {
-    return runInstall(args, ["--uninstall"]);
+    return await runInstall(args, ["--uninstall"]);
   }
 
   if (command === "list-targets") {
-    return runInstall(args, ["--list-targets"]);
+    return await runInstall(args, ["--list-targets"]);
   }
 
   if (command === "dry-run") {
-    return runInstall(args, ["--dry-run"]);
+    return await runInstall(args, ["--dry-run"]);
   }
 
   if (command === "verify") {
