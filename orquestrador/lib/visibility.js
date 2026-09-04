@@ -15,9 +15,6 @@ function isObservationVisible(observation, currentContext, options = {}) {
     case "branch":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
       if (currentContext.detached) return false;
-      if (options.taskId) {
-        return obsScope.branch === currentContext.branch && obsScope.taskId === options.taskId;
-      }
       return obsScope.branch === currentContext.branch;
 
     case "workspace":
@@ -27,7 +24,9 @@ function isObservationVisible(observation, currentContext, options = {}) {
     case "task":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
       if (!options.taskId) return false;
-      return obsScope.taskId === options.taskId;
+      if (obsScope.taskId !== options.taskId) return false;
+      if (obsScope.branch && currentContext.branch && obsScope.branch !== currentContext.branch) return false;
+      return true;
 
     case "commit":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;

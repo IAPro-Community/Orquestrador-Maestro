@@ -23,10 +23,10 @@ function normalizeRemote(raw) {
   if (!raw) return null;
   let url = raw.replace(/\.git$/, "");
   url = url
-    .replace(/^git@github\.com:/, "https://github.com/")
-    .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
-    .replace(/^git:\/\/github\.com\//, "https://github.com/")
-    .replace(/^https?:\/\/github\.com\//, "https://github.com/")
+    .replace(/^git@([^:]+):/, "https://$1/")
+    .replace(/^ssh:\/\/git@([^/]+)\//, "https://$1/")
+    .replace(/^git:\/\/([^/]+)\//, "https://$1/")
+    .replace(/^https?:\/\//, "https://")
     .replace(/[:/]/g, "/")
     .toLowerCase();
   return url;
@@ -48,6 +48,14 @@ function resolveRepositoryId(projectRoot) {
   const normalized = normalizeRemote(raw);
   if (normalized) {
     return `repo_${crypto.createHash("sha256").update(normalized).digest("hex").substring(0, 16)}`;
+  }
+  const commonDir = gitExec(["rev-parse", "--git-common-dir"], projectRoot);
+  if (commonDir) {
+    const resolvedCommon = path.resolve(projectRoot, commonDir);
+    const canonicalReal = (() => {
+      try { return fs.realpathSync(resolvedCommon); } catch { return resolvedCommon; }
+    })();
+    return `repo_${crypto.createHash("sha256").update(canonicalReal).digest("hex").substring(0, 16)}`;
   }
   const fallback = projectRoot.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 64);
   return `repo_${crypto.createHash("sha256").update(fallback).digest("hex").substring(0, 16)}`;
