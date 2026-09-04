@@ -50,7 +50,7 @@ describe("Context Brief Integration", () => {
         summary: "Use React for frontend",
         tags: ["framework", "frontend"],
         verified: true,
-        scope: { level: "repository" }
+        scope: { level: "repository", repositoryId: projectId }
       });
 
       const observations = memory.search(projectId, { search: "framework" });
@@ -65,7 +65,7 @@ describe("Context Brief Integration", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Found bug on feat-a",
-        scope: { level: "branch", branch: "feat-a" }
+        scope: { level: "branch", repositoryId: projectId, branch: "feat-a" }
       });
 
       const branchA = memory.search(projectId, { branch: "feat-a" });
@@ -79,7 +79,7 @@ describe("Context Brief Integration", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Branch B observation",
-        scope: { level: "branch", branch: "feat-b" }
+        scope: { level: "branch", repositoryId: projectId, branch: "feat-b" }
       });
 
       const branchA = memory.search(projectId, { branch: "feat-a" });
@@ -93,7 +93,7 @@ describe("Context Brief Integration", () => {
       memory.record(projectId, {
         type: "implementation",
         summary: "Local debug session",
-        scope: { level: "workspace", workspaceId: "ws_abc123" }
+        scope: { level: "workspace", repositoryId: projectId, workspaceId: "ws_abc123" }
       });
 
       const observations = memory.search(projectId, { scope: "workspace" });

@@ -11,7 +11,7 @@ const OBSERVATION_TYPES = MEMORY_SCHEMA.properties.type.enum;
 const { classifyTask } = require("../lib/task-classifier.js");
 const { CapturePolicy, POLICIES } = require("../lib/capture-policy.js");
 const { resolveGitContext, resolveProjectRoot, shouldUseMemory } = require("../lib/git-context.js");
-const { isObservationVisible, resolveObservationScope, rankObservations } = require("../lib/visibility.js");
+const { isValidScope, isObservationVisible, resolveObservationScope, rankObservations } = require("../lib/visibility.js");
 const { withLock, getLockPath } = require("../lib/lock.js");
 
 const SAFE_DESTINATIONS = [
@@ -169,6 +169,9 @@ class Memory {
     if (!obs.project) {
       throw new Error("Project is required");
     }
+    if (!obs.scope || !isValidScope(obs.scope)) {
+      throw new Error("Invalid observation scope: scope is required and must have valid level with required identifiers");
+    }
     if (this.detectInjection(obs.summary) || this.detectInjection(obs.details || "")) {
       throw new Error("Potential prompt injection detected in content");
     }
@@ -222,13 +225,14 @@ class Memory {
     this.ensureProjectDir(projectId);
 
     let scope = observation.scope;
-    if (!scope || !scope.level) {
+    if (!scope || !scope.level || !isValidScope(scope)) {
       const gitCtx = options.gitContext || (options.projectRoot ? resolveGitContext(options.projectRoot) : null);
       scope = resolveObservationScope({
         type: observation.type,
         gitContext: gitCtx,
         taskId: observation.taskId,
-        explicitScope: observation.scope
+        explicitScope: observation.scope,
+        fallbackRepositoryId: projectId
       });
     }
 

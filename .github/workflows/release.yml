@@ -50,12 +50,40 @@ jobs:
           [[ "$lock_version" == "$version" ]]
           grep -qE "^## ${version}([ -]|$)" CHANGELOG.md
 
-      - name: Install and run release gates
+      - name: Verify release is ancestor of main
+        shell: bash
         run: |
+          set -euo pipefail
+          git fetch origin main
+          RELEASE_SHA="${{ github.sha }}"
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "ERROR: Release commit $RELEASE_SHA is not a descendant of origin/main"
+            echo "This release must be based on main. Rebase first."
+            exit 1
+          fi
+          echo "OK: Release commit is descendant of origin/main"
+
+      - name: Install and run release gates
+        shell: bash
+        run: |
+          set -euo pipefail
           npm ci
+          npm run verify:pr
+          npm test
+          npm run test:smoke
           pwsh -NoProfile -File ./scripts/validate-public.ps1
           pwsh -NoProfile -File ./scripts/validate-skills.ps1
           npm pack --dry-run
+
+      - name: Install tarball and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball="$(npm pack 2>/dev/null | tail -1)"
+          npm install -g "./$tarball"
+          orquestrador-maestro --version
+          orquestrador-maestro memory --help
+          npm uninstall -g orquestrador-maestro
 
       - name: Publish stable package
         run: npm publish --access public

@@ -17,6 +17,7 @@ class TerminalManager {
     this.emitEvent = emitEvent || (async () => {});
     this.active = new Map();
     this.writeQueues = new Map();
+    this.completionPromises = new Map();
   }
 
   queueWrite(id, operation) {
@@ -53,12 +54,18 @@ class TerminalManager {
     child.stderr.on("data", (chunk) => { persistOutput("stderr", chunk).catch(() => {}); });
     let settle;
     const finished = new Promise((resolve) => { settle = resolve; });
+    let completionResolve;
+    const completionPromise = new Promise((r) => { completionResolve = r; });
+    this.completionPromises.set(id, completionPromise);
     child.on("error", async (error) => {
       await this.queueWrite(id, async () => {
         const current = await this.store.getTerminal(id);
         if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: error.message });
       });
-      settle(await this.store.getTerminal(id));
+      const final = await this.store.getTerminal(id);
+      settle(final);
+      this.completionPromises.delete(id);
+      completionResolve(final);
     });
     child.on("close", async (exitCode, signal) => {
       this.active.delete(id);
@@ -67,7 +74,10 @@ class TerminalManager {
         if (current) await this.store.saveTerminal({ ...current, status: exitCode === 0 ? "completed" : "failed", exitCode, signal: signal || null, completedAt: new Date().toISOString() });
       });
       await this.emitEvent(null, "terminal.completed", { terminalId: id, projectId: record.projectId, exitCode, signal: signal || null });
-      settle(await this.store.getTerminal(id));
+      const final = await this.store.getTerminal(id);
+      settle(final);
+      this.completionPromises.delete(id);
+      completionResolve(final);
     });
     const active = { child, record, finished };
     this.active.set(id, active);
@@ -86,8 +96,10 @@ class TerminalManager {
 
   async wait(id) {
     const active = this.active.get(id);
-    if (!active) return this.store.getTerminal(id);
-    return active.finished;
+    if (active) return active.finished;
+    const pending = this.completionPromises.get(id);
+    if (pending) return pending;
+    return this.store.getTerminal(id);
   }
 
   async sendInput(id, input) {

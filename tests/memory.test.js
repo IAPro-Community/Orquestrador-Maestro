@@ -288,7 +288,8 @@ describe("Memory", () => {
         timestamp: new Date().toISOString(),
         project: "test",
         type: "discovery",
-        summary: "Test"
+        summary: "Test",
+        scope: { level: "branch", repositoryId: "repo-1", branch: "main" }
       };
       assert.ok(memory.validateObservation(obs));
     });
@@ -327,6 +328,31 @@ describe("Memory", () => {
         summary: "Test"
       };
       assert.throws(() => memory.validateObservation(obs), /Invalid observation type/);
+    });
+
+    it("should reject observation without scope", () => {
+      const obs = {
+        schemaVersion: 1,
+        id: "obs_1234567890abcdef",
+        timestamp: new Date().toISOString(),
+        project: "test",
+        type: "discovery",
+        summary: "Test"
+      };
+      assert.throws(() => memory.validateObservation(obs), /Invalid observation scope/);
+    });
+
+    it("should reject observation with invalid scope level", () => {
+      const obs = {
+        schemaVersion: 1,
+        id: "obs_1234567890abcdef",
+        timestamp: new Date().toISOString(),
+        project: "test",
+        type: "discovery",
+        summary: "Test",
+        scope: { level: "branch" }
+      };
+      assert.throws(() => memory.validateObservation(obs), /Invalid observation scope/);
     });
   });
 });

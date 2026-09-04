@@ -76,7 +76,7 @@ function isObservationVisible(observation, currentContext, options = {}) {
   }
 }
 
-function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
+function resolveObservationScope({ type, gitContext, taskId, explicitScope, fallbackRepositoryId }) {
   if (explicitScope && explicitScope.level) {
     const scope = { level: explicitScope.level };
     if (gitContext) {
@@ -84,6 +84,8 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
       scope.branch = gitContext.branch;
       scope.workspaceId = gitContext.workspaceId;
       scope.headCommit = gitContext.headCommit;
+    } else if (fallbackRepositoryId) {
+      scope.repositoryId = fallbackRepositoryId;
     }
     if (taskId) scope.taskId = taskId;
     return scope;
@@ -113,6 +115,16 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
     level = gitContext && gitContext.detached ? "commit" : "branch";
   }
 
+  if (level === "branch" && !(gitContext && gitContext.branch)) {
+    level = "repository";
+  }
+  if (level === "workspace" && !(gitContext && gitContext.workspaceId)) {
+    level = "repository";
+  }
+  if (level === "commit" && !(gitContext && gitContext.headCommit)) {
+    level = "repository";
+  }
+
   const scope = { level };
 
   if (gitContext) {
@@ -120,6 +132,8 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
     scope.branch = gitContext.branch;
     scope.workspaceId = gitContext.workspaceId;
     scope.headCommit = gitContext.headCommit;
+  } else if (fallbackRepositoryId) {
+    scope.repositoryId = fallbackRepositoryId;
   }
   if (taskId) scope.taskId = taskId;
 
