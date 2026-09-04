@@ -430,9 +430,10 @@ async function runInstall(args, injectedFlags = []) {
           const onlyFlag = selected.join(",");
           injectedFlags.push("--only", onlyFlag);
         }
-      } catch {
-        console.log("\nFerramentas detectadas serao instaladas.");
-        console.log("Use --all-targets para instalar todos, ou --only codex,claude para selecao manual.\n");
+      } catch (err) {
+        console.error("\nErro ao selecionar targets: " + (err.message || err));
+        console.error("Use --all-targets para instalar todos, ou --only codex,claude para selecao manual.\n");
+        return 1;
       }
     }
   }
@@ -1768,16 +1769,22 @@ function handleTargetsCommand(args) {
   }
 
   if (subcommand === "add") {
-    const toolId = extractPositionalArg(rest, ["--home-path"]);
+    const toolId = extractPositionalArg(rest, ["--home-path", "--force"]);
     if (!toolId || !isSupportedTool(toolId)) {
       throw new Error(`Invalid target: ${toolId}. Supported: ${listSupportedTools().join(", ")}`);
     }
 
     const state = installState.readState(orquestradorDir) || installState.getDefaultState();
     const detection = detectToolById(toolId, homePath);
+    const force = rest.includes("--force");
 
-    if (detection.state === DETECTION_STATES.NOT_DETECTED && detection.reason === "maestro-created-directory-only") {
-      throw new Error(`Refusing to enable ${toolId}: directory exists but was created by Maestro, not by an actual CLI installation.`);
+    if (detection.state === DETECTION_STATES.NOT_DETECTED) {
+      if (detection.reason === "maestro-created-directory-only") {
+        throw new Error(`Refusing to enable ${toolId}: directory exists but was created by Maestro, not by an actual CLI installation.`);
+      }
+      if (!force) {
+        throw new Error(`Refusing to enable ${toolId}: CLI not detected. Use --force to override.`);
+      }
     }
 
     const def = getToolDefinition(toolId);
@@ -1860,8 +1867,18 @@ function handleTargetsCommand(args) {
     const targetState = installState.getTargetState(state, toolId);
     const removedFiles = [];
 
+    function isPathContained(relPath) {
+      const full = path.resolve(homePath, relPath);
+      const rel = path.relative(homePath, full);
+      return !rel.startsWith("..") && !path.isAbsolute(rel);
+    }
+
     if (targetState && targetState.managedFiles) {
       for (const relPath of targetState.managedFiles) {
+        if (!isPathContained(relPath)) {
+          console.error(`Refusing to remove path outside home: ${relPath}`);
+          continue;
+        }
         const fullPath = path.join(homePath, relPath);
         try {
           if (fs.existsSync(fullPath)) {
@@ -1874,6 +1891,10 @@ function handleTargetsCommand(args) {
 
     if (targetState && targetState.managedDirectories) {
       for (const relDir of targetState.managedDirectories) {
+        if (!isPathContained(relDir)) {
+          console.error(`Refusing to remove directory outside home: ${relDir}`);
+          continue;
+        }
         const fullDir = path.join(homePath, relDir);
         try {
           if (fs.existsSync(fullDir)) {

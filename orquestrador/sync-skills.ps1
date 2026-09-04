@@ -2,13 +2,27 @@ param(
   [switch]$Check,
   [switch]$DryRun,
   [switch]$Apply,
-  [string]$HomePath = [Environment]::GetFolderPath("UserProfile")
+  [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
+  [string[]]$Only = @()
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not $Check -and -not $DryRun -and -not $Apply) {
   $Check = $true
+}
+
+$OnlyPrograms = @(
+  $Only |
+    ForEach-Object { $_ -split "," } |
+    ForEach-Object { $_.Trim().ToLowerInvariant() } |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+) | Select-Object -Unique
+
+function Test-ShouldSyncTarget {
+  param([string]$Program)
+  if ($OnlyPrograms.Count -eq 0) { return $true }
+  return $OnlyPrograms -contains $Program.ToLowerInvariant()
 }
 
 function Get-DefaultInstallPolicy {
@@ -259,6 +273,7 @@ $report = New-Object System.Collections.Generic.List[object]
 $offloadStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 foreach ($target in ($targets | Sort-Object Program)) {
+  if (-not (Test-ShouldSyncTarget -Program $target.Program)) { continue }
   $targetExists = Test-Path -LiteralPath $target.Root
 
   foreach ($skill in $mustHave) {

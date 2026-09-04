@@ -968,3 +968,110 @@ describe("CLI — targets add parser", () => {
     assert.equal(extractPositionalArg(["codex", "--home-path", "/tmp/h"], ["--home-path"]), "codex");
   });
 });
+
+describe("visibility — isValidScope", () => {
+  const { isValidScope } = require("../orquestrador/lib/visibility.js");
+
+  it("rejects null scope", () => {
+    assert.equal(isValidScope(null), false);
+  });
+
+  it("rejects scope without level", () => {
+    assert.equal(isValidScope({}), false);
+  });
+
+  it("rejects unknown level", () => {
+    assert.equal(isValidScope({ level: "global" }), false);
+  });
+
+  it("accepts repository scope with repositoryId", () => {
+    assert.equal(isValidScope({ level: "repository", repositoryId: "abc" }), true);
+  });
+
+  it("rejects repository scope without repositoryId", () => {
+    assert.equal(isValidScope({ level: "repository" }), false);
+  });
+
+  it("accepts branch scope with repositoryId and branch", () => {
+    assert.equal(isValidScope({ level: "branch", repositoryId: "abc", branch: "main" }), true);
+  });
+
+  it("rejects branch scope without branch", () => {
+    assert.equal(isValidScope({ level: "branch", repositoryId: "abc" }), false);
+  });
+
+  it("accepts workspace scope with repositoryId and workspaceId", () => {
+    assert.equal(isValidScope({ level: "workspace", repositoryId: "abc", workspaceId: "ws1" }), true);
+  });
+
+  it("rejects workspace scope without workspaceId", () => {
+    assert.equal(isValidScope({ level: "workspace", repositoryId: "abc" }), false);
+  });
+
+  it("accepts commit scope with repositoryId and headCommit", () => {
+    assert.equal(isValidScope({ level: "commit", repositoryId: "abc", headCommit: "abc123" }), true);
+  });
+
+  it("rejects commit scope without headCommit", () => {
+    assert.equal(isValidScope({ level: "commit", repositoryId: "abc" }), false);
+  });
+
+  it("accepts task scope with repositoryId and taskId", () => {
+    assert.equal(isValidScope({ level: "task", repositoryId: "abc", taskId: "t1" }), true);
+  });
+
+  it("rejects task scope without taskId", () => {
+    assert.equal(isValidScope({ level: "task", repositoryId: "abc" }), false);
+  });
+
+  it("rejects scope with non-string repositoryId", () => {
+    assert.equal(isValidScope({ level: "repository", repositoryId: 123 }), false);
+  });
+
+  it("rejects scope with empty repositoryId", () => {
+    assert.equal(isValidScope({ level: "repository", repositoryId: "" }), false);
+  });
+});
+
+describe("install-state — array validation", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "install-state-"));
+  });
+
+  afterEach(() => {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  it("rejects target with array value", () => {
+    const statePath = path.join(tmpDir, "install-state.json");
+    fs.writeFileSync(statePath, JSON.stringify({
+      schemaVersion: 1,
+      targets: { codex: ["not", "an", "object"] }
+    }));
+    const state = readState(tmpDir);
+    assert.equal(state, null);
+  });
+
+  it("rejects target with managedFiles as string", () => {
+    const statePath = path.join(tmpDir, "install-state.json");
+    fs.writeFileSync(statePath, JSON.stringify({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedFiles: "not-array" } }
+    }));
+    const state = readState(tmpDir);
+    assert.equal(state, null);
+  });
+
+  it("accepts target with valid managedFiles array", () => {
+    const statePath = path.join(tmpDir, "install-state.json");
+    fs.writeFileSync(statePath, JSON.stringify({
+      schemaVersion: 1,
+      targets: { codex: { enabled: true, managedFiles: ["a/b"], managedDirectories: ["c/d"] } }
+    }));
+    const state = readState(tmpDir);
+    assert.ok(state);
+    assert.deepEqual(state.targets.codex.managedFiles, ["a/b"]);
+  });
+});

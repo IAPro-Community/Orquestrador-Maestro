@@ -1,12 +1,39 @@
 #!/usr/bin/env node
 "use strict";
 
+function isValidScope(scope) {
+  if (!scope || typeof scope !== "object") return false;
+  const level = scope.level;
+  if (typeof level !== "string") return false;
+
+  switch (level) {
+    case "repository":
+      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0;
+    case "branch":
+      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
+        && typeof scope.branch === "string" && scope.branch.length > 0;
+    case "workspace":
+      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
+        && typeof scope.workspaceId === "string" && scope.workspaceId.length > 0;
+    case "commit":
+      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
+        && typeof scope.headCommit === "string" && scope.headCommit.length > 0;
+    case "task":
+      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
+        && typeof scope.taskId === "string" && scope.taskId.length > 0;
+    default:
+      return false;
+  }
+}
+
 function isObservationVisible(observation, currentContext, options = {}) {
   if (!observation || !observation.scope) return false;
   if (!currentContext) return false;
 
   const obsScope = observation.scope;
   const level = obsScope.level;
+
+  if (!isValidScope(obsScope)) return false;
 
   switch (level) {
     case "repository":
@@ -157,6 +184,7 @@ function tokenizeRank(text) {
 }
 
 module.exports = {
+  isValidScope,
   isObservationVisible,
   resolveObservationScope,
   rankObservations,

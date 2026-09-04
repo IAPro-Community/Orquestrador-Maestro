@@ -38,8 +38,10 @@ function readState(orquestradorDir) {
     if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) return null;
     if (!parsed.targets || typeof parsed.targets !== "object" || Array.isArray(parsed.targets)) return null;
     for (const [toolId, target] of Object.entries(parsed.targets)) {
-      if (!target || typeof target !== "object") return null;
+      if (!target || typeof target !== "object" || Array.isArray(target)) return null;
       if ("enabled" in target && typeof target.enabled !== "boolean") return null;
+      if ("managedFiles" in target && !Array.isArray(target.managedFiles)) return null;
+      if ("managedDirectories" in target && !Array.isArray(target.managedDirectories)) return null;
     }
     return parsed;
   } catch {
@@ -91,12 +93,13 @@ function writeState(orquestradorDir, state) {
 
   const content = JSON.stringify(payload, null, 2) + "\n";
 
+  const tmpPath = statePath + ".tmp." + process.pid;
   try {
-    const tmpPath = statePath + ".tmp." + process.pid;
     fs.writeFileSync(tmpPath, content, { mode: 0o600 });
     fs.renameSync(tmpPath, statePath);
-  } catch {
-    fs.writeFileSync(statePath, content, { mode: 0o600 });
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch {}
+    throw err;
   }
 }
 

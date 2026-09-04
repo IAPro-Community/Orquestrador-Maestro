@@ -669,7 +669,11 @@ chmod +x \
 if [ "$SKIP_SKILL_SYNC" = false ]; then
   SYNC_SCRIPT="$TARGET_ORQUESTRADOR/sync-skills.sh"
   if [ -f "$SYNC_SCRIPT" ]; then
-    bash "$SYNC_SCRIPT" --apply --home-path "$HOME_PATH"
+    SYNC_ARGS=("--apply" "--home-path" "$HOME_PATH")
+    if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
+      SYNC_ARGS+=("--only" "$(IFS=','; echo "${ONLY_COMPONENTS[*]}")")
+    fi
+    bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
   fi
 fi
 

@@ -168,6 +168,18 @@ runCheck("No .omx, .local, or DEV in git tracked files", () => {
   }
 });
 
+console.log("\n9. Release ancestry");
+runCheck("HEAD is descendant of origin/main", () => {
+  const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", "origin/main", "HEAD"], {
+    cwd: rootDir,
+    encoding: "utf8",
+    shell: false
+  });
+  if (mergeBase.status !== 0) {
+    throw new Error("HEAD is not a descendant of origin/main — rebase first");
+  }
+});
+
 console.log(`\n${"=".repeat(40)}`);
 if (exitCode === 0) {
   console.log("verify:pr: ALL CHECKS PASSED");
