@@ -158,12 +158,70 @@ describe("Context Brief Integration", () => {
         type: "decision",
         summary: "Framework = Vue",
         tags: ["framework"],
-        verified: true
+        verified: true,
+        scope: { level: "repository", repositoryId: projectId }
       });
 
       const observations = memory.search(projectId, { search: "framework" });
       assert.ok(observations.length > 0);
       assert.ok(observations[0].summary.includes("Vue"));
+    });
+
+    it("should show canonical React as authoritative over historical Vue in brief", () => {
+      const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "precedence-e2e-"));
+      const { spawnSync } = require("node:child_process");
+      spawnSync("git", ["init"], { cwd: projectRoot, stdio: "ignore" });
+      spawnSync("git", ["config", "user.email", "test@test.com"], { cwd: projectRoot, stdio: "ignore" });
+      spawnSync("git", ["config", "user.name", "Test"], { cwd: projectRoot, stdio: "ignore" });
+      fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, "DEV", "README.md"),
+        "# Project\n\n## Framework\n\n- React is the current authoritative framework\n- Use React 18 for all new features",
+        "utf8"
+      );
+      spawnSync("git", ["add", "."], { cwd: projectRoot, stdio: "ignore" });
+      spawnSync("git", ["commit", "-m", "init"], { cwd: projectRoot, stdio: "ignore" });
+
+      const projectId = memory.resolveRepositoryId(projectRoot);
+
+      memory.record(projectId, {
+        type: "decision",
+        summary: "Vue was previously used as the main framework",
+        tags: ["vue", "framework"],
+        verified: true,
+        scope: { level: "repository", repositoryId: projectId }
+      });
+      memory.record(projectId, {
+        type: "discovery",
+        summary: "Vue to React migration completed successfully",
+        tags: ["vue", "react", "migration"],
+        verified: true,
+        scope: { level: "repository", repositoryId: projectId }
+      });
+
+      try {
+        const result = buildBrief({
+          projectPath: projectRoot,
+          task: "investigate which framework is currently authoritative for this project",
+          maxChars: 16000,
+          memory
+        });
+
+        assert.ok(result.memoryEnabled, "memory should be enabled for investigation task");
+        assert.ok(result.memory.considered > 0, "memory should consider observations");
+        assert.ok(result.memory.visible > 0, "memory should have visible observations");
+        assert.ok(result.memory.selected > 0, "memory should select observations for brief");
+
+        assert.ok(result.content.includes("React"), "brief should contain React from canonical docs");
+        assert.ok(result.content.includes("Vue"), "brief should contain Vue from memory");
+
+        const reactPos = result.content.indexOf("React");
+        const vuePos = result.content.indexOf("Vue");
+        assert.ok(reactPos < vuePos || result.content.indexOf("## DEV/README.md") < vuePos,
+          "React from canonical should appear before or more prominently than Vue from memory");
+      } finally {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+      }
     });
   });
 

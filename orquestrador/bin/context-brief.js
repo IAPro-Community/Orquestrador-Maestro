@@ -423,20 +423,31 @@ function buildBrief(options) {
   pushSection(buildStateSection(state), "DEV state summary", "estado DEV atual");
 
   const canonicalBudget = budget.canonicalChars;
+  const docsBudget = budget.docsChars;
   let usedCanonical = 0;
+  let usedDocs = 0;
   for (const candidate of candidates) {
-    if (usedCanonical >= canonicalBudget) break;
+    const isCompact = candidate.reason === "memória operacional compacta" || candidate.reason === "contrato do projeto";
+    const budgetLimit = isCompact ? canonicalBudget : docsBudget;
+    const used = isCompact ? usedCanonical : usedDocs;
+    if (used >= budgetLimit) continue;
     const content = readUtf8(candidate.filePath);
     if (!content) continue;
     const heading = relativePath(projectRoot, candidate.filePath);
-    const truncated = truncate(content, Math.min(canonicalBudget - usedCanonical, remaining));
+    const truncated = truncate(content, Math.min(budgetLimit - used, remaining));
     pushSection(`## ${heading}\n\n${truncated}`, heading, candidate.reason);
-    usedCanonical += truncated.length;
+    if (isCompact) {
+      usedCanonical += truncated.length;
+    } else {
+      usedDocs += truncated.length;
+    }
   }
 
+  let memoryConsidered = 0;
+  let memoryVisible = 0;
+  let memorySelected = 0;
+
   if (budget.memoryChars > 0) {
-    let memoryConsidered = 0;
-    let memorySelected = 0;
     let memorySection = "";
 
     try {
@@ -455,7 +466,9 @@ function buildBrief(options) {
           rank: true
         });
 
-        memoryConsidered = memResults.length;
+        const metrics = memResults.metrics || { considered: 0, visible: 0, selected: 0 };
+        memoryConsidered = metrics.considered;
+        memoryVisible = metrics.visible;
 
         let usedMemory = 0;
         const selected = [];
@@ -496,6 +509,12 @@ function buildBrief(options) {
     task: options.task,
     taskClassification,
     memoryEnabled: shouldUseMemory(taskClassification),
+    memory: {
+      enabled: shouldUseMemory(taskClassification),
+      considered: memoryConsidered,
+      visible: memoryVisible,
+      selected: memorySelected
+    },
     budget: {
       maxChars: budget.maxChars,
       usedChars: content.length,

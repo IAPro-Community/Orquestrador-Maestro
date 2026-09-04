@@ -336,9 +336,15 @@ class Memory {
     const filePath = this.getObservationsFile(projectId);
     const { valid: allObservations } = this.readObservations(filePath);
 
+    const metrics = { considered: 0, visible: 0, selected: 0 };
+
+    metrics.considered = allObservations.length;
+
     let observations = allObservations.filter(obs =>
       isObservationVisible(obs, gitContext, { taskId: query.taskId, allowAncestry: query.allowAncestry })
     );
+
+    metrics.visible = observations.length;
 
     if (query.type) {
       observations = observations.filter(obs => obs.type === query.type);
@@ -373,6 +379,9 @@ class Memory {
       observations = observations.slice(0, query.limit);
     }
 
+    metrics.selected = observations.length;
+
+    observations.metrics = metrics;
     return observations;
   }
 
