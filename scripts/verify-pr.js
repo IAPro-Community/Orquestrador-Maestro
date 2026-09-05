@@ -8,6 +8,31 @@ const { spawnSync } = require("node:child_process");
 const rootDir = path.resolve(__dirname, "..");
 let exitCode = 0;
 
+const trackedResult = spawnSync("git", ["ls-files", "-z"], {
+  cwd: rootDir,
+  encoding: "utf8",
+  shell: false
+});
+if (trackedResult.status !== 0) {
+  console.error("verify:pr: git ls-files failed");
+  process.exit(1);
+}
+const trackedFiles = trackedResult.stdout.split("\0").filter(Boolean);
+const textExtensions = /\.(js|ts|json|sh|ps1|md|yml|yaml|txt|cfg|ini|toml|env)$/iu;
+
+function trackedRegularTextFiles() {
+  return trackedFiles.filter(rel => {
+    if (!textExtensions.test(rel) || rel.startsWith("node_modules/") || rel.startsWith(".git/")) return false;
+    const full = path.join(rootDir, rel);
+    try {
+      const stat = fs.lstatSync(full);
+      return stat.isFile() && !stat.isSymbolicLink();
+    } catch {
+      return false;
+    }
+  });
+}
+
 function runCheck(label, fn) {
   try {
     fn();
@@ -25,10 +50,10 @@ function assert(condition, message) {
 console.log("verify:pr — running checks...\n");
 
 console.log("1. npm test");
-const testResult = spawnSync("node", ["--test", "tests/*.test.js"], {
+const testResult = spawnSync(process.execPath, ["scripts/run-tests.js"], {
   cwd: rootDir,
   stdio: "inherit",
-  shell: process.platform === "win32"
+  shell: false
 });
 if (testResult.status !== 0) {
   console.error("  ✗ npm test failed");
@@ -41,7 +66,7 @@ console.log("\n2. npm pack --dry-run");
 const packResult = spawnSync("npm", ["pack", "--dry-run"], {
   cwd: rootDir,
   stdio: "pipe",
-  shell: process.platform === "win32"
+  shell: false
 });
 if (packResult.status !== 0) {
   console.error("  ✗ npm pack --dry-run failed");
@@ -76,28 +101,13 @@ runCheck("No obvious secrets in tracked files", () => {
     /AKIA[0-9A-Z]{16}/,
     /xox[baprs]-[A-Za-z0-9-]{20,}/
   ];
-  const gitFiles = spawnSync("git", ["ls-files", "-z"], {
-    cwd: rootDir,
-    encoding: "utf8",
-    shell: false
-  });
-  if (gitFiles.status !== 0) throw new Error("git ls-files failed");
-  const files = gitFiles.stdout.split("\0").filter(Boolean);
-  const textExtensions = /\.(js|ts|json|sh|ps1|md|yml|yaml|txt|cfg|ini|toml|env)$/;
-  for (const rel of files) {
-    if (!textExtensions.test(rel)) continue;
-    if (rel.startsWith("node_modules/") || rel.startsWith(".git/")) continue;
+  for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);
-    try {
-      const content = fs.readFileSync(full, "utf8");
-      for (const pattern of secretPatterns) {
-        if (pattern.test(content)) {
-          throw new Error(`Possible secret in ${rel}`);
-        }
+    const content = fs.readFileSync(full, "utf8");
+    for (const pattern of secretPatterns) {
+      if (pattern.test(content)) {
+        throw new Error(`Possible secret in ${rel}`);
       }
-    } catch (err) {
-      if (err.code === "EISDIR" || err.code === "ENOENT") continue;
-      throw err;
     }
   }
 });
@@ -110,28 +120,13 @@ runCheck("No concrete Windows/Unix home paths in tracked source", () => {
     /\/home\/(?!<user>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
     /\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//
   ];
-  const gitFiles = spawnSync("git", ["ls-files", "-z"], {
-    cwd: rootDir,
-    encoding: "utf8",
-    shell: false
-  });
-  if (gitFiles.status !== 0) throw new Error("git ls-files failed");
-  const files = gitFiles.stdout.split("\0").filter(Boolean);
-  const textExtensions = /\.(js|ts|json|sh|ps1|md|yml|yaml)$/;
-  for (const rel of files) {
-    if (!textExtensions.test(rel)) continue;
-    if (rel.startsWith("node_modules/") || rel.startsWith(".git/")) continue;
+  for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);
-    try {
-      const content = fs.readFileSync(full, "utf8");
-      for (const pattern of userPathPatterns) {
-        if (pattern.test(content)) {
-          throw new Error(`Concrete user path in ${rel}`);
-        }
+    const content = fs.readFileSync(full, "utf8");
+    for (const pattern of userPathPatterns) {
+      if (pattern.test(content)) {
+        throw new Error(`Concrete user path in ${rel}`);
       }
-    } catch (err) {
-      if (err.code === "EISDIR" || err.code === "ENOENT") continue;
-      throw err;
     }
   }
 });
@@ -150,7 +145,20 @@ runCheck("All registry tools have required fields", () => {
   }
 });
 
-console.log("\n7. install-state integrity");
+console.log("\n7. canonical smoke gate");
+const smokeResult = spawnSync(process.execPath, ["scripts/test-smoke.js"], {
+  cwd: rootDir,
+  stdio: "inherit",
+  shell: false
+});
+if (smokeResult.status !== 0) {
+  console.error("  ✗ smoke gate failed");
+  exitCode = 1;
+} else {
+  console.log("  ✓ smoke gate passed");
+}
+
+console.log("\n8. install-state integrity");
 runCheck("install-state module exports", () => {
   const state = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
   assert(typeof state.validateState === "function", "validateState not a function");
@@ -165,7 +173,7 @@ runCheck("install-state module exports", () => {
   assert(typeof state.isTargetEnabled(defaultState, "codex") === "boolean", "isTargetEnabled must return boolean");
 });
 
-console.log("\n8. No private roots tracked");
+console.log("\n9. No private roots tracked");
 runCheck("No .omx, .local, or DEV in git tracked files", () => {
   const result = spawnSync("git", ["ls-files", ".omx", ".local", "DEV"], {
     cwd: rootDir,
@@ -178,7 +186,7 @@ runCheck("No .omx, .local, or DEV in git tracked files", () => {
   }
 });
 
-console.log("\n9. Release ancestry");
+console.log("\n10. Release ancestry");
 runCheck("HEAD is descendant of origin/main", () => {
   const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", "origin/main", "HEAD"], {
     cwd: rootDir,

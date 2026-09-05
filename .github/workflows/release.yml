@@ -18,12 +18,15 @@ jobs:
   validate:
     name: Validate release
     runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -48,6 +51,7 @@ jobs:
           grep -qE "^## ${version}([ -]|$)" CHANGELOG.md
 
       - name: Verify release is ancestor of main
+        id: release
         shell: bash
         run: |
           set -euo pipefail
@@ -58,6 +62,7 @@ jobs:
             echo "This release must be based on main. Rebase first."
             exit 1
           fi
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "OK: Release commit is contained in origin/main history"
 
       - name: Install and run release gates
@@ -66,35 +71,44 @@ jobs:
           set -euo pipefail
           npm ci
           npm run verify:pr
-          npm test
-          npm run test:smoke
           pwsh -NoProfile -File ./scripts/validate-public.ps1
           pwsh -NoProfile -File ./scripts/validate-skills.ps1
-          npm pack --dry-run
+          tarball="$(npm pack 2>/dev/null | tail -1)"
+          sha256sum "$tarball" | awk '{print $1}' > package.sha256
+          printf '%s\n' "$tarball" > package.name
+
+      - name: Upload validated package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package-${{ steps.release.outputs.release_sha }}
+          path: |
+            ./*.tgz
+            package.sha256
+            package.name
+          if-no-files-found: error
 
   package-smoke:
     name: Package smoke test
     needs: validate
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
           package-manager-cache: false
 
-      - name: Install and create tarball
+      - name: Download validated package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package-${{ needs.validate.outputs.release_sha }}
+
+      - name: Verify artifact identity
         shell: bash
         run: |
           set -euo pipefail
-          npm ci
-          tarball="$(npm pack 2>/dev/null | tail -1)"
+          tarball="$(cat package.name)"
+          test "$(sha256sum "$tarball" | awk '{print $1}')" = "$(cat package.sha256)"
           echo "TARBALL=$tarball" >> "$GITHUB_ENV"
 
       - name: Install tarball globally and smoke test
@@ -104,9 +118,19 @@ jobs:
           npm install -g "./$TARBALL"
           orquestrador-maestro --version
           orquestrador-maestro memory --help
-          orquestrador-maestro targets list || true
-          orquestrador-maestro targets detect || true
-          npm uninstall -g orquestrador-maestro
+          temp_home="$(mktemp -d)"
+          fake_bin="$temp_home/bin"
+          mkdir -p "$fake_bin"
+          printf '#!/usr/bin/env sh\nexit 0\n' > "$fake_bin/codex"
+          chmod +x "$fake_bin/codex"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets list --json
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets detect --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets add codex --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets list --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets sync --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets remove codex --home-path "$temp_home"
+          rm -rf "$temp_home"
+          npm uninstall -g @iapro/orquestrador-maestro-cli
 
   publish:
     name: Publish to npm
@@ -117,12 +141,6 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -130,7 +148,20 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
+      - name: Download validated package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package-${{ needs.validate.outputs.release_sha }}
+
+      - name: Verify artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball="$(cat package.name)"
+          test "$(sha256sum "$tarball" | awk '{print $1}')" = "$(cat package.sha256)"
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+
       - name: Publish stable package
-        run: npm publish --access public
+        run: npm publish "./$TARBALL" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
