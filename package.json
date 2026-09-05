@@ -97,7 +97,7 @@
     "audit": "node scripts/audit-dependencies.js audit",
     "outdated:all": "node scripts/audit-dependencies.js outdated",
     "pack:dry-run": "npm pack --dry-run",
-    "test": "node --test tests/*.test.js",
+    "test": "node scripts/run-tests.js",
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
     "verify:pr": "node scripts/verify-pr.js",

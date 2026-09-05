@@ -91,6 +91,24 @@ describe("Memory", () => {
 
       assert.ok(obs.summary.includes("[PATH_REDACTED]"));
     });
+
+    it("redacts secrets and private paths from every persisted field", () => {
+      const githubToken = ["ghp_", "123456789012345678901234567890123456"].join("");
+      const obs = memory.record("test-project", {
+        type: "discovery",
+        summary: "safe summary",
+        details: "safe details",
+        files: ["/home/alice/project/file.js", "C:\\Users\\alice\\secret.txt"],
+        tags: ["api_key=sk-ant-secret"],
+        source: { command: `Bearer ${githubToken}` }
+      });
+      const raw = fs.readFileSync(memory.getObservationsFile("test-project"), "utf8");
+      assert.ok(!raw.includes("sk-ant-secret"));
+      assert.ok(!raw.includes(githubToken));
+      assert.ok(!raw.includes("/home/alice"));
+      assert.ok(!raw.includes("C:\\Users\\alice"));
+      assert.ok(obs);
+    });
   });
 
   describe("search", () => {
@@ -221,6 +239,26 @@ describe("Memory", () => {
         () => memory.promote("test-project", "obs_nonexistent", "DEV/DECISIONS.md"),
         /Observation not found/
       );
+    });
+
+    it("should refuse to promote through an existing symlink destination", () => {
+      const source = path.join(tmpDir, "source.md");
+      const outside = path.join(tmpDir, "outside.md");
+      fs.writeFileSync(source, "source\n");
+      fs.writeFileSync(outside, "outside\n");
+      const recorded = memory.record("test-project", {
+        type: "decision",
+        summary: "safe decision",
+        verified: true
+      });
+      const projectRoot = path.join(tmpDir, "project");
+      fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
+      fs.symlinkSync(outside, path.join(projectRoot, "DEV", "CONTEXT.md"));
+      assert.throws(
+        () => memory.promote("test-project", recorded.id, "DEV/CONTEXT.md", { apply: true, projectRoot }),
+        /symlink|unsafe/i
+      );
+      assert.equal(fs.readFileSync(outside, "utf8"), "outside\n");
     });
   });
 

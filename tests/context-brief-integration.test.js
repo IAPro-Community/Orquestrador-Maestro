@@ -152,6 +152,21 @@ describe("Context Brief Integration", () => {
   });
 
   describe("canonical precedence", () => {
+    it("reports bucket metrics including section headings", () => {
+      const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "budget-e2e-"));
+      fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, "DEV", "README.md"), "# Canonical\n\nAuthoritative content", "utf8");
+      try {
+        const result = buildBrief({ projectPath: projectRoot, task: "investigate architecture", maxChars: 4000, memory });
+        assert.ok(result.budget.allocated.canonical > 0);
+        assert.ok(result.budget.actual.canonical >= "## DEV/README.md".length);
+        assert.ok(result.budget.actual.total <= result.budget.maxChars);
+        assert.ok(result.budget.actual.canonical <= result.budget.allocated.canonical);
+      } finally {
+        fs.rmSync(projectRoot, { recursive: true, force: true });
+      }
+    });
+
     it("should prioritize canonical over memory", () => {
       const projectId = "precedence-test";
       memory.record(projectId, {

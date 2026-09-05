@@ -132,12 +132,22 @@ class Memory {
       .replace(/\b\d{3}[-]?\d{2}[-]?\d{4}\b/g, "[SSN_REDACTED]")
       .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[JWT_REDACTED]")
       .replace(/-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g, "[PRIVATE_KEY_REDACTED]")
-      .replace(/(?:sk-|pk-|rk-)[A-Za-z0-9]{20,}/g, "[API_KEY_REDACTED]")
-      .replace(/ghp_[A-Za-z0-9]{36}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/(?:sk-|pk-|rk-|sk-ant-|sk-proj-)[A-Za-z0-9_-]{20,}/g, "[API_KEY_REDACTED]")
+      .replace(/(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[SLACK_TOKEN_REDACTED]")
       .replace(/cookie\s*[:=]\s*[^\s`"']+/gi, "[COOKIE_REDACTED]")
       .replace(/(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)\s*[:=]\s*[^\s`"']+/gi, "[AWS_KEY_REDACTED]")
       .replace(/(?:GOOGLE_APPLICATION_CREDENTIALS|GITHUB_TOKEN)\s*[:=]\s*[^\s`"']+/gi, "[CREDENTIAL_REDACTED]")
       .replace(/\.env[^a-zA-Z0-9]/gi, "[ENV_FILE_REDACTED]");
+  }
+
+  redactValue(value) {
+    if (typeof value === "string") return this.redactContent(value);
+    if (Array.isArray(value)) return value.map(item => this.redactValue(item));
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.redactValue(item)]));
+    }
+    return value;
   }
 
   containsPrivateContent(content) {
@@ -236,6 +246,10 @@ class Memory {
       });
     }
 
+    if (!scope || !isValidScope(scope)) {
+      return null;
+    }
+
     const obs = {
       schemaVersion: this.schemaVersion,
       id: observation.id || this.generateId(),
@@ -245,9 +259,9 @@ class Memory {
       summary: this.redactContent(observation.summary),
       details: observation.details ? this.redactContent(observation.details) : null,
       files: (observation.files || []).map(f => this.redactContent(f)),
-      tags: observation.tags || [],
+      tags: this.redactValue(observation.tags || []),
       verified: observation.verified || false,
-      source: observation.source || {},
+      source: this.redactValue(observation.source || {}),
       scope,
       capturePolicy: policyResult.policy
     };
@@ -467,6 +481,13 @@ class Memory {
       fs.mkdirSync(dir, { recursive: true });
     }
 
+    try {
+      const destinationStat = fs.lstatSync(destPath);
+      if (destinationStat.isSymbolicLink()) throw new Error("Symlink destination is not allowed");
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+
     const entry = `\n\n## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\n- Source: observation ${obs.id}\n- Promoted at: ${new Date().toISOString()}\n- Branch: ${obs.scope?.branch || "unknown"}\n`;
 
     const lockPath = getLockPath(destPath);
@@ -615,10 +636,10 @@ class Memory {
         type: consolidatedObs.type || "discovery",
         summary: this.redactContent(consolidatedObs.summary),
         details: consolidatedObs.details ? this.redactContent(consolidatedObs.details) : null,
-        files: [...new Set(observations.flatMap(obs => obs.files || []))],
-        tags: [...new Set(observations.flatMap(obs => obs.tags || []))],
+        files: this.redactValue([...new Set(observations.flatMap(obs => obs.files || []))]),
+        tags: this.redactValue([...new Set(observations.flatMap(obs => obs.tags || []))]),
         verified: consolidatedObs.verified || false,
-        source: consolidatedObs.source || {},
+        source: this.redactValue(consolidatedObs.source || {}),
         scope: consolidatedObs.scope || firstScope,
         consolidatedFrom: observationIds
       };

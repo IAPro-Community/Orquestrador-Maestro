@@ -134,7 +134,11 @@ Opcoes de install/update/uninstall:
   --non-interactive           Evita prompts interativos
   --verbose-paths             Mostra caminhos reais nos relatorios
 
-Opcoes de targets:
+  Opcoes de targets:
+  targets add <id> [--force]  Instala e habilita uma integracao
+  targets remove <id>         Desabilita sem apagar arquivos humanos
+  targets sync                Sincroniza somente targets habilitados
+  targets list --json         Saida JSON estavel
   --home-path <path>          Caminho home para detectar
 
 Opcoes de verify:
@@ -1729,6 +1733,41 @@ function handleTargetsCommand(args) {
   const homePath = getHomePath();
   const orquestradorDir = path.join(homePath, ".orquestrador");
 
+  const normalizeManagedPath = (value) => {
+    if (typeof value !== "string" || value.length === 0 || value.includes("\0")) return null;
+    const normalized = value.replace(/\\/g, "/");
+    if (normalized.startsWith("/") || normalized.startsWith("//") || /^[A-Za-z]:\//u.test(normalized)) return null;
+    const parts = normalized.split("/");
+    if (parts.some(part => !part || part === "." || part === "..")) return null;
+    return parts.join(path.sep);
+  };
+
+  const assertSafeHomePath = (relativePath) => {
+    const safe = normalizeManagedPath(relativePath);
+    if (!safe) throw new Error(`Unsafe managed path: ${relativePath}`);
+    const resolvedHome = path.resolve(homePath);
+    const resolved = path.resolve(resolvedHome, safe);
+    const relative = path.relative(resolvedHome, resolved);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`Path escapes home: ${relativePath}`);
+
+    let current = resolvedHome;
+    const components = path.relative(resolvedHome, resolved).split(path.sep).filter(Boolean);
+    for (const component of components) {
+      current = path.join(current, component);
+      try {
+        if (fs.lstatSync(current).isSymbolicLink()) throw new Error(`Refusing symlink in managed path: ${relativePath}`);
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+        break;
+      }
+    }
+    return { safe, resolved };
+  };
+
+  const hashFile = (filePath) => crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+  const markerContent = (toolId) => `managed by orquestrador-maestro\ntool: ${toolId}\n`;
+  const isRecognizedMarker = (content, toolId) => content === markerContent(toolId);
+
   if (subcommand === "list" || subcommand === "detect") {
     const detections = detectAllTools(homePath);
     const state = installState.readState(orquestradorDir) || installState.getDefaultState();
@@ -1755,7 +1794,7 @@ function handleTargetsCommand(args) {
     }
 
     if (jsonFlag) {
-      console.log(JSON.stringify(rows, null, 2));
+      console.log(JSON.stringify({ schemaVersion: 1, targets: rows }, null, 2));
     } else {
       const header = "Target".padEnd(20) + "Detection".padEnd(16) + "Enabled";
       const sep = "-".repeat(44);
@@ -1788,56 +1827,138 @@ function handleTargetsCommand(args) {
     }
 
     const def = getToolDefinition(toolId);
+    const previousTarget = installState.getTargetState(state, toolId) || {};
+    const previousEntries = new Map((previousTarget.managedEntries || []).map(entry => [entry.path.replace(/\\/g, "/"), entry]));
     const managedFiles = [];
     const managedDirectories = [];
+    const managedEntries = [];
     const createdFiles = [];
     const createdDirectories = [];
+    const replacedFiles = new Map();
+    const preservedExisting = [];
+    const conflicts = [];
 
-    function rollbackCreated() {
+    try {
+      const homeStat = fs.lstatSync(homePath);
+      if (homeStat.isSymbolicLink()) throw new Error("Refusing symlink home path");
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+
+    const rememberDirectoryAncestry = (targetDirectory) => {
+      const missing = [];
+      let current = path.resolve(targetDirectory);
+      while (current !== path.resolve(homePath)) {
+        try {
+          const stat = fs.lstatSync(current);
+          if (stat.isSymbolicLink()) throw new Error(`Refusing symlink directory: ${current}`);
+          break;
+        } catch (err) {
+          if (err.code !== "ENOENT") throw err;
+          missing.push(path.relative(homePath, current));
+          current = path.dirname(current);
+        }
+      }
+      createdDirectories.push(...missing.filter(Boolean));
+    };
+
+    const rollbackCreated = () => {
+      for (const [filePath, content] of replacedFiles.entries()) {
+        try { fs.writeFileSync(filePath, content); } catch {}
+      }
       for (const f of createdFiles) {
         try { fs.unlinkSync(path.join(homePath, f)); } catch {}
       }
-      for (const d of createdDirectories.sort().reverse()) {
+      for (const d of [...new Set(createdDirectories)].sort((a, b) => b.length - a.length)) {
         try { fs.rmdirSync(path.join(homePath, d)); } catch {}
       }
-    }
+    };
 
     let installSuccess = false;
 
     try {
       for (const skillTarget of def.skillTargets) {
-        const destDir = path.join(homePath, skillTarget, "orquestrador-maestro");
-        const srcDir = path.join(rootDir, "orquestrador", "skills", "orquestrador-maestro");
-        if (fs.existsSync(srcDir)) {
-          const dirCreated = !fs.existsSync(destDir);
+        const srcCandidates = [
+          path.join(rootDir, "orquestrador", "skills", "orquestrador-maestro"),
+          path.join(rootDir, "codex", "skills", "orquestrador-maestro")
+        ];
+        const srcDir = srcCandidates.find(candidate => fs.existsSync(candidate));
+        const destDir = assertSafeHomePath(path.posix.join(skillTarget, "orquestrador-maestro")).resolved;
+        if (srcDir && fs.existsSync(srcDir)) {
+          rememberDirectoryAncestry(destDir);
           fs.mkdirSync(destDir, { recursive: true });
-          if (dirCreated) createdDirectories.push(path.join(skillTarget, "orquestrador-maestro"));
           const files = fs.readdirSync(srcDir, { withFileTypes: true });
           for (const entry of files) {
             const srcFile = path.join(srcDir, entry.name);
             const destFile = path.join(destDir, entry.name);
             if (entry.isFile()) {
               const relManaged = path.join(skillTarget, "orquestrador-maestro", entry.name);
-              if (!fs.existsSync(destFile)) {
+              const normalizedRel = relManaged.replace(/\\/g, "/");
+              const existing = fs.existsSync(destFile) ? fs.lstatSync(destFile) : null;
+              const previous = previousEntries.get(normalizedRel);
+              const isOwned = Boolean(existing && existing.isFile() && previous && previous.sha256 === hashFile(destFile));
+              if (!existing) {
                 createdFiles.push(relManaged);
+              } else if (existing.isSymbolicLink() || !existing.isFile()) {
+                conflicts.push(normalizedRel);
+                continue;
+              } else if (!isOwned) {
+                preservedExisting.push(normalizedRel);
+                continue;
+              } else {
+                replacedFiles.set(destFile, fs.readFileSync(destFile));
               }
               fs.copyFileSync(srcFile, destFile);
-              managedFiles.push(relManaged);
+              const entryRecord = {
+                path: normalizedRel,
+                kind: "file",
+                sha256: hashFile(destFile),
+                installedBy: "orquestrador-maestro",
+                installedAt: new Date().toISOString(),
+                target: toolId
+              };
+              managedEntries.push(entryRecord);
+              managedFiles.push(normalizedRel);
             }
           }
-          managedDirectories.push(path.join(skillTarget, "orquestrador-maestro"));
+          if (managedEntries.some(entry => entry.path.startsWith(`${skillTarget.replace(/\\/g, "/")}/orquestrador-maestro/`))) {
+            managedDirectories.push(path.posix.join(skillTarget, "orquestrador-maestro"));
+          }
         }
       }
 
       for (const configPath of def.configPaths) {
-        const markerDir = path.join(homePath, configPath);
-        if (fs.existsSync(markerDir) || def.configPaths.length > 0) {
-          const markerPath = path.join(homePath, configPath, ".maestro-managed");
-          const markerCreated = !fs.existsSync(markerPath);
-          fs.mkdirSync(path.dirname(markerPath), { recursive: true });
-          fs.writeFileSync(markerPath, `managed by orquestrador-maestro\ntool: ${toolId}\n`);
-          if (markerCreated) createdFiles.push(path.join(configPath, ".maestro-managed"));
-          managedFiles.push(path.join(configPath, ".maestro-managed"));
+        const markerPath = assertSafeHomePath(path.posix.join(configPath, ".maestro-managed")).resolved;
+        rememberDirectoryAncestry(path.dirname(markerPath));
+        fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+        const markerExists = fs.existsSync(markerPath);
+        if (markerExists) {
+          const markerStat = fs.lstatSync(markerPath);
+          if (markerStat.isSymbolicLink() || !markerStat.isFile()) throw new Error(`Unsafe marker: ${markerPath}`);
+          const currentMarker = fs.readFileSync(markerPath, "utf8");
+          const previous = previousEntries.get(path.posix.join(configPath, ".maestro-managed"));
+          const isOwned = isRecognizedMarker(currentMarker, toolId)
+            && (!previous || previous.sha256 === hashFile(markerPath));
+          if (!isOwned) {
+            conflicts.push(path.posix.join(configPath, ".maestro-managed"));
+            break;
+          }
+          replacedFiles.set(markerPath, Buffer.from(currentMarker));
+        } else {
+          createdFiles.push(path.posix.join(configPath, ".maestro-managed"));
+        }
+        fs.writeFileSync(markerPath, markerContent(toolId));
+        const markerRel = path.posix.join(configPath, ".maestro-managed");
+        managedFiles.push(markerRel);
+        managedEntries.push({
+          path: markerRel,
+          kind: "file",
+          sha256: hashFile(markerPath),
+          installedBy: "orquestrador-maestro",
+          installedAt: new Date().toISOString(),
+          target: toolId
+        });
+        if (markerExists || def.configPaths.length > 0) {
           break;
         }
       }
@@ -1864,7 +1985,10 @@ function handleTargetsCommand(args) {
       lastDetection: detection.state,
       enabledAt: new Date().toISOString(),
       managedFiles,
-      managedDirectories
+      managedDirectories,
+      managedEntries,
+      preservedExisting,
+      conflicts
     };
 
     try {
@@ -1885,6 +2009,9 @@ function handleTargetsCommand(args) {
       enabled: true,
       detection: detection.state,
       managedFiles,
+      managedEntries,
+      preservedExisting,
+      conflicts,
       message: `Target ${toolId} installed and enabled.`
     }, null, 2));
     return 0;
@@ -1899,6 +2026,10 @@ function handleTargetsCommand(args) {
     const state = installState.readState(orquestradorDir) || installState.getDefaultState();
     const targetState = installState.getTargetState(state, toolId);
     const removedFiles = [];
+    const preservedFiles = [];
+    const modifiedManagedFile = [];
+    const removedFileBackups = new Map();
+    const force = rest.includes("--force");
 
     function isPathContained(relPath) {
       const full = path.resolve(homePath, relPath);
@@ -1915,31 +2046,47 @@ function handleTargetsCommand(args) {
       return !rel.startsWith("..") && !path.isAbsolute(rel);
     }
 
-    if (targetState && targetState.managedFiles) {
-      for (const relPath of targetState.managedFiles) {
-        if (!isPathContained(relPath)) {
-          console.error(`Refusing to remove path outside home: ${relPath}`);
+    const managedEntries = targetState?.managedEntries || [];
+    for (const entry of managedEntries) {
+      const relPath = entry.path;
+      try {
+        const { resolved: fullPath } = assertSafeHomePath(relPath);
+        if (!fs.existsSync(fullPath)) continue;
+        const stat = fs.lstatSync(fullPath);
+        if (stat.isSymbolicLink() || !stat.isFile()) {
+          preservedFiles.push(relPath);
           continue;
         }
-        const fullPath = path.join(homePath, relPath);
-        try {
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-            removedFiles.push(relPath);
-          }
-        } catch {}
+        const unchanged = hashFile(fullPath) === entry.sha256;
+        if (!unchanged && !force) {
+          modifiedManagedFile.push(relPath);
+          preservedFiles.push(relPath);
+          continue;
+        }
+        removedFileBackups.set(fullPath, fs.readFileSync(fullPath));
+        fs.unlinkSync(fullPath);
+        removedFiles.push(relPath);
+      } catch (err) {
+        preservedFiles.push(relPath);
+        console.error(`Refusing to remove path ${relPath}: ${err.message}`);
       }
+    }
+
+    // Legacy path-only records are intentionally preserved: without a hash they
+    // do not prove that the current file is still Maestro-owned.
+    for (const relPath of targetState?.managedFiles || []) {
+      if (!managedEntries.some(entry => entry.path === relPath)) preservedFiles.push(relPath);
     }
 
     if (targetState && targetState.managedDirectories) {
       for (const relDir of targetState.managedDirectories) {
-        if (!isPathContained(relDir)) {
-          console.error(`Refusing to remove directory outside home: ${relDir}`);
+        let fullDir;
+        try { fullDir = assertSafeHomePath(relDir).resolved; } catch (err) {
+          console.error(`Refusing to remove directory ${relDir}: ${err.message}`);
           continue;
         }
-        const fullDir = path.join(homePath, relDir);
         try {
-          if (fs.existsSync(fullDir)) {
+          if (fs.existsSync(fullDir) && !fs.lstatSync(fullDir).isSymbolicLink()) {
             const entries = fs.readdirSync(fullDir);
             if (entries.length === 0) {
               fs.rmdirSync(fullDir);
@@ -1953,23 +2100,55 @@ function handleTargetsCommand(args) {
     const def = getToolDefinition(toolId);
     if (def) {
       for (const configPath of def.configPaths) {
-        const markerPath = path.join(homePath, configPath, ".maestro-managed");
+        let markerPath;
+        try { markerPath = assertSafeHomePath(path.posix.join(configPath, ".maestro-managed")).resolved; } catch (err) {
+          console.error(`Refusing marker path ${configPath}: ${err.message}`);
+          continue;
+        }
         try {
           if (fs.existsSync(markerPath)) {
-            fs.unlinkSync(markerPath);
-            markerRemoved.push(path.join(configPath, ".maestro-managed"));
+            const markerStat = fs.lstatSync(markerPath);
+            const markerRel = path.posix.join(configPath, ".maestro-managed");
+            const markerEntry = managedEntries.find(entry => entry.path === markerRel);
+            if (markerStat.isSymbolicLink() || !markerStat.isFile() || !markerEntry) {
+              preservedFiles.push(markerRel);
+            } else if (hashFile(markerPath) !== markerEntry.sha256 && !force) {
+              modifiedManagedFile.push(markerRel);
+              preservedFiles.push(markerRel);
+            } else if (isRecognizedMarker(fs.readFileSync(markerPath, "utf8"), toolId)) {
+              removedFileBackups.set(markerPath, fs.readFileSync(markerPath));
+              fs.unlinkSync(markerPath);
+              markerRemoved.push(markerRel);
+            } else {
+              preservedFiles.push(markerRel);
+            }
           }
         } catch {}
       }
     }
 
     installState.disableTarget(state, toolId);
-    installState.writeState(orquestradorDir, state);
+    try {
+      installState.writeState(orquestradorDir, state);
+    } catch (err) {
+      for (const [filePath, content] of removedFileBackups.entries()) {
+        try { fs.writeFileSync(filePath, content, { flag: "wx" }); } catch {}
+      }
+      console.error(JSON.stringify({
+        target: toolId,
+        enabled: true,
+        error: "Failed to persist state. Restored removed files.",
+        cause: err.message
+      }, null, 2));
+      return 1;
+    }
 
     console.log(JSON.stringify({
       target: toolId,
       enabled: false,
       removedFiles: [...removedFiles, ...markerRemoved],
+      preservedFiles: [...new Set(preservedFiles)],
+      modifiedManagedFile: [...new Set(modifiedManagedFile)],
       message: `Target ${toolId} disabled. Maestro-managed files removed. User files preserved.`
     }, null, 2));
     return 0;

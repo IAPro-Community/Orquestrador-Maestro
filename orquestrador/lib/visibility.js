@@ -5,22 +5,19 @@ function isValidScope(scope) {
   if (!scope || typeof scope !== "object") return false;
   const level = scope.level;
   if (typeof level !== "string") return false;
+  const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
 
   switch (level) {
     case "repository":
-      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0;
+      return nonEmpty(scope.repositoryId);
     case "branch":
-      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
-        && typeof scope.branch === "string" && scope.branch.length > 0;
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.branch);
     case "workspace":
-      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
-        && typeof scope.workspaceId === "string" && scope.workspaceId.length > 0;
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.workspaceId);
     case "commit":
-      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
-        && typeof scope.headCommit === "string" && scope.headCommit.length > 0;
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.headCommit);
     case "task":
-      return typeof scope.repositoryId === "string" && scope.repositoryId.length > 0
-        && typeof scope.taskId === "string" && scope.taskId.length > 0;
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.taskId);
     default:
       return false;
   }
@@ -78,6 +75,12 @@ function isObservationVisible(observation, currentContext, options = {}) {
 
 function resolveObservationScope({ type, gitContext, taskId, explicitScope, fallbackRepositoryId }) {
   if (explicitScope && explicitScope.level) {
+    const requiredLevel = explicitScope.level;
+    if (["branch", "workspace", "commit"].includes(requiredLevel) && (!gitContext || !gitContext.repositoryId)) return null;
+    if (requiredLevel === "branch" && (typeof gitContext.branch !== "string" || gitContext.branch.trim() === "")) return null;
+    if (requiredLevel === "workspace" && (typeof gitContext.workspaceId !== "string" || gitContext.workspaceId.trim() === "")) return null;
+    if (requiredLevel === "commit" && (typeof gitContext.headCommit !== "string" || gitContext.headCommit.trim() === "")) return null;
+    if (requiredLevel === "task" && (!taskId || typeof taskId !== "string" || taskId.trim() === "")) return null;
     const scope = { level: explicitScope.level };
     if (gitContext) {
       scope.repositoryId = gitContext.repositoryId;
@@ -111,19 +114,14 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope, fall
     level = "commit";
   }
 
-  if (level === "task" && !taskId) {
-    level = gitContext && gitContext.detached ? "commit" : "branch";
-  }
-
-  if (level === "branch" && !(gitContext && gitContext.branch)) {
+  if (level === "task" && (!taskId || typeof taskId !== "string" || taskId.trim() === "")) {
+    if (gitContext) return null;
     level = "repository";
   }
-  if (level === "workspace" && !(gitContext && gitContext.workspaceId)) {
-    level = "repository";
-  }
-  if (level === "commit" && !(gitContext && gitContext.headCommit)) {
-    level = "repository";
-  }
+  if (level === "branch" && gitContext && (typeof gitContext.branch !== "string" || gitContext.branch.trim() === "")) return null;
+  if (level === "workspace" && gitContext && (typeof gitContext.workspaceId !== "string" || gitContext.workspaceId.trim() === "")) return null;
+  if (level === "commit" && gitContext && (typeof gitContext.headCommit !== "string" || gitContext.headCommit.trim() === "")) return null;
+  if (!gitContext && ["branch", "workspace", "commit"].includes(level)) level = "repository";
 
   const scope = { level };
 

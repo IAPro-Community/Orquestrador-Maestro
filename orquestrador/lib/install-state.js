@@ -7,6 +7,18 @@ const path = require("node:path");
 const STATE_SCHEMA_VERSION = 1;
 const STATE_FILENAME = "install-state.json";
 
+function isSafeRelativePath(value) {
+  if (typeof value !== "string" || value.length === 0 || value.includes("\0")) return false;
+  const normalized = value.replace(/\\/g, "/");
+  if (normalized.startsWith("/") || /^[A-Za-z]:\//u.test(normalized) || normalized.startsWith("//")) return false;
+  const parts = normalized.split("/");
+  return parts.length > 0 && parts.every(part => part.length > 0 && part !== "." && part !== "..");
+}
+
+function isSha256(value) {
+  return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
+}
+
 function getDefaultState() {
   return {
     schemaVersion: STATE_SCHEMA_VERSION,
@@ -20,7 +32,8 @@ function validateState(parsed) {
   if (!parsed || typeof parsed !== "object") return false;
   if (parsed.schemaVersion !== STATE_SCHEMA_VERSION) return false;
   if (!parsed.targets || typeof parsed.targets !== "object" || Array.isArray(parsed.targets)) return false;
-  for (const [, target] of Object.entries(parsed.targets)) {
+  for (const [toolId, target] of Object.entries(parsed.targets)) {
+    if (!/^[a-z0-9][a-z0-9-]*$/u.test(toolId)) return false;
     if (!target || typeof target !== "object" || Array.isArray(target)) return false;
     if ("enabled" in target && typeof target.enabled !== "boolean") return false;
     if ("managedFiles" in target) {
@@ -29,8 +42,19 @@ function validateState(parsed) {
     }
     if ("managedDirectories" in target) {
       if (!Array.isArray(target.managedDirectories)) return false;
-      if (!target.managedDirectories.every(item => typeof item === "string" && item.length > 0)) return false;
+      if (!target.managedDirectories.every(isSafeRelativePath)) return false;
     }
+    if ("managedEntries" in target) {
+      if (!Array.isArray(target.managedEntries)) return false;
+      if (!target.managedEntries.every(entry => entry && typeof entry === "object" && !Array.isArray(entry)
+        && isSafeRelativePath(entry.path)
+        && (entry.kind === "file" || entry.kind === "directory")
+        && isSha256(entry.sha256)
+        && entry.installedBy === "orquestrador-maestro"
+        && typeof entry.installedAt === "string"
+        && typeof entry.target === "string" && entry.target.length > 0)) return false;
+    }
+    if ("managedFiles" in target && !target.managedFiles.every(isSafeRelativePath)) return false;
   }
   return true;
 }
@@ -39,8 +63,27 @@ function getStatePath(orquestradorDir) {
   return path.join(orquestradorDir, STATE_FILENAME);
 }
 
+function assertNoSymlinkAncestors(targetPath) {
+  let current = path.resolve(targetPath);
+  while (current && current !== path.dirname(current)) {
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) {
+        throw new Error("Refusing install-state path through a symlink directory");
+      }
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+    current = path.dirname(current);
+  }
+}
+
 function readState(orquestradorDir) {
   const statePath = getStatePath(orquestradorDir);
+  try {
+    assertNoSymlinkAncestors(path.dirname(statePath));
+  } catch {
+    return null;
+  }
   if (!fs.existsSync(statePath)) {
     return null;
   }
@@ -63,6 +106,7 @@ function readState(orquestradorDir) {
 function writeState(orquestradorDir, state) {
   const statePath = getStatePath(orquestradorDir);
   const dir = path.dirname(statePath);
+  assertNoSymlinkAncestors(dir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
@@ -93,7 +137,9 @@ function writeState(orquestradorDir, state) {
         const backupPath = statePath + ".corrupt." + Date.now();
         fs.copyFileSync(statePath, backupPath);
       }
-    } catch {}
+    } catch (err) {
+      throw new Error(`Refusing to replace corrupt install-state: ${err.message}`);
+    }
   }
 
   const payload = {
@@ -177,6 +223,7 @@ module.exports = {
   getDefaultState,
   getStatePath,
   validateState,
+  isSafeRelativePath,
   readState,
   writeState,
   getTargetState,

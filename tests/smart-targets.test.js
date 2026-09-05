@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const { execFileSync } = require("node:child_process");
 
 const {
   TOOL_DEFINITIONS,
@@ -42,6 +43,7 @@ const {
 } = require("../orquestrador/lib/install-state.js");
 
 const {
+  isValidScope,
   isObservationVisible,
   resolveObservationScope,
   rankObservations
@@ -53,6 +55,13 @@ function makeTempHome() {
 
 function cleanupTempHome(dir) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+}
+
+function runTargets(homePath, ...args) {
+  return execFileSync(process.execPath, [
+    path.join(__dirname, "..", "bin", "orquestrador-maestro.js"),
+    "targets", ...args, "--home-path", homePath
+  ], { encoding: "utf8", stdio: "pipe" });
 }
 
 describe("tool-registry", () => {
@@ -103,6 +112,21 @@ describe("tool-registry", () => {
     assert.ok(all.codex);
     assert.ok(all.claude);
     assert.ok(all.opencode);
+  });
+});
+
+describe("targets list JSON contract", () => {
+  it("wraps machine-readable output in a stable schema envelope", () => {
+    const home = makeTempHome();
+    try {
+      const output = runTargets(home, "list", "--json");
+      const parsed = JSON.parse(output);
+      assert.equal(parsed.schemaVersion, 1);
+      assert.ok(Array.isArray(parsed.targets));
+      assert.ok(parsed.targets.some(target => target.ToolId === "codex"));
+    } finally {
+      cleanupTempHome(home);
+    }
   });
 });
 
@@ -526,6 +550,15 @@ describe("install-state — validation", () => {
     const loaded = readState(orquestradorDir);
     assert.equal(loaded, null);
   });
+
+  it("rejects an install-state directory reached through a symlink", () => {
+    const realDir = path.join(tempHome, "real-state-dir");
+    fs.mkdirSync(realDir, { recursive: true });
+    const linkDir = path.join(tempHome, "linked-state-dir");
+    fs.symlinkSync(realDir, linkDir, "dir");
+    assert.equal(readState(linkDir), null);
+    assert.throws(() => writeState(linkDir, getDefaultState()), /symlink/i);
+  });
 });
 
 describe("install-state — atomicity", () => {
@@ -667,6 +700,17 @@ describe("install-state — writeState rejects symlink", () => {
     assert.throws(() => {
       writeState(orquestradorDir, getDefaultState());
     }, /symlink/);
+  });
+
+  it("throws when the state directory itself is a symlink", () => {
+    const outside = makeTempHome();
+    fs.rmSync(orquestradorDir, { recursive: true, force: true });
+    fs.symlinkSync(outside, orquestradorDir, "dir");
+    try {
+      assert.throws(() => writeState(orquestradorDir, getDefaultState()), /symlink/u);
+    } finally {
+      cleanupTempHome(outside);
+    }
   });
 });
 
@@ -884,6 +928,68 @@ describe("install-state — ownership persistence", () => {
     assert.deepEqual(loaded.targets.codex.managedFiles, [".codex/skills/orquestrador-maestro/SKILL.md"]);
     assert.deepEqual(loaded.targets.codex.managedDirectories, [".codex/skills/orquestrador-maestro"]);
   });
+
+  it("rejects unsafe ownership paths and accepts hashed managed entries", () => {
+    const unsafe = getDefaultState();
+    unsafe.targets.codex = { enabled: true, managedFiles: ["../outside"] };
+    assert.equal(validateState(unsafe), false);
+
+    const valid = getDefaultState();
+    valid.targets.codex = {
+      enabled: true,
+      managedEntries: [{
+        path: ".codex/skills/orquestrador-maestro/SKILL.md",
+        kind: "file",
+        sha256: "a".repeat(64),
+        installedBy: "orquestrador-maestro",
+        installedAt: new Date().toISOString(),
+        target: "codex"
+      }]
+    };
+    assert.equal(validateState(valid), true);
+  });
+});
+
+describe("targets ownership safety", () => {
+  let tempHome;
+
+  beforeEach(() => { tempHome = makeTempHome(); });
+  afterEach(() => { cleanupTempHome(tempHome); });
+
+  it("preserves a user-owned skill file and does not remove it later", () => {
+    const skillDir = path.join(tempHome, ".codex", "skills", "orquestrador-maestro");
+    fs.mkdirSync(skillDir, { recursive: true });
+    const skillPath = path.join(skillDir, "SKILL.md");
+    fs.writeFileSync(skillPath, "human-authored skill\n");
+
+    const result = runTargets(tempHome, "add", "codex", "--force");
+    assert.match(result, /preservedExisting|conflicts/u);
+    assert.equal(fs.readFileSync(skillPath, "utf8"), "human-authored skill\n");
+
+    runTargets(tempHome, "remove", "codex");
+    assert.equal(fs.readFileSync(skillPath, "utf8"), "human-authored skill\n");
+  });
+
+  it("preserves a Maestro file edited by the user during remove", () => {
+    runTargets(tempHome, "add", "codex", "--force");
+    const skillPath = path.join(tempHome, ".codex", "skills", "orquestrador-maestro", "SKILL.md");
+    fs.appendFileSync(skillPath, "user edit\n");
+
+    const result = runTargets(tempHome, "remove", "codex");
+    assert.match(result, /modifiedManagedFile/u);
+    assert.equal(fs.existsSync(skillPath), true);
+    assert.match(fs.readFileSync(skillPath, "utf8"), /user edit/u);
+  });
+
+  it("preserves an unrecognized marker", () => {
+    const configDir = path.join(tempHome, ".codex");
+    fs.mkdirSync(configDir, { recursive: true });
+    const marker = path.join(configDir, ".maestro-managed");
+    fs.writeFileSync(marker, "owned by another tool\n");
+
+    runTargets(tempHome, "add", "codex", "--force");
+    assert.equal(fs.readFileSync(marker, "utf8"), "owned by another tool\n");
+  });
 });
 
 describe("install-state — writeState atomicity", () => {
@@ -1083,6 +1189,23 @@ describe("visibility — isValidScope", () => {
 
   it("rejects scope with empty repositoryId", () => {
     assert.equal(isValidScope({ level: "repository", repositoryId: "" }), false);
+  });
+});
+
+describe("visibility — fail-closed scope resolution", () => {
+  it("does not widen a requested branch scope to repository", () => {
+    const scope = resolveObservationScope({
+      type: "decision",
+      gitContext: { repositoryId: "repo", branch: null, workspaceId: "ws", headCommit: "abc", detached: false },
+      fallbackRepositoryId: "repo"
+    });
+    assert.equal(scope, null);
+  });
+
+  it("rejects whitespace-only identifiers", () => {
+    assert.equal(isValidScope({ level: "repository", repositoryId: "   " }), false);
+    assert.equal(isValidScope({ level: "branch", repositoryId: "repo", branch: "  " }), false);
+    assert.equal(isValidScope({ level: "task", repositoryId: "repo", taskId: "\t" }), false);
   });
 });
 
