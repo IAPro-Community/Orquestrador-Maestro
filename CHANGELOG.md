@@ -4,6 +4,26 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.2.8 - 2026-09-08
+
+Esta release corrige a perda intermitente de registros durante gravações concorrentes no Windows.
+
+### O que mudou
+
+- Corrigida a aquisição do lock de memória para tratar corretamente `EPERM`/`EACCES` como contenção quando outro processo mantém o arquivo aberto no Windows.
+- Mantida a proteção contra permissões realmente inválidas: a espera continua limitada pelo timeout do lock e retorna erro se não houver progresso.
+- O worker do teste concorrente agora falha imediatamente quando uma gravação não é persistida, evitando mascarar uma execução como `99/100`.
+
+### Como verificar
+
+```bash
+node --test tests/e2e-isolation.test.js
+npm test
+npm run validate
+```
+
+O cenário de gravação concorrente foi executado isoladamente 30 vezes consecutivas após a correção, sem perda de registros.
+
 ## 0.2.7 - 2026-09-08
 
 Esta release torna a verificação de atualização explícita e evita diagnósticos ambíguos quando uma instalação local e o `latest` do npm estão em versões diferentes.

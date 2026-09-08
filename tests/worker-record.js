@@ -12,6 +12,7 @@ const count = parseInt(process.argv[6], 10);
 const memory = new Memory({ baseDir });
 
 let recorded = 0;
+let failed = 0;
 for (let i = 0; i < count; i++) {
   try {
     memory.record(projectId, {
@@ -20,9 +21,10 @@ for (let i = 0; i < count; i++) {
     });
     recorded++;
   } catch (err) {
+    failed++;
     process.stderr.write(`Worker ${workerId} error: ${err.message}\n`);
   }
 }
 
-process.stdout.write(JSON.stringify({ workerId, recorded }) + "\n");
-process.exit(0);
+process.stdout.write(JSON.stringify({ workerId, recorded, failed }) + "\n");
+process.exit(failed > 0 ? 1 : 0);

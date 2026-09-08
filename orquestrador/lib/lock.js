@@ -26,7 +26,14 @@ function acquireLock(lockPath) {
       fs.writeFileSync(lockPath, lockData, { flag: "wx", mode: 0o600 });
       return { ownerId };
     } catch (err) {
-      if (err.code === "EEXIST") {
+      // Windows may report a sharing violation as EPERM/EACCES and make
+      // existsSync(lockPath) return false while the competing lock is open.
+      const windowsContention = process.platform === "win32"
+        && (err.code === "EPERM" || err.code === "EACCES");
+      const lockExists = err.code === "EEXIST"
+        || windowsContention
+        || ((err.code === "EPERM" || err.code === "EACCES") && fs.existsSync(lockPath));
+      if (lockExists) {
         try {
           const content = fs.readFileSync(lockPath, "utf8").trim();
           const lock = JSON.parse(content);
