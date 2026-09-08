@@ -112,7 +112,7 @@ Uso:
   orquestrador-maestro list-targets [opcoes]
   orquestrador-maestro dry-run [opcoes]
   orquestrador-maestro telemetry [status|enable|disable|endpoint|test]
-  orquestrador-maestro version
+  orquestrador-maestro version [--check]
 
 Opcoes de install/update/uninstall:
   --home-path <path>          Instala em outro home para teste
@@ -153,12 +153,16 @@ Opcoes de check-dev-gates:
 Opcoes de changelog:
   --full                      Mostra o historico completo embutido no pacote
 
+Opcoes de version:
+  --check                     Compara a CLI instalada com o latest publicado no npm
+
 Exemplos:
   npm install -g @iapro/orquestrador-maestro-cli
   orquestrador-maestro install
   orquestrador-maestro verify
   orquestrador-maestro changelog
   orquestrador-maestro update
+  orquestrador-maestro version --check
   orquestrador-maestro doctor
   orquestrador-maestro init-dev --project-path .
   orquestrador-maestro compact-worklog --project-path . --keep 12
@@ -260,6 +264,50 @@ function runNpm(args, options = {}) {
   return spawnSync(getNpmCommand(), args, { ...options, shell: false });
 }
 
+function getLatestNpmVersion() {
+  const result = runNpm(["view", `${packageJson.name}@latest`, "version", "--json", "--prefer-online"], {
+    encoding: "utf8"
+  });
+
+  if (result.error || result.status !== 0) {
+    throw new Error("Não foi possível consultar a versão latest no npm.");
+  }
+
+  let version;
+  try {
+    version = JSON.parse(result.stdout.trim());
+  } catch {
+    version = result.stdout.trim().replace(/^['"]|['"]$/gu, "");
+  }
+
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/u.test(version)) {
+    throw new Error("O npm retornou uma versão inválida.");
+  }
+
+  return version;
+}
+
+function compareVersions(left, right) {
+  const leftParts = left.split(".").map(Number);
+  const rightParts = right.split(".").map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return leftParts[index] > rightParts[index] ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
+function readGlobalCliVersion(cliPath) {
+  const packagePath = path.join(path.dirname(path.dirname(cliPath)), "package.json");
+  try {
+    const installedPackage = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    return typeof installedPackage.version === "string" ? installedPackage.version : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveGlobalCliPath() {
   const result = runNpm(["root", "-g"], {
     encoding: "utf8",
@@ -299,6 +347,10 @@ function runCliUpdate(args) {
   }
 
   const cliPath = resolveGlobalCliPath();
+  const installedVersion = readGlobalCliVersion(cliPath);
+  if (installedVersion) {
+    console.log(`CLI npm instalada após a atualização: ${installedVersion}`);
+  }
   const childEnv = { ...process.env, ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE: "1" };
   return spawnSync(process.execPath, [cliPath, "update", ...args], {
     cwd: process.cwd(),
@@ -1244,6 +1296,37 @@ Fluxo recomendado para quem ja tem o Orquestrador instalado:
   return 0;
 }
 
+function handleVersionCommand(args) {
+  const normalized = normalizeArgs(args);
+  if (normalized.length === 0) {
+    console.log(packageJson.version);
+    return 0;
+  }
+  if (normalized.length !== 1 || normalized[0] !== "--check") {
+    throw new Error(`Parametro desconhecido: ${normalized.join(" ")}`);
+  }
+
+  let latestVersion;
+  try {
+    latestVersion = getLatestNpmVersion();
+  } catch (error) {
+    console.error(`Não foi possível verificar atualizações: ${error.message}`);
+    return 1;
+  }
+
+  console.log(`Versão instalada: ${packageJson.version}`);
+  console.log(`Versão latest no npm: ${latestVersion}`);
+  const comparison = compareVersions(packageJson.version, latestVersion);
+  if (comparison < 0) {
+    console.log(`Atualização disponível: npm install -g ${packageJson.name}@latest --force --prefer-online`);
+  } else if (comparison > 0) {
+    console.log("A instalação local é mais nova que o latest publicado no npm.");
+  } else {
+    console.log("A CLI já está atualizada.");
+  }
+  return 0;
+}
+
 async function handleGoCommand(args, planningOnly = false) {
   const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--interviewer", "--max-cost", "--max-parallel"], ["--auto", "--plan"]);
   const description = options.values.join(" ").trim();
@@ -1575,9 +1658,13 @@ async function dispatch(command, args) {
     return 0;
   }
 
-  if (command === "--version" || command === "-v" || command === "version") {
+  if (command === "--version" || command === "-v") {
     console.log(packageJson.version);
     return 0;
+  }
+
+  if (command === "version") {
+    return handleVersionCommand(args);
   }
 
   if (command === "install") {

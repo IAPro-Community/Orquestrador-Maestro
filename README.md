@@ -8,7 +8,7 @@ O Orquestrador Maestro organiza regras, contexto, skills, hooks, perfis de ferra
 
 [GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro) · [Pacote npm](https://www.npmjs.com/package/@iapro/orquestrador-maestro-cli) · [Changelog](CHANGELOG.md)
 
-> Revisão pública mais recente: `2026-09-08` (`0.2.6`).
+> Revisão pública mais recente: `2026-09-08` (`0.2.7`).
 
 ## Para quem este projeto é
 
@@ -466,7 +466,7 @@ orquestrador-maestro list-targets
 orquestrador-maestro dry-run
 orquestrador-maestro uninstall
 orquestrador-maestro telemetry [status|enable|disable|endpoint|test]
-orquestrador-maestro version
+orquestrador-maestro version [--check]
 ~~~
 
 Opções importantes de instalação e atualização:
@@ -502,6 +502,8 @@ orquestrador-maestro doctor
 ~~~
 
 O comando `update` atualiza a CLI global para `latest` antes de reaplicar os arquivos. Para atualizar somente o pacote npm, use `npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online`.
+
+Para conferir sem alterar arquivos se a CLI instalada está atrás do npm, use `orquestrador-maestro version --check`. O comando informa a versão local, o `latest` publicado e o comando de atualização quando houver diferença.
 
 Atualização a partir do clone:
 

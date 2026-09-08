@@ -111,6 +111,7 @@ orquestrador-maestro list-targets
 orquestrador-maestro dry-run
 orquestrador-maestro telemetry
 orquestrador-maestro version
+orquestrador-maestro version --check
 ```
 
 `install` e `update` chamam os instaladores oficiais do repositório:
@@ -138,6 +139,8 @@ orquestrador-maestro version
 
 - `orquestrador-maestro changelog`: mostra as entradas mais recentes;
 - `orquestrador-maestro changelog --full`: imprime o histórico completo incluído na release instalada.
+
+`orquestrador-maestro version --check` consulta o `latest` diretamente no npm e compara com a versão instalada. Se houver diferença, informa o comando exato para atualizar; se não houver, confirma que a CLI já está atualizada.
 
 ## Prévia Segura
 

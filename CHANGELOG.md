@@ -4,6 +4,45 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.2.7 - 2026-09-08
+
+Esta release torna a verificação de atualização explícita e evita diagnósticos ambíguos quando uma instalação local e o `latest` do npm estão em versões diferentes.
+
+### O que mudou
+
+- Adicionado `orquestrador-maestro version --check`, que consulta diretamente o `latest` publicado no npm e informa a versão instalada, a versão disponível e o comando de atualização quando necessário.
+- O comando `update` agora informa qual versão da CLI npm ficou instalada antes de reaplicar os arquivos no home do usuário.
+- Documentado o fluxo de diagnóstico para diferenciar cache/ambiente antigo de ausência real de uma nova versão.
+- Mantidas as correções de compatibilidade do Windows e a distribuição da `skill-premium-web-experience` introduzidas na `0.2.6`.
+
+### Como verificar e atualizar
+
+```bash
+orquestrador-maestro version --check
+orquestrador-maestro update
+orquestrador-maestro verify
+orquestrador-maestro doctor
+```
+
+Se o check informar que existe uma atualização, use:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online
+orquestrador-maestro version --check
+```
+
+Se o `latest` e a versão instalada forem iguais, a resposta `A CLI já está atualizada.` é o comportamento esperado.
+
+### Verificação da release
+
+- Testes direcionados de CLI e compatibilidade aprovados.
+- Consulta real ao registry validada com `version --check`.
+- Suíte completa aprovada: 653 testes executados, 643 aprovados, 10 ignorados e 0 falhas.
+- Validação pública e das skills aprovada, com 50 skills verificadas.
+- Smoke test do instalador aprovado.
+- `npm pack --dry-run` aprovado para o pacote `@iapro/orquestrador-maestro-cli@0.2.7`.
+- Auditoria de produção aprovada, sem vulnerabilidades reportadas.
+
 ## 0.2.6 - 2026-09-08
 
 Esta release adiciona uma camada completa para experiências web premium e corrige o fluxo de atualização da CLI no Windows.

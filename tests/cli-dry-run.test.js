@@ -60,3 +60,15 @@ test("Windows npm.cmd execution is routed through cmd.exe", () => {
   assert.match(cliSource, /"\/d", "\/s", "\/c", getNpmCommand\(\)/u);
   assert.match(cliSource, /return spawnSync\(getNpmCommand\(\), args, \{ \...options, shell: false \}\)/u);
 });
+
+test("version --check exposes the installed and published npm versions", () => {
+  const result = spawnSync(process.execPath, [cliPath, "version", "--check"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 30000
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+/u);
+  assert.match(result.stdout, /Versão latest no npm: \d+\.\d+\.\d+/u);
+});
