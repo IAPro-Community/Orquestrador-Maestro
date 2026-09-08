@@ -50,6 +50,7 @@ Then open only the selected `SKILL.md` files and their directly referenced files
 | Frontend UX guardrails | `/skill:skill-frontend-ux-guardrails` |
 | Modern SaaS UI patterns | `/skill:skill-modern-ui-patterns` |
 | Open-design UI workflow | `/skill:skill-open-design-ui` |
+| Premium web experience strategy and orchestration | `/skill:skill-premium-web-experience` |
 | Conversational Impeccable frontend routing | `/skill:skill-impeccable` |
 | Diff and change scope control | `/skill:skill-scope-control` |
 | Claims and source verification | `/skill:skill-doublecheck` |

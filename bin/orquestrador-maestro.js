@@ -250,10 +250,19 @@ function getNpmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
+function runNpm(args, options = {}) {
+  if (process.platform === "win32") {
+    return spawnSync(process.env.ComSpec || "cmd.exe", [
+      "/d", "/s", "/c", getNpmCommand(), ...args
+    ], { ...options, shell: false });
+  }
+
+  return spawnSync(getNpmCommand(), args, { ...options, shell: false });
+}
+
 function resolveGlobalCliPath() {
-  const result = spawnSync(getNpmCommand(), ["root", "-g"], {
+  const result = runNpm(["root", "-g"], {
     encoding: "utf8",
-    shell: false
   });
 
   if (result.error || result.status !== 0) {
@@ -278,9 +287,9 @@ function runCliUpdate(args) {
   }
 
   console.log(`Atualizando a CLI npm para ${packageJson.name}@latest...`);
-  const result = spawnSync(getNpmCommand(), [
+  const result = runNpm([
     "install", "-g", `${packageJson.name}@latest`, "--force", "--prefer-online"
-  ], { stdio: "inherit", shell: false });
+  ], { stdio: "inherit" });
 
   if (result.error) {
     throw result.error;

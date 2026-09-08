@@ -3,7 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 $package = "@iapro/orquestrador-maestro-cli"
-$packageVersion = "0.2.5"
+$packageVersion = "0.2.6"
 $bootstrapVersion = "2026.09.08.1"
 Write-Host "Orquestrador Maestro bootstrap $bootstrapVersion"
 

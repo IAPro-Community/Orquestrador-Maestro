@@ -259,7 +259,7 @@
       "safety": "consent-rate-limits-and-idempotency"
     },
     "skill-frontend-ux-guardrails": {
-      "description": "Frontend UX quality gates for responsive layouts, overflow, accessibility, and dashboard ergonomics.",
+      "description": "Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.",
       "triggers": [
         "ux guardrails",
         "frontend polish",
@@ -271,7 +271,11 @@
         "layout quebrado",
         "dashboard ux",
         "accessibility",
-        "a11y"
+        "a11y",
+        "responsividade",
+        "corrigir responsividade",
+        "foco de teclado",
+        "touch targets"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-frontend-ux-guardrails/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-frontend-ux-guardrails/SKILL.md",
@@ -279,7 +283,7 @@
       "safety": "visual-regression-and-usability"
     },
     "skill-modern-ui-patterns": {
-      "description": "Modern SaaS UI composition, compact admin surfaces, component behavior, and polished interaction states.",
+      "description": "Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency.",
       "triggers": [
         "modern ui",
         "ui patterns",
@@ -290,7 +294,17 @@
         "design system",
         "saas ui",
         "admin ui",
-        "layout moderno"
+        "layout moderno",
+        "formulário",
+        "formulario",
+        "criar formulário",
+        "criar formulario",
+        "tabela",
+        "tabelas",
+        "melhorar tabela",
+        "empty state",
+        "loading state",
+        "error state"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-modern-ui-patterns/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-modern-ui-patterns/SKILL.md",
@@ -298,7 +312,7 @@
       "safety": "consistent-product-ui"
     },
     "skill-open-design-ui": {
-      "description": "Open-design UI workflow for product screens, design tokens, components, and visual QA.",
+      "description": "Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear.",
       "triggers": [
         "open design",
         "design tokens",
@@ -309,12 +323,55 @@
         "design ui",
         "visual qa",
         "component library",
-        "brand ui"
+        "brand ui",
+        "visual system",
+        "art direction"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-open-design-ui/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-open-design-ui/SKILL.md",
       "cost": "low",
       "safety": "design-consistency"
+    },
+    "skill-premium-web-experience": {
+      "description": "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA.",
+      "triggers": [
+        "premium website",
+        "site premium",
+        "landing page premium",
+        "website redesign",
+        "redesign de site",
+        "redesign website",
+        "redesign premium",
+        "site sofisticado",
+        "site cinematográfico",
+        "site cinematografico",
+        "site moderno",
+        "experiência web",
+        "experiencia web",
+        "web experience",
+        "scroll storytelling",
+        "scroll experience",
+        "parallax website",
+        "site com parallax",
+        "interactive website",
+        "interactive landing page",
+        "award winning website",
+        "site premiado",
+        "sites premiados",
+        "site com animações",
+        "site com animacoes",
+        "site de alta conversão",
+        "site de alta conversao",
+        "landing page sofisticada",
+        "storytelling no scroll",
+        "cinematic landing page",
+        "scroll-driven website",
+        "website feel premium"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-premium-web-experience/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-premium-web-experience/SKILL.md",
+      "cost": "low",
+      "safety": "experience-strategy-and-frontend-quality"
     },
     "skill-live-processing": {
       "description": "Live media processing pipeline with capture, queueing, worker state, retries, and observability.",
@@ -693,7 +750,7 @@
       "safety": "task-specific-guardrails"
     },
     "skill-impeccable": {
-      "description": "Orquestra melhorias de frontend inspiradas no Impeccable a partir de pedidos conversacionais de design, UX, acessibilidade, responsividade, tipografia, layout, cor, motion, clareza, hardening e polish.",
+      "description": "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills.",
       "triggers": [
         "impeccable",
         "melhorar a interface",

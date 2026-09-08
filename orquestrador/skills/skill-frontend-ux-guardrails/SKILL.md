@@ -1,6 +1,6 @@
 ---
 name: skill-frontend-ux-guardrails
-description: Apply frontend UX quality gates for SaaS dashboards, product screens, modals, tables, forms, responsive layouts, overflow fixes, accessibility, visual validation, spelling, and reduction of UI rework.
+description: Use as a frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.
 category: frontend
 risk: medium
 source: local-product-ux-guardrails
@@ -8,61 +8,61 @@ source: local-product-ux-guardrails
 
 # Skill Frontend UX Guardrails
 
-Use this skill to harden visible product UI before delivery. Treat it as a quality gate for responsive behavior, readability, visual integrity, and interaction states.
+Run this skill near the end of a frontend change, especially after a complex marketing experience, redesign, or interaction pass. It is a quality gate, not a replacement for experience strategy, visual direction, component implementation, or browser automation.
 
-## Impeccable Design Pass
+## Gate Order
 
-Use the [Impeccable](https://impeccable.style/) vocabulary when the interface needs more than a bug fix:
-
-- Establish context before changing visuals: audience, product versus brand surface, voice, visual direction, and anti-references. If the repository uses them, read `PRODUCT.md` and `DESIGN.md`.
-- Route by symptom: `typeset` for typography, `layout` for rhythm and space, `colorize` for palette and contrast, `animate` for purposeful motion, `clarify` for copy, and `adapt` for responsive behavior.
-- Run the pre-ship loop on a narrow target: `audit` for accessibility, performance, theming, responsive quality, and anti-patterns; `clarify` for confusing copy; `harden` for edge cases, internationalization, errors, and overflow.
-- Check for generated-UI tells: generic gradients, gratuitous glassmorphism or glow, side-accent cards, card nesting, flat type hierarchy, one-font-everywhere, giant icon tiles, redundant helper copy, and modal abuse. Keep an intentional pattern only with a product rationale.
-- When available, run `npx impeccable detect <target>` as an additional deterministic signal. It complements, but does not replace, browser QA and accessibility checks.
+1. Inspect the real rendered surface, routes, components, tokens, breakpoints, states, and test expectations.
+2. State the primary user task and record P0/P1 issues before polish.
+3. Fix layout stability and comprehension before visual refinement.
+4. Validate desktop, laptop, tablet, and mobile behavior, including long realistic content.
+5. Check keyboard, focus, labels, contrast, touch targets, reduced motion, and non-pointer use.
+6. Run the lightest meaningful lint, typecheck, build, targeted test, browser, or screenshot gate available.
+7. Report tested viewports, corrected issues, and residual risk.
 
 ## Quality Rubric
 
-Score the target from 0 to 4 for hierarchy, contrast, responsiveness, accessibility, performance, and visual distinctiveness. Record P0/P1 issues before polish; defer P2/P3 refinements when they do not affect the primary task.
+Score the target from 0 to 4 for hierarchy, contrast, responsiveness, accessibility, performance, interaction usability, and visual integrity. Resolve P0/P1 findings before delivery. Defer P2/P3 refinements only when they do not affect the requested task or the primary user path.
 
-## Workflow
+## Responsive And Layout
 
-1. Inspect the existing product surface first: routes, components, design tokens, layout primitives, and current breakpoints.
-2. Define the primary user task for the screen. Remove or demote UI that does not help that task.
-3. Start with constrained viewports: `320x568`, `390x844`, `768x1024`, `1024x768`, and `1440x900`.
-4. Fix layout stability before polish: overflow, wrapping, spacing, sticky areas, table width, modal height, and action placement.
-5. Validate all user-visible states touched by the change: loading, empty, error, disabled, success, pending, selected, hover, focus, and destructive confirmation.
-6. Check copy and encoding. Preserve correct accents, product terms, punctuation, and casing. Do not leave mojibake, replacement characters, or broken ASCII fallbacks.
-7. Run the lightest meaningful verification: lint/typecheck/build when available, plus browser or screenshot checks for visible UI changes.
+- Verify `320x568`, `390x844`, `768x1024`, `1024x768`, and `1440x900` or a representative desktop width.
+- At `320px`, check button wrapping, text clipping, tables, dialogs, sticky areas, and bottom bars.
+- At tablet widths, check sidebars, drawers, charts, grids, and action collisions.
+- At desktop widths, prevent unreadable line lengths, sparse accidental grids, and stretched media.
+- Test long names, emails, plan labels, currencies, percentages, error messages, and localized values.
+- Check page-level overflow, duplicate scrollbars, wrapping, sticky offsets, z-index collisions, layout shift, and safe areas.
+- Do not require horizontal scrolling for core comprehension. If a table must scroll, keep its context, labels, and actions usable.
 
-## SaaS Dashboard Guardrails
+## Accessibility And Interaction
 
-- Keep dashboards scannable: one clear header, one primary action, grouped filters, aligned metrics, and predictable table/chart placement.
-- Prefer dense but readable operational layouts over marketing hero sections inside app surfaces.
-- Use stable dimensions for metric cards, charts, tables, sidebars, toolbars, and status chips so content changes do not shift the layout.
-- Make filters explicit and recoverable: show active filters, empty results, reset actions, and persisted query state when the product already supports it.
-- Do not hide critical actions only behind hover on touch layouts.
-- Do not require horizontal scrolling for core comprehension. If a data table must scroll, keep labels, actions, and context visible.
+- Require semantic HTML, logical keyboard order, visible focus states, accessible names, sufficient contrast, readable text, and usable touch targets.
+- Verify loading, empty, no-results, error, disabled, success, pending, selected, validation, and destructive-confirmation states where relevant.
+- Do not hide critical actions only on hover or require color, animation, or pointer input to understand content.
+- Include and test `@media (prefers-reduced-motion: reduce)`; simplify or disable non-essential motion without losing meaning.
+- Confirm forms preserve user input after errors and that dialogs, menus, popovers, and table actions are dismissible and keyboard-accessible.
 
-## Responsive Checks
+## Visual Integrity
 
-- At `320px`, verify buttons wrap or compress without text clipping, tables degrade intentionally, and modals fit within the viewport.
-- At tablet widths, verify sidebars, drawers, and charts do not leave unusable gutters or overlapping controls.
-- At desktop widths, verify content does not stretch into unreadable line lengths or sparse card grids.
-- Test long realistic values: customer names, emails, plan names, currency, percentages, error messages, and localized labels.
-- Confirm safe areas for sticky headers, bottom bars, drawers, popovers, and toasts.
+Inspect screenshots or browser snapshots when changing layout, typography, navigation, charts, modals, sticky behavior, or motion. Check hierarchy, line breaks, clipping, overlap, blank canvases, invisible text, icon alignment, contrast, layout shift, and animation glitches. Compare before/after for redesigns or visual cleanup.
 
-## Visual Validation
+## Generated-UI Smells
 
-- Use browser snapshots or screenshots when changing layout, typography, charting, navigation, or modal behavior.
-- Compare before and after if the change is a redesign or visual cleanup.
-- Check for blank canvases, invisible text, clipped icons, duplicate scrollbars, overlapping overlays, and low-contrast disabled states.
-- Verify keyboard focus order and visible focus styles for forms, menus, dialogs, and table actions.
-- Report the viewports tested and any residual visual risk.
+Flag generic gradients, gratuitous glassmorphism or glow, side-accent cards, nested cards, flat hierarchy, one-font-everywhere treatment, giant icon tiles, redundant helper copy, and modal abuse. Keep an intentional pattern only when the product, content, or experience strategy explains it. Use `skill-open-design-ui` for visual-system changes and `skill-impeccable` for focused polish; do not expand a layout fix into an unrequested redesign.
 
-## Done Criteria
+## Completion Criteria
 
 - No unintended page-level horizontal overflow.
-- Mobile and desktop layouts are intentionally designed.
-- User actions and system states are clear.
-- Text is spelled correctly and UTF-8 safe.
-- Existing routes, form behavior, and analytics are preserved unless the task explicitly changes them.
+- Desktop and mobile are intentionally designed and stable.
+- Primary actions, system states, and recovery paths are clear.
+- Focus, contrast, touch, reduced motion, spelling, accents, and UTF-8 are safe.
+- Existing routes, forms, analytics, and behavior are preserved unless explicitly changed.
+- The rendered result, not only the source or build, was verified.
+
+## Related Skills
+
+- `skill-premium-web-experience` — final gate for complex premium web experiences.
+- `skill-open-design-ui` — visual direction, tokens, and visual QA.
+- `skill-modern-ui-patterns` — components and interaction states.
+- `skill-impeccable` — bounded critique and polish.
+- `skill-webapp-testing` — E2E or visual regression when a flow changes.

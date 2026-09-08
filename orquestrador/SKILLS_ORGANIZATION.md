@@ -60,6 +60,24 @@ Agents should treat `SKILLS_ROUTER.json` as the automatic invocation layer:
 9. Append a usage log entry when the tool supports it.
 10. Run `doctor.ps1` after global skill or hook changes.
 
+## Premium Web Composition
+
+`skill-premium-web-experience` is the top-level experience strategy and coordination layer for premium web surfaces:
+
+```text
+skill-premium-web-experience
+        |
+        +-- skill-open-design-ui           visual system, tokens, visual QA
+        +-- skill-modern-ui-patterns       components, states, interaction details
+        +-- skill-frontend-ux-guardrails   final UX/accessibility/responsive gate
+        +-- skill-impeccable                focused critique and polish
+        +-- skill-browser-agent            public reference research and validation
+        +-- skill-multiagent-orchestration  independent lanes only when justified
+        +-- skill-saas-factory               larger SaaS context when applicable
+```
+
+The premium skill owns business discovery, narrative, visual direction, scroll-story decisions, motion strategy, conversion structure and final coordination. Downstream skills keep their specialized responsibilities and must not replace that experience brief. `scroll-experience` is an optional capability: use it only when installed and exposed by the environment; it is not registered as a duplicate in this catalog. Without it, implement progressively enhanced scroll behavior with a clear static reading path.
+
 ## Current External Baselines
 
 Refresh security and SaaS skills against primary sources:

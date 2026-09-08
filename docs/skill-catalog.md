@@ -56,7 +56,7 @@ Se a skill deve ser usada junto com outras, atualize `orquestrador/SKILL_CHAINS.
 
 Fonte principal editável. O sync copia essas skills para os espelhos compatíveis.
 
-Total: 25
+Total: 26
 
 | Skill | Categoria | Risco | O que faz |
 |---|---|---|---|
@@ -66,14 +66,15 @@ Total: 25
 | `skill-ai-orchestration` | ai | medium | Use for server-side AI orchestration in SaaS products, including OpenAI, Gemini, Claude, ElevenLabs, streaming, transcription, structured extraction, prompt contracts, token budgets, model routing, queues, retries, observability, consent, validation, and safe API key handling. |
 | `skill-elevenlabs-voice-cloning` | ai | high | Use for ElevenLabs voice generation and voice cloning integrations, including Brazilian Portuguese TTS, explicit voice consent, server-side API keys, secure audio uploads, asynchronous jobs, validation, retryable synthesis, and safe handling of biometric voice data. |
 | `skill-evolution-api` | communication | medium | Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery. |
-| `skill-frontend-ux-guardrails` | frontend | medium | Apply frontend UX quality gates for SaaS dashboards, product screens, modals, tables, forms, responsive layouts, overflow fixes, accessibility, visual validation, spelling, and reduction of UI rework. |
+| `skill-frontend-ux-guardrails` | frontend | medium | Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation. |
 | `skill-google-workspace-sync` | integrations | high | Use for Google Workspace integrations with OAuth, Calendar, Meet, FreeBusy, Drive, Sheets, webhooks, least-privilege scopes, encrypted refresh tokens, idempotent writes, reconciliation jobs, consent revocation, validation, and sync audit trails. |
 | `skill-lgpd-brasil` | compliance | high | Use for Brazilian LGPD privacy and data-governance work, including data maps, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfers. |
 | `skill-live-processing` | media | medium | Use for live stream and VOD ingestion pipelines, including YouTube, Twitch, uploads, capture jobs, queues, transcription, clip generation, media storage, retries, idempotent workers, consent, validation, observability, and safe server-side provider credentials. |
 | `skill-manual-video-processing` | media | medium | Use for manual video or audio uploads in SaaS apps, including upload UX, direct storage, validation, malware checks, quota enforcement, asynchronous processing jobs, transcription, clip extraction, review flows, signed URLs, consent, and secure media access. |
-| `skill-modern-ui-patterns` | frontend | low | Use for professional SaaS UI implementation and refinement in React, TypeScript, Tailwind, dashboards, admin panels, tables, forms, settings, billing, onboarding, responsive layouts, component states, and design-system consistency. |
+| `skill-modern-ui-patterns` | frontend | low | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
 | `skill-multiagent-orchestration` | orchestration | medium | Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency. |
-| `skill-open-design-ui` | frontend | low | Apply open-design product UI workflow for premium visual redesigns, dashboards, landing pages, design tokens, component libraries, responsive product screens, visual QA, anti-generic styling, and professional frontend delivery. |
+| `skill-open-design-ui` | frontend | low | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
+| `skill-premium-web-experience` | frontend | low | Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA. |
 | `skill-saas-admin-dashboard` | frontend | low | Build or improve SaaS admin dashboards, internal admin panels, user/customer screens, tenant/workspace screens, plan/payment/log views, sidebar layouts, metrics, filters, tables, support tools, and onboarding administration. |
 | `skill-saas-core-limits` | saas | medium | Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes. |
 | `skill-saas-dast-recon` | security | high | Run defensive, explicitly authorized SaaS DAST and recon with scope controls. Use when asked to scan an owned local, staging, preview, or approved production URL, API endpoint, SaaS app, tenant boundary, public web surface, auth flow, exposed files, headers, TLS, or OWASP Top 10 behavior using tools such as ZAP, Nuclei, Katana, httpx, and Subfinder. |
@@ -90,7 +91,7 @@ Total: 25
 
 Skills instaladas no diretório ativo do Codex. Inclui workflows OMX/Codex e espelho das skills canônicas.
 
-Total: 48
+Total: 49
 
 | Skill | Categoria | Risco | O que faz |
 |---|---|---|---|
@@ -118,14 +119,15 @@ Total: 48
 | `skill-ai-orchestration` | ai | medium | Use for server-side AI orchestration in SaaS products, including OpenAI, Gemini, Claude, ElevenLabs, streaming, transcription, structured extraction, prompt contracts, token budgets, model routing, queues, retries, observability, consent, validation, and safe API key handling. |
 | `skill-elevenlabs-voice-cloning` | ai | high | Use for ElevenLabs voice generation and voice cloning integrations, including Brazilian Portuguese TTS, explicit voice consent, server-side API keys, secure audio uploads, asynchronous jobs, validation, retryable synthesis, and safe handling of biometric voice data. |
 | `skill-evolution-api` | communication | medium | Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery. |
-| `skill-frontend-ux-guardrails` | frontend | medium | Apply frontend UX quality gates for SaaS dashboards, product screens, modals, tables, forms, responsive layouts, overflow fixes, accessibility, visual validation, spelling, and reduction of UI rework. |
+| `skill-frontend-ux-guardrails` | frontend | medium | Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation. |
 | `skill-google-workspace-sync` | integrations | high | Use for Google Workspace integrations with OAuth, Calendar, Meet, FreeBusy, Drive, Sheets, webhooks, least-privilege scopes, encrypted refresh tokens, idempotent writes, reconciliation jobs, consent revocation, validation, and sync audit trails. |
 | `skill-lgpd-brasil` | compliance | high | Use for Brazilian LGPD privacy and data-governance work, including data maps, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfers. |
 | `skill-live-processing` | media | medium | Use for live stream and VOD ingestion pipelines, including YouTube, Twitch, uploads, capture jobs, queues, transcription, clip generation, media storage, retries, idempotent workers, consent, validation, observability, and safe server-side provider credentials. |
 | `skill-manual-video-processing` | media | medium | Use for manual video or audio uploads in SaaS apps, including upload UX, direct storage, validation, malware checks, quota enforcement, asynchronous processing jobs, transcription, clip extraction, review flows, signed URLs, consent, and secure media access. |
-| `skill-modern-ui-patterns` | frontend | low | Use for professional SaaS UI implementation and refinement in React, TypeScript, Tailwind, dashboards, admin panels, tables, forms, settings, billing, onboarding, responsive layouts, component states, and design-system consistency. |
+| `skill-modern-ui-patterns` | frontend | low | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
 | `skill-multiagent-orchestration` | orchestration | medium | Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency. |
-| `skill-open-design-ui` | frontend | low | Apply open-design product UI workflow for premium visual redesigns, dashboards, landing pages, design tokens, component libraries, responsive product screens, visual QA, anti-generic styling, and professional frontend delivery. |
+| `skill-open-design-ui` | frontend | low | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
+| `skill-premium-web-experience` | frontend | low | Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA. |
 | `skill-saas-admin-dashboard` | frontend | low | Build or improve SaaS admin dashboards, internal admin panels, user/customer screens, tenant/workspace screens, plan/payment/log views, sidebar layouts, metrics, filters, tables, support tools, and onboarding administration. |
 | `skill-saas-core-limits` | saas | medium | Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes. |
 | `skill-saas-dast-recon` | security | high | Run defensive, explicitly authorized SaaS DAST and recon with scope controls. Use when asked to scan an owned local, staging, preview, or approved production URL, API endpoint, SaaS app, tenant boundary, public web surface, auth flow, exposed files, headers, TLS, or OWASP Top 10 behavior using tools such as ZAP, Nuclei, Katana, httpx, and Subfinder. |
@@ -147,7 +149,7 @@ Total: 48
 
 Biblioteca ampla de skills reutilizáveis copiada para raízes compatíveis quando a instalação completa é usada.
 
-Total: 610
+Total: 611
 
 | Skill | Categoria | Risco | O que faz |
 |---|---|---|---|
@@ -641,14 +643,15 @@ Total: 610
 | `skill-developer` | - | - | Create and manage Codex skills following Anthropic best practices. Use when creating new skills, modifying skill-rules.json, understanding trigger patterns, working with hooks, debugging skill activation, or implementing progressive disclosure. Covers skill structure, YAML frontmatter, trigger types (keywords, intent patterns, file paths, content patterns), enforcement levels (block, suggest, warn), hook mechanisms (UserPromptSubmit, PreToolUse), session tracking, and the 500-line rule. |
 | `skill-elevenlabs-voice-cloning` | ai | high | Use for ElevenLabs voice generation and voice cloning integrations, including Brazilian Portuguese TTS, explicit voice consent, server-side API keys, secure audio uploads, asynchronous jobs, validation, retryable synthesis, and safe handling of biometric voice data. |
 | `skill-evolution-api` | communication | medium | Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery. |
-| `skill-frontend-ux-guardrails` | frontend | medium | Apply frontend UX quality gates for SaaS dashboards, product screens, modals, tables, forms, responsive layouts, overflow fixes, accessibility, visual validation, spelling, and reduction of UI rework. |
+| `skill-frontend-ux-guardrails` | frontend | medium | Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation. |
 | `skill-google-workspace-sync` | integrations | high | Use for Google Workspace integrations with OAuth, Calendar, Meet, FreeBusy, Drive, Sheets, webhooks, least-privilege scopes, encrypted refresh tokens, idempotent writes, reconciliation jobs, consent revocation, validation, and sync audit trails. |
 | `skill-lgpd-brasil` | compliance | high | Use for Brazilian LGPD privacy and data-governance work, including data maps, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfers. |
 | `skill-live-processing` | media | medium | Use for live stream and VOD ingestion pipelines, including YouTube, Twitch, uploads, capture jobs, queues, transcription, clip generation, media storage, retries, idempotent workers, consent, validation, observability, and safe server-side provider credentials. |
 | `skill-manual-video-processing` | media | medium | Use for manual video or audio uploads in SaaS apps, including upload UX, direct storage, validation, malware checks, quota enforcement, asynchronous processing jobs, transcription, clip extraction, review flows, signed URLs, consent, and secure media access. |
-| `skill-modern-ui-patterns` | frontend | low | Use for professional SaaS UI implementation and refinement in React, TypeScript, Tailwind, dashboards, admin panels, tables, forms, settings, billing, onboarding, responsive layouts, component states, and design-system consistency. |
+| `skill-modern-ui-patterns` | frontend | low | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
 | `skill-multiagent-orchestration` | orchestration | medium | Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency. |
-| `skill-open-design-ui` | frontend | low | Apply open-design product UI workflow for premium visual redesigns, dashboards, landing pages, design tokens, component libraries, responsive product screens, visual QA, anti-generic styling, and professional frontend delivery. |
+| `skill-open-design-ui` | frontend | low | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
+| `skill-premium-web-experience` | frontend | low | Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA. |
 | `skill-rails-upgrade` | - | safe | Analyze Rails apps and provide upgrade assessments |
 | `skill-saas-admin-dashboard` | frontend | low | Build or improve SaaS admin dashboards, internal admin panels, user/customer screens, tenant/workspace screens, plan/payment/log views, sidebar layouts, metrics, filters, tables, support tools, and onboarding administration. |
 | `skill-saas-core-limits` | saas | medium | Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes. |

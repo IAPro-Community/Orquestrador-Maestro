@@ -48,6 +48,11 @@ class IntentRouter {
     return this._profiles;
   }
 
+  _phraseMatches(text, phrase) {
+    const escaped = phrase.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
+  }
+
   /**
    * Resolve uma descrição de alto nível para uma lista de skills relevantes.
    *
@@ -60,7 +65,7 @@ class IntentRouter {
 
     // 1. Alias matching (exact phrases)
     for (const [alias, skillId] of Object.entries(this.aliases)) {
-      if (lowerDesc.includes(alias.toLowerCase())) {
+      if (this._phraseMatches(lowerDesc, alias)) {
         const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
         current.score += 3; // Aliases get high weight
         current.sources.push(`alias:"${alias}"`);
@@ -71,7 +76,7 @@ class IntentRouter {
     // 2. Router trigger matching (keyword phrases)
     for (const [skillId, skill] of Object.entries(this.router.skills || {})) {
       for (const trigger of skill.triggers || []) {
-        if (lowerDesc.includes(trigger.toLowerCase())) {
+        if (this._phraseMatches(lowerDesc, trigger)) {
           const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
           current.score += 2;
           current.sources.push(`trigger:"${trigger}"`);

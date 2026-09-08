@@ -132,6 +132,24 @@
         "skill-modern-ui-patterns"
       ]
     },
+    "skill-premium-web-experience": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-open-design-ui",
+        "skill-modern-ui-patterns",
+        "skill-frontend-ux-guardrails",
+        "skill-impeccable",
+        "skill-browser-agent",
+        "skill-multiagent-orchestration",
+        "skill-saas-factory"
+      ],
+      "rules": [
+        "Use this as the experience strategy and coordination layer; keep downstream skills focused on their specialty.",
+        "Use browser research only when public references or page validation add evidence.",
+        "Use scroll-experience only when that specialized capability is installed; otherwise keep scroll effects progressively enhanced and understandable without them.",
+        "Use multiagent orchestration only for independent lanes and centralize integration and final QA."
+      ]
+    },
     "skill-impeccable": {
       "loadFirst": true,
       "mayInvoke": [

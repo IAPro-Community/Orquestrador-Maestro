@@ -382,7 +382,7 @@
       "status": "canonical"
     },
     "skill-frontend-ux-guardrails": {
-      "description": "Frontend UX quality gates for responsive layouts, overflow, accessibility, and dashboard ergonomics.",
+      "description": "Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.",
       "category": "frontend",
       "risk": "medium",
       "source": "local-frontend-patterns",
@@ -395,7 +395,11 @@
         "layout quebrado",
         "dashboard ux",
         "accessibility",
-        "a11y"
+        "a11y",
+        "responsividade",
+        "corrigir responsividade",
+        "foco de teclado",
+        "touch targets"
       ],
       "aliases": [
         "ux",
@@ -405,7 +409,7 @@
       "status": "canonical"
     },
     "skill-modern-ui-patterns": {
-      "description": "Modern SaaS UI composition, compact admin surfaces, component behavior, and polished interaction states.",
+      "description": "Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency.",
       "category": "frontend",
       "risk": "low",
       "source": "local-frontend-patterns",
@@ -417,7 +421,17 @@
         "design system",
         "saas ui",
         "admin ui",
-        "layout moderno"
+        "layout moderno",
+        "formulário",
+        "formulario",
+        "criar formulário",
+        "criar formulario",
+        "tabela",
+        "tabelas",
+        "melhorar tabela",
+        "empty state",
+        "loading state",
+        "error state"
       ],
       "aliases": [
         "ui moderna",
@@ -426,7 +440,7 @@
       "status": "canonical"
     },
     "skill-open-design-ui": {
-      "description": "Open-design UI workflow for product screens, design tokens, components, and visual QA.",
+      "description": "Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear.",
       "category": "frontend",
       "risk": "low",
       "source": "local-frontend-patterns",
@@ -437,11 +451,65 @@
         "design ui",
         "visual qa",
         "component library",
-        "brand ui"
+        "brand ui",
+        "visual system",
+        "art direction"
       ],
       "aliases": [
         "open design",
         "visual qa"
+      ],
+      "status": "canonical"
+    },
+    "skill-premium-web-experience": {
+      "description": "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA.",
+      "category": "frontend",
+      "risk": "low",
+      "source": "local-frontend-patterns",
+      "mirrorEverywhere": true,
+      "triggers": [
+        "premium website",
+        "site premium",
+        "landing page premium",
+        "website redesign",
+        "redesign de site",
+        "redesign website",
+        "redesign premium",
+        "site sofisticado",
+        "site cinematográfico",
+        "site cinematografico",
+        "site moderno",
+        "experiência web",
+        "experiencia web",
+        "web experience",
+        "scroll storytelling",
+        "scroll experience",
+        "parallax website",
+        "site com parallax",
+        "interactive website",
+        "interactive landing page",
+        "award winning website",
+        "site premiado",
+        "sites premiados",
+        "site com animações",
+        "site com animacoes",
+        "site de alta conversão",
+        "site de alta conversao",
+        "landing page sofisticada",
+        "storytelling no scroll",
+        "cinematic landing page",
+        "scroll-driven website",
+        "website feel premium"
+      ],
+      "aliases": [
+        "site premium",
+        "premium website",
+        "landing premium",
+        "web experience",
+        "scroll experience",
+        "site cinematográfico",
+        "site cinematografico",
+        "parallax"
       ],
       "status": "canonical"
     },
@@ -1004,7 +1072,7 @@
       "status": "canonical"
     },
     "skill-impeccable": {
-      "description": "Orquestra melhorias de frontend inspiradas no Impeccable a partir de pedidos conversacionais de design, UX, acessibilidade, responsividade, tipografia, layout, cor, motion, clareza, hardening e polish.",
+      "description": "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills.",
       "category": "frontend",
       "risk": "medium",
       "source": "https://github.com/pbakaus/impeccable",

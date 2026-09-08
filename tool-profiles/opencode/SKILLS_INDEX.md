@@ -46,6 +46,7 @@ Open only the relevant skill files after routing.
 | Frontend UX guardrails | `/skill:skill-frontend-ux-guardrails` |
 | Modern SaaS UI patterns | `/skill:skill-modern-ui-patterns` |
 | Open-design UI workflow | `/skill:skill-open-design-ui` |
+| Premium web experience strategy and orchestration | `/skill:skill-premium-web-experience` |
 | Live media processing | `/skill:skill-live-processing` |
 | Manual video processing | `/skill:skill-manual-video-processing` |
 | Smart clip detection | `/skill:skill-smart-clip-detection` |

@@ -52,3 +52,11 @@ test("update dry-run does not update the global npm CLI", () => {
   assert.equal(fs.existsSync(path.join(homePath, ".orquestrador")), false);
   assert.equal(fs.existsSync(path.join(homePath, "AGENTS.md")), false);
 });
+
+test("Windows npm.cmd execution is routed through cmd.exe", () => {
+  const cliSource = fs.readFileSync(cliPath, "utf8");
+
+  assert.match(cliSource, /process\.env\.ComSpec \|\| "cmd\.exe"/u);
+  assert.match(cliSource, /"\/d", "\/s", "\/c", getNpmCommand\(\)/u);
+  assert.match(cliSource, /return spawnSync\(getNpmCommand\(\), args, \{ \...options, shell: false \}\)/u);
+});

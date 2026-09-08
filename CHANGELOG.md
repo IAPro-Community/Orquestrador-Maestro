@@ -2,7 +2,52 @@
 
 ## Unreleased
 
-As próximas mudanças serão registradas aqui.
+Próximas mudanças serão registradas aqui.
+
+## 0.2.6 - 2026-09-08
+
+Esta release adiciona uma camada completa para experiências web premium e corrige o fluxo de atualização da CLI no Windows.
+
+### Destaques
+
+- Adicionada a skill canônica `skill-premium-web-experience` para criar, redesenhar ou transformar sites em experiências premium, cinematográficas e orientadas à conversão.
+- O catálogo, os aliases, o roteador, as chains e as cópias públicas foram atualizados para distribuir a skill de forma consistente entre as superfícies do Maestro.
+- A composição entre skills ficou explícita: estratégia premium, sistema visual, padrões de interface, guardrails de UX, polimento focal, pesquisa/validação e lanes independentes.
+- Corrigido o `update` no Windows para executar `npm.cmd` por meio do `cmd.exe`, evitando o erro `spawnSync npm.cmd EINVAL`.
+- A skill premium passou a ser incluída explicitamente no tarball do pacote npm.
+
+### Como usar a experiência premium
+
+Uso automático: descreva a intenção com expressões como `site premium`, `redesign de site`, `landing page sofisticada`, `site cinematográfico`, `experiência web` ou `scroll storytelling`. O roteador selecionará a skill de estratégia e coordenação.
+
+Uso explícito: invoque `/skill:skill-premium-web-experience` e informe:
+
+1. o negócio e o público;
+2. o objetivo principal de conversão;
+3. o conteúdo, as provas e os ativos disponíveis;
+4. referências visuais e restrições técnicas.
+
+O fluxo recomendado cobre inspeção do projeto, descoberta do negócio, narrativa, direção visual, hero, storytelling no scroll, movimento, conversão, prova/confiança, responsividade, acessibilidade, performance, implementação e QA visual em `320x568`, `390x844`, `768x1024`, `1024x768` e um desktop representativo.
+
+`skill-open-design-ui` cuida do sistema visual e dos tokens; `skill-modern-ui-patterns`, dos componentes e estados; `skill-frontend-ux-guardrails`, do gate final; `skill-impeccable`, do polimento focal; `skill-browser-agent`, da pesquisa/validação; e `skill-multiagent-orchestration`, somente de lanes independentes quando justificadas. A capacidade opcional de efeitos de scroll deve degradar progressivamente quando não estiver instalada.
+
+### Atualização da CLI
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@latest
+orquestrador-maestro update
+orquestrador-maestro verify
+orquestrador-maestro doctor
+```
+
+No Windows, `orquestrador-maestro update` agora contorna a limitação de execução direta do shim `npm.cmd` e reaplica a versão atualizada no home do usuário.
+
+### Verificação da release
+
+- 652 testes executados, com 642 aprovados, 0 falhas e 10 ignorados por limitações específicas do ambiente.
+- Validações pública e de skills aprovadas.
+- Pacote conferido com `npm pack --dry-run`, incluindo a nova skill nas três superfícies distribuídas.
+- Auditoria de produção sem vulnerabilidades (`npm audit --omit=dev`).
 
 ## 0.2.5 - 2026-09-08
 

@@ -82,6 +82,7 @@ Use these lanes when they match the task:
 - `designer`: UI/UX review or implementation for frontend surfaces.
 - `dependency-expert`: check external SDK docs, package versions, and integration constraints.
 - `verifier`: confirm completion claims against commands, diffs, and acceptance criteria.
+- `skill-premium-web-experience` may use these lanes for genuinely independent research, UX strategy, art direction, motion, implementation, and QA. Keep ownership disjoint and centralize the final integration; do not let multiple agents edit the same component tree simultaneously.
 
 Prefer fewer agents with better scopes over many agents with vague scopes.
 

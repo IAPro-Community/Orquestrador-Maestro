@@ -50,3 +50,46 @@ test("watch evidence routes observation requests without stealing media pipeline
     "watch evidence may chain to smart clip detection when the request asks for clips"
   );
 });
+
+test("premium web experience owns premium site intents and delegates focused UI concerns", () => {
+  const router = new IntentRouter({ maestroRoot: path.join(repoRoot, "orquestrador") });
+  const premiumIntents = [
+    "criar um site premium para uma fintech",
+    "fazer o redesign premium deste website",
+    "criar uma landing page sofisticada",
+    "quero um site cinematográfico com storytelling no scroll",
+    "transformar esta página em uma experiência web premium",
+    "make this website feel premium",
+    "build a cinematic landing page",
+    "create a scroll-driven website"
+  ];
+
+  for (const intent of premiumIntents) {
+    const result = router.resolve(intent);
+    assert.equal(
+      result.primarySkill.id,
+      "skill-premium-web-experience",
+      `premium intent should route to the experience owner: ${intent}`
+    );
+  }
+
+  const dashboard = router.resolve("criar um dashboard com tabela, formulário e estados de loading");
+  assert.equal(dashboard.primarySkill.id, "skill-modern-ui-patterns");
+
+  const guardrails = router.resolve("corrigir responsividade, overflow e foco de teclado");
+  assert.equal(guardrails.primarySkill.id, "skill-frontend-ux-guardrails");
+
+  const composed = router.resolve("site premium com visual system, tabela e responsividade");
+  assert.equal(composed.primarySkill.id, "skill-premium-web-experience");
+  assert.deepEqual(
+    composed.chainedSkills.map((skill) => skill.id),
+    [
+      "skill-open-design-ui",
+      "skill-modern-ui-patterns",
+      "skill-frontend-ux-guardrails"
+    ]
+  );
+
+  const focused = router.resolve("criar um botão de confirmar");
+  assert.notEqual(focused.primarySkill?.id, "skill-premium-web-experience");
+});

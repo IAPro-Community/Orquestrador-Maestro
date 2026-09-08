@@ -8,6 +8,8 @@ O Orquestrador Maestro organiza regras, contexto, skills, hooks, perfis de ferra
 
 [GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro) · [Pacote npm](https://www.npmjs.com/package/@iapro/orquestrador-maestro-cli) · [Changelog](CHANGELOG.md)
 
+> Revisão pública mais recente: `2026-09-08` (`0.2.6`).
+
 ## Para quem este projeto é
 
 - Para quem usa mais de uma ferramenta de IA e quer preservar o mesmo padrão de trabalho.
@@ -41,6 +43,7 @@ Além do fluxo padrão de instalação e execução, o snapshot atual oferece:
 - o perfil `phase-loop`, que organiza trabalhos maiores em `discuss`, `plan`, `execute`, `verify` e `ship` sem alterar o caminho padrão;
 - briefing econômico de contexto, roteamento por índices compactos e gates dedicados para validar a hierarquia e os artefatos de `DEV/`;
 - instalação, atualização, diagnóstico, dry-run, sincronização de skills e verificação multiplataforma;
+- composição de experiências web premium, com narrativa, direção visual, movimento, conversão, acessibilidade, performance e QA visual responsivo;
 - integração global com Codex, Claude Code, OpenCode, Cursor, Gemini CLI, Grok CLI, MiMo Code, Kimi Code, Windsurf e Antigravity;
 - telemetria desabilitada por padrão, memória opcional e controles para manter efeitos externos sujeitos à autorização humana.
 
