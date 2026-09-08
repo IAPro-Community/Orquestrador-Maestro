@@ -361,6 +361,31 @@
       "cost": "medium",
       "safety": "reviewable-non-destructive-media-output"
     },
+    "skill-watch-evidence": {
+      "description": "Video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, and deterministic verification.",
+      "triggers": [
+        "watch skill",
+        "watch-skill",
+        "watch this video",
+        "assistir vídeo",
+        "assistir video",
+        "ver este vídeo",
+        "analisar gravação",
+        "analisar vídeo com evidências",
+        "evidência temporal",
+        "timestamped evidence",
+        "perguntar sobre vídeo",
+        "buscar nos vídeos",
+        "memória de vídeo",
+        "loop visual",
+        "prova visual",
+        "verificar fluxo visual"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-watch-evidence/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-watch-evidence/SKILL.md",
+      "cost": "high",
+      "safety": "local-first-media-evidence-and-explicit-egress"
+    },
     "skill-unified-analytics": {
       "description": "Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and privacy guardrails.",
       "triggers": [

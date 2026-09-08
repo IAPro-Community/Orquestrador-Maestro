@@ -58,6 +58,7 @@ Then open only the selected `SKILL.md` files and their directly referenced files
 | Live media processing | `/skill:skill-live-processing` |
 | Manual video processing | `/skill:skill-manual-video-processing` |
 | Smart clip detection | `/skill:skill-smart-clip-detection` |
+| Video evidence, OCR, timestamps, and visual-flow proof | `/skill:skill-watch-evidence` |
 | Unified analytics | `/skill:skill-unified-analytics` |
 | ElevenLabs voice integration | `/skill:skill-elevenlabs-voice-cloning` |
 | Google Workspace sync | `/skill:skill-google-workspace-sync` |

@@ -505,6 +505,41 @@
       ],
       "status": "canonical"
     },
+    "skill-watch-evidence": {
+      "description": "Video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, and deterministic verification.",
+      "category": "media",
+      "risk": "high",
+      "source": "adapted-external-oxbshw-watch-skill-1.4.2",
+      "mirrorEverywhere": true,
+      "triggers": [
+        "watch skill",
+        "watch-skill",
+        "watch this video",
+        "assistir vídeo",
+        "assistir video",
+        "ver este vídeo",
+        "analisar gravação",
+        "analisar vídeo com evidências",
+        "evidência temporal",
+        "timestamped evidence",
+        "perguntar sobre vídeo",
+        "buscar nos vídeos",
+        "memória de vídeo",
+        "loop visual",
+        "prova visual",
+        "verificar fluxo visual"
+      ],
+      "aliases": [
+        "watch skill",
+        "watch-skill",
+        "assistir vídeo",
+        "evidência de vídeo",
+        "memória de vídeo",
+        "loop visual",
+        "prova visual"
+      ],
+      "status": "canonical"
+    },
     "skill-unified-analytics": {
       "description": "Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and privacy guardrails.",
       "category": "analytics",

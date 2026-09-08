@@ -4,6 +4,14 @@
 
 As próximas mudanças serão registradas aqui.
 
+## 0.2.5 - 2026-09-08
+
+- Integrada a skill `skill-watch-evidence`, adaptada do Watch Skill, ao catálogo, aliases, chains e roteador do Maestro.
+- Documentado o fluxo local-first para evidências de vídeo, áudio e tela, incluindo OCR, transcrição, timestamps, índice persistente e veredito determinístico.
+- Adicionadas guardas de privacidade, instalação e saída explícita para mídia, além de regressões de roteamento para os novos gatilhos.
+- Corrigida a resolução do envelope de aliases no planejador, preservando compatibilidade com os formatos existentes.
+- Atualizadas as versões fixadas nos bootstraps PowerShell e Bash para instalar a release `0.2.5`.
+
 ## 0.2.4 - 2026-09-04
 
 - Corrigido `orquestrador-maestro update` para atualizar primeiro a própria CLI global para `latest` e reaplicar os arquivos da versão nova.

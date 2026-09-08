@@ -56,7 +56,7 @@ Se a skill deve ser usada junto com outras, atualize `orquestrador/SKILL_CHAINS.
 
 Fonte principal editável. O sync copia essas skills para os espelhos compatíveis.
 
-Total: 24
+Total: 25
 
 | Skill | Categoria | Risco | O que faz |
 |---|---|---|---|
@@ -81,6 +81,7 @@ Total: 24
 | `skill-saas-security-scan` | security | medium | Run defensive, authorized local security scans for owned SaaS repositories. Use when asked to scan local code, dependencies, secrets, containers, IaC, API handlers, Supabase projects, multi-tenant SaaS isolation, or release/security gates with maintained OSS tools such as Semgrep, Gitleaks, Trivy, OSV-Scanner, and OWASP Dependency-Check. |
 | `skill-security-hooks` | security | medium | Install and maintain defensive security hooks and CI gates for authorized SaaS projects. Use when asked to add pre-commit hooks, pre-push hooks, CI security scans, GitHub Actions hardening, secret scanning, dependency scanning, SAST, DAST gates, or security automation around existing repositories. |
 | `skill-smart-clip-detection` | media | medium | Use for AI-assisted clip detection from transcripts, livestreams, videos, podcasts, calls, or long-form content, including scored candidates, timestamps, batching, validation, prompt versioning, review queues, idempotent reprocessing, consent, and publishing-ready metadata. |
+| `skill-watch-evidence` | media | high | Use for video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, extraction, and deterministic verification. Adapted from the external Watch Skill with explicit egress and installation guardrails. |
 | `skill-stripe-integration` | payments | medium | Integrate Stripe Checkout, Billing, subscriptions, Customer Portal, invoices, trials, coupons, webhook handling, entitlement sync, and SaaS payment state management. |
 | `skill-supabase-rls` | security | high | Design and review defensive Supabase/Postgres Row Level Security for SaaS systems. Use for RLS policies, auth-aware tenant isolation, storage policies, service-role boundaries, migrations, indexes, positive/negative access tests, and data-isolation security reviews. |
 | `skill-unified-analytics` | analytics | low | Use for SaaS/product analytics architecture, event taxonomy, telemetry instrumentation, funnels, admin dashboards, billing metrics, activation, retention, attribution, privacy guardrails, observability, and cross-provider reporting. |

@@ -26,7 +26,10 @@ class IntentRouter {
   }
 
   get aliases() {
-    if (!this._aliases) this._aliases = this._loadJson("SKILL_ALIASES.json") || {};
+    if (!this._aliases) {
+      const document = this._loadJson("SKILL_ALIASES.json") || {};
+      this._aliases = document.aliases || document;
+    }
     return this._aliases;
   }
 

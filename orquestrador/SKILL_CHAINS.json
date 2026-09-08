@@ -119,6 +119,13 @@
         "skill-ai-orchestration"
       ]
     },
+    "skill-watch-evidence": {
+      "mayInvoke": [
+        "skill-smart-clip-detection",
+        "skill-browser-agent",
+        "skill-verification-before-completion"
+      ]
+    },
     "skill-open-design-ui": {
       "mayInvoke": [
         "skill-frontend-ux-guardrails",
