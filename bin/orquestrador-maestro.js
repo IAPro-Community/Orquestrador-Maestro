@@ -962,9 +962,11 @@ async function handleTuiCommand(args) {
     }
     if (!externalRuntime) throw new Error("O runtime canônico não iniciou dentro de 5 segundos.");
   }
+  const hasOpentui = (() => { try { require.resolve("@opentui/core"); return true; } catch { return false; } })();
+  if (!hasOpentui) { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); return 0; }
   const visualHost = {
     projectRoot,
-    terminalCapabilities: () => ({ tui: { bun: executableAvailable("bun"), opentui: (() => { try { require.resolve("@opentui/core"); return true; } catch { return false; } })() } })
+    terminalCapabilities: () => ({ tui: { bun: executableAvailable("bun"), opentui: true } })
   };
   await startTui(visualHost, { classic: false }); return 0;
 }

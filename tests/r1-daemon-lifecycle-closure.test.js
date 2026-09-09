@@ -14,7 +14,7 @@ function runImmediateTui(projectRoot) {
   const cli = path.resolve(__dirname, "../bin/orquestrador-maestro.js");
   const command = `${process.execPath} ${JSON.stringify(cli)} tui --project-path ${JSON.stringify(projectRoot)}`;
   return spawnSync("script", ["-qefc", command, "/dev/null"], {
-    input: "q", encoding: "utf8", timeout: 10_000,
+    input: "q\n", encoding: "utf8", timeout: 10_000,
     env: { ...process.env, TERM: "xterm-256color" }
   });
 }
