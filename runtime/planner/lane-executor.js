@@ -1,6 +1,7 @@
 "use strict";
 
 const EventEmitter = require("node:events");
+const { isScopeExecutionEligible } = require("../governance/change-governance");
 
 /**
  * Executa tarefas paralelamente respeitando restrições de dependências
@@ -61,6 +62,10 @@ class LaneExecutor extends EventEmitter {
           if (nextIndex === -1) break; // No tasks ready
 
           const task = pending.splice(nextIndex, 1)[0];
+          if (!isScopeExecutionEligible(task)) {
+            markFailed(task, `blocked by scope classification: ${task.scopeClassification || "unknown"}`);
+            continue;
+          }
           running.add(task.id);
 
           this.emit("task.started", task);
@@ -72,7 +77,8 @@ class LaneExecutor extends EventEmitter {
             skills: task.skills,
             projectId,
             missionId,
-            semanticTaskId: task.id
+            semanticTaskId: task.id,
+            semanticTask: task
           })
             .then((result) => {
               results[task.id] = { status: "completed", result };
@@ -85,8 +91,10 @@ class LaneExecutor extends EventEmitter {
             .finally(() => {
               running.delete(task.id);
               checkNext();
-            });
+          });
         }
+
+        if (pending.length === 0 && running.size === 0) resolve(results);
       };
 
       checkNext();

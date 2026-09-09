@@ -1,0 +1,70 @@
+"use strict";
+
+const QUALITY_SEVERITIES = Object.freeze(["BLOCKER", "HIGH", "MEDIUM", "LOW"]);
+const BAD_CODE_CATEGORIES = Object.freeze([
+  "ARCHITECTURE", "RESPONSIBILITY", "COUPLING", "SEMANTICS", "STATE",
+  "ERROR_HANDLING", "DATA_INTEGRITY", "TESTABILITY", "SECURITY",
+  "PERFORMANCE", "MAINTAINABILITY"
+]);
+
+function normalize(value) {
+  return String(value || "").trim();
+}
+
+function classifyQualityFinding(input = {}) {
+  const severity = normalize(input.severity).toUpperCase() || "MEDIUM";
+  const category = normalize(input.category).toUpperCase() || "MAINTAINABILITY";
+  if (!QUALITY_SEVERITIES.includes(severity)) throw new TypeError(`Unknown quality finding severity: ${severity}`);
+  if (!BAD_CODE_CATEGORIES.includes(category)) throw new TypeError(`Unknown quality finding category: ${category}`);
+  return Object.freeze({
+    code: normalize(input.code) || "unspecified-quality-finding",
+    category,
+    severity,
+    message: normalize(input.message),
+    blocking: severity === "BLOCKER" || severity === "HIGH"
+  });
+}
+
+function buildEngineeringContract({ task = {}, missionBrief = {}, verificationStrategy = [] } = {}) {
+  const capabilities = Array.isArray(task.requiredCapabilities) ? [...task.requiredCapabilities] : [];
+  const constraints = Array.isArray(missionBrief.constraints) ? [...missionBrief.constraints] : [];
+  const criteria = Array.isArray(task.acceptanceCriteria) ? [...task.acceptanceCriteria] : [];
+  const strategy = verificationStrategy.length ? [...verificationStrategy] : ["targeted-checks", "acceptance-evidence"];
+  const boundaries = Array.isArray(task.affectedBoundaries) ? [...task.affectedBoundaries] : [];
+  const qualityExpectations = Array.isArray(task.qualityExpectations) ? [...task.qualityExpectations] : [
+    "coherent-responsibilities", "domain-meaningful-names", "proportional-tests", "verified-acceptance"
+  ];
+  return Object.freeze({
+    goal: normalize(task.objective),
+    scope: Object.freeze({ classification: task.scopeClassification || "IN_SCOPE", justification: task.scopeJustification || "" }),
+    constraints: Object.freeze(constraints),
+    changeClass: task.changeClass || "local",
+    affectedDomain: task.type || "unspecified",
+    affectedBoundaries: Object.freeze(boundaries),
+    affectedCapabilities: Object.freeze(capabilities),
+    architectureImpact: task.architectureImpact || (task.changeClass === "structural" ? "review-boundaries-and-dependencies" : "review-local-responsibility"),
+    qualityExpectations: Object.freeze(qualityExpectations),
+    acceptanceCriteria: Object.freeze(criteria),
+    verificationStrategy: Object.freeze(strategy)
+  });
+}
+
+function detectQualityFindings({ filePath = "", source = "" } = {}) {
+  const findings = [];
+  const lines = String(source).split(/\r?\n/);
+  if (lines.length > 800) {
+    findings.push(classifyQualityFinding({ code: "excessive-file-responsibility", category: "RESPONSIBILITY", severity: "HIGH", message: `${filePath} has ${lines.length} lines; review its responsibilities before completion.` }));
+  }
+  if (/\b(?:processData|doStuff|executeThing)\s*\(/u.test(source)) {
+    findings.push(classifyQualityFinding({ code: "generic-operation-name", category: "SEMANTICS", severity: "LOW", message: `${filePath} contains a generic operation name whose domain intent should be checked.` }));
+  }
+  if (/catch\s*\{\s*\}/u.test(source)) {
+    findings.push(classifyQualityFinding({ code: "swallowed-error", category: "ERROR_HANDLING", severity: "HIGH", message: `${filePath} contains an empty catch block.` }));
+  }
+  if (/\b(?:any|unknown)\b/u.test(source) && /:\s*any\b/u.test(source)) {
+    findings.push(classifyQualityFinding({ code: "unsafe-any", category: "MAINTAINABILITY", severity: "MEDIUM", message: `${filePath} uses any where a domain type should be considered.` }));
+  }
+  return Object.freeze(findings);
+}
+
+module.exports = { QUALITY_SEVERITIES, BAD_CODE_CATEGORIES, classifyQualityFinding, buildEngineeringContract, detectQualityFindings };

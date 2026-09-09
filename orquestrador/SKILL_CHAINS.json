@@ -7,6 +7,14 @@
     "preferTopLevelSkill": true,
     "neverLoadFullCatalog": true
   },
+  "riskClasses": {
+    "trivial": { "mandatoryPreCode": [] },
+    "local": { "mandatoryPreCode": [] },
+    "structural": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
+    "integration": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
+    "security-compliance": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
+    "domain-critical": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] }
+  },
   "chains": {
     "skill-saas-factory": {
       "loadFirst": true,

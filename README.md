@@ -46,6 +46,7 @@ Além do fluxo padrão de instalação e execução, o snapshot atual oferece:
 - composição de experiências web premium, com narrativa, direção visual, movimento, conversão, acessibilidade, performance e QA visual responsivo;
 - integração global com Codex, Claude Code, OpenCode, Cursor, Gemini CLI, Grok CLI, MiMo Code, Kimi Code, Windsurf e Antigravity;
 - telemetria desabilitada por padrão, memória opcional e controles para manter efeitos externos sujeitos à autorização humana.
+- engenharia guiada opcional: o roteador identifica disciplinas proporcionais, envia um contrato de qualidade ao executor e impede `DONE` quando a verificação ou findings críticos não permitem conclusão; consulte a [engenharia guiada](docs/engineering-quality.md).
 
 Os contratos de workflow são descritivos: não executam agentes, não criam integrações obrigatórias e não autorizam commit, push, publicação ou compartilhamento. Consulte os [workflows declarativos](docs/workflows.md), os [contratos de tarefa e workspace](docs/task-and-workspace-contracts.md) e o [histórico completo](CHANGELOG.md) para detalhes e migrações.
 
@@ -257,7 +258,7 @@ Arquivos de controle:
 | SKILLS_ROUTER.json | Gatilhos, caminhos, custo e perfil de segurança |
 | SKILL_ALIASES.json | Termos alternativos que apontam para skills |
 | SKILL_CHAINS.json | Skills que podem ser combinadas após a principal |
-| SKILL_EXECUTION_PROFILES.json | Perfis fast, standard, deep, multiagent, saas e security |
+| SKILL_EXECUTION_PROFILES.json | Perfis fast, standard, deep, multiagent, saas, security e guided-engineering |
 | SKILL_USAGE_SCHEMA.json | Formato opcional para registrar o uso de skills |
 
 Perfis de execução:
@@ -270,6 +271,7 @@ Perfis de execução:
 | multiagent | Frentes independentes ou pedido explícito de agentes | Execução paralela com integração central |
 | saas | SaaS, tenancy, pagamentos e admin | Gates de projeto e segurança |
 | security | Auditoria defensiva autorizada | Requer escopo autorizado |
+| guided-engineering | Features não triviais identificadas pelo roteador | Composição proporcional e quality review determinístico |
 
 ### Hooks
 

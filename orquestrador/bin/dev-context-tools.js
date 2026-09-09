@@ -204,12 +204,7 @@ function relativeToDev(devRoot, filePath) {
 }
 
 // Change classes that require preflight + ADR before code edits (Architecture First Gate).
-const HIGH_RISK_CHANGE_CLASSES = new Set([
-  "structural",
-  "integration",
-  "security-compliance",
-  "domain-critical"
-]);
+const { HIGH_RISK_CHANGE_CLASSES } = require("../lib/change-governance");
 
 const RECURRENCE_STOPWORDS = new Set([
   "the", "and", "for", "with", "from", "into", "this", "that",
@@ -589,7 +584,7 @@ function checkDevGates(options) {
 
     if (!changeClass) {
       issues.push(`--architectural: DEV active spec must declare \`- Change class:\` under \`## Structural Prevention\` in ${requiredPaths.spec}`);
-    } else if (HIGH_RISK_CHANGE_CLASSES.has(changeClass)) {
+    } else if (HIGH_RISK_CHANGE_CLASSES.includes(changeClass)) {
       const preflightSources = [requiredPaths.spec, requiredPaths.handoff, requiredPaths.context]
         .filter((filePath) => fs.existsSync(filePath))
         .map((filePath) => readUtf8(filePath));

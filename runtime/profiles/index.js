@@ -6,6 +6,7 @@ const PROFILE_DEFINITIONS = Object.freeze({
   developer: { displayName: "Developer", defaultVerification: ["lint", "typecheck", "test", "build"] },
   architect: { displayName: "Architect", defaultVerification: [] },
   reviewer: { displayName: "Reviewer", defaultVerification: ["test"] },
+  "guided-engineering": { displayName: "Guided Engineering", defaultVerification: ["lint", "typecheck", "test"], recommendedSkills: ["skill-repo-health", "skill-preflight", "skill-verification-before-completion"] },
   tester: { displayName: "Tester", defaultVerification: ["test"] },
   security: { displayName: "Security", defaultVerification: ["lint", "test"] },
   documentation: { displayName: "Documentation", defaultVerification: [] }

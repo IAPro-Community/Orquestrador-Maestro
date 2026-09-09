@@ -311,6 +311,10 @@ function createEvidence(input) {
     taskId: requiredString(input.taskId, "evidence.taskId"),
     type: requiredString(input.type, "evidence.type"),
     content: requiredString(input.content, "evidence.content"),
+    acceptanceCriterion: optionalString(input.acceptanceCriterion, "evidence.acceptanceCriterion"),
+    acceptanceCriterionId: optionalString(input.acceptanceCriterionId, "evidence.acceptanceCriterionId"),
+    producer: optionalString(input.producer, "evidence.producer"),
+    verificationId: optionalString(input.verificationId, "evidence.verificationId"),
     confidence
   });
 }

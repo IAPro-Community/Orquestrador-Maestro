@@ -2,6 +2,7 @@
 
 const core = require("../core");
 const { deriveDependencies } = require("./dag-utils");
+const { CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, classifyChange } = require("../governance/change-governance");
 
 const TASK_RISK_LEVELS = Object.freeze(["low", "medium", "high", "critical"]);
 const TASK_COMPLEXITY_LEVELS = Object.freeze(["simple", "medium", "complex", "expert"]);
@@ -54,6 +55,16 @@ function createSemanticTask(input) {
     return cap;
   });
 
+  const scopeClassification = input.scopeClassification || "IN_SCOPE";
+  if (!SCOPE_CLASSIFICATIONS.includes(scopeClassification)) {
+    throw new TypeError(`SemanticTask.scopeClassification must be one of: ${SCOPE_CLASSIFICATIONS.join(", ")}`);
+  }
+  const scopeJustification = typeof input.scopeJustification === "string" ? input.scopeJustification.trim() : "";
+  if (scopeClassification === "REQUIRED_DEPENDENCY" && !scopeJustification) {
+    throw new TypeError("SemanticTask scope justification is required for REQUIRED_DEPENDENCY");
+  }
+  const change = classifyChange({ text: `${input.title} ${input.objective}`, changeClass: input.changeClass });
+
   return Object.freeze({
     id: input.id.trim(),
     title: input.title.trim(),
@@ -66,6 +77,9 @@ function createSemanticTask(input) {
     requiredCapabilities: Object.freeze(requiredCapabilities),
     complexity,
     risk,
+    changeClass: Object.prototype.hasOwnProperty.call(CHANGE_CLASSES, input.changeClass) ? input.changeClass : change.changeClass,
+    scopeClassification,
+    scopeJustification,
     sourceRequirements: Object.freeze(Array.isArray(input.sourceRequirements) ? [...input.sourceRequirements] : []),
     planningReason: typeof input.planningReason === "string" ? input.planningReason.trim() : "",
     dependencyReasons: Object.freeze(

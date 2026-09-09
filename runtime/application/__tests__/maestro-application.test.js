@@ -41,6 +41,26 @@ test("application turns a task into a persisted provider run with real verificat
   assert.equal(inspection.verification.status, "passed");
 });
 
+test("guided engineering quality findings prevent a false completed run", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-quality-gate-"));
+  fs.writeFileSync(path.join(root, "large-module.js"), `${"const value = 1;\n".repeat(801)}`, "utf8");
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([new FakeAdapter()]),
+    skills: { get: () => null }
+  });
+  const outcome = await app.executeRun({
+    description: "Revisar módulo existente",
+    providerId: "fake",
+    profileId: "guided-engineering",
+    verificationCommands: [{ name: "test", command: `${process.execPath} -e "process.exit(0)"` }]
+  });
+  assert.equal(outcome.verification.status, "passed");
+  assert.equal(outcome.qualityFindings.some((finding) => finding.code === "excessive-file-responsibility"), true);
+  assert.equal(outcome.run.status, "failed");
+});
+
 test("projects can be registered before their first Run", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-project-"));
   const app = new MaestroApplication({ projectRoot: root, store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }) });

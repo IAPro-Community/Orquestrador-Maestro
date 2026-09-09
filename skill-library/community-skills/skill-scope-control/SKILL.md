@@ -14,11 +14,17 @@ Use quando a conversa indicar que uma mudança pode ter crescido além do objeti
 
 1. Registre o objetivo em uma frase. Se ele não estiver claro, peça essa frase antes de classificar o diff.
 2. Faça um inventário dos arquivos, subsistemas, dependências e comportamentos alterados.
-3. Classifique cada parte como **dentro do escopo**, **provável expansão** ou **incerta**, sempre apontando a evidência.
-4. Recomende uma decisão: manter, separar em outra mudança ou justificar explicitamente.
-5. Entregue um resumo curto com itens, risco de mistura e próximo passo.
+3. Classifique cada descoberta com uma categoria canônica: `IN_SCOPE`, `REQUIRED_DEPENDENCY`, `DISCOVERED_WORK` ou `OUT_OF_SCOPE`.
+4. `IN_SCOPE` pode ser executado quando atende diretamente um critério de aceitação. `REQUIRED_DEPENDENCY` só pode ser executado com justificativa, impacto e evidência da necessidade.
+5. Registre `DISCOVERED_WORK` no mecanismo existente de follow-up/handoff e não o inclua silenciosamente no plano. Bloqueie `OUT_OF_SCOPE`.
+6. Recomende manter, separar ou justificar explicitamente, sempre apontando a evidência.
+7. Entregue um resumo curto com itens, risco de mistura e próximo passo.
 
 O padrão é somente leitura: não edite, reverta, faça stage, commit ou push. A skill pode ser usada antes ou durante revisão de código, release ou planejamento.
+
+## Contenção no autopilot
+
+Para cada descoberta, atualize o task ledger ou handoff existente antes de agir. Somente `IN_SCOPE` e `REQUIRED_DEPENDENCY` justificada são elegíveis para execução. Uma tentativa de executar descoberta sem justificativa deve virar bloqueio, não uma autorização implícita.
 
 ## Ferramenta opcional
 

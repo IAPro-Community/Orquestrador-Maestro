@@ -14,9 +14,29 @@ const { TerminalManager, TerminalSessionManager } = require("../terminals");
 const { VerificationEngine, inferCommands } = require("../verification/engine");
 const { WorkspaceManager } = require("../workspaces/manager");
 const { compactContext } = require("../planner/context-compactor");
+const { buildEngineeringContract, detectQualityFindings } = require("../governance/engineering-quality");
+const { HIGH_RISK_CHANGE_CLASSES, isTaskCompletionEligible } = require("../governance/change-governance");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
+
+function listSourceFiles(workspacePath, relativePath = "") {
+  const directory = path.join(workspacePath, relativePath);
+  if (!fs.existsSync(directory)) return [];
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if ([".git", ".orquestrador", "node_modules"].includes(entry.name)) return [];
+    if (entry.isSymbolicLink()) return [];
+    const childPath = path.join(relativePath, entry.name);
+    if (entry.isDirectory()) return listSourceFiles(workspacePath, childPath);
+    return /\.(?:js|jsx|ts|tsx|mjs|cjs)$/u.test(entry.name) ? [childPath] : [];
+  });
+}
+
+function filesForQualityReview(workspacePath) {
+  const gitSnapshot = snapshot(workspacePath);
+  if (gitSnapshot.available) return gitSnapshot.files.map(({ path: filePath }) => filePath);
+  return listSourceFiles(workspacePath);
+}
 
 class ProviderRegistry {
   constructor(adapters = [new CodexAdapter(), new ClaudeAdapter(), new AgyAdapter(), new OpenCodeAdapter()]) {
@@ -208,7 +228,9 @@ class MaestroApplication {
     const installation = await provider.detect();
     if (!installation.installed) throw new Error(`provider not installed: ${provider.id}`);
     const policy = getPolicy(request.policyId || "standard");
-    const profile = getProfile(request.profileId || "developer");
+    const semanticChangeClass = request.semanticTask?.changeClass;
+    const derivedProfileId = !request.profileId && HIGH_RISK_CHANGE_CLASSES.includes(semanticChangeClass) ? "guided-engineering" : "developer";
+    const profile = getProfile(request.profileId || derivedProfileId);
     if (!policy || !profile) throw new Error("unknown execution profile or policy");
     const capabilities = await provider.capabilities();
     for (const capability of policy.requiredCapabilities) if (!capabilities[capability]) throw new Error(`provider ${provider.id} lacks ${capability}`);
@@ -217,7 +239,8 @@ class MaestroApplication {
     const projectId = request.projectId || projectIdForPath(workspacePath);
     const taskMetadata = {
       ...(request.missionId ? { missionId: request.missionId } : {}),
-      ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {})
+      ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {}),
+      ...(request.semanticTask ? { semanticTask: request.semanticTask } : {})
     };
     const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
@@ -237,13 +260,13 @@ class MaestroApplication {
     await this.store.saveExecution(execution);
     await this.record(run.id, "run.started", { executionId: execution.id });
     const before = snapshot(workspacePath);
-    const executionPackage = Object.freeze({ task, run, step, profile, policy, workspace: { path: workspacePath }, permissions: request.permissions || {}, skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean), previousArtifacts: request.previousArtifacts || [] });
+    const executionPackage = Object.freeze({ task, run, step, profile, policy, workspace: { path: workspacePath }, permissions: request.permissions || {}, skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean), previousArtifacts: request.previousArtifacts || [], engineeringContract: request.engineeringContract || buildEngineeringContract({ task: request.semanticTask || task, missionBrief: request.missionBrief }) });
     const handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
     this.activeRuns.set(run.id, handle);
     const result = await handle.result;
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
-    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: result });
+    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract } });
     const changes = diff(workspacePath);
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: { before, changes } });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
@@ -251,12 +274,22 @@ class MaestroApplication {
     const verification = await this.verification.verify({ id: id("verification"), runId: run.id, commands, cwd: workspacePath, timeoutMs: policy.timeoutMs });
     await this.store.saveVerification(verification);
     await this.record(run.id, verification.status === "passed" ? "verification.completed" : "verification.failed", { verificationId: verification.id });
-    const status = executionStatus === "completed" && verification.status === "passed" ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
+    const qualityReview = request.qualityReview === true || profile.id === "guided-engineering";
+    const qualityFindings = qualityReview
+      ? filesForQualityReview(workspacePath).map((filePath) => {
+        const fullPath = path.join(workspacePath, filePath);
+        if (!fs.existsSync(fullPath)) return [];
+        return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });
+      }).flat()
+      : [];
+    const completionTask = request.semanticTask || { id: task.id, acceptanceCriteria: [] };
+    const completion = isTaskCompletionEligible(completionTask, { evidence: request.evidence, verification, qualityFindings, deterministic: true });
+    const status = executionStatus === "completed" && completion.eligible ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
     const completedAt = new Date().toISOString();
     await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
     await this.store.saveRun({ ...run, status, startedAt: execution.startedAt, completedAt });
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status });
-    return { run: await this.store.getRun(run.id), verification, changes, execution: result };
+    return { run: await this.store.getRun(run.id), verification, qualityFindings, engineeringContract: executionPackage.engineeringContract, changes, execution: result };
   }
 
   async cancelRun(runId) {
@@ -311,7 +344,7 @@ class MaestroApplication {
       skills: executionPackage.skills
     });
     const skillPaths = taskContext.skills.map((skill) => `- ${skill.identity}: ${skill.path}`).join("\n");
-    return [executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, `Task: ${taskContext.description}`, `Workspace: ${executionPackage.workspace.path}`, skillPaths ? `Resolved skills:\n${skillPaths}` : "", "Work only within the workspace and report concrete changes."].filter(Boolean).join("\n\n");
+    return [executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, `Task: ${taskContext.description}`, `Workspace: ${executionPackage.workspace.path}`, `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}`, skillPaths ? `Resolved skills:\n${skillPaths}` : "", "Work only within the workspace and report concrete changes."].filter(Boolean).join("\n\n");
   }
 
   inferProjectVerification(workspacePath) {

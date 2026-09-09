@@ -54,6 +54,14 @@ universal artifacts:
 - Override is allowed but must be explicit and recorded ("proceed with warning"), never
   inferred from task content.
 
+## Implementação atual
+
+O contrato semântico é implementado em `runtime/governance/change-governance.js`. O planner,
+`GraphValidator`, o gate DEV e os resolvedores de resultado consomem essa classificação; os
+blocos `riskClasses` de `SKILLS_ROUTER.json` e `SKILL_CHAINS.json` são contratos declarativos
+validados por regressão contra o mesmo conjunto de classes. As classes de alto risco exigem
+`deep-interview`, `skill-preflight` e `skill-adr` antes do código.
+
 ## Verification
 
 - `node --check`, `JSON.parse` on both routers/chains, `bash -n` on the template.
@@ -64,6 +72,4 @@ universal artifacts:
 
 ## Follow-ups
 
-- Wire `riskClasses` into the `plan` skill's auto-classification so the router taxonomy and the
-  `plan --deliberate` triggers share one source of truth.
 - Item 6 (Model Spec adherence evals) once the deterministic gate has run in anger.

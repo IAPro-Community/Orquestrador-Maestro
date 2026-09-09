@@ -36,6 +36,7 @@ Jumping into code without understanding requirements leads to rework, scope cree
 - Consensus mode outputs the final plan by default; add `--interactive` to enable execution handoff
 - Consensus mode uses RALPLAN-DR short mode by default; switch to deliberate mode with `--deliberate` or when the request explicitly signals high risk (auth/security, data migration, destructive/irreversible changes, production incident, compliance/PII, public API breakage)
 - Default to concise, evidence-dense progress and completion reporting unless the user or risk level requires more detail
+- For change-risk routing, derive the class from the shared governance contract (`runtime/governance/change-governance.js` in the source tree); do not maintain a second trigger list in the plan.
 - Treat newer user task updates as local overrides for the active workflow branch while preserving earlier non-conflicting constraints
 - If correctness depends on additional inspection, retrieval, execution, or verification, keep using the relevant tools until the plan is grounded
 - Continue through clear, low-risk, reversible next steps automatically; ask only when the next step is materially branching, destructive, or preference-dependent
