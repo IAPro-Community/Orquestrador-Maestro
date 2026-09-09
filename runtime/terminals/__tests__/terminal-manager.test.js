@@ -112,3 +112,53 @@ test("PTY sessions keep ANSI output in memory and accept input, resize, focus, a
   assert.equal(snapshot.focused, true);
   assert.equal(Object.hasOwn(await store.getTerminal(session.id), "output"), false);
 });
+
+test("wait settles when store.getTerminal fails during close finalization", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-terminal-fail-"));
+  const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") }); await store.initialize();
+  let getTerminalCalls = 0;
+  const originalGet = store.getTerminal.bind(store);
+  store.getTerminal = async (id) => {
+    getTerminalCalls++;
+    if (getTerminalCalls >= 2) throw new Error("store unavailable");
+    return originalGet(id);
+  };
+  const manager = new TerminalManager({ store });
+  const terminal = await manager.start({ projectId: "p1", cwd: root, command: process.execPath, args: ["-e", "process.exit(0)"] });
+  const result = await Promise.race([
+    manager.wait(terminal.id),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("wait hung")), 5000))
+  ]);
+  assert.ok(result, "wait must resolve even when store fails");
+  assert.ok(["completed", "failed"].includes(result.status), "result must have a terminal status");
+});
+
+test("wait settles when store.getTerminal fails during error finalization", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-terminal-err-"));
+  const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") }); await store.initialize();
+  let getTerminalCalls = 0;
+  const originalGet = store.getTerminal.bind(store);
+  store.getTerminal = async (id) => {
+    getTerminalCalls++;
+    if (getTerminalCalls >= 2) throw new Error("store unavailable");
+    return originalGet(id);
+  };
+  const manager = new TerminalManager({ store });
+  const terminal = await manager.start({ projectId: "p1", cwd: root, command: "/nonexistent-binary-" + Date.now(), args: [] });
+  const result = await Promise.race([
+    manager.wait(terminal.id),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("wait hung")), 5000))
+  ]);
+  assert.ok(result, "wait must resolve even when store fails");
+  assert.equal(result.status, "failed");
+  assert.ok(result.error, "failed terminal must carry error message");
+});
+
+test("completionPromises entry is removed after finalization", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-terminal-cleanup-"));
+  const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") }); await store.initialize();
+  const manager = new TerminalManager({ store });
+  const terminal = await manager.start({ projectId: "p1", cwd: root, command: process.execPath, args: ["-e", "process.exit(0)"] });
+  await manager.wait(terminal.id);
+  assert.equal(manager.completionPromises.has(terminal.id), false, "completionPromises must be cleaned up");
+});

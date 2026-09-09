@@ -22,13 +22,43 @@ function gitExec(args, cwd) {
 function normalizeRemote(raw) {
   if (!raw) return null;
   let url = raw.replace(/\.git$/, "");
+
+  const sshMatch = url.match(/^git@([^:]+):(\d+)\/(.+)$/);
+  if (sshMatch) {
+    const host = sshMatch[1];
+    const port = sshMatch[2];
+    const repoPath = sshMatch[3];
+    if (port === "22") {
+      return `https://${host}/${repoPath}`.toLowerCase();
+    }
+    return `https://${host}:${port}/${repoPath}`.toLowerCase();
+  }
+
+  const sshSimple = url.match(/^git@([^:]+):(.+)$/);
+  if (sshSimple) {
+    const host = sshSimple[1];
+    const repoPath = sshSimple[2];
+    return `https://${host}/${repoPath}`.toLowerCase();
+  }
+
+  const sshProto = url.match(/^ssh:\/\/git@([^/]+)\/(.+)$/);
+  if (sshProto) {
+    const hostPort = sshProto[1];
+    const repoPath = sshProto[2];
+    const parts = hostPort.split(":");
+    const host = parts[0];
+    const port = parts[1] || "22";
+    if (port === "22") {
+      return `https://${host}/${repoPath}`.toLowerCase();
+    }
+    return `https://${host}:${port}/${repoPath}`.toLowerCase();
+  }
+
   url = url
-    .replace(/^git@github\.com:/, "https://github.com/")
-    .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
-    .replace(/^git:\/\/github\.com\//, "https://github.com/")
-    .replace(/^https?:\/\/github\.com\//, "https://github.com/")
-    .replace(/[:/]/g, "/")
+    .replace(/^git:\/\/([^/]+)\//, "https://$1/")
+    .replace(/^https?:\/\//, "https://")
     .toLowerCase();
+
   return url;
 }
 
@@ -48,6 +78,14 @@ function resolveRepositoryId(projectRoot) {
   const normalized = normalizeRemote(raw);
   if (normalized) {
     return `repo_${crypto.createHash("sha256").update(normalized).digest("hex").substring(0, 16)}`;
+  }
+  const commonDir = gitExec(["rev-parse", "--git-common-dir"], projectRoot);
+  if (commonDir) {
+    const resolvedCommon = path.resolve(projectRoot, commonDir);
+    const canonicalReal = (() => {
+      try { return fs.realpathSync(resolvedCommon); } catch { return resolvedCommon; }
+    })();
+    return `repo_${crypto.createHash("sha256").update(canonicalReal).digest("hex").substring(0, 16)}`;
   }
   const fallback = projectRoot.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 64);
   return `repo_${crypto.createHash("sha256").update(fallback).digest("hex").substring(0, 16)}`;

@@ -3,7 +3,7 @@
   "title": "Orquestrador Maestro Observation",
   "description": "Schema for episodic memory observations",
   "type": "object",
-  "required": ["schemaVersion", "id", "timestamp", "project", "type", "summary"],
+  "required": ["schemaVersion", "id", "timestamp", "project", "type", "summary", "scope"],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -79,24 +79,6 @@
       },
       "description": "Source context"
     },
-    "scope": {
-      "type": "object",
-      "properties": {
-        "level": {
-          "type": "string",
-          "enum": ["repository", "branch", "workspace", "commit", "task"],
-          "description": "Scope level"
-        },
-        "repositoryId": { "type": "string" },
-        "branch": { "type": ["string", "null"] },
-        "workspaceId": { "type": "string" },
-        "headCommit": { "type": "string" },
-        "taskId": { "type": "string" },
-        "promoted": { "type": "boolean" }
-      },
-      "required": ["level"],
-      "description": "Observation scope"
-    },
     "capturePolicy": {
       "type": "string",
       "enum": ["ALLOW", "REDACT", "METADATA_ONLY", "DROP"],
@@ -107,5 +89,61 @@
       "items": { "type": "string" },
       "description": "Observation IDs consolidated into this one"
     }
-  }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "scope": {
+          "type": "object",
+          "required": ["level", "repositoryId"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["repository", "branch", "workspace", "commit", "task"],
+              "description": "Scope level"
+            },
+            "repositoryId": { "type": "string", "minLength": 1 },
+            "branch": { "type": "string", "minLength": 1 },
+            "workspaceId": { "type": "string", "minLength": 1 },
+            "headCommit": { "type": "string", "minLength": 1 },
+            "taskId": { "type": "string", "minLength": 1 },
+            "promoted": { "type": "boolean" }
+          },
+          "description": "Observation scope"
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "scope": { "properties": { "level": { "const": "branch" } } } }
+      },
+      "then": {
+        "properties": { "scope": { "required": ["level", "repositoryId", "branch"] } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "scope": { "properties": { "level": { "const": "workspace" } } } }
+      },
+      "then": {
+        "properties": { "scope": { "required": ["level", "repositoryId", "workspaceId"] } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "scope": { "properties": { "level": { "const": "commit" } } } }
+      },
+      "then": {
+        "properties": { "scope": { "required": ["level", "repositoryId", "headCommit"] } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "scope": { "properties": { "level": { "const": "task" } } } }
+      },
+      "then": {
+        "properties": { "scope": { "required": ["level", "repositoryId", "taskId"] } }
+      }
+    }
+  ]
 }

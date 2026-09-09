@@ -1,6 +1,6 @@
 {
   "name": "@iapro/orquestrador-maestro-cli",
-  "version": "0.2.8",
+  "version": "0.3.0",
   "description": "CLI npm para instalar, atualizar, verificar e remover o Orquestrador Maestro no usuário atual, com skills nativas enxutas e biblioteca externa para reduzir tokens.",
   "bin": {
     "orquestrador-maestro": "bin/orquestrador-maestro.js"
@@ -97,9 +97,10 @@
     "audit": "node scripts/audit-dependencies.js audit",
     "outdated:all": "node scripts/audit-dependencies.js outdated",
     "pack:dry-run": "npm pack --dry-run",
-    "test": "node --test tests/*.test.js",
+    "test": "node scripts/run-tests.js",
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
+    "verify:pr": "node scripts/verify-pr.js",
     "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1"
   },
   "config": {
@@ -134,16 +135,19 @@
     "url": "https://github.com/IAPro-Community/Orquestrador-Maestro/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "optionalDependencies": {
-    "@opentui/core": "^0.5.1"
+    "@opentui/core": "^0.5.1",
+    "node-pty": "^1.1.0"
   },
   "dependencies": {
     "@clack/prompts": "0.11.0",
     "@xterm/headless": "^5.5.0",
-    "node-notifier": "10.0.1",
-    "node-pty": "^1.1.0"
+    "node-notifier": "10.0.1"
+  },
+  "devDependencies": {
+    "uuid": "11.1.1"
   },
   "overrides": {
     "node-notifier": {

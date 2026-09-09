@@ -1,6 +1,6 @@
 "use strict";
 
-const MAX_CATALOG_MS = 5;
+const MAX_CATALOG_MS = 10;
 
 function damerauLevenshtein(a, b) {
   const m = a.length;

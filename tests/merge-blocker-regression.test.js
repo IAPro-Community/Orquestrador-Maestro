@@ -282,7 +282,8 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         id: "obs_" + "a".repeat(16),
         type: "discovery",
         summary: "test",
-        project: "test"
+        project: "test",
+        scope: { level: "branch", repositoryId: "repo-1", branch: "main" }
       }));
     });
   });
@@ -835,7 +836,7 @@ try {
         type: "environment",
         summary: "Test environment",
         source: { tool: "test" },
-        scope: { level: "workspace", workspaceId: "test-ws" }
+        scope: { level: "workspace", workspaceId: "test-ws", repositoryId: projectId }
       });
 
       const obs = memory.search(projectId);

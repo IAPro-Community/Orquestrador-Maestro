@@ -108,6 +108,23 @@ test("skill manifest, router, aliases, and chains preserve coherent public refer
   assert.equal(chains.defaults.neverLoadFullCatalog, true);
 });
 
+test("update --help and update --version do not trigger self-update", () => {
+  const helpResult = runCli("update", "--help");
+  assert.equal(helpResult.status, 0, helpResult.stderr);
+  assert.match(helpResult.stdout, /update/u);
+  assert.match(helpResult.stdout, /Uso:/u, "update --help must show usage text, not trigger npm");
+  assert.ok(!helpResult.stdout.includes("Atualizando a CLI"), "update --help must not start npm update process");
+
+  const versionResult = runCli("update", "--version");
+  assert.equal(versionResult.status, 0, versionResult.stderr);
+  assert.match(versionResult.stdout, /^\d+\.\d+\.\d+\s*$/u);
+  assert.ok(!versionResult.stdout.includes("Atualizando a CLI"), "update --version must not start npm update process");
+
+  const shortVersionResult = runCli("update", "-v");
+  assert.equal(shortVersionResult.status, 0, shortVersionResult.stderr);
+  assert.match(shortVersionResult.stdout, /^\d+\.\d+\.\d+\s*$/u);
+});
+
 test("program entrypoints and tool profiles retain native integration contracts", () => {
   const entrypoints = readJson("orquestrador/PROGRAM_ENTRYPOINTS.json");
   const expectedProfiles = {

@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Orquestrador Maestro - Unix installer engine
-# Usage: bash scripts/install.sh [--home-path PATH] [--force] [--skip-skill-sync] [--skip-extra-skills] [--skip-community-skills] [--install-tool-profiles] [--only ID] [--dry-run] [--list-targets] [--uninstall]
+# Usage: bash scripts/install.sh [--home-path PATH] [--force] [--skip-skill-sync] [--skip-extra-skills] [--skip-community-skills] [--install-tool-profiles] [--only ID] [--dry-run] [--list-targets] [--uninstall] [--all-targets] [--non-interactive]
 
 HOME_PATH="${HOME:-}"
 FORCE=false
@@ -15,6 +15,7 @@ DRY_RUN=false
 LIST_TARGETS=false
 UNINSTALL=false
 NON_INTERACTIVE=false
+ALL_TARGETS=false
 VERBOSE_PATHS=false
 
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
@@ -74,6 +75,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --non-interactive)
       NON_INTERACTIVE=true
+      ;;
+    --all-targets)
+      ALL_TARGETS=true
       ;;
     --verbose-paths)
       VERBOSE_PATHS=true
@@ -455,32 +459,76 @@ if [ "$SKIP_EXTRA_SKILLS" = false ]; then
 fi
 
 if [ "$INSTALL_TOOL_PROFILES" = true ]; then
+  tool_is_present() {
+    local tool_cmd="$1"
+    local tool_config_dir="$2"
+    if [ -n "$tool_cmd" ] && command -v "$tool_cmd" >/dev/null 2>&1; then
+      return 0
+    fi
+    if [ -n "$tool_config_dir" ] && [ -d "$HOME_PATH/$tool_config_dir" ]; then
+      if [ -f "$HOME_PATH/$tool_config_dir/.maestro-managed" ]; then
+        return 1
+      fi
+      return 0
+    fi
+    return 1
+  }
+
+  tool_should_install() {
+    local component="$1"
+    local tool_cmd="$2"
+    local tool_config_dir="$3"
+    if [ "$ALL_TARGETS" = true ]; then
+      return 0
+    fi
+    if [ "$NON_INTERACTIVE" = true ]; then
+      tool_is_present "$tool_cmd" "$tool_config_dir"
+      return $?
+    fi
+    return 0
+  }
+
   TOOL_PROFILES=(
-    "codex|.codex|.codex__profile|codex"
-    "opencode|.opencode|.opencode|opencode"
-    "opencode-global|.config/opencode|.config__opencode|opencode"
-    "claude|.claude|.claude|claude"
-    "cursor|.cursor|.cursor|cursor"
-    "gemini|.gemini|.gemini|gemini"
-    "windsurf|.windsurf|.windsurf|windsurf"
-    "windsurf-global|.codeium/windsurf/memories|.codeium__windsurf__memories|windsurf"
-    "antigravity|.antigravity|.antigravity|antigravity"
-    "ai-standards|.ai-standards|.ai-standards|antigravity"
-    "mimo|.mimo|.mimo|mimo"
-    "kimi|.kimi-code|.kimi-code|kimi"
-    "grok|.grok|.grok|grok"
+    "codex|.codex|.codex__profile|codex|codex"
+    "opencode|.opencode|.opencode|opencode|opencode"
+    "opencode-global|.config/opencode|.config__opencode|opencode|opencode"
+    "claude|.claude|.claude|claude|claude"
+    "cursor|.cursor|.cursor|cursor|"
+    "gemini|.gemini|.gemini|gemini|gemini"
+    "windsurf|.windsurf|.windsurf|windsurf|"
+    "windsurf-global|.codeium/windsurf/memories|.codeium__windsurf__memories|windsurf|"
+    "antigravity|.antigravity|.antigravity|antigravity|"
+    "ai-standards|.ai-standards|.ai-standards|antigravity|"
+    "mimo|.mimo|.mimo|mimo|mimo"
+    "kimi|.kimi-code|.kimi-code|kimi|kimi"
+    "grok|.grok|.grok|grok|grok"
   )
   for entry in "${TOOL_PROFILES[@]}"; do
-    IFS='|' read -r src_sub dest_sub label component <<EOF
-$entry
-EOF
+    IFS='|' read -r src_sub dest_sub label component tool_cmd <<< "$entry"
     if selected_component tool-profiles "$component"; then
-      add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component"
+      config_dir=""
+      case "$component" in
+        codex) config_dir=".codex" ;;
+        opencode) config_dir=".opencode" ;;
+        claude) config_dir=".claude" ;;
+        cursor) config_dir=".cursor" ;;
+        gemini) config_dir=".gemini" ;;
+        windsurf) config_dir=".windsurf" ;;
+        antigravity) config_dir=".antigravity" ;;
+        mimo) config_dir=".mimo" ;;
+        kimi) config_dir=".kimi-code" ;;
+        grok) config_dir=".grok" ;;
+      esac
+      if tool_should_install "$component" "$tool_cmd" "$config_dir"; then
+        add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component"
+      fi
     fi
   done
 
   if selected_component tool-profiles antigravity; then
-    add_file_target "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" "$HOME_PATH/antigravity-rules.json" "antigravity-rules.json" "antigravity"
+    if tool_should_install "antigravity" "" ".antigravity"; then
+      add_file_target "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" "$HOME_PATH/antigravity-rules.json" "antigravity-rules.json" "antigravity"
+    fi
   fi
 fi
 
@@ -621,7 +669,11 @@ chmod +x \
 if [ "$SKIP_SKILL_SYNC" = false ]; then
   SYNC_SCRIPT="$TARGET_ORQUESTRADOR/sync-skills.sh"
   if [ -f "$SYNC_SCRIPT" ]; then
-    bash "$SYNC_SCRIPT" --apply --home-path "$HOME_PATH"
+    SYNC_ARGS=("--apply" "--home-path" "$HOME_PATH")
+    if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
+      SYNC_ARGS+=("--only" "$(IFS=','; echo "${ONLY_COMPONENTS[*]}")")
+    fi
+    bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
   fi
 fi
 

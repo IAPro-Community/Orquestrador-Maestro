@@ -21,6 +21,9 @@ const { createBridge, createStdioServer, runtimePaths, startSocketRuntime } = re
 const { SocketMaestroClient } = require(path.join(rootDir, "runtime", "client", "socket-maestro-client"));
 const { createProtocolV2Server } = require(path.join(rootDir, "runtime", "protocol", "protocol-v2"));
 const { startTui } = require(path.join(rootDir, "runtime", "tui"));
+const { listSupportedTools, getToolDefinition, isSupportedTool, resolveToolConfigPaths } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
+const { DETECTION_STATES, detectTool, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
+const installState = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
 const telemetryTimeoutMs = 1200;
 const telemetryConsentVersion = 1;
 
@@ -36,7 +39,8 @@ const installFlagDefs = {
   "--list-targets": { ps: "-ListTargets", sh: "--list-targets" },
   "--uninstall": { ps: "-Uninstall", sh: "--uninstall" },
   "--non-interactive": { ps: "-NonInteractive", sh: "--non-interactive" },
-  "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" }
+  "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" },
+  "--all-targets": { ps: "-AllTargets", sh: "--all-targets" }
 };
 
 const verifyFlagDefs = {
@@ -107,6 +111,7 @@ Uso:
   orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
+  orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
   orquestrador-maestro changelog [--full]
   orquestrador-maestro uninstall [opcoes]
   orquestrador-maestro list-targets [opcoes]
@@ -120,6 +125,7 @@ Opcoes de install/update/uninstall:
   --only <component>          Limita a um componente: core, codex, agents,
                               claude, opencode, cursor, gemini, windsurf,
                               antigravity
+  --all-targets               Instala em todos os targets suportados (opt-in)
   --no-tool-profiles          Nao instala perfis globais das ferramentas
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
   --skip-skill-sync           Nao roda o sync de skills
@@ -127,6 +133,13 @@ Opcoes de install/update/uninstall:
   --list-targets              Lista os destinos conhecidos
   --non-interactive           Evita prompts interativos
   --verbose-paths             Mostra caminhos reais nos relatorios
+
+  Opcoes de targets:
+  targets add <id> [--force]  Instala e habilita uma integracao
+  targets remove <id>         Desabilita sem apagar arquivos humanos
+  targets sync                Sincroniza somente targets habilitados
+  targets list --json         Saida JSON estavel
+  --home-path <path>          Caminho home para detectar
 
 Opcoes de verify:
   --home-path <path>
@@ -360,11 +373,73 @@ function runCliUpdate(args) {
   });
 }
 
-function runInstall(args, injectedFlags = []) {
+async function runInstall(args, injectedFlags = []) {
   const isWindows = process.platform === "win32";
   const script = path.join(rootDir, isWindows ? "install.ps1" : "install.sh");
   if (!commandExists(script)) {
     throw new Error(`Instalador nao encontrado: ${script}`);
+  }
+
+  const isNonInteractive = args.includes("--non-interactive") || injectedFlags.includes("--non-interactive");
+  const isAllTargets = args.includes("--all-targets") || injectedFlags.includes("--all-targets");
+  const hasOnly = args.some(a => a === "--only") || injectedFlags.some(a => a === "--only");
+
+  if (!isNonInteractive && !isAllTargets && !hasOnly && process.stdin.isTTY) {
+    const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
+    const orquestradorDir = path.join(homePath, ".orquestrador");
+    const detections = detectAllTools(homePath);
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+
+    const detected = [];
+    const notDetected = [];
+    for (const [toolId, detection] of Object.entries(detections)) {
+      const def = getToolDefinition(toolId);
+      if (detection.state === "detected" || detection.state === "configured") {
+        detected.push({ id: toolId, name: def.displayName, state: detection.state });
+      } else {
+        notDetected.push({ id: toolId, name: def.displayName, state: detection.state });
+      }
+    }
+
+    if (detected.length > 0) {
+      console.log("\nDetectando ferramentas...\n");
+      for (const d of detected) {
+        const marker = d.state === "detected" ? "✓" : "~";
+        console.log(`  ${marker} ${d.name}          ${d.state}`);
+      }
+      for (const d of notDetected) {
+        console.log(`  ○ ${d.name}          ${d.state}`);
+      }
+
+      try {
+        const p = require("@clack/prompts");
+        const options = detected.map((d) => ({
+          value: d.id,
+          label: `${d.name} (${d.state})`,
+          hint: state.targets[d.id]?.enabled ? "already enabled" : undefined
+        }));
+
+        const selected = await p.multiselect({
+          message: "Onde deseja instalar as integracoes Maestro?",
+          options,
+          required: true
+        });
+
+        if (p.isCancel(selected)) {
+          p.cancel("Instalacao cancelada.");
+          return 0;
+        }
+
+        if (Array.isArray(selected) && selected.length > 0) {
+          const onlyFlag = selected.join(",");
+          injectedFlags.push("--only", onlyFlag);
+        }
+      } catch (err) {
+        console.error("\nErro ao selecionar targets: " + (err.message || err));
+        console.error("Use --all-targets para instalar todos, ou --only codex,claude para selecao manual.\n");
+        return 1;
+      }
+    }
   }
 
   if (isWindows) {
@@ -609,6 +684,18 @@ function parseArgEqual(args, name) {
 
 function getArg(args, name) {
   return parseArg(args, name) || parseArgEqual(args, name);
+}
+
+function extractPositionalArg(args, knownFlags) {
+  for (let i = args.length - 1; i >= 0; i--) {
+    const a = args[i];
+    if (!a.startsWith("-")) {
+      const prev = i > 0 ? args[i - 1] : null;
+      if (prev && knownFlags.includes(prev)) continue;
+      return a;
+    }
+  }
+  return null;
 }
 
 function runBenchmarkCommand(args) {
@@ -875,11 +962,15 @@ async function handleTuiCommand(args) {
     }
     if (!externalRuntime) throw new Error("O runtime canônico não iniciou dentro de 5 segundos.");
   }
+  const hasBun = executableAvailable("bun");
+  const hasOpentui = (() => { try { require.resolve("@opentui/core"); return true; } catch { return false; } })();
+  if (!hasBun || !hasOpentui) { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); return 0; }
   const visualHost = {
     projectRoot,
-    terminalCapabilities: () => ({ tui: { bun: executableAvailable("bun"), opentui: (() => { try { require.resolve("@opentui/core"); return true; } catch { return false; } })() } })
+    terminalCapabilities: () => ({ tui: { bun: true, opentui: true } })
   };
-  await startTui(visualHost, { classic: false }); return 0;
+  try { await startTui(visualHost, { classic: false }); } catch { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); }
+  return 0;
 }
 
 function createRuntimeBridge(app, projectRoot) {
@@ -1633,6 +1724,487 @@ async function handleContextCommand(args) {
   return 0;
 }
 
+function handleTargetsCommand(args) {
+  const [subcommand = "list", ...rest] = args;
+  const isWindows = process.platform === "win32";
+
+  const getHomePath = () => {
+    const hp = getArg(rest, "--home-path");
+    if (hp) return hp;
+    return process.env.HOME || process.env.USERPROFILE || os.homedir();
+  };
+
+  const homePath = getHomePath();
+  const orquestradorDir = path.join(homePath, ".orquestrador");
+
+  const normalizeManagedPath = (value) => {
+    if (typeof value !== "string" || value.length === 0 || value.includes("\0")) return null;
+    const normalized = value.replace(/\\/g, "/");
+    if (normalized.startsWith("/") || normalized.startsWith("//") || /^[A-Za-z]:\//u.test(normalized)) return null;
+    const parts = normalized.split("/");
+    if (parts.some(part => !part || part === "." || part === "..")) return null;
+    return parts.join(path.sep);
+  };
+
+  const assertSafeHomePath = (relativePath) => {
+    const safe = normalizeManagedPath(relativePath);
+    if (!safe) throw new Error(`Unsafe managed path: ${relativePath}`);
+    const resolvedHome = path.resolve(homePath);
+    const resolved = path.resolve(resolvedHome, safe);
+    const relative = path.relative(resolvedHome, resolved);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`Path escapes home: ${relativePath}`);
+
+    let current = resolvedHome;
+    const components = path.relative(resolvedHome, resolved).split(path.sep).filter(Boolean);
+    for (const component of components) {
+      current = path.join(current, component);
+      try {
+        if (fs.lstatSync(current).isSymbolicLink()) throw new Error(`Refusing symlink in managed path: ${relativePath}`);
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+        break;
+      }
+    }
+    return { safe, resolved };
+  };
+
+  const hashFile = (filePath) => crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+  const markerContent = (toolId) => `managed by orquestrador-maestro\ntool: ${toolId}\n`;
+  const isRecognizedMarker = (content, toolId) => content === markerContent(toolId);
+
+  if (subcommand === "list" || subcommand === "detect") {
+    const detections = detectAllTools(homePath);
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const jsonFlag = rest.includes("--json");
+
+    const rows = [];
+    for (const [toolId, detection] of Object.entries(detections)) {
+      const def = getToolDefinition(toolId);
+      const targetState = installState.getTargetState(state, toolId);
+      const enabled = targetState ? targetState.enabled : false;
+      rows.push({
+        Target: def.displayName,
+        ToolId: toolId,
+        Detection: detection.state,
+        Enabled: enabled ? "yes" : "no"
+      });
+    }
+
+    if (subcommand === "detect") {
+      for (const [toolId, detection] of Object.entries(detections)) {
+        installState.updateDetectionState(state, toolId, detection);
+      }
+      installState.writeState(orquestradorDir, state);
+    }
+
+    if (jsonFlag) {
+      console.log(JSON.stringify({ schemaVersion: 1, targets: rows }, null, 2));
+    } else {
+      const header = "Target".padEnd(20) + "Detection".padEnd(16) + "Enabled";
+      const sep = "-".repeat(44);
+      console.log(header);
+      console.log(sep);
+      for (const r of rows) {
+        console.log(r.Target.padEnd(20) + r.Detection.padEnd(16) + r.Enabled);
+      }
+    }
+    return 0;
+  }
+
+  if (subcommand === "add") {
+    const toolId = extractPositionalArg(rest, ["--home-path", "--force"]);
+    if (!toolId || !isSupportedTool(toolId)) {
+      throw new Error(`Invalid target: ${toolId}. Supported: ${listSupportedTools().join(", ")}`);
+    }
+
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const detection = detectToolById(toolId, homePath);
+    const force = rest.includes("--force");
+
+    if (detection.state === DETECTION_STATES.NOT_DETECTED) {
+      if (detection.reason === "maestro-created-directory-only") {
+        throw new Error(`Refusing to enable ${toolId}: directory exists but was created by Maestro, not by an actual CLI installation.`);
+      }
+      if (!force) {
+        throw new Error(`Refusing to enable ${toolId}: CLI not detected. Use --force to override.`);
+      }
+    }
+
+    const def = getToolDefinition(toolId);
+    const previousTarget = installState.getTargetState(state, toolId) || {};
+    const previousEntries = new Map((previousTarget.managedEntries || []).map(entry => [entry.path.replace(/\\/g, "/"), entry]));
+    const managedFiles = [];
+    const managedDirectories = [];
+    const managedEntries = [];
+    const createdFiles = [];
+    const createdDirectories = [];
+    const replacedFiles = new Map();
+    const preservedExisting = [];
+    const conflicts = [];
+
+    try {
+      const homeStat = fs.lstatSync(homePath);
+      if (homeStat.isSymbolicLink()) throw new Error("Refusing symlink home path");
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+
+    const rememberDirectoryAncestry = (targetDirectory) => {
+      const missing = [];
+      let current = path.resolve(targetDirectory);
+      while (current !== path.resolve(homePath)) {
+        try {
+          const stat = fs.lstatSync(current);
+          if (stat.isSymbolicLink()) throw new Error(`Refusing symlink directory: ${current}`);
+          break;
+        } catch (err) {
+          if (err.code !== "ENOENT") throw err;
+          missing.push(path.relative(homePath, current));
+          current = path.dirname(current);
+        }
+      }
+      createdDirectories.push(...missing.filter(Boolean));
+    };
+
+    const rollbackCreated = () => {
+      for (const [filePath, content] of replacedFiles.entries()) {
+        try { fs.writeFileSync(filePath, content); } catch {}
+      }
+      for (const f of createdFiles) {
+        try { fs.unlinkSync(path.join(homePath, f)); } catch {}
+      }
+      for (const d of [...new Set(createdDirectories)].sort((a, b) => b.length - a.length)) {
+        try { fs.rmdirSync(path.join(homePath, d)); } catch {}
+      }
+    };
+
+    let installSuccess = false;
+
+    try {
+      for (const skillTarget of def.skillTargets) {
+        const srcCandidates = [
+          path.join(rootDir, "orquestrador", "skills", "orquestrador-maestro"),
+          path.join(rootDir, "codex", "skills", "orquestrador-maestro")
+        ];
+        const srcDir = srcCandidates.find(candidate => fs.existsSync(candidate));
+        const destDir = assertSafeHomePath(path.posix.join(skillTarget, "orquestrador-maestro")).resolved;
+        if (srcDir && fs.existsSync(srcDir)) {
+          rememberDirectoryAncestry(destDir);
+          fs.mkdirSync(destDir, { recursive: true });
+          const files = fs.readdirSync(srcDir, { withFileTypes: true });
+          for (const entry of files) {
+            const srcFile = path.join(srcDir, entry.name);
+            const destFile = path.join(destDir, entry.name);
+            if (entry.isFile()) {
+              const relManaged = path.join(skillTarget, "orquestrador-maestro", entry.name);
+              const normalizedRel = relManaged.replace(/\\/g, "/");
+              const existing = fs.existsSync(destFile) ? fs.lstatSync(destFile) : null;
+              const previous = previousEntries.get(normalizedRel);
+              const isOwned = Boolean(existing && existing.isFile() && previous && previous.sha256 === hashFile(destFile));
+              if (!existing) {
+                createdFiles.push(relManaged);
+              } else if (existing.isSymbolicLink() || !existing.isFile()) {
+                conflicts.push(normalizedRel);
+                continue;
+              } else if (!isOwned) {
+                preservedExisting.push(normalizedRel);
+                continue;
+              } else {
+                replacedFiles.set(destFile, fs.readFileSync(destFile));
+              }
+              fs.copyFileSync(srcFile, destFile);
+              const entryRecord = {
+                path: normalizedRel,
+                kind: "file",
+                sha256: hashFile(destFile),
+                installedBy: "orquestrador-maestro",
+                installedAt: new Date().toISOString(),
+                target: toolId
+              };
+              managedEntries.push(entryRecord);
+              managedFiles.push(normalizedRel);
+            }
+          }
+          if (managedEntries.some(entry => entry.path.startsWith(`${skillTarget.replace(/\\/g, "/")}/orquestrador-maestro/`))) {
+            managedDirectories.push(path.posix.join(skillTarget, "orquestrador-maestro"));
+          }
+        }
+      }
+
+      for (const configPath of def.configPaths) {
+        const markerPath = assertSafeHomePath(path.posix.join(configPath, ".maestro-managed")).resolved;
+        rememberDirectoryAncestry(path.dirname(markerPath));
+        fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+        const markerExists = fs.existsSync(markerPath);
+        if (markerExists) {
+          const markerStat = fs.lstatSync(markerPath);
+          if (markerStat.isSymbolicLink() || !markerStat.isFile()) throw new Error(`Unsafe marker: ${markerPath}`);
+          const currentMarker = fs.readFileSync(markerPath, "utf8");
+          const previous = previousEntries.get(path.posix.join(configPath, ".maestro-managed"));
+          const isOwned = isRecognizedMarker(currentMarker, toolId)
+            && (!previous || previous.sha256 === hashFile(markerPath));
+          if (!isOwned) {
+            conflicts.push(path.posix.join(configPath, ".maestro-managed"));
+            break;
+          }
+          replacedFiles.set(markerPath, Buffer.from(currentMarker));
+        } else {
+          createdFiles.push(path.posix.join(configPath, ".maestro-managed"));
+        }
+        fs.writeFileSync(markerPath, markerContent(toolId));
+        const markerRel = path.posix.join(configPath, ".maestro-managed");
+        managedFiles.push(markerRel);
+        managedEntries.push({
+          path: markerRel,
+          kind: "file",
+          sha256: hashFile(markerPath),
+          installedBy: "orquestrador-maestro",
+          installedAt: new Date().toISOString(),
+          target: toolId
+        });
+        if (markerExists || def.configPaths.length > 0) {
+          break;
+        }
+      }
+
+      installSuccess = true;
+    } catch (err) {
+      installSuccess = false;
+      rollbackCreated();
+    }
+
+    if (!installSuccess) {
+      console.error(JSON.stringify({
+        target: toolId,
+        enabled: false,
+        detection: detection.state,
+        error: "Failed to install integration files."
+      }, null, 2));
+      return 1;
+    }
+
+    state.targets[toolId] = {
+      enabled: true,
+      selection: "user",
+      lastDetection: detection.state,
+      enabledAt: new Date().toISOString(),
+      managedFiles,
+      managedDirectories,
+      managedEntries,
+      preservedExisting,
+      conflicts
+    };
+
+    try {
+      installState.writeState(orquestradorDir, state);
+    } catch {
+      rollbackCreated();
+      console.error(JSON.stringify({
+        target: toolId,
+        enabled: false,
+        detection: detection.state,
+        error: "Failed to persist state. Rolled back file changes."
+      }, null, 2));
+      return 1;
+    }
+
+    console.log(JSON.stringify({
+      target: toolId,
+      enabled: true,
+      detection: detection.state,
+      managedFiles,
+      managedEntries,
+      preservedExisting,
+      conflicts,
+      message: `Target ${toolId} installed and enabled.`
+    }, null, 2));
+    return 0;
+  }
+
+  if (subcommand === "remove") {
+    const toolId = extractPositionalArg(rest, ["--home-path"]);
+    if (!toolId || !isSupportedTool(toolId)) {
+      throw new Error(`Invalid target: ${toolId}. Supported: ${listSupportedTools().join(", ")}`);
+    }
+
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const targetState = installState.getTargetState(state, toolId);
+    const removedFiles = [];
+    const preservedFiles = [];
+    const modifiedManagedFile = [];
+    const removedFileBackups = new Map();
+    const force = rest.includes("--force");
+
+    function isPathContained(relPath) {
+      const full = path.resolve(homePath, relPath);
+      // Resolve symlinks to prevent physical path escape
+      let realHome;
+      try { realHome = fs.realpathSync(homePath); } catch { realHome = path.resolve(homePath); }
+      let realFull;
+      try { realFull = fs.realpathSync(full); } catch {
+        // Path doesn't exist yet — check parent directory instead
+        try { realFull = fs.realpathSync(path.dirname(full)); } catch { realFull = path.dirname(full); }
+        realFull = path.join(realFull, path.basename(full));
+      }
+      const rel = path.relative(realHome, realFull);
+      return !rel.startsWith("..") && !path.isAbsolute(rel);
+    }
+
+    const managedEntries = targetState?.managedEntries || [];
+    for (const entry of managedEntries) {
+      const relPath = entry.path;
+      try {
+        const { resolved: fullPath } = assertSafeHomePath(relPath);
+        if (!fs.existsSync(fullPath)) continue;
+        const stat = fs.lstatSync(fullPath);
+        if (stat.isSymbolicLink() || !stat.isFile()) {
+          preservedFiles.push(relPath);
+          continue;
+        }
+        const unchanged = hashFile(fullPath) === entry.sha256;
+        if (!unchanged && !force) {
+          modifiedManagedFile.push(relPath);
+          preservedFiles.push(relPath);
+          continue;
+        }
+        removedFileBackups.set(fullPath, fs.readFileSync(fullPath));
+        fs.unlinkSync(fullPath);
+        removedFiles.push(relPath);
+      } catch (err) {
+        preservedFiles.push(relPath);
+        console.error(`Refusing to remove path ${relPath}: ${err.message}`);
+      }
+    }
+
+    // Legacy path-only records are intentionally preserved: without a hash they
+    // do not prove that the current file is still Maestro-owned.
+    for (const relPath of targetState?.managedFiles || []) {
+      if (!managedEntries.some(entry => entry.path === relPath)) preservedFiles.push(relPath);
+    }
+
+    if (targetState && targetState.managedDirectories) {
+      for (const relDir of targetState.managedDirectories) {
+        let fullDir;
+        try { fullDir = assertSafeHomePath(relDir).resolved; } catch (err) {
+          console.error(`Refusing to remove directory ${relDir}: ${err.message}`);
+          continue;
+        }
+        try {
+          if (fs.existsSync(fullDir) && !fs.lstatSync(fullDir).isSymbolicLink()) {
+            const entries = fs.readdirSync(fullDir);
+            if (entries.length === 0) {
+              fs.rmdirSync(fullDir);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    const markerRemoved = [];
+    const def = getToolDefinition(toolId);
+    if (def) {
+      for (const configPath of def.configPaths) {
+        let markerPath;
+        try { markerPath = assertSafeHomePath(path.posix.join(configPath, ".maestro-managed")).resolved; } catch (err) {
+          console.error(`Refusing marker path ${configPath}: ${err.message}`);
+          continue;
+        }
+        try {
+          if (fs.existsSync(markerPath)) {
+            const markerStat = fs.lstatSync(markerPath);
+            const markerRel = path.posix.join(configPath, ".maestro-managed");
+            const markerEntry = managedEntries.find(entry => entry.path === markerRel);
+            if (markerStat.isSymbolicLink() || !markerStat.isFile() || !markerEntry) {
+              preservedFiles.push(markerRel);
+            } else if (hashFile(markerPath) !== markerEntry.sha256 && !force) {
+              modifiedManagedFile.push(markerRel);
+              preservedFiles.push(markerRel);
+            } else if (isRecognizedMarker(fs.readFileSync(markerPath, "utf8"), toolId)) {
+              removedFileBackups.set(markerPath, fs.readFileSync(markerPath));
+              fs.unlinkSync(markerPath);
+              markerRemoved.push(markerRel);
+            } else {
+              preservedFiles.push(markerRel);
+            }
+          }
+        } catch {}
+      }
+    }
+
+    installState.disableTarget(state, toolId);
+    try {
+      installState.writeState(orquestradorDir, state);
+    } catch (err) {
+      for (const [filePath, content] of removedFileBackups.entries()) {
+        try { fs.writeFileSync(filePath, content, { flag: "wx" }); } catch {}
+      }
+      console.error(JSON.stringify({
+        target: toolId,
+        enabled: true,
+        error: "Failed to persist state. Restored removed files.",
+        cause: err.message
+      }, null, 2));
+      return 1;
+    }
+
+    console.log(JSON.stringify({
+      target: toolId,
+      enabled: false,
+      removedFiles: [...removedFiles, ...markerRemoved],
+      preservedFiles: [...new Set(preservedFiles)],
+      modifiedManagedFile: [...new Set(modifiedManagedFile)],
+      message: `Target ${toolId} disabled. Maestro-managed files removed. User files preserved.`
+    }, null, 2));
+    return 0;
+  }
+
+  if (subcommand === "sync") {
+    const state = installState.readState(orquestradorDir) || installState.getDefaultState();
+    const enabledTargets = installState.getEnabledTargets(state);
+
+    if (enabledTargets.length === 0) {
+      console.log(JSON.stringify({ synced: [], message: "No enabled targets to sync." }, null, 2));
+      return 0;
+    }
+
+    const packageSyncSh = path.join(rootDir, "orquestrador", "sync-skills.sh");
+    const packageSyncPs1 = path.join(rootDir, "orquestrador", "sync-skills.ps1");
+    const scriptExists = isWindows ? fs.existsSync(packageSyncPs1) : fs.existsSync(packageSyncSh);
+
+    if (!scriptExists) {
+      console.error(`Error: sync script not found in package: ${isWindows ? packageSyncPs1 : packageSyncSh}`);
+      return 1;
+    }
+
+    const synced = [];
+    const failed = [];
+    for (const target of enabledTargets) {
+      try {
+        const exitCode = isWindows
+          ? run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packageSyncPs1, "-Apply", "-HomePath", homePath, "-Only", target])
+          : run("bash", [packageSyncSh, "--apply", "--home-path", homePath, "--only", target]);
+        if (exitCode === 0) {
+          synced.push(target);
+        } else {
+          failed.push({ target, exitCode });
+        }
+      } catch (e) {
+        failed.push({ target, error: e.message });
+      }
+    }
+
+    if (failed.length > 0) {
+      console.error(JSON.stringify({ synced, failed }, null, 2));
+      return 1;
+    }
+
+    console.log(JSON.stringify({ synced }, null, 2));
+    return 0;
+  }
+
+  throw new Error(`Unknown targets subcommand: ${subcommand}. Use: targets [list|detect|add|remove|sync]`);
+}
+
 async function dispatch(command, args) {
   if (command === "go" || command === "plan") {
     return handleGoCommand(args, command === "plan");
@@ -1653,6 +2225,30 @@ async function dispatch(command, args) {
     return 0;
   }
 
+  if (command === "install") {
+    return await runInstall(args);
+  }
+
+  if (command === "update") {
+    if (args.includes("--help") || args.includes("-h")) {
+      printHelp();
+      return 0;
+    }
+    if (args.includes("--version") || args.includes("-v")) {
+      console.log(packageJson.version);
+      return 0;
+    }
+    if (args.includes("--dry-run") || args.includes("--list-targets")) {
+      return await runInstall(args);
+    }
+    const childResult = runCliUpdate(args);
+    if (childResult) {
+      if (childResult.error) throw childResult.error;
+      return typeof childResult.status === "number" ? childResult.status : 1;
+    }
+    return await runInstall(args);
+  }
+
   if (args.includes("--help") || args.includes("-h")) {
     printHelp();
     return 0;
@@ -1666,7 +2262,6 @@ async function dispatch(command, args) {
   if (command === "version") {
     return handleVersionCommand(args);
   }
-
   if (command === "install") {
     return runInstall(args);
   }
@@ -1682,17 +2277,16 @@ async function dispatch(command, args) {
     }
     return runInstall(args);
   }
-
   if (command === "uninstall") {
-    return runInstall(args, ["--uninstall"]);
+    return await runInstall(args, ["--uninstall"]);
   }
 
   if (command === "list-targets") {
-    return runInstall(args, ["--list-targets"]);
+    return await runInstall(args, ["--list-targets"]);
   }
 
   if (command === "dry-run") {
-    return runInstall(args, ["--dry-run"]);
+    return await runInstall(args, ["--dry-run"]);
   }
 
   if (command === "verify") {
@@ -1744,6 +2338,10 @@ async function dispatch(command, args) {
 
   if (command === "adapters") {
     return runToolAdapters(args);
+  }
+
+  if (command === "targets") {
+    return handleTargetsCommand(args);
   }
 
   if (command === "changelog") {

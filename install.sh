@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Orquestrador Maestro - Unix installer wrapper
-# Usage: bash install.sh [--home-path PATH] [--no-force] [--no-tool-profiles] [--core-only] [--skip-community-skills] [--skip-skill-sync] [--only ID] [--dry-run] [--list-targets] [--uninstall]
+# Usage: bash install.sh [--home-path PATH] [--no-force] [--no-tool-profiles] [--core-only] [--skip-community-skills] [--skip-skill-sync] [--only ID] [--dry-run] [--list-targets] [--uninstall] [--all-targets] [--non-interactive]
 
 HOME_PATH="${HOME:-}"
 FORCE=true
@@ -15,6 +15,7 @@ DRY_RUN=false
 LIST_TARGETS=false
 UNINSTALL=false
 NON_INTERACTIVE=false
+ALL_TARGETS=false
 VERBOSE_PATHS=false
 
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
@@ -68,6 +69,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --non-interactive)
       NON_INTERACTIVE=true
+      ;;
+    --all-targets)
+      ALL_TARGETS=true
       ;;
     --verbose-paths)
       VERBOSE_PATHS=true
@@ -123,6 +127,9 @@ if [ "$UNINSTALL" = true ]; then
 fi
 if [ "$NON_INTERACTIVE" = true ]; then
   ARGS+=(--non-interactive)
+fi
+if [ "$ALL_TARGETS" = true ]; then
+  ARGS+=(--all-targets)
 fi
 if [ "$VERBOSE_PATHS" = true ]; then
   ARGS+=(--verbose-paths)

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const { execSync } = require("node:child_process");
 
 const { Memory } = require("../orquestrador/bin/memory.js");
 const { ClaudeAdapter, CodexAdapter, OpenCodeAdapter, GenericAdapter, createAdapter } = require("../orquestrador/adapters/index.js");
@@ -178,6 +179,76 @@ describe("Adapters", () => {
       assert.equal(obsB.length, 1);
       assert.ok(obsA[0].summary.includes("Project A"));
       assert.ok(obsB[0].summary.includes("Project B"));
+    });
+  });
+
+  describe("adapter E2E with real git scope", () => {
+    let repoDir;
+    let mem;
+
+    beforeEach(() => {
+      repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "adapter-e2e-"));
+      mem = new Memory({ baseDir: path.join(repoDir, ".memory") });
+      execSync("git init", { cwd: repoDir, stdio: "ignore" });
+      execSync("git config user.email 'test@test.com'", { cwd: repoDir, stdio: "ignore" });
+      execSync("git config user.name 'Test'", { cwd: repoDir, stdio: "ignore" });
+      fs.writeFileSync(path.join(repoDir, "README.md"), "init");
+      execSync("git add . && git commit -m 'init'", { cwd: repoDir, stdio: "ignore" });
+    });
+
+    afterEach(() => {
+      fs.rmSync(repoDir, { recursive: true, force: true });
+    });
+
+    function makeGitCtx(branch) {
+      return { repositoryId: "e2e-project", branch, headCommit: "abc123", workspaceId: "ws_test" };
+    }
+
+    it("same branch observation is visible", () => {
+      const branch = execSync("git branch --show-current", { cwd: repoDir, encoding: "utf8" }).trim();
+      const adapter = createAdapter("generic", { memory: mem, projectId: "e2e-project", gitContext: makeGitCtx(branch) });
+      adapter.processEvent({ type: "decision", summary: "Use React for frontend" });
+
+      const gitCtx = makeGitCtx(branch);
+      const result = mem.searchWithVisibility("e2e-project", gitCtx);
+
+      assert.ok(Array.isArray(result), "result must be an array");
+      assert.ok(result.length >= 1, "same branch observation must be visible");
+      assert.ok(result.metrics.visible >= 1, "metrics must show visible > 0");
+      assert.ok(result.metrics.visible <= result.metrics.considered, "visible <= considered");
+    });
+
+    it("sibling branch observation is hidden", () => {
+      const currentBranch = execSync("git branch --show-current", { cwd: repoDir, encoding: "utf8" }).trim();
+      const adapter = createAdapter("generic", { memory: mem, projectId: "e2e-project", gitContext: makeGitCtx(currentBranch) });
+      adapter.processEvent({ type: "decision", summary: "Use Vue for frontend" });
+
+      const otherGitCtx = makeGitCtx("feature-other");
+      const result = mem.searchWithVisibility("e2e-project", otherGitCtx);
+
+      const sameBranchResult = mem.searchWithVisibility("e2e-project", makeGitCtx(currentBranch));
+
+      assert.ok(sameBranchResult.metrics.visible >= 1, "must be visible on same branch");
+      if (currentBranch !== "feature-other") {
+        assert.equal(result.metrics.visible, 0, "must be hidden on sibling branch");
+      }
+    });
+
+    it("task mismatch observation is hidden", () => {
+      const branch = execSync("git branch --show-current", { cwd: repoDir, encoding: "utf8" }).trim();
+      const gitCtx = makeGitCtx(branch);
+
+      mem.record("e2e-project", {
+        type: "implementation",
+        summary: "Task A implementation",
+        scope: { level: "task", repositoryId: "e2e-project", taskId: "task-a", branch }
+      });
+
+      const resultWithTask = mem.searchWithVisibility("e2e-project", gitCtx, { taskId: "task-a" });
+      const resultWithoutTask = mem.searchWithVisibility("e2e-project", gitCtx, { taskId: "task-b" });
+
+      assert.ok(resultWithTask.metrics.visible >= 1, "must be visible for matching task");
+      assert.equal(resultWithoutTask.metrics.visible, 0, "must be hidden for mismatched task");
     });
   });
 });

@@ -11,6 +11,7 @@ param(
   [switch]$ListTargets,
   [switch]$Uninstall,
   [switch]$NonInteractive,
+  [switch]$AllTargets,
   [switch]$VerbosePaths
 )
 
@@ -60,6 +61,9 @@ if ($Uninstall) {
 }
 if ($NonInteractive) {
   $argsList += "-NonInteractive"
+}
+if ($AllTargets) {
+  $argsList += "-AllTargets"
 }
 if ($VerbosePaths) {
   $argsList += "-VerbosePaths"

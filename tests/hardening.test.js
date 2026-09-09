@@ -200,19 +200,19 @@ describe("Hardening", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Repository-level observation",
-        scope: { level: "repository" }
+        scope: { level: "repository", repositoryId: projectId }
       });
 
       memory.record(projectId, {
         type: "discovery",
         summary: "Branch A observation",
-        scope: { level: "branch", branch: "feat-a" }
+        scope: { level: "branch", repositoryId: projectId, branch: "feat-a" }
       });
 
       memory.record(projectId, {
         type: "discovery",
         summary: "Branch B observation",
-        scope: { level: "branch", branch: "feat-b" }
+        scope: { level: "branch", repositoryId: projectId, branch: "feat-b" }
       });
 
       const branchA = memory.search(projectId, { branch: "feat-a" });
@@ -287,13 +287,13 @@ describe("Hardening", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Feature observation",
-        scope: { level: "branch", branch: "feat-a" }
+        scope: { level: "branch", repositoryId: projectId, branch: "feat-a" }
       });
 
       memory.record(projectId, {
         type: "discovery",
         summary: "Repository observation",
-        scope: { level: "repository" }
+        scope: { level: "repository", repositoryId: projectId }
       });
 
       const beforeSearch = memory.search(projectId, { branch: "feat-a" });

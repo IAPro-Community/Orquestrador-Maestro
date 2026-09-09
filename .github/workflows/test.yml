@@ -32,7 +32,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run tests
         run: npm test
@@ -53,10 +53,21 @@ jobs:
           orquestrador-maestro memory status
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
+          temp_home="$(mktemp -d)"
+          fake_bin="$temp_home/bin"
+          mkdir -p "$fake_bin"
+          printf '#!/usr/bin/env sh\nexit 0\n' > "$fake_bin/codex"
+          chmod +x "$fake_bin/codex"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets detect --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets add codex --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets list --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets sync --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets remove codex --home-path "$temp_home"
+          rm -rf "$temp_home"
 
       - name: Cleanup
         if: always()
-        run: npm uninstall -g @iapro/orquestrador-maestro-cli 2>/dev/null || true
+        run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   test-windows:
     name: Smoke tests — Node ${{ matrix.node-version }} on Windows
@@ -75,7 +86,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run smoke tests
         run: npm run test:smoke
@@ -94,9 +105,28 @@ jobs:
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
 
+      - name: Smart target lifecycle
+        shell: pwsh
+        run: |
+          $tempHome = Join-Path $env:RUNNER_TEMP "maestro-targets-$env:GITHUB_RUN_ID"
+          $fakeBin = Join-Path $tempHome "bin"
+          New-Item -ItemType Directory -Force -Path $fakeBin | Out-Null
+          Set-Content -LiteralPath (Join-Path $fakeBin "codex.cmd") -Value "@echo off`r`nexit /b 0`r`n"
+          $env:PATH = "$fakeBin;$env:PATH"
+          orquestrador-maestro targets detect --home-path $tempHome
+          orquestrador-maestro targets add codex --home-path $tempHome
+          orquestrador-maestro targets list --home-path $tempHome
+          orquestrador-maestro targets sync --home-path $tempHome
+          orquestrador-maestro targets remove codex --home-path $tempHome
+          $pkgRoot = (npm root -g).Trim()
+          $sync = Join-Path $pkgRoot "@iapro\orquestrador-maestro-cli\orquestrador\sync-skills.ps1"
+          & powershell -NoProfile -File $sync -Apply -HomePath $tempHome -Only codex
+          if ($LASTEXITCODE -ne 0) { throw "PowerShell sync failed" }
+          Remove-Item -LiteralPath $tempHome -Recurse -Force
+
       - name: Cleanup
         if: always()
-        run: npm uninstall -g @iapro/orquestrador-maestro-cli 2>$null
+        run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   test-macos:
     name: Smoke tests — Node ${{ matrix.node-version }} on macOS
@@ -115,7 +145,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Run smoke tests
         run: npm run test:smoke
@@ -134,6 +164,22 @@ jobs:
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
 
+      - name: Smart target lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_home="$(mktemp -d)"
+          fake_bin="$temp_home/bin"
+          mkdir -p "$fake_bin"
+          printf '#!/usr/bin/env sh\nexit 0\n' > "$fake_bin/codex"
+          chmod +x "$fake_bin/codex"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets detect --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets add codex --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets list --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets sync --home-path "$temp_home"
+          HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets remove codex --home-path "$temp_home"
+          rm -rf "$temp_home"
+
       - name: Cleanup
         if: always()
-        run: npm uninstall -g @iapro/orquestrador-maestro-cli 2>/dev/null || true
+        run: npm uninstall -g @iapro/orquestrador-maestro-cli

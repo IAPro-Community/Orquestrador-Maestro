@@ -11,6 +11,7 @@ param(
   [switch]$ListTargets,
   [switch]$Uninstall,
   [switch]$NonInteractive,
+  [switch]$AllTargets,
   [switch]$VerbosePaths
 )
 
@@ -518,7 +519,12 @@ foreach ($target in $extraFileTargets) {
 if (-not $SkipSkillSync) {
   $syncScript = Join-Path $TargetOrquestrador "sync-skills.ps1"
   if (Test-Path -LiteralPath $syncScript) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript -Apply -HomePath $HomePath
+    $syncArgs = @("-Apply", "-HomePath", $HomePath)
+    if ($SelectedComponents.Count -gt 0) {
+      $syncArgs += "-Only"
+      $syncArgs += ($SelectedComponents -join ",")
+    }
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
   }
 }
 

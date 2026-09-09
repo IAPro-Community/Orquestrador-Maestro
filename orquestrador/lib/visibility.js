@@ -1,12 +1,36 @@
 #!/usr/bin/env node
 "use strict";
 
+function isValidScope(scope) {
+  if (!scope || typeof scope !== "object") return false;
+  const level = scope.level;
+  if (typeof level !== "string") return false;
+  const nonEmpty = value => typeof value === "string" && value.trim().length > 0;
+
+  switch (level) {
+    case "repository":
+      return nonEmpty(scope.repositoryId);
+    case "branch":
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.branch);
+    case "workspace":
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.workspaceId);
+    case "commit":
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.headCommit);
+    case "task":
+      return nonEmpty(scope.repositoryId) && nonEmpty(scope.taskId);
+    default:
+      return false;
+  }
+}
+
 function isObservationVisible(observation, currentContext, options = {}) {
   if (!observation || !observation.scope) return false;
   if (!currentContext) return false;
 
   const obsScope = observation.scope;
   const level = obsScope.level;
+
+  if (!isValidScope(obsScope)) return false;
 
   switch (level) {
     case "repository":
@@ -15,9 +39,6 @@ function isObservationVisible(observation, currentContext, options = {}) {
     case "branch":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
       if (currentContext.detached) return false;
-      if (options.taskId) {
-        return obsScope.branch === currentContext.branch && obsScope.taskId === options.taskId;
-      }
       return obsScope.branch === currentContext.branch;
 
     case "workspace":
@@ -27,7 +48,9 @@ function isObservationVisible(observation, currentContext, options = {}) {
     case "task":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
       if (!options.taskId) return false;
-      return obsScope.taskId === options.taskId;
+      if (obsScope.taskId !== options.taskId) return false;
+      if (obsScope.branch && currentContext.branch && obsScope.branch !== currentContext.branch) return false;
+      return true;
 
     case "commit":
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
@@ -50,14 +73,22 @@ function isObservationVisible(observation, currentContext, options = {}) {
   }
 }
 
-function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
+function resolveObservationScope({ type, gitContext, taskId, explicitScope, fallbackRepositoryId }) {
   if (explicitScope && explicitScope.level) {
+    const requiredLevel = explicitScope.level;
+    if (["branch", "workspace", "commit"].includes(requiredLevel) && (!gitContext || !gitContext.repositoryId)) return null;
+    if (requiredLevel === "branch" && (typeof gitContext.branch !== "string" || gitContext.branch.trim() === "")) return null;
+    if (requiredLevel === "workspace" && (typeof gitContext.workspaceId !== "string" || gitContext.workspaceId.trim() === "")) return null;
+    if (requiredLevel === "commit" && (typeof gitContext.headCommit !== "string" || gitContext.headCommit.trim() === "")) return null;
+    if (requiredLevel === "task" && (!taskId || typeof taskId !== "string" || taskId.trim() === "")) return null;
     const scope = { level: explicitScope.level };
     if (gitContext) {
       scope.repositoryId = gitContext.repositoryId;
       scope.branch = gitContext.branch;
       scope.workspaceId = gitContext.workspaceId;
       scope.headCommit = gitContext.headCommit;
+    } else if (fallbackRepositoryId) {
+      scope.repositoryId = fallbackRepositoryId;
     }
     if (taskId) scope.taskId = taskId;
     return scope;
@@ -83,9 +114,14 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
     level = "commit";
   }
 
-  if (level === "task" && !taskId) {
-    level = gitContext && gitContext.detached ? "commit" : "branch";
+  if (level === "task" && (!taskId || typeof taskId !== "string" || taskId.trim() === "")) {
+    if (gitContext) return null;
+    level = "repository";
   }
+  if (level === "branch" && gitContext && (typeof gitContext.branch !== "string" || gitContext.branch.trim() === "")) return null;
+  if (level === "workspace" && gitContext && (typeof gitContext.workspaceId !== "string" || gitContext.workspaceId.trim() === "")) return null;
+  if (level === "commit" && gitContext && (typeof gitContext.headCommit !== "string" || gitContext.headCommit.trim() === "")) return null;
+  if (!gitContext && ["branch", "workspace", "commit"].includes(level)) level = "repository";
 
   const scope = { level };
 
@@ -94,6 +130,8 @@ function resolveObservationScope({ type, gitContext, taskId, explicitScope }) {
     scope.branch = gitContext.branch;
     scope.workspaceId = gitContext.workspaceId;
     scope.headCommit = gitContext.headCommit;
+  } else if (fallbackRepositoryId) {
+    scope.repositoryId = fallbackRepositoryId;
   }
   if (taskId) scope.taskId = taskId;
 
@@ -158,6 +196,7 @@ function tokenizeRank(text) {
 }
 
 module.exports = {
+  isValidScope,
   isObservationVisible,
   resolveObservationScope,
   rankObservations,

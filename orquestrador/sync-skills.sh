@@ -6,6 +6,7 @@ set -eo pipefail
 
 MODE="check"
 HOME_PATH="${HOME:-}"
+ONLY_PROGRAMS=()
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -18,6 +19,20 @@ while [ "$#" -gt 0 ]; do
     --apply)
       MODE="apply"
       ;;
+    --only)
+      if [ "$#" -lt 2 ]; then
+        echo "Error: --only requires a value." >&2
+        exit 1
+      fi
+      IFS=',' read -r -a _only_parts <<< "$2"
+      for _part in "${_only_parts[@]}"; do
+        _part="$(printf '%s' "$_part" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        if [ -n "$_part" ]; then
+          ONLY_PROGRAMS+=("$_part")
+        fi
+      done
+      shift
+      ;;
     --home-path)
       if [ "$#" -lt 2 ]; then
         echo "Error: --home-path requires a value." >&2
@@ -27,7 +42,7 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --help|-h)
-      sed -n '2,4p' "$0"
+      sed -n '2,5p' "$0"
       exit 0
       ;;
     *)
@@ -37,6 +52,19 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+should_sync_target() {
+  local program="$1"
+  if [ "${#ONLY_PROGRAMS[@]}" -eq 0 ]; then
+    return 0
+  fi
+  for wanted in "${ONLY_PROGRAMS[@]}"; do
+    if [ "$wanted" = "$program" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 if [ -z "$HOME_PATH" ]; then
   echo "Error: HOME is not set. Pass --home-path PATH." >&2
@@ -292,6 +320,10 @@ for entry in "${TARGET_SPECS[@]}"; do
   IFS='|' read -r program relative_root _max_dirs allow_csv <<EOF
 $entry
 EOF
+
+  if ! should_sync_target "$program"; then
+    continue
+  fi
 
   target_root="$(resolve_home_relative "$relative_root")"
   target_exists=false
