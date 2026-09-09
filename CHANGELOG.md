@@ -4,6 +4,20 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.1 - 2026-09-09
+
+Esta release corrige a validação pública no PowerShell Core executado em runners Linux.
+
+### O que mudou
+
+- A validação de caminhos usa a API de caminhos relativos multiplataforma do .NET, evitando a conversão incorreta de caminhos Unix em URIs relativas.
+- O pacote, os instaladores e a documentação ficam alinhados na versão `0.3.1`.
+
+### Verificação
+
+- Validação pública e validação das skills em Linux.
+- Suíte Node completa, smoke test do pacote e `npm pack --dry-run`.
+
 ## 0.3.0 - 2026-09-09
 
 Esta release adiciona gerenciamento seguro de integrações para as ferramentas instaladas e corrige falhas de portabilidade identificadas na revisão do PR 8.
