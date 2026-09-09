@@ -25,12 +25,12 @@ function Add-Issue {
 function Get-RelativePath {
   param([string]$BasePath, [string]$Path)
   $baseFull = [System.IO.Path]::GetFullPath($BasePath)
-  if (-not $baseFull.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
-    $baseFull += [System.IO.Path]::DirectorySeparatorChar
-  }
-  $baseUri = [Uri]$baseFull
-  $pathUri = [Uri]([System.IO.Path]::GetFullPath($Path))
-  return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace("/", [System.IO.Path]::DirectorySeparatorChar)
+  $pathFull = [System.IO.Path]::GetFullPath($Path)
+
+  # Path.GetRelativePath works on both Windows and Unix. Casting a Unix
+  # filesystem path directly to [Uri] produces a relative URI in pwsh, which
+  # makes MakeRelativeUri throw on Linux runners.
+  return [System.IO.Path]::GetRelativePath($baseFull, $pathFull)
 }
 
 function Test-ExcludedScanPath {
