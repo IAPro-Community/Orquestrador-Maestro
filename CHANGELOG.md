@@ -4,6 +4,21 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.2 - 2026-09-09
+
+Esta release corrige falsos positivos da validação pública em ambientes de CI.
+
+### O que mudou
+
+- Nomes genéricos de contas de runners (`runner`, `runneradmin`, `github-actions`, `buildkite` e `jenkins`) não são tratados como dados pessoais quando o scanner detecta o perfil do ambiente.
+- Nomes concretos de usuários continuam sendo bloqueados pela validação pública.
+- O pacote, os instaladores e a documentação ficam alinhados na versão `0.3.2`.
+
+### Verificação
+
+- Validação pública em Windows e PowerShell Core/Linux.
+- Validação das skills, suíte Node completa, smoke test e `npm pack --dry-run`.
+
 ## 0.3.1 - 2026-09-09
 
 Esta release corrige a validação pública no PowerShell Core executado em runners Linux.

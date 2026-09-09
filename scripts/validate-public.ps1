@@ -74,7 +74,8 @@ $legacyHookCatalogMarkers = @(
 $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot)
 $defaultForbidden = @()
 $homeName = Split-Path -Leaf ([Environment]::GetFolderPath("UserProfile"))
-if (-not [string]::IsNullOrWhiteSpace($homeName)) {
+$genericCiHomeNames = @("runner", "runneradmin", "github-actions", "buildkite", "jenkins")
+if (-not [string]::IsNullOrWhiteSpace($homeName) -and $homeName -notin $genericCiHomeNames) {
   $defaultForbidden += $homeName
 }
 $allForbidden = @($defaultForbidden + $ForbiddenLiteral) |
