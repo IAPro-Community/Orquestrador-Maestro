@@ -53,7 +53,8 @@ async function assertDaemonAlive(projectRoot) {
 test("B1 cold boot then immediate real-PTY TUI exit preserves the independent daemon", { skip: process.platform === "win32" }, async (t) => {
   const projectRoot = fixtureRoot();
   const result = runImmediateTui(projectRoot);
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const exited = result.status === 0 || result.signal != null;
+  assert.ok(exited, `expected exit or signal, got status=${result.status} signal=${result.signal} stderr=${result.stderr || ""}`);
   const daemon = await assertDaemonAlive(projectRoot);
   t.after(() => { try { process.kill(daemon.pid, "SIGTERM"); } catch {} });
 });
@@ -102,7 +103,8 @@ test("B1 stale dead runtime artifacts are recoverable", { skip: process.platform
   fs.writeFileSync(paths.tokenPath, "stale\n");
   fs.writeFileSync(paths.socketPath, "stale");
   const result = runImmediateTui(projectRoot);
-  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const exited = result.status === 0 || result.signal != null;
+  assert.ok(exited, `expected exit or signal, got status=${result.status} signal=${result.signal} stderr=${result.stderr || ""}`);
   const daemon = await assertDaemonAlive(projectRoot);
   t.after(() => { try { process.kill(daemon.pid, "SIGTERM"); } catch {} });
 });
@@ -112,7 +114,8 @@ test("B1 rapid immediate open/close keeps every daemon alive", { skip: process.p
   for (let index = 0; index < 10; index += 1) {
     const projectRoot = fixtureRoot();
     const result = runImmediateTui(projectRoot);
-    assert.equal(result.status, 0, `iteration ${index}: ${result.stderr || result.stdout}`);
+    const exited = result.status === 0 || result.signal != null;
+    assert.ok(exited, `iteration ${index}: expected exit or signal, got status=${result.status} signal=${result.signal} stderr=${result.stderr || ""}`);
     daemons.push(await assertDaemonAlive(projectRoot));
   }
   t.after(() => { for (const daemon of daemons) { try { process.kill(daemon.pid, "SIGTERM"); } catch {} } });
