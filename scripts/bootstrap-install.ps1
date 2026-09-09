@@ -3,7 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 $package = "@iapro/orquestrador-maestro-cli"
-$packageVersion = "0.3.2"
+$packageVersion = "0.3.3"
 $bootstrapVersion = "2026.09.08.2"
 Write-Host "Orquestrador Maestro bootstrap $bootstrapVersion"
 
@@ -80,3 +80,4 @@ Write-Host "Versão instalada: $installedVersion"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & orquestrador-maestro verify
 exit $LASTEXITCODE
+

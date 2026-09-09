@@ -4,6 +4,16 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.3 - 2026-09-09
+
+Esta release adiciona o roteamento Architecture First por classe de risco.
+
+### O que mudou
+
+- Declaradas as classes de risco trivial, local, estrutural, integração, segurança/compliance e domínio crítico.
+- Tornada explícita a cadeia obrigatória de pré-código para mudanças de alto risco, com preflight e ADR.
+- Mantido o gate arquitetural opt-in e compatível com projetos DEV legados.
+
 ## 0.3.2 - 2026-09-09
 
 Esta release corrige falsos positivos da validação pública em ambientes de CI.

@@ -27,10 +27,19 @@ function Get-RelativePath {
   $baseFull = [System.IO.Path]::GetFullPath($BasePath)
   $pathFull = [System.IO.Path]::GetFullPath($Path)
 
-  # Path.GetRelativePath works on both Windows and Unix. Casting a Unix
-  # filesystem path directly to [Uri] produces a relative URI in pwsh, which
-  # makes MakeRelativeUri throw on Linux runners.
-  return [System.IO.Path]::GetRelativePath($baseFull, $pathFull)
+  # Path.GetRelativePath is available on modern .NET runtimes. Windows
+  # PowerShell 5.1 ships an older runtime, so keep a URI fallback for that
+  # supported host while preserving correct behavior on Unix runners.
+  $relativePathMethod = [System.IO.Path].GetMethods() |
+    Where-Object { $_.Name -eq "GetRelativePath" } |
+    Select-Object -First 1
+  if ($null -ne $relativePathMethod) {
+    return [System.IO.Path]::GetRelativePath($baseFull, $pathFull)
+  }
+
+  $baseUri = New-Object System.Uri(($baseFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar))
+  $pathUri = New-Object System.Uri($pathFull)
+  return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
 }
 
 function Test-ExcludedScanPath {
