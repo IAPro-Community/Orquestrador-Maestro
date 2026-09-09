@@ -98,13 +98,13 @@ describe("tool-registry", () => {
   it("resolves config paths relative to home", () => {
     const paths = resolveToolConfigPaths("codex", "/tmp/testhome");
     assert.ok(paths.length > 0);
-    assert.ok(paths[0].startsWith("/tmp/testhome"));
+    assert.ok(paths[0].startsWith(path.join("/tmp/testhome", "")));
   });
 
   it("resolves skill targets relative to home", () => {
     const targets = resolveToolSkillTargets("codex", "/tmp/testhome");
     assert.ok(targets.length > 0);
-    assert.ok(targets[0].includes(".codex/skills"));
+    assert.ok(targets[0].includes(path.join(".codex", "skills")));
   });
 
   it("lists all skill targets grouped by tool", () => {
@@ -618,45 +618,6 @@ describe("git-context — normalization", () => {
   });
 });
 
-describe("CLI — extractPositionalArg", () => {
-  function extractPositionalArg(args, knownFlags) {
-    for (let i = args.length - 1; i >= 0; i--) {
-      const a = args[i];
-      if (!a.startsWith("-")) {
-        const prev = i > 0 ? args[i - 1] : null;
-        if (prev && knownFlags.includes(prev)) continue;
-        return a;
-      }
-    }
-    return null;
-  }
-
-  it("extracts last positional arg without flags", () => {
-    const result = extractPositionalArg(["codex"], ["--home-path"]);
-    assert.equal(result, "codex");
-  });
-
-  it("extracts positional arg after --home-path value", () => {
-    const result = extractPositionalArg(["--home-path", "/tmp/h", "codex"], ["--home-path"]);
-    assert.equal(result, "codex");
-  });
-
-  it("extracts positional arg before --home-path", () => {
-    const result = extractPositionalArg(["codex", "--home-path", "/tmp/h"], ["--home-path"]);
-    assert.equal(result, "codex");
-  });
-
-  it("returns null when no positional arg", () => {
-    const result = extractPositionalArg(["--home-path", "/tmp/h"], ["--home-path"]);
-    assert.equal(result, null);
-  });
-
-  it("handles empty args", () => {
-    const result = extractPositionalArg([], ["--home-path"]);
-    assert.equal(result, null);
-  });
-});
-
 describe("install-state — isTargetEnabled strict boolean", () => {
   it("returns false for unknown target", () => {
     const state = getDefaultState();
@@ -1102,29 +1063,30 @@ describe("canonical precedence — memory participates", () => {
   });
 });
 
-describe("CLI — targets add parser", () => {
-  function extractPositionalArg(args, knownFlags) {
-    for (let i = args.length - 1; i >= 0; i--) {
-      const a = args[i];
-      if (!a.startsWith("-")) {
-        const prev = i > 0 ? args[i - 1] : null;
-        if (prev && knownFlags.includes(prev)) continue;
-        return a;
-      }
+describe("CLI — targets positional arguments", () => {
+  it("resolves add and remove ids around --home-path through the production CLI", () => {
+    const home = makeTempHome();
+    const fakeBin = path.join(home, "bin");
+    fs.mkdirSync(fakeBin, { recursive: true });
+    const fakeCodex = path.join(fakeBin, process.platform === "win32" ? "codex.cmd" : "codex");
+    fs.writeFileSync(fakeCodex, process.platform === "win32" ? "@echo off\r\nexit /b 0\r\n" : "#!/bin/sh\nexit 0\n");
+    if (process.platform !== "win32") fs.chmodSync(fakeCodex, 0o755);
+    try {
+      const env = { ...process.env, HOME: home, PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}` };
+      const add = execFileSync(process.execPath, [
+        path.join(__dirname, "..", "bin", "orquestrador-maestro.js"),
+        "targets", "add", "--home-path", home, "codex"
+      ], { encoding: "utf8", env });
+      assert.equal(JSON.parse(add).target, "codex");
+
+      const remove = execFileSync(process.execPath, [
+        path.join(__dirname, "..", "bin", "orquestrador-maestro.js"),
+        "targets", "remove", "--home-path", home, "codex"
+      ], { encoding: "utf8", env });
+      assert.equal(JSON.parse(remove).target, "codex");
+    } finally {
+      cleanupTempHome(home);
     }
-    return null;
-  }
-
-  it("extracts toolId from targets add codex", () => {
-    assert.equal(extractPositionalArg(["codex"], ["--home-path"]), "codex");
-  });
-
-  it("extracts toolId from targets add --home-path /tmp/h codex", () => {
-    assert.equal(extractPositionalArg(["--home-path", "/tmp/h", "codex"], ["--home-path"]), "codex");
-  });
-
-  it("extracts toolId from targets add codex --home-path /tmp/h", () => {
-    assert.equal(extractPositionalArg(["codex", "--home-path", "/tmp/h"], ["--home-path"]), "codex");
   });
 });
 
