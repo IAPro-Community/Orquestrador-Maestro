@@ -63,24 +63,22 @@ function getStatePath(orquestradorDir) {
   return path.join(orquestradorDir, STATE_FILENAME);
 }
 
-function assertNoSymlinkAncestors(targetPath) {
-  let current = path.resolve(targetPath);
-  while (current && current !== path.dirname(current)) {
-    try {
-      if (fs.lstatSync(current).isSymbolicLink()) {
-        throw new Error("Refusing install-state path through a symlink directory");
-      }
-    } catch (err) {
-      if (err.code !== "ENOENT") throw err;
+function assertNoSymlinkDirectory(targetPath) {
+  // Check the directory that owns the state file. Ancestors above the caller's
+  // state root may be platform-managed links (for example /tmp on macOS).
+  try {
+    if (fs.lstatSync(path.resolve(targetPath)).isSymbolicLink()) {
+      throw new Error("Refusing install-state path through a symlink directory");
     }
-    current = path.dirname(current);
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
   }
 }
 
 function readState(orquestradorDir) {
   const statePath = getStatePath(orquestradorDir);
   try {
-    assertNoSymlinkAncestors(path.dirname(statePath));
+    assertNoSymlinkDirectory(path.dirname(statePath));
   } catch {
     return null;
   }
@@ -106,7 +104,7 @@ function readState(orquestradorDir) {
 function writeState(orquestradorDir, state) {
   const statePath = getStatePath(orquestradorDir);
   const dir = path.dirname(statePath);
-  assertNoSymlinkAncestors(dir);
+  assertNoSymlinkDirectory(dir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   }

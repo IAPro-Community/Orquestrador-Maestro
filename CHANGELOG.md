@@ -4,6 +4,24 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.0 - 2026-09-09
+
+Esta release adiciona gerenciamento seguro de integrações para as ferramentas instaladas e corrige falhas de portabilidade identificadas na revisão do PR 8.
+
+### O que mudou
+
+- Adicionados detecção, ativação, sincronização e remoção seletivas de targets com estado persistente e proteção de ownership.
+- Corrigidos os testes de integração em macOS, onde diretórios temporários podem usar links simbólicos gerenciados pelo sistema.
+- Marcadores legados continuam reconhecidos, enquanto marcadores desconhecidos são preservados como arquivos do usuário.
+- O workflow de release valida um único artefato imutável antes do smoke test e da publicação no npm.
+- O teste dos wrappers PowerShell usa uma árvore DEV temporária, mantendo a suíte compatível com o checkout público sanitizado.
+
+### Verificação
+
+- Suíte Node completa, validação pública e validação das skills.
+- Smoke test do pacote e `npm pack --dry-run`.
+- Auditoria de dependências sem vulnerabilidades conhecidas.
+
 ## 0.2.8 - 2026-09-08
 
 Esta release corrige a perda intermitente de registros durante gravações concorrentes no Windows.

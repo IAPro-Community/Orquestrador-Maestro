@@ -162,6 +162,7 @@ test("CLI resolves a relative project path from the caller directory", () => {
 });
 
 test("PowerShell DEV gate wrappers translate strict options on Windows", { skip: process.platform !== "win32" }, () => {
+  const projectRoot = makeLegacyCompatibleDevProject();
   const wrapperPaths = [
     path.join(repoRoot, "scripts", "check-dev-gates.ps1"),
     path.join(repoRoot, "orquestrador", "bin", "check-dev-gates.ps1")
@@ -172,7 +173,7 @@ test("PowerShell DEV gate wrappers translate strict options on Windows", { skip:
       "-NoProfile",
       "-ExecutionPolicy", "Bypass",
       "-File", wrapperPath,
-      "-ProjectPath", repoRoot,
+      "-ProjectPath", projectRoot,
       "-MaxEntries", "12",
       "-Strict"
     ], {

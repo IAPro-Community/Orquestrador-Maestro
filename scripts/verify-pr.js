@@ -63,13 +63,15 @@ if (testResult.status !== 0) {
 }
 
 console.log("\n2. npm pack --dry-run");
-const packResult = spawnSync("npm", ["pack", "--dry-run"], {
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const packResult = spawnSync(npmCommand, ["pack", "--dry-run"], {
   cwd: rootDir,
   stdio: "pipe",
-  shell: false
+  shell: process.platform === "win32"
 });
 if (packResult.status !== 0) {
-  console.error("  ✗ npm pack --dry-run failed");
+  const detail = packResult.error?.message || packResult.stderr?.toString().trim();
+  console.error(`  ✗ npm pack --dry-run failed${detail ? `: ${detail}` : ""}`);
   exitCode = 1;
 } else {
   console.log("  ✓ npm pack --dry-run passed");

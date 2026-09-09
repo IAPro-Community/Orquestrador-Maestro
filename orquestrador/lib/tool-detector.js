@@ -45,8 +45,14 @@ function hasMaestroMarker(homePath, toolId) {
   for (const configPath of configPaths) {
     if (!fs.existsSync(configPath)) continue;
     const markerPath = path.join(configPath, ".maestro-managed");
-    if (fs.existsSync(markerPath)) {
-      return true;
+    if (!fs.existsSync(markerPath)) continue;
+    try {
+      const marker = fs.readFileSync(markerPath, "utf8");
+      const expected = `managed by orquestrador-maestro\ntool: ${toolId}\n`;
+      // `true` is the legacy marker emitted by earlier installers.
+      if (marker === expected || marker.trim() === "true") return true;
+    } catch {
+      // An unreadable marker is not proof of Maestro ownership.
     }
   }
   return false;
