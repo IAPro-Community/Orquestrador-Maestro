@@ -1,0 +1,31 @@
+{
+  "id": "feature-add-api-endpoint",
+  "name": "Add User Profile API Endpoint",
+  "description": "Add a new REST API endpoint with tests",
+  "task": "Add a new GET /api/users/:id/profile endpoint that returns the user's profile with their recent activity. Include proper error handling, input validation, and unit tests.",
+  "fixture": {
+    "path": "../fixtures/feature-add-api-endpoint"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "test -d node_modules || npm install 2>/dev/null; exit 0",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "api-endpoint",
+        "command": "node --test test/hidden.test.js 2>&1",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["feature", "api", "rest"]
+}

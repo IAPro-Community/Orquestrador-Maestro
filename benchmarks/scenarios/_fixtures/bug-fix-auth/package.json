@@ -1,8 +1,0 @@
-{
-  "name": "bug-fix-auth-fixture",
-  "private": true,
-  "scripts": {
-    "test": "node --test test/TokenService.test.js",
-    "test:hidden": "node --test test/hidden.test.js"
-  }
-}

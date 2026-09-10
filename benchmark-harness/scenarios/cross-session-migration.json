@@ -1,0 +1,31 @@
+{
+  "id": "cross-session-migration",
+  "name": "Add Export/Import and Stats to TaskStore",
+  "description": "TaskStore needs export/import and stats functionality",
+  "task": "Extend src/TaskStore.js with: 1) An export() method that serializes all tasks to JSON with a version number, 2) An import() method that deserializes tasks from JSON and validates the version, 3) A getStats() method that returns counts by status (pending, completed, in-progress). Handle edge cases like version mismatch and empty data.",
+  "fixture": {
+    "path": "../fixtures/cross-session-migration"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "test -d node_modules || npm install 2>/dev/null; exit 0",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "migration-complete",
+        "command": "node --test test/hidden.test.js 2>&1",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["migration", "serialization", "data-integrity"]
+}

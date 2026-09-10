@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Evidence (raw runs — never committed)
+evidence/*
+
+# Lock files generated during runs
+package-lock.json
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Temporary
+tmp/
+tmp-*

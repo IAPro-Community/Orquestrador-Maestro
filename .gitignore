@@ -4,6 +4,7 @@
 DEV/
 .env
 .env.*
+!.env.example
 *.log
 *.tmp
 *.bak
@@ -28,11 +29,9 @@ node_modules/
 dist/
 build/
 security-reports/
-benchmarks/results/
-benchmarks/harness/**/*.js
-benchmarks/harness/**/*.d.ts
-benchmarks/harness/**/*.js.map
-benchmarks/node_modules/
+benchmark-harness/evidence/
+benchmark-harness/node_modules/
+benchmark-harness/dist/
 *.tgz
 .yarn/
 .yarnrc.yml

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BenchmarkScenario",
+  "description": "Defines a single benchmark scenario: the task, acceptance criteria, and constraints.",
+  "type": "object",
+  "required": ["id", "name", "task", "fixture", "acceptance", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "Unique scenario identifier (kebab-case)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable scenario name"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this scenario measures"
+    },
+    "task": {
+      "type": "string",
+      "description": "The exact prompt/instruction given to the agent"
+    },
+    "fixture": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to golden fixture directory"
+        },
+        "hash": {
+          "type": "string",
+          "description": "SHA-256 hash of fixture contents (computed at runtime)"
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "required": ["criteria"],
+      "properties": {
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["hidden_tests", "build", "typecheck", "existing_tests", "lint", "integrity", "filesystem", "custom"]
+              },
+              "name": { "type": "string" },
+              "command": { "type": "string" },
+              "description": { "type": "string" },
+              "timeout": { "type": "integer", "default": 120 }
+            }
+          },
+          "description": "Ordered list of acceptance criteria. ALL must pass."
+        },
+        "hiddenTestPath": {
+          "type": "string",
+          "description": "Path to hidden test directory (inaccessible to agent)"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "maxTokens": { "type": "integer", "description": "Token budget cap" },
+        "maxTimeMs": { "type": "integer", "description": "Wall clock timeout" },
+        "maxRetries": { "type": "integer", "default": 1, "description": "Number of retry attempts" }
+      }
+    },
+    "model": {
+      "type": "string",
+      "description": "Model identifier to use (e.g. 'claude-sonnet-4-20250514')"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags for filtering scenarios"
+    },
+    "integrity": {
+      "type": "object",
+      "description": "Expected integrity hashes for verification",
+      "properties": {
+        "hiddenTestsHash": { "type": "string" },
+        "verifierHash": { "type": "string" },
+        "scenarioHash": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,8 +1,0 @@
-{
-  "name": "resume-auth-feature-fixture",
-  "private": true,
-  "scripts": {
-    "test": "node --test test/AuthService.test.js",
-    "test:hidden": "node --test test/hidden.test.js"
-  }
-}

@@ -1,0 +1,31 @@
+{
+  "id": "feature-add-button",
+  "name": "Add Button Component Variants and Sizes",
+  "description": "Extend Button component with proper variant and size support, plus IconButton",
+  "task": "Extend the Button component in src/components/Button.js to support all required variants (primary, secondary, danger, ghost) and sizes (sm, md, lg). Add disabled state styling. Implement an IconButton component that renders an icon with optional label. Add proper CSS class naming.",
+  "fixture": {
+    "path": "../fixtures/feature-add-button"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "test -d node_modules || npm install 2>/dev/null; exit 0",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "button-variants",
+        "command": "node --test test/hidden.test.js 2>&1",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["feature", "ui", "component"]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "benchmark-harness",
+  "version": "2.0.0",
+  "description": "Benchmark Harness v2 — Maestro vs Vanilla comparison",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "benchmark": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test:watch": "node --import tsx --test --watch tests/**/*.test.ts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "benchmark:run": "node --import tsx src/cli/index.ts run",
+    "benchmark:report": "node --import tsx src/cli/index.ts report"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

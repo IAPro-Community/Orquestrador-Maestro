@@ -1,0 +1,31 @@
+{
+  "id": "resume-auth-feature-001",
+  "name": "Add Rate Limiting to Auth Endpoint",
+  "description": "Second task depends on a previous authentication implementation decision",
+  "task": "Now that you've implemented the authentication middleware, add rate limiting to the /api/auth/login endpoint. Use a sliding window algorithm with a limit of 5 attempts per minute per IP.",
+  "fixture": {
+    "path": "../fixtures/resume-auth-feature-001"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "test -d node_modules || npm install 2>/dev/null; exit 0",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "rate-limiting",
+        "command": "node --test test/hidden.test.js 2>&1",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["auth", "rate-limiting", "security"]
+}

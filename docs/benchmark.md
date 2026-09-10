@@ -45,7 +45,7 @@ A benchmark run compares two conditions on identical task prompts.
 | `vanilla` | Raw prompt only — no Maestro workflow, no `AGENTS.md`, no skill routing | Baseline: model performance without orchestration |
 | `maestro-core` | Prompt prefixed with Maestro rules (observe → route → select → act → verify → report) | Workflow-augmented: model performance with structured orchestration |
 
-The `maestro-core` condition prepends the following preamble to the scenario prompt (see `benchmarks/harness/drivers/opencode-driver.js:72-86`):
+The `maestro-core` condition prepends the following preamble to the scenario prompt (see `benchmark-harness/src/drivers/opencode-driver.js:72-86`):
 
 ```
 You are working with the Orquestrador Maestro.
@@ -70,7 +70,7 @@ Each benchmark run is isolated at three levels.
 
 ### 4.1 Workspace Isolation
 
-The harness creates an ephemeral copy of the fixture directory in the system temp folder (`benchmarks/harness/index.js:55-66`):
+The harness creates an ephemeral copy of the fixture directory in the system temp folder (`benchmark-harness/src/index.js:55-66`):
 
 ```
 /tmp/bench-v2-<random>/
@@ -88,11 +88,11 @@ Future runs will execute agent processes inside Docker containers with:
 - Ephemeral filesystem (no persistent volumes)
 - Verifier runs in a separate container from the agent
 
-The `RunOptions` type already declares `useContainer: boolean` (`benchmarks/harness/types.js:38`). The container runtime is a planned extension.
+The `RunOptions` type already declares `useContainer: boolean` (`benchmark-harness/src/types.js:38`). The container runtime is a planned extension.
 
 ### 4.3 Verifier Isolation
 
-The hidden test runner (`benchmarks/harness/verifier.js`) executes `node --test` in the agent's workspace directory, with `NODE_ENV=test` set. It does not share state with the agent process. The verifier parses TAP output (`# pass N` / `# fail N` or `ok`/`not ok` lines) to determine pass/fail counts.
+The hidden test runner (`benchmark-harness/src/verifier.js`) executes `node --test` in the agent's workspace directory, with `NODE_ENV=test` set. It does not share state with the agent process. The verifier parses TAP output (`# pass N` / `# fail N` or `ok`/`not ok` lines) to determine pass/fail counts.
 
 ---
 
@@ -100,7 +100,7 @@ The hidden test runner (`benchmarks/harness/verifier.js`) executes `node --test`
 
 ### 5.1 OpenCode CLI Driver
 
-The primary (and currently only) driver is `OpenCodeDriver` (`benchmarks/harness/drivers/opencode-driver.js`).
+The primary (and currently only) driver is `OpenCodeDriver` (`benchmark-harness/src/drivers/opencode-driver.js`).
 
 It invokes the real `opencode` CLI — not a mock, not an API wrapper. This ensures measured token usage and behavior reflect the actual tool the user would experience.
 
@@ -114,9 +114,9 @@ The driver:
 
 ### 5.2 Driver Extensibility
 
-The driver registry (`benchmarks/harness/drivers/index.js`) supports multiple drivers. To add a driver:
+The driver registry (`benchmark-harness/src/drivers/index.js`) supports multiple drivers. To add a driver:
 
-1. Implement the `AgentDriver` interface (`benchmarks/harness/types.js:142-146`):
+1. Implement the `AgentDriver` interface (`benchmark-harness/src/types.js:142-146`):
    - `get name()` — unique driver identifier
    - `async isAvailable()` — check if the driver can execute
    - `async execute(scenario, options)` — run the agent and return a `DriverResult`
@@ -152,7 +152,7 @@ Any provider supported by OpenCode CLI. The harness itself is provider-agnostic;
 
 ## 7. Fixtures
 
-Fixtures are realistic mini-projects located under `benchmarks/scenarios/_fixtures/`. They are not toy examples.
+Fixtures are realistic mini-projects located under `benchmark-harness/_fixtures/`. They are not toy examples.
 
 ### 7.1 Fixture Structure
 
@@ -189,7 +189,7 @@ Protected files are defined by the scenario's `expectedInvariants` array. After 
 
 ## 8. Scenarios
 
-Scenarios are defined as JSON files under `benchmarks/scenarios/`.
+Scenarios are defined as JSON files under `benchmark-harness/`.
 
 ### 8.1 Scenario Types
 
@@ -204,7 +204,7 @@ Scenarios are defined as JSON files under `benchmarks/scenarios/`.
 
 ### 8.2 Scenario Schema
 
-Defined in `benchmarks/harness/types.js:11-22` and validated in `benchmarks/harness/schema.js:57-86`:
+Defined in `benchmark-harness/src/types.js:11-22` and validated in `benchmark-harness/src/schema.js:57-86`:
 
 ```json
 {
@@ -233,11 +233,11 @@ Defined in `benchmarks/harness/types.js:11-22` and validated in `benchmarks/harn
 
 ### 8.3 Adding a Scenario
 
-1. Create a fixture directory under `benchmarks/scenarios/_fixtures/<your-scenario>/`
+1. Create a fixture directory under `benchmark-harness/_fixtures/<your-scenario>/`
 2. Populate it with realistic source code and a `package.json` with test scripts
 3. Create `test/hidden.test.js` using Node.js built-in test runner (`node:test`)
-4. Create `benchmarks/scenarios/<your-scenario>.json` following the schema
-5. Validate: `node benchmarks/cli.js validate <your-scenario>`
+4. Create `benchmark-harness/<your-scenario>.json` following the schema
+5. Validate: `node npm run bench:validate <your-scenario>`
 
 ### 8.4 Design Principles
 
@@ -254,7 +254,7 @@ Each scenario defines an `acceptance` array of human-readable criteria and a `va
 
 ### 9.1 Hidden Tests
 
-Hidden tests run via `node --test` (Node.js built-in test runner). The verifier (`benchmarks/harness/verifier.js`) executes the test command in the agent's workspace directory and parses TAP output.
+Hidden tests run via `node --test` (Node.js built-in test runner). The verifier (`benchmark-harness/src/verifier.js`) executes the test command in the agent's workspace directory and parses TAP output.
 
 **TAP parsing:** The verifier handles two formats:
 - Summary lines: `# pass N` / `# fail N`
@@ -274,7 +274,7 @@ For fixtures with ESLint or similar, hidden tests may include lint assertions. T
 
 ### 9.5 Evidence Gate
 
-A run passes the evidence gate when all of the following are true (`benchmarks/harness/evidence.js:3-33`):
+A run passes the evidence gate when all of the following are true (`benchmark-harness/src/evidence.js:3-33`):
 
 1. **Hidden tests pass** — `testsPassed === testsTotal && testsTotal > 0`
 2. **Exit code matches** — `validationExitCode === expectedExitCode`
@@ -316,10 +316,10 @@ Processed metrics derived from raw evidence:
 
 ### 10.3 Immutability
 
-Evidence is written to disk immediately after each run (`benchmarks/harness/index.js:90-99`) and never modified. Results are saved as:
+Evidence is written to disk immediately after each run (`benchmark-harness/src/index.js:90-99`) and never modified. Results are saved as:
 
 ```
-benchmarks/results/<benchmark>_<condition>_run<N>.json
+evidence/<benchmark>_<condition>_run<N>.json
 ```
 
 ### 10.4 Sanitization
@@ -345,7 +345,7 @@ Token counting is the most contested metric in AI benchmarks. This harness uses 
 | 4 | `not-applicable` | — | No token data available (e.g., mock/dry runs) |
 | 5 | `unknown` | None | Source unspecified |
 
-The `tokenSource` field on `TokenUsage` (`benchmarks/harness/types.js:49`) records which source was used.
+The `tokenSource` field on `TokenUsage` (`benchmark-harness/src/types.js:49`) records which source was used.
 
 ### 11.2 Reconciliation
 
@@ -383,7 +383,7 @@ Tokens consumed on failed attempts before the first success. High retry tax indi
 
 ### 12.3 Statistical Functions
 
-Implemented in `benchmarks/harness/metrics.js`:
+Implemented in `benchmark-harness/src/metrics.js`:
 
 | Function | Description |
 |----------|-------------|
@@ -517,7 +517,7 @@ A claim must reference all of the following:
 git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 npm ci
-node benchmarks/cli.js run --model anthropic/claude-sonnet-4-20250514 --runs 5
+node npm run bench:run --model anthropic/claude-sonnet-4-20250514 --runs 5
 ```
 
 ### 15.2 What's Fixed
@@ -548,9 +548,9 @@ node benchmarks/cli.js run --model anthropic/claude-sonnet-4-20250514 --runs 5
 On every pull request, the CI pipeline runs:
 
 ```bash
-node benchmarks/cli.js validate          # Schema validation for all scenarios
-node --test tests/benchmarks/            # Unit tests for harness code
-docker build -t bench-harness .          # Verify Docker build (when container support is ready)
+npm run bench:validate          # Schema validation for all scenarios
+npm run bench:test              # Unit tests for harness code
+docker build -t bench-harness . # Verify Docker build (when container support is ready)
 ```
 
 This ensures scenarios are well-formed and harness code is correct before merge.
@@ -560,11 +560,11 @@ This ensures scenarios are well-formed and harness code is correct before merge.
 Scheduled runs (weekly or on-demand) execute the full suite:
 
 ```bash
-node benchmarks/cli.js run \
+node npm run bench:run \
   --model anthropic/claude-sonnet-4-20250514 \
   --runs 5 \
   --conditions vanilla,maestro-core \
-  --output benchmarks/results
+  --output evidence
 ```
 
 Results are stored as artifacts and compared against previous runs for regression detection.
@@ -574,7 +574,7 @@ Results are stored as artifacts and compared against previous runs for regressio
 A lightweight CI benchmark uses a free-tier model to verify harness correctness without incurring API costs:
 
 ```bash
-node benchmarks/cli.js run \
+node npm run bench:run \
   --model <free-model-id> \
   --runs 1 \
   --conditions vanilla,maestro-core

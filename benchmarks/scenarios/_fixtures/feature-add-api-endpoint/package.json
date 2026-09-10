@@ -1,8 +1,0 @@
-{
-  "name": "feature-add-api-endpoint-fixture",
-  "private": true,
-  "scripts": {
-    "test": "node --test test/hidden.test.js",
-    "test:hidden": "node --test test/hidden.test.js"
-  }
-}
