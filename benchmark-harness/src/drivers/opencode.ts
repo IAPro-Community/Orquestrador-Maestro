@@ -94,8 +94,12 @@ export class OpenCodeDriver implements AgentDriver {
       output = result.stdout + result.stderr;
       agentOutput = result.stdout;
       exitCode = result.code;
-    } catch {
+    } catch (err) {
       exitCode = 1;
+      // Capture error message so it's visible in evidence
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (!output) output = `agent-error: ${errMsg}`;
+      if (!agentOutput) agentOutput = `agent-error: ${errMsg}`;
     }
 
     const endMs = Date.now();

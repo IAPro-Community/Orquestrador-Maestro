@@ -246,30 +246,61 @@ export async function orchestrateRun(
     };
   } catch (error) {
     const endMs = Date.now();
-    const errorReport: BenchmarkRunReport = {
-      runId,
-      scenarioId: scenario.id,
-      condition,
-      driver: { name: driver.name, version: driver.version },
-      fixture: { path: scenario.fixture.path, hash: '' },
-      status: 'error',
-      failureType: error instanceof Error ? error.message : 'unknown-error',
-      results: { acceptanceRate: 0, criteria: [] },
-      tokens: createUnavailableTokens(),
-      timing: { startMs, endMs, durationMs: endMs - startMs },
-      evidence: {
-        rawDir: '',
-        agentOutput: '',
-        verifierOutput: '',
-      },
-      createdAt: new Date().toISOString(),
-    };
+    const errorMsg = error instanceof Error ? error.message : String(error);
 
-    return {
-      report: errorReport,
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    // Write error report to evidence directory so it's not lost
+    const errorEvidenceDir = join(evidenceBase, runId);
+    try {
+      await mkdir(errorEvidenceDir, { recursive: true });
+      const errorReport: BenchmarkRunReport = {
+        runId,
+        scenarioId: scenario.id,
+        condition,
+        driver: { name: driver.name, version: driver.version },
+        fixture: { path: scenario.fixture.path, hash: '' },
+        status: 'error',
+        failureType: errorMsg,
+        results: { acceptanceRate: 0, criteria: [] },
+        tokens: createUnavailableTokens(),
+        timing: { startMs, endMs, durationMs: endMs - startMs },
+        evidence: {
+          rawDir: errorEvidenceDir,
+          agentOutput: '',
+          verifierOutput: '',
+        },
+        createdAt: new Date().toISOString(),
+      };
+      await writeFile(
+        join(errorEvidenceDir, 'run-report.json'),
+        JSON.stringify(errorReport, null, 2),
+        'utf-8',
+      );
+      return {
+        report: errorReport,
+        success: false,
+        error: errorMsg,
+      };
+    } catch {
+      // Fallback if even evidence write fails
+      return {
+        report: {
+          runId,
+          scenarioId: scenario.id,
+          condition,
+          driver: { name: driver.name, version: driver.version },
+          fixture: { path: scenario.fixture.path, hash: '' },
+          status: 'error',
+          failureType: errorMsg,
+          results: { acceptanceRate: 0, criteria: [] },
+          tokens: createUnavailableTokens(),
+          timing: { startMs, endMs, durationMs: endMs - startMs },
+          evidence: { rawDir: '', agentOutput: '', verifierOutput: '' },
+          createdAt: new Date().toISOString(),
+        } as BenchmarkRunReport,
+        success: false,
+        error: errorMsg,
+      };
+    }
   }
 }
 
