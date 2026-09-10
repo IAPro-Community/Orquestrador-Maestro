@@ -46,8 +46,33 @@ export class OpenCodeDriver implements AgentDriver {
   }
 
   async execute(task: string, options: DriverExecuteOptions): Promise<DriverResult> {
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 3_000;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        // Wait before retry
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+      }
+
+      const result = await this.executeOnce(task, options);
+
+      // Check if this is a transient error worth retrying
+      if (!this.isSuccessfulResult(result) && this.isTransientError(result.output)) {
+        if (attempt < MAX_RETRIES) {
+          continue;
+        }
+      }
+
+      return result;
+    }
+
+    // Unreachable, but TypeScript needs it
+    throw new Error('execute: exhausted retries');
+  }
+
+  private async executeOnce(task: string, options: DriverExecuteOptions): Promise<DriverResult> {
     const startMs = Date.now();
-    const runId = randomUUID();
 
     const args = [
       'run',
