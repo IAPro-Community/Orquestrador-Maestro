@@ -1,0 +1,63 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    environment:
+      - BENCH_TASK=${BENCH_TASK:-}
+      - BENCH_TASK_FILE=${BENCH_TASK_FILE:-}
+      - BENCH_MODEL=${BENCH_MODEL:-anthropic/claude-sonnet-4-20250514}
+      - BENCH_VARIANT=${BENCH_VARIANT:-}
+      - BENCH_TIMEOUT=${BENCH_TIMEOUT:-120}
+      - BENCH_FORMAT=json
+      - BENCH_WORK_DIR=/workspace
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - workspace:/workspace
+      - agent-evidence:/evidence
+    networks: []
+    read_only: false
+    tmpfs:
+      - /tmp:size=256M
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile.verifier
+    depends_on:
+      agent:
+        condition: service_completed_successfully
+    environment:
+      - BENCH_WORK_DIR=/workspace
+      - BENCH_VERIFY_COMMAND=${BENCH_VERIFY_COMMAND:-}
+      - BENCH_TIMEOUT=${BENCH_TIMEOUT:-60}
+      - BENCH_EXPECTED_EXIT=${BENCH_EXPECTED_EXIT:-0}
+    volumes:
+      - workspace:/workspace:ro
+      - agent-evidence:/evidence:ro
+    networks: []
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  workspace:
+  agent-evidence:

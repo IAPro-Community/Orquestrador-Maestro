@@ -10,5 +10,7 @@ module.exports = {
   ...require("./workflows"),
   ...require("./git"),
   ...require("./profiles"),
-  ...require("./workspaces")
+  ...require("./workspaces"),
+  ...require("./config/maestro-paths"),
+  ...require("./governance/compatibility")
 };

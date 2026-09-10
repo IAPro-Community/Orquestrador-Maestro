@@ -82,8 +82,8 @@
     "orquestrador/skills/",
     "runtime/",
     "benchmarks/*.js",
+    "benchmarks/harness/",
     "benchmarks/scenarios/",
-    "benchmarks/runner.js",
     "scripts/*.js",
     "scripts/*.py",
     "scripts/*.ps1",
@@ -101,7 +101,17 @@
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
     "verify:pr": "node scripts/verify-pr.js",
-    "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1"
+    "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1",
+    "bench:list": "node benchmarks/cli.js list",
+    "bench:validate": "node benchmarks/cli.js validate",
+    "bench:run": "node benchmarks/cli.js run",
+    "bench:compare": "node benchmarks/cli.js compare",
+    "bench:suite": "node benchmarks/cli.js suite",
+    "bench:report": "node benchmarks/cli.js report",
+    "bench:verify": "node benchmarks/cli.js verify",
+    "bench:inspect": "node benchmarks/cli.js inspect",
+    "bench:preflight": "node benchmarks/cli.js preflight",
+    "bench:help": "node benchmarks/cli.js --help"
   },
   "config": {
     "telemetryEndpoint": ""

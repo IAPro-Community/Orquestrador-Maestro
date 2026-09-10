@@ -1,0 +1,14 @@
+{
+  "mode": "compatibility",
+  "tone": "preserved",
+  "warningFrequency": "once-per-session",
+  "checks": {
+    "missingVerification": "warn",
+    "missingEvidence": "recommend"
+  },
+  "hooks": {
+    "enabled": false
+  },
+  "scope": "project",
+  "providerModel": "informational"
+}

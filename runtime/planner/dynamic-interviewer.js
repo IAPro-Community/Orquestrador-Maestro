@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const readline = require("node:readline");
+const { resolveMaestroRoot } = require("../config/maestro-paths");
 
 const AMBIGUITY_THRESHOLD = 0.25;
 const MAX_ROUNDS = 8;
@@ -25,7 +26,7 @@ class DynamicInterviewer {
   constructor({ resolvedSkills, preflightFacts, skillsRoot }) {
     this.resolvedSkills = resolvedSkills;
     this.facts = { ...preflightFacts };
-    this.skillsRoot = skillsRoot || path.join(require("os").homedir(), ".orquestrador", "skills");
+    this.skillsRoot = skillsRoot || path.join(resolveMaestroRoot(), "skills");
     this.rounds = [];
     this.clarity = {};
     for (const dim of Object.keys(DIMENSIONS)) {

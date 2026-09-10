@@ -1,0 +1,12 @@
+{
+  "name": "bench-verifier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal package for benchmark verifier container",
+  "scripts": {
+    "verify": "node verify.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

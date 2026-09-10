@@ -136,7 +136,18 @@ SOURCE_CODEX="$REPO_ROOT/codex"
 SOURCE_COMMUNITY_SKILLS="$REPO_ROOT/skill-library/community-skills"
 SOURCE_TOOL_PROFILES="$REPO_ROOT/tool-profiles"
 
-TARGET_ORQUESTRADOR="$HOME_PATH/.orquestrador"
+CANONICAL_ORQUESTRADOR_NAME=".orquestrador-maestro"
+LEGACY_ORQUESTRADOR_NAME=".orquestrador"
+if [ -d "$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME" ]; then
+  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
+  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
+elif [ -d "$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME" ]; then
+  TARGET_ORQUESTRADOR="$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME"
+  TARGET_ORQUESTRADOR_NAME="$LEGACY_ORQUESTRADOR_NAME"
+else
+  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
+  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
+fi
 TARGET_SKILL_LIBRARY="$TARGET_ORQUESTRADOR/skill-library"
 TARGET_AGENTS="$HOME_PATH/AGENTS.md"
 BACKUP_ROOT="$HOME_PATH/.orquestrador-public-backups"
@@ -223,9 +234,13 @@ copy_with_placeholders() {
 
   home_for_text="$(escape_sed_replacement "$HOME_PATH")"
   user_for_text="$(escape_sed_replacement "$USER_NAME")"
+  maestro_for_text="$(escape_sed_replacement "$TARGET_ORQUESTRADOR")"
+  maestro_tilde_for_text="$(escape_sed_replacement "~/$TARGET_ORQUESTRADOR_NAME")"
   full_name_for_text="$user_for_text"
 
-  sed -e "s|{{USER_HOME}}|$home_for_text|g" \
+  sed -e "s|{{USER_HOME}}/\.orquestrador|$maestro_for_text|g" \
+    -e "s|{{USER_HOME}}|$home_for_text|g" \
+    -e "s|~/\.orquestrador|$maestro_tilde_for_text|g" \
     -e "s|{{USER_NAME}}|$user_for_text|g" \
     -e "s|{{USER_FULL_NAME}}|$full_name_for_text|g" \
     "$src" > "$dest"
@@ -354,7 +369,7 @@ list_install_plan() {
     printf 'Mode\tTarget\tComponent\tKind\tExists\n'
   fi
   if [ "$INCLUDE_CORE" = true ]; then
-    print_target_row "$mode" ".orquestrador" "core" "directory" "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
+    print_target_row "$mode" "$TARGET_ORQUESTRADOR_NAME" "core" "directory" "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
     print_target_row "$mode" "AGENTS.md" "core" "file" "$TARGET_AGENTS" "$SOURCE_AGENTS"
   fi
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -545,7 +560,7 @@ fi
 
 if [ "$UNINSTALL" = true ]; then
   if [ "$INCLUDE_CORE" = true ]; then
-    backup_path "$TARGET_ORQUESTRADOR" ".orquestrador"
+    backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
     backup_path "$TARGET_AGENTS" "AGENTS.md"
   fi
 
@@ -617,7 +632,7 @@ EOF
   exit 0
 fi
 
-backup_path "$TARGET_ORQUESTRADOR" ".orquestrador"
+backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
 backup_path "$TARGET_AGENTS" "AGENTS.md"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -684,7 +699,7 @@ if [ "$VERBOSE_PATHS" = true ]; then
   echo "InstalledAgents: $TARGET_AGENTS"
 else
   echo "HomePath: [redacted]"
-  echo "InstalledOrquestrador: .orquestrador"
+  echo "InstalledOrquestrador: $TARGET_ORQUESTRADOR_NAME"
   echo "InstalledAgents: AGENTS.md"
 fi
 if [ -d "$BACKUP_DIR" ]; then

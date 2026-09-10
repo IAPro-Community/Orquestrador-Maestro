@@ -27,6 +27,14 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
+      - name: Run pre-tag release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test
+          npm pack --dry-run >/dev/null
+
       - name: Compare package version with npm registry
         id: check
         shell: bash
@@ -40,6 +48,7 @@ jobs:
           fi
 
           local_version="$(node -p "require('./package.json').version")"
+          lock_version="$(node -p "require('./package-lock.json').version")"
           echo "local_version=$local_version" >> "$GITHUB_OUTPUT"
 
           if [ "$local_version" = "0.0.0" ] || [ -z "$local_version" ]; then
@@ -48,7 +57,20 @@ jobs:
             exit 0
           fi
 
-          npm_versions="$(npm view @iapro/orquestrador-maestro-cli versions --json 2>/dev/null || echo "[]")"
+          if [ "$lock_version" != "$local_version" ]; then
+            echo "package-lock.json version $lock_version does not match package.json version $local_version" >&2
+            exit 1
+          fi
+
+          if ! grep -qE "^## ${local_version}([ -]|$)" CHANGELOG.md; then
+            echo "CHANGELOG.md has no heading for version $local_version" >&2
+            exit 1
+          fi
+
+          if ! npm_versions="$(npm view @iapro/orquestrador-maestro-cli versions --json 2>/dev/null)"; then
+            echo "Unable to query npm registry; failing safely so this workflow can be retried." >&2
+            exit 1
+          fi
 
           if echo "$npm_versions" | LOCAL_VERSION="$local_version" node -e "
             const versions = JSON.parse(require('fs').readFileSync(0, 'utf8'));
@@ -73,8 +95,15 @@ jobs:
           tag="v${version}"
 
           if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists — skipping."
-            exit 0
+            existing_sha="$(git rev-list -n 1 "$tag")"
+            head_sha="$(git rev-parse HEAD)"
+            if [ "$existing_sha" = "$head_sha" ]; then
+              echo "Tag $tag already points to HEAD — skipping."
+              exit 0
+            fi
+            echo "Tag $tag already points to $existing_sha, not HEAD $head_sha." >&2
+            echo "Resolve the existing tag before retrying this release." >&2
+            exit 1
           fi
 
           git config user.name "github-actions[bot]"

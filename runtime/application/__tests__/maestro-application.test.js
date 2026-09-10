@@ -10,10 +10,11 @@ const { MaestroApplication, ProviderRegistry } = require("../maestro-application
 const { JsonFileRunStore } = require("../../store");
 
 class FakeAdapter {
-  constructor() { this.id = "fake"; }
+  constructor() { this.id = "fake"; this.prompts = []; }
   async detect() { return { id: this.id, installed: true, executable: "fake" }; }
   async capabilities() { return capabilities({ headless: true, streaming: true }); }
   async execute(request) {
+    this.prompts.push(request.prompt);
     request.onEvent({ type: "provider.started", providerId: this.id, pid: 1 });
     request.onEvent({ type: "provider.output", providerId: this.id, stream: "stdout", chunk: "ok" });
     return { pid: 1, cancel() {}, result: Promise.resolve({ providerId: this.id, pid: 1, exitCode: 0, stdout: "ok", stderr: "", durationMs: 1, cancelled: false, timedOut: false }) };
@@ -59,6 +60,44 @@ test("guided engineering quality findings prevent a false completed run", async 
   assert.equal(outcome.verification.status, "passed");
   assert.equal(outcome.qualityFindings.some((finding) => finding.code === "excessive-file-responsibility"), true);
   assert.equal(outcome.run.status, "failed");
+});
+
+test("a skipped verification warns without breaking a compatibility run", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skipped-verification-"));
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([new FakeAdapter()]),
+    skills: { get: () => null }
+  });
+  const outcome = await app.executeRun({ providerId: "fake", description: "Run without checks", verificationCommands: [] });
+  assert.equal(outcome.verification.status, "skipped");
+  assert.equal(outcome.run.status, "completed");
+  assert.equal(outcome.governanceWarnings.length, 1);
+});
+
+test("compatibility mode preserves the native prompt and strict mode opts into governance context", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-prompt-compatibility-"));
+  const compatibilityProvider = new FakeAdapter();
+  const compatibility = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "compatibility-runs.json") }),
+    providers: new ProviderRegistry([compatibilityProvider]),
+    skills: { get: () => null }
+  });
+  await compatibility.executeRun({ providerId: "fake", description: "Preservar prompt", verificationCommands: [] });
+  assert.equal(compatibilityProvider.prompts[0].includes("Engineering contract:"), false);
+
+  const strictProvider = new FakeAdapter();
+  const strict = new MaestroApplication({
+    projectRoot: root,
+    governance: { mode: "strict" },
+    store: new JsonFileRunStore({ filePath: path.join(root, "strict-runs.json") }),
+    providers: new ProviderRegistry([strictProvider]),
+    skills: { get: () => null }
+  });
+  await strict.executeRun({ providerId: "fake", description: "Usar governança explícita", verificationCommands: [{ name: "ok", command: `${process.execPath} -e "process.exit(0)"` }], evidence: [{ type: "test", value: "ok" }] });
+  assert.equal(strictProvider.prompts[0].includes("Engineering contract:"), true);
 });
 
 test("projects can be registered before their first Run", async () => {

@@ -1,26 +1,26 @@
 {
   "id": "bug-fix-auth",
-  "name": "Fix Authentication Bug",
+  "name": "Fix Authentication Token Rotation Bug",
   "type": "bug",
-  "description": "Fix bug where refresh token reuse was still allowed in TokenService",
-  "prompt": "Fix the bug in src/TokenService.js where refresh token reuse is still allowed. The current implementation stores issued refresh tokens in a Set but never removes the old one when rotating. Implement proper token rotation: when a refresh token is used, it should be removed from the valid tokens set and a new one issued.",
-  "fixture": {
-    "files": {
-      "src/TokenService.js": "const { randomBytes } = require('node:crypto');\n\nclass TokenService {\n  constructor() {\n    this.refreshTokensIssued = new Set();\n    this.accessTokens = new Map();\n  }\n\n  async generateTokenPair(userId) {\n    const accessToken = randomBytes(32).toString('hex');\n    const refreshToken = randomBytes(32).toString('hex');\n    this.refreshTokensIssued.add(refreshToken);\n    this.accessTokens.set(userId, { accessToken, refreshToken, expiresAt: Date.now() + 3600000 });\n    return { accessToken, refreshToken };\n  }\n\n  async refreshTokens(userId, oldRefreshToken) {\n    // BUG: checks if token was ever issued but never removes the old one\n    if (!this.refreshTokensIssued.has(oldRefreshToken)) {\n      return null;\n    }\n    // Old token remains in the Set - reuse is possible!\n    return this.generateTokenPair(userId);\n  }\n\n  async validateAccessToken(userId, token) {\n    const existing = this.accessTokens.get(userId);\n    return !!existing && existing.accessToken === token && existing.expiresAt > Date.now();\n  }\n}\n\nmodule.exports = { TokenService };\n",
-      "test/TokenService.test.js": "const { describe, it } = require('node:test');\nconst assert = require('node:assert/strict');\nconst { TokenService } = require('../src/TokenService');\n\ndescribe('TokenService', () => {\n  it('should not allow refresh token reuse', async () => {\n    const service = new TokenService();\n    const tokens = await service.generateTokenPair('user1');\n    \n    // First refresh should succeed\n    const refreshed1 = await service.refreshTokens('user1', tokens.refreshToken);\n    assert.ok(refreshed1, 'First refresh should succeed');\n    \n    // Second refresh with same token should fail (BUG: currently succeeds)\n    const refreshed2 = await service.refreshTokens('user1', tokens.refreshToken);\n    assert.equal(refreshed2, null, 'Second refresh with same token should fail');\n  });\n});\n",
-      "package.json": "{\"name\":\"test-project\",\"scripts\":{\"test\":\"node --test test/TokenService.test.js\"}}"
-    }
-  },
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["auth", "token", "security", "rotation"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Refresh token reuse is allowed because old tokens are never invalidated after use",
+  "prompt": "Fix the bug in src/TokenService.js where refresh token reuse is still allowed. When a refresh token is used, it must be removed from the valid tokens set and a new one issued. The old token must be invalidated.",
+  "fixtureDir": "_fixtures/bug-fix-auth",
+  "hiddenTests": "test/hidden.test.js",
   "acceptance": [
     "TokenService.js is modified",
     "Refresh token reuse is prevented",
     "Old refresh token is invalidated after use",
-    "New refresh token is issued on successful refresh",
-    "Test passes: 'should not allow refresh token reuse'"
+    "New refresh token is issued on successful refresh"
   ],
   "validation": {
-    "command": "node --test test/TokenService.test.js",
-    "expectedExitCode": 0
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
   },
   "expectedInvariants": [
     "Refresh tokens are single-use",

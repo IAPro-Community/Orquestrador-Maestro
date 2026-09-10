@@ -1,0 +1,50 @@
+name: Benchmark PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "feat/*"
+    paths:
+      - "benchmarks/**"
+      - "package.json"
+      - "benchmarks/package.json"
+
+jobs:
+  validate:
+    name: Validate Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: benchmarks
+        run: npx tsc --noEmit
+
+      - name: Validate scenario definitions
+        run: node benchmarks/cli.js validate
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Docker build test (agent)
+        working-directory: benchmarks/docker
+        run: docker build -f Dockerfile.agent -t bench-agent:test .
+
+      - name: Docker build test (verifier)
+        working-directory: benchmarks/docker
+        run: docker build -f Dockerfile.verifier -t bench-verifier:test .
+
+      - name: Preflight check
+        run: node benchmarks/cli.js preflight --json || true

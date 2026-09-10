@@ -1,0 +1,17 @@
+FROM node:20.18-slim
+
+RUN groupadd -r verifier && useradd -r -g verifier -m -s /bin/bash verifier
+
+COPY entrypoint-verifier.sh /entrypoint-verifier.sh
+COPY package.json /verifier/package.json
+RUN chmod +x /entrypoint-verifier.sh && \
+    cd /verifier && npm install --omit=dev --ignore-scripts && \
+    chown -R verifier:verifier /verifier
+
+USER verifier
+WORKDIR /workspace
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=2 \
+  CMD ["pgrep", "-x", "node"]
+
+ENTRYPOINT ["/entrypoint-verifier.sh"]

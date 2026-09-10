@@ -50,6 +50,13 @@ function isScopeExecutionEligible(item = {}) {
   return false;
 }
 
+function isRiskExecutionEligible(changeClass, { profileId, riskOverride } = {}) {
+  if (!HIGH_RISK_CHANGE_CLASSES.includes(changeClass) || profileId === "guided-engineering") return true;
+  return riskOverride?.marker === "proceed with warning"
+    && typeof riskOverride.note === "string"
+    && riskOverride.note.trim().length > 0;
+}
+
 function criterionKey(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -71,4 +78,4 @@ function isTaskCompletionEligible(task, { evidence = [], verification = {}, qual
   return Object.freeze({ eligible, missingCriteria: Object.freeze(missingCriteria), blockingFindings: Object.freeze(blockingFindings), reason: eligible ? "criteria-and-verification-satisfied" : "required-evidence-verification-or-quality-gate-missing" });
 }
 
-module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, classifyChange, classifyDiscovery, isScopeExecutionEligible, isTaskCompletionEligible };
+module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, classifyChange, classifyDiscovery, isScopeExecutionEligible, isRiskExecutionEligible, isTaskCompletionEligible };

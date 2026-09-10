@@ -1,0 +1,29 @@
+{
+  "id": "bug-cross-file-001",
+  "name": "Fix Cross-File Authentication Bug",
+  "type": "bug-cross-file",
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["auth", "cross-file", "migration", "schema"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Fix a bug that requires understanding interaction between 3+ files: auth middleware, token service, user migration, and user schema",
+  "prompt": "Fix the bug in the authentication middleware where token validation fails when the user has been recently migrated. The issue is that the migration service updates the user record but the token service still uses the old schema for validation.",
+  "fixtureDir": "_fixtures/bug-cross-file-001",
+  "hiddenTests": "test/hidden.test.js",
+  "acceptance": [
+    "Token validation works after migration",
+    "Migration service updates schema correctly",
+    "Token service uses updated schema for validation",
+    "All files interact correctly"
+  ],
+  "validation": {
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
+  },
+  "expectedInvariants": [
+    "Token validation is consistent across schema versions",
+    "Migration and auth services are compatible"
+  ]
+}

@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { resolveMaestroRoot } = require("../config/maestro-paths");
 
 function runGit(args, cwd, { input, encoding = "utf8" } = {}) {
   return new Promise((resolve, reject) => {
@@ -31,7 +32,7 @@ function assertSafeSegment(value, name) {
 }
 
 class WorkspaceManager {
-  constructor({ rootDirectory = ".maestro/worktrees", sessionRootDirectory = path.join(os.homedir(), ".orquestrador", "runtime", "worktrees") } = {}) {
+  constructor({ rootDirectory = ".maestro/worktrees", sessionRootDirectory = path.join(resolveMaestroRoot(), "runtime", "worktrees") } = {}) {
     this.rootDirectory = rootDirectory;
     this.sessionRootDirectory = path.resolve(sessionRootDirectory);
   }

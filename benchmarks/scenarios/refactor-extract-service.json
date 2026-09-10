@@ -1,0 +1,30 @@
+{
+  "id": "refactor-extract-service",
+  "name": "Extract Email Notification Service from Monolith",
+  "type": "refactor",
+  "version": 1,
+  "difficulty": "hard",
+  "tags": ["refactor", "extract", "service", "email", "notification"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Extract email notification logic from a monolithic file into a separate service",
+  "prompt": "Refactor src/monolith.js by extracting the email notification logic into a separate EmailService class in src/services/EmailService.js. Update all callers and add tests.",
+  "fixtureDir": "_fixtures/refactor-extract-service",
+  "hiddenTests": "test/hidden.test.js",
+  "acceptance": [
+    "EmailService class exists in src/services/EmailService.js",
+    "EmailService has sendWelcome, sendPasswordReset, sendNotification methods",
+    "Monolith no longer contains email logic",
+    "All callers updated to use EmailService",
+    "Tests verify EmailService behavior"
+  ],
+  "validation": {
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
+  },
+  "expectedInvariants": [
+    "Email logic is single-sourced in EmailService",
+    "All existing functionality preserved"
+  ]
+}

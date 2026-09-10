@@ -1,17 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Orquestrador Maestro Benchmark Result",
-  "description": "Schema for benchmark run results",
+  "title": "Orquestrador Maestro Benchmark Result v2",
+  "description": "Schema for v2 benchmark run results with real agent execution",
   "type": "object",
-  "required": ["benchmark", "condition", "run", "model", "provider", "repoCommit", "promptHash", "environment", "usage", "context", "tools", "validation", "evidence"],
+  "required": ["benchmark", "condition", "run", "model", "driver", "repoCommit", "promptHash", "environment", "driverResult", "validation", "evidence", "metadata"],
   "properties": {
     "benchmark": {
       "type": "string",
-      "description": "Scenario identifier (e.g., resume-auth-001)"
+      "description": "Scenario identifier (e.g., bug-fix-auth)"
     },
     "condition": {
       "type": "string",
-      "enum": ["vanilla", "maestro-core", "maestro-memory"],
+      "enum": ["vanilla", "maestro-core"],
       "description": "Test condition"
     },
     "run": {
@@ -21,11 +21,11 @@
     },
     "model": {
       "type": "string",
-      "description": "AI model used"
+      "description": "AI model used (e.g., anthropic/claude-sonnet-4-20250514)"
     },
-    "provider": {
+    "driver": {
       "type": "string",
-      "description": "AI provider (e.g., anthropic, openai)"
+      "description": "Driver used (e.g., opencode)"
     },
     "repoCommit": {
       "type": "string",
@@ -37,6 +37,7 @@
     },
     "environment": {
       "type": "object",
+      "required": ["os", "nodeVersion", "platform", "arch", "timestamp"],
       "properties": {
         "os": { "type": "string" },
         "nodeVersion": { "type": "string" },
@@ -45,94 +46,110 @@
         "timestamp": { "type": "string", "format": "date-time" }
       }
     },
-    "usage": {
+    "driverResult": {
       "type": "object",
-      "description": "Token usage metrics",
+      "required": ["exitCode", "stdout", "stderr", "durationMs"],
+      "description": "Raw driver output",
       "properties": {
-        "inputTokens": {
-          "type": ["integer", "null"],
-          "description": "Input tokens (provider-reported or null)"
+        "exitCode": {
+          "type": "integer",
+          "description": "Process exit code"
         },
-        "outputTokens": {
-          "type": ["integer", "null"],
-          "description": "Output tokens (provider-reported or null)"
-        },
-        "cachedTokens": {
-          "type": ["integer", "null"],
-          "description": "Cached tokens (provider-reported or null)"
-        },
-        "reasoningTokens": {
-          "type": ["integer", "null"],
-          "description": "Reasoning tokens (provider-reported or null)"
-        },
-        "totalTokens": {
-          "type": ["integer", "null"],
-          "description": "Total tokens (provider-reported or null)"
-        },
-        "tokenSource": {
+        "stdout": {
           "type": "string",
-          "enum": ["provider-reported", "tokenizer-estimated", "context-character-count", "not-applicable", "unknown"],
-          "description": "Source of token measurement"
-        }
-      }
-    },
-    "context": {
-      "type": "object",
-      "description": "Context size metrics",
-      "properties": {
-        "chars": {
-          "type": "integer",
-          "description": "Total characters in context"
+          "description": "Standard output"
         },
-        "bytes": {
-          "type": "integer",
-          "description": "Total bytes in context"
-        }
-      }
-    },
-    "tools": {
-      "type": "object",
-      "description": "Tool usage metrics",
-      "properties": {
-        "calls": {
-          "type": "integer",
-          "description": "Total tool calls"
+        "stderr": {
+          "type": "string",
+          "description": "Standard error"
         },
-        "filesRead": {
+        "durationMs": {
           "type": "integer",
-          "description": "Files read"
+          "description": "Execution duration in milliseconds"
         },
-        "filesModified": {
-          "type": "integer",
-          "description": "Files modified"
+        "filesChanged": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Files modified by the agent"
+        },
+        "usage": {
+          "type": "object",
+          "description": "Token usage metrics",
+          "properties": {
+            "inputTokens": { "type": ["integer", "null"] },
+            "outputTokens": { "type": ["integer", "null"] },
+            "totalTokens": { "type": ["integer", "null"] }
+          }
         }
       }
     },
     "validation": {
       "type": "object",
-      "description": "Validation results",
+      "required": ["testsPassed", "testsTotal", "exitCode"],
+      "description": "Hidden test results",
       "properties": {
-        "passed": {
-          "type": "boolean",
-          "description": "Whether acceptance criteria passed"
-        },
         "testsPassed": {
           "type": "integer",
           "description": "Number of tests passed"
         },
-        "testsFailed": {
+        "testsTotal": {
           "type": "integer",
-          "description": "Number of tests failed"
+          "description": "Total number of tests"
+        },
+        "exitCode": {
+          "type": "integer",
+          "description": "Test runner exit code"
+        },
+        "output": {
+          "type": "string",
+          "description": "Raw test output"
+        },
+        "tapOutput": {
+          "type": "string",
+          "description": "TAP format output"
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message if tests failed to run"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["passed", "testsPassed", "testsTotal", "errors"],
+      "description": "Evidence gate result",
+      "properties": {
+        "passed": {
+          "type": "boolean",
+          "description": "Whether evidence gate passed"
+        },
+        "testsPassed": {
+          "type": "integer",
+          "description": "Number of hidden tests passed"
+        },
+        "testsTotal": {
+          "type": "integer",
+          "description": "Total number of hidden tests"
+        },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Error messages if gate failed"
+        },
+        "publicClaimEligible": {
+          "type": "boolean",
+          "description": "Whether this result is eligible for public claims"
         }
       }
     },
     "metadata": {
       "type": "object",
+      "required": ["durationMs", "retries", "notes"],
       "description": "Additional metadata",
       "properties": {
         "durationMs": {
           "type": "integer",
-          "description": "Execution duration in milliseconds"
+          "description": "Total execution duration in milliseconds"
         },
         "retries": {
           "type": "integer",
@@ -141,30 +158,6 @@
         "notes": {
           "type": "string",
           "description": "Additional notes"
-        }
-      }
-    },
-    "evidence": {
-      "type": "object",
-      "description": "Evidence gate metadata for claim eligibility",
-      "required": ["executionType", "publicClaimEligible"],
-      "properties": {
-        "executionType": {
-          "type": "string",
-          "enum": ["synthetic", "infrastructure", "real-execution"],
-          "description": "Execution classification: synthetic (fixture validation), infrastructure (setup/teardown), real-execution (actual AI model call)"
-        },
-        "publicClaimEligible": {
-          "type": "boolean",
-          "description": "Whether this run is eligible for public claims. Must be explicitly true."
-        },
-        "reproducible": {
-          "type": "boolean",
-          "description": "Whether the result is reproducible"
-        },
-        "isolated": {
-          "type": "boolean",
-          "description": "Whether the run was isolated from other runs"
         }
       }
     }

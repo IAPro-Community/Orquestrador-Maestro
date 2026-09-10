@@ -1,31 +1,29 @@
 {
   "id": "refactor-extract-util",
-  "name": "Extract Utility Functions",
+  "name": "Extract Duplicated Date Logic to Shared Utility",
   "type": "refactor",
-  "description": "Extract common utility functions from multiple files into a shared utils module",
-  "prompt": "Refactor the codebase to extract common utility functions. Create src/utils/date.ts with formatDate and parseDate functions. Update all files that use these functions to import from the new utils module.",
-  "fixture": {
-    "files": {
-      "src/utils/": {},
-      "src/components/Profile.tsx": "import React from 'react';\n\nfunction formatDate(date: Date): string {\n  return date.toISOString().split('T')[0];\n}\n\nexport function Profile({ createdAt }: { createdAt: Date }) {\n  return <div>Created: {formatDate(createdAt)}</div>;\n}",
-      "src/components/Post.tsx": "import React from 'react';\n\nfunction formatDate(date: Date): string {\n  return date.toISOString().split('T')[0];\n}\n\nexport function Post({ publishedAt }: { publishedAt: Date }) {\n  return <div>Published: {formatDate(publishedAt)}</div>;\n}",
-      "package.json": "{\"name\":\"test-project\",\"dependencies\":{\"react\":\"18.2.0\"}}"
-    }
-  },
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["refactor", "dedup", "utility", "shared-code"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "ReportService duplicates date formatting logic that exists in dateUtils",
+  "prompt": "Refactor src/services/ReportService.js to import and use the shared date utility functions from src/utils/dateUtils.js instead of duplicating the logic. Add parseDate and daysBetween functions to dateUtils.js if they don't exist. Remove the duplicated formatDate, addDays, and isWeekend functions from ReportService.js.",
+  "fixtureDir": "_fixtures/refactor-extract-util",
+  "hiddenTests": "test/hidden.test.js",
   "acceptance": [
-    "src/utils/date.ts exists",
-    "formatDate function exported from utils/date.ts",
-    "parseDate function exported from utils/date.ts",
-    "src/components/Profile.tsx imports from utils/date.ts",
-    "src/components/Post.tsx imports from utils/date.ts",
-    "No duplicate formatDate implementations"
+    "ReportService imports from dateUtils",
+    "No duplicated formatDate function in ReportService",
+    "dateUtils exports parseDate and daysBetween",
+    "All existing tests still pass"
   ],
   "validation": {
-    "command": "grep -r 'function formatDate' src/ | grep -v 'utils/date.ts' | wc -l | grep -q '^0$'",
-    "expectedExitCode": 0
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
   },
   "expectedInvariants": [
-    "Single source of truth for date utilities",
-    "All imports updated"
+    "Single source of truth for date operations",
+    "No code duplication between modules"
   ]
 }

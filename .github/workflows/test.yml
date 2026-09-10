@@ -69,6 +69,36 @@ jobs:
         if: always()
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
+  benchmark-smoke:
+    name: Benchmark smoke — Node 20 on Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Benchmark list
+        run: node benchmarks/cli.js list
+
+      - name: Benchmark validate
+        run: |
+          node benchmarks/cli.js validate bug-fix-auth
+          node benchmarks/cli.js validate feature-add-button
+          node benchmarks/cli.js validate refactor-extract-util
+          node benchmarks/cli.js validate investigate-performance
+          node benchmarks/cli.js validate resume-auth-feature
+          node benchmarks/cli.js validate cross-session-migration
+
+      - name: Benchmark unit tests
+        run: node --test tests/benchmark-*.test.js
+
   test-windows:
     name: Smoke tests — Node ${{ matrix.node-version }} on Windows
     runs-on: windows-latest

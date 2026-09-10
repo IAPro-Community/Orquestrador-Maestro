@@ -29,10 +29,10 @@ try {
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs
   if ($LASTEXITCODE -ne 0) { throw "Install failed." }
 
-  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\runtime")) {
+  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\runtime")) {
     throw "Installer copied local runtime state into the installed core."
   }
-  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\rules.md"))) {
+  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\rules.md"))) {
     throw "Installer did not copy the public core rules."
   }
 
@@ -66,8 +66,8 @@ try {
     }
   }
 
-  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador")) {
-    throw "Uninstall left .orquestrador behind."
+  if ((Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro")) -or (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador"))) {
+    throw "Uninstall left a Maestro core directory behind."
   }
   if (Test-Path -LiteralPath (Join-Path $TempHome "AGENTS.md")) {
     throw "Uninstall left AGENTS.md behind."

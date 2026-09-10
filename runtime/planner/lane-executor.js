@@ -62,8 +62,11 @@ class LaneExecutor extends EventEmitter {
           if (nextIndex === -1) break; // No tasks ready
 
           const task = pending.splice(nextIndex, 1)[0];
-          if (!isScopeExecutionEligible(task)) {
-            markFailed(task, `blocked by scope classification: ${task.scopeClassification || "unknown"}`);
+          const semanticTask = task.semanticMetadata && typeof task.semanticMetadata === "object"
+            ? task.semanticMetadata
+            : task;
+          if (!isScopeExecutionEligible(semanticTask)) {
+            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`);
             continue;
           }
           running.add(task.id);
@@ -78,7 +81,7 @@ class LaneExecutor extends EventEmitter {
             projectId,
             missionId,
             semanticTaskId: task.id,
-            semanticTask: task
+            semanticTask
           })
             .then((result) => {
               results[task.id] = { status: "completed", result };
@@ -92,6 +95,17 @@ class LaneExecutor extends EventEmitter {
               running.delete(task.id);
               checkNext();
           });
+        }
+
+        if (pending.length > 0 && running.size === 0) {
+          const hasFailedDependency = pending.some((task) =>
+            (task.dependsOn || []).some((dep) => failed.has(dep))
+          );
+          if (hasFailedDependency) return checkNext();
+
+          for (const task of pending.splice(0)) {
+            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`);
+          }
         }
 
         if (pending.length === 0 && running.size === 0) resolve(results);

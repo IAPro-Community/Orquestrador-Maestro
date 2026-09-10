@@ -1,33 +1,29 @@
 {
   "id": "resume-auth-feature",
-  "name": "Resume Authentication Feature",
-  "type": "resume",
-  "description": "Resume work on an authentication feature from previous session context",
-  "prompt": "Continue working on the authentication feature. The previous session implemented login and registration. Now implement the password reset flow. Check DEV/HANDOFF.md for the previous session state.",
-  "fixture": {
-    "files": {
-      "DEV/HANDOFF.md": "# Handoff\n\n## Current State\nAuthentication feature 60% complete.\n\n## Completed\n- Login flow (email/password)\n- Registration flow\n- JWT token generation\n\n## Remaining\n- Password reset flow\n- Email verification\n- Account lockout\n\n## Risks\n- Email service not configured\n- Rate limiting not implemented\n\n## Next Action\nImplement password reset flow in src/auth/password-reset.ts",
-      "DEV/CONTEXT.md": "# Context\n\n## Project\nAuthentication service for SaaS application\n\n## Stack\n- Node.js + Express\n- PostgreSQL\n- JWT\n- bcrypt",
-      "src/auth/login.ts": "export async function login(email: string, password: string) {\n  return { token: 'jwt-token', user: { id: 1, email } };\n}",
-      "src/auth/register.ts": "export async function register(email: string, password: string) {\n  return { user: { id: 1, email } };\n}",
-      "src/auth/password-reset.ts": "// TODO: Implement password reset\nexport function requestPasswordReset(email: string) {\n  throw new Error('Not implemented');\n}\n\nexport function resetPassword(token: string, newPassword: string) {\n  throw new Error('Not implemented');\n}",
-      "package.json": "{\"name\":\"test-project\",\"dependencies\":{\"express\":\"4.18.0\",\"bcrypt\":\"5.1.0\",\"jsonwebtoken\":\"9.0.0\"}}"
-    }
-  },
+  "name": "Complete Authentication Service Implementation",
+  "type": "feature",
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["auth", "session", "password-reset", "feature"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "AuthService has TODO items for password reset and session refresh",
+  "prompt": "Complete the AuthService implementation in src/AuthService.js. The service has TODO comments for password reset and session refresh functionality. Implement: 1) A passwordReset method that generates a reset token and stores it with an expiry, 2) A refreshSession method that extends an existing session's expiry, 3) Ensure all edge cases are handled (expired tokens, invalid sessions, etc).",
+  "fixtureDir": "_fixtures/resume-auth-feature",
+  "hiddenTests": "test/hidden.test.js",
   "acceptance": [
-    "Password reset request implemented",
-    "Password reset token generation implemented",
-    "Password reset confirmation implemented",
-    "Tests pass for password reset flow",
-    "DEV/HANDOFF.md updated with new status"
+    "Password reset generates a valid reset token",
+    "Reset token expires after configured time",
+    "Session refresh extends session expiry",
+    "Invalid sessions are rejected"
   ],
   "validation": {
-    "command": "npx vitest run src/auth/password-reset.test.ts",
-    "expectedExitCode": 0
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
   },
   "expectedInvariants": [
-    "Previous context is respected",
-    "Implementation follows existing patterns",
-    "Handoff is updated"
+    "All auth flows handle edge cases",
+    "Sessions have proper expiry"
   ]
 }

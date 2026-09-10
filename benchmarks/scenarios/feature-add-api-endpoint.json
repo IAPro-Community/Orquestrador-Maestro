@@ -1,0 +1,29 @@
+{
+  "id": "feature-add-api-endpoint",
+  "name": "Add User Profile API Endpoint",
+  "type": "feature",
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["api", "rest", "endpoint", "profile", "tests"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Add a new REST API endpoint with tests",
+  "prompt": "Add a new GET /api/users/:id/profile endpoint that returns the user's profile with their recent activity. Include proper error handling, input validation, and unit tests.",
+  "fixtureDir": "_fixtures/feature-add-api-endpoint",
+  "hiddenTests": "test/hidden.test.js",
+  "acceptance": [
+    "GET /api/users/:id/profile endpoint exists",
+    "Returns user profile with recent activity",
+    "Proper error handling for invalid IDs",
+    "Input validation for user ID"
+  ],
+  "validation": {
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
+  },
+  "expectedInvariants": [
+    "Endpoint returns correct data structure",
+    "Error responses follow consistent format"
+  ]
+}

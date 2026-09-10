@@ -1,14 +1,6 @@
 {
   "version": 1,
   "purpose": "Compact routing index. Read this first, then open only the matching SKILL.md and referenced files.",
-  "riskClasses": {
-    "trivial": { "mandatoryPreCode": [] },
-    "local": { "mandatoryPreCode": [] },
-    "structural": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "integration": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "security-compliance": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "domain-critical": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] }
-  },
   "capabilityRoutes": {
     "software-architecture": {
       "triggers": ["novo módulo", "módulo novo", "muito acoplado", "arquivo gigante", "revisar arquitetura", "architecture"],

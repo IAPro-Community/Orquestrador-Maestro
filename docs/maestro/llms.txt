@@ -1,0 +1,23 @@
+# Maestro documentation map
+
+This directory documents the compatibility-first governance layer of Orquestrador Maestro.
+
+- README.md: navigation and compatibility promise.
+- guide.md: complete onboarding and conceptual guide.
+- testing.md: local, package, governance, and benchmark verification.
+- compatibility.md: defaults, config precedence, warnings, and cost.
+- governance-modes.md: compatibility versus strict behavior.
+- models-and-tone.md: provider, model, profile, prompt, and tone preservation.
+- user-impact.md: final-user risks and mitigations.
+- operations.md: daily commands and troubleshooting.
+- upgrade.md: safe update, backups, and rollback.
+- config.example.json: reference configuration.
+- assets/: versioned SVG diagrams.
+
+Core implementation references:
+
+- runtime/governance/compatibility.js
+- runtime/config/maestro-paths.js
+- runtime/application/maestro-application.js
+- bin/orquestrador-maestro.js
+- benchmarks/cli.js

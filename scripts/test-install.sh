@@ -77,8 +77,8 @@ if [ "$FULL" = true ]; then
   fi
 fi
 
-if [ -e "$TEMP_HOME/.orquestrador" ]; then
-  echo "Error: uninstall left .orquestrador behind." >&2
+if [ -e "$TEMP_HOME/.orquestrador-maestro" ] || [ -e "$TEMP_HOME/.orquestrador" ]; then
+  echo "Error: uninstall left a Maestro core directory behind." >&2
   exit 1
 fi
 if [ -e "$TEMP_HOME/AGENTS.md" ]; then

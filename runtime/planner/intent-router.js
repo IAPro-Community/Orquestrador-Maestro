@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveMaestroRoot } = require("../config/maestro-paths");
 
 /**
  * IntentRouter — Resolve a intenção do usuário para skills concretas
@@ -11,7 +12,7 @@ const path = require("node:path");
  */
 class IntentRouter {
   constructor({ maestroRoot }) {
-    this.maestroRoot = maestroRoot || path.join(require("os").homedir(), ".orquestrador");
+    this.maestroRoot = maestroRoot || resolveMaestroRoot();
     this._aliases = null;
     this._router = null;
     this._chains = null;
@@ -143,11 +144,15 @@ class IntentRouter {
 
     // 6. Determine risk from primary skill
     const risk = primarySkill?.safety || "standard";
+    const maxSkills = this.profiles.profiles?.[profile]?.maxSkills;
+    const allSkills = [primarySkill, ...guidedSkills, ...chainedSkills]
+      .filter(Boolean)
+      .filter((skill, index, list) => list.findIndex((candidate) => candidate.id === skill.id) === index);
 
     return Object.freeze({
       primarySkill,
       chainedSkills,
-      allSkills: [primarySkill, ...guidedSkills, ...chainedSkills].filter(Boolean).filter((skill, index, list) => list.findIndex((candidate) => candidate.id === skill.id) === index),
+      allSkills: Number.isInteger(maxSkills) ? allSkills.slice(0, maxSkills) : allSkills,
       guidedSkills: Object.freeze(guidedSkills),
       profile,
       risk,

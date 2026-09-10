@@ -15,9 +15,9 @@ const {
 } = require("../runtime/governance/engineering-quality");
 
 const repoRoot = path.resolve(__dirname, "..");
+const profiles = JSON.parse(fs.readFileSync(path.join(repoRoot, "orquestrador/SKILL_EXECUTION_PROFILES.json"), "utf8")).profiles;
 
 test("guided engineering profile composes disciplines without changing legacy profiles", () => {
-  const profiles = JSON.parse(fs.readFileSync(path.join(repoRoot, "orquestrador/SKILL_EXECUTION_PROFILES.json"), "utf8")).profiles;
   assert.ok(profiles.fast && profiles.standard && profiles.deep);
   assert.equal(profiles["guided-engineering"].maxSkills, 5);
   assert.equal(profiles["guided-engineering"].startSkill, "skill-repo-health");
@@ -35,6 +35,7 @@ test("intent routing selects proportional engineering disciplines", () => {
   assert.ok(auth.engineeringCapabilities.includes("data-modeling"));
   assert.ok(auth.engineeringCapabilities.includes("security"));
   assert.ok(auth.guidedSkills.length > 0);
+  assert.ok(auth.allSkills.length <= profiles["guided-engineering"].maxSkills);
 
   const table = router.resolve("criar tabela de usuários");
   assert.ok(table.engineeringCapabilities.includes("data-modeling"));
@@ -77,6 +78,7 @@ test("engineering contract preserves goal, constraints, boundaries and verificat
   assert.deepEqual(contract.affectedCapabilities, ["backend", "security"]);
   assert.deepEqual(contract.affectedBoundaries, []);
   assert.ok(contract.qualityExpectations.includes("coherent-responsibilities"));
+  assert.deepEqual(contract.mandatoryPreCode, ["deep-interview", "skill-preflight", "skill-adr"]);
   assert.ok(contract.verificationStrategy.includes("acceptance-evidence"));
   assert.ok(Object.isFrozen(contract));
 });

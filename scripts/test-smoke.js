@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const SMOKE_TESTS = [
-  "tests/benchmark.test.js",
+  "tests/benchmark-cli.test.js",
   "tests/memory.test.js",
   "tests/memory-context.test.js",
   "tests/memory-retention.test.js",

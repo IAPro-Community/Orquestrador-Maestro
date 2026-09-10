@@ -605,6 +605,7 @@ O fluxo de contribuição é:
 
 ## Documentação complementar
 
+- [Documentação completa da governança Maestro](docs/maestro/README.md)
 - [Instalação detalhada](docs/installation.md)
 - [Opções do instalador](docs/installer-options.md)
 - [Referência técnica](docs/orquestrador-reference.md)

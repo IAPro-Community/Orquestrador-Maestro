@@ -4,7 +4,7 @@ const readline = require("node:readline");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 
-function renderDashboard(project, { runs = [], skills = [], terminals = [], capabilities } = {}) {
+function renderDashboard(project, { runs = [], skills = [], terminals = [], capabilities, governance } = {}) {
   const groups = skills.reduce((result, skill) => { const key = skill.source || "user"; result[key] = (result[key] || 0) + 1; return result; }, {});
   return [
     "Maestro · Project Manager",
@@ -12,10 +12,11 @@ function renderDashboard(project, { runs = [], skills = [], terminals = [], capa
     project.path,
     `Runs: ${runs.length} | Sessões nativas: ${terminals.length}`,
     `Skills: Maestro ${groups.maestro || 0} · Usuário ${groups.user || 0} · Projeto ${groups.project || 0}`,
+    `Governança: ${governance?.governance || "compatibility"} · tom nativo preservado · provider/modelo informativos`,
     "",
     capabilities && !capabilities.backends.tmux ? "tmux indisponível: instale-o manualmente para sessões persistentes." : "",
     capabilities && !capabilities.tui.bun ? "TUI OpenTUI experimental indisponível (Bun/OpenTUI). Usando painel clássico." : "",
-    "[r] runs  [s] skills  [t] sessões  [a] agente  [h] shell  [u] anexar  [x] encerrar  [q] sair"
+    "[r] runs  [s] skills  [t] sessões  [g] governança  [a] agente  [h] shell  [u] anexar  [x] encerrar  [q] sair"
   ].filter(Boolean).join("\n");
 }
 
@@ -26,7 +27,7 @@ async function startTui(application, { input = process.stdin, output = process.s
     application.listRuns({ projectId: project.id }), application.skills.list(), application.listTerminalSessions({ projectId: project.id })
   ]);
   const capabilities = application.terminalCapabilities();
-  output.write(`${renderDashboard(project, { runs, skills, terminals, capabilities })}\n`);
+  output.write(`${renderDashboard(project, { runs, skills, terminals, capabilities, governance: application.getGovernanceStatus?.() })}\n`);
   if (!input.isTTY || !output.isTTY) return { interactive: false, project };
   const rl = readline.createInterface({ input, output, prompt: "maestro> " });
   rl.prompt();
@@ -52,6 +53,8 @@ async function startTui(application, { input = process.stdin, output = process.s
     else if (choice === "h") output.write("Uso: h <comando> [argumentos]\n");
     else if (choice === "u") output.write("Uso: u <id-da-sessão>\n");
     else if (choice === "x") output.write("Uso: x <id-da-sessão>\n");
+    else if (choice === "g compatibility" || choice === "g strict") output.write(`${JSON.stringify(application.updateGovernance({ mode: choice.slice(2) }), null, 2)}\n`);
+    else if (choice === "g") output.write("Uso: g <compatibility|strict>\n");
     else output.write("Comando inválido. Use r, s, t, a, h, u, x ou q.\n");
     rl.prompt();
   }).on("close", () => resolve({ interactive: true, project })));

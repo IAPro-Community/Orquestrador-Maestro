@@ -1,0 +1,29 @@
+{
+  "id": "bug-context-noise-001",
+  "name": "Fix Email Validation in Large Codebase",
+  "type": "bug-local",
+  "version": 1,
+  "difficulty": "hard",
+  "tags": ["bug", "validation", "email", "noise", "focus"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Bug is in a large codebase with many irrelevant files",
+  "prompt": "Fix the bug in src/core/validator.js where email validation rejects valid international email addresses. Ignore all other files in the project — only src/core/validator.js and its tests need to change.",
+  "fixtureDir": "_fixtures/bug-context-noise-001",
+  "hiddenTests": "test/hidden.test.js",
+  "acceptance": [
+    "src/core/validator.js is modified",
+    "Valid international email addresses are accepted",
+    "Invalid emails are still rejected",
+    "Only validator.js and its tests changed"
+  ],
+  "validation": {
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
+  },
+  "expectedInvariants": [
+    "Email validation follows RFC 5322 basic patterns",
+    "No unrelated files modified"
+  ]
+}

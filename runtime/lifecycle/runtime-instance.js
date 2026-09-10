@@ -5,6 +5,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { JsonFileRunStore } = require("../store/json-file-run-store");
 const { runtimePaths } = require("../bridge/socket-server");
+const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
 
 const RUNTIME_LIFECYCLE_CONTRACT = Object.freeze({
   states: Object.freeze(["stopped", "starting", "running", "stopping"]),
@@ -49,7 +50,7 @@ function canConnect(socketPath, timeoutMs = 500) {
 
 async function probeRuntimeHealth({ projectRoot, runFile, mode = "daemon", pid, startedAt } = {}) {
   const resolvedRoot = path.resolve(projectRoot);
-  const resolvedRunFile = path.resolve(runFile || path.join(resolvedRoot, ".orquestrador", "runtime", "runs.json"));
+  const resolvedRunFile = path.resolve(runFile || path.join(resolveProjectMaestroRoot(resolvedRoot), "runtime", "runs.json"));
   let storeHealthy = false;
   try {
     const store = new JsonFileRunStore({ filePath: resolvedRunFile });

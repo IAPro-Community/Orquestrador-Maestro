@@ -1,30 +1,29 @@
 {
   "id": "investigate-performance",
-  "name": "Investigate Performance Issue",
+  "name": "Investigate Data Service Query Patterns",
   "type": "investigation",
-  "description": "Investigate why the API response time is slow for the /api/users endpoint",
-  "prompt": "Investigate the performance issue in src/api/users.ts. The /api/users endpoint is responding in over 2000ms. Identify the root cause and document your findings. Do not fix the issue, only investigate and document.",
-  "fixture": {
-    "files": {
-      "src/api/users.ts": "import { Router } from 'express';\nimport { db } from '../db';\n\nconst router = Router();\n\nrouter.get('/users', async (req, res) => {\n  try {\n    // Simulated slow query - missing index\n    const users = await db.query(\n      `SELECT * FROM users WHERE status = $1 ORDER BY created_at DESC`,\n      [req.query.status || 'active']\n    );\n    \n    // N+1 query problem\n    for (const user of users.rows) {\n      const profile = await db.query(\n        'SELECT * FROM profiles WHERE user_id = $1',\n        [user.id]\n      );\n      user.profile = profile.rows[0];\n    }\n    \n    res.json(users.rows);\n  } catch (error) {\n    res.status(500).json({ error: 'Internal server error' });\n  }\n});\n\nexport default router;",
-      "src/db/index.ts": "export const db = { query: async (sql: string, params?: any[]) => ({ rows: [] }) };",
-      "package.json": "{\"name\":\"test-project\",\"dependencies\":{\"express\":\"4.18.0\"}}"
-    }
-  },
+  "version": 1,
+  "difficulty": "medium",
+  "tags": ["performance", "query", "database", "investigation"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Analyze dataService.js for query efficiency and missing edge cases",
+  "prompt": "Analyze src/dataService.js and identify any inefficiencies, missing edge cases, or potential bugs. Document your findings in an INVESTIGATION.md file. Pay attention to: null handling, filter efficiency, and missing validation. Then fix any issues you find in the code.",
+  "fixtureDir": "_fixtures/investigate-performance",
+  "hiddenTests": "test/hidden.test.js",
   "acceptance": [
-    "Root cause identified",
-    "Missing index on users.status documented",
-    "N+1 query problem documented",
-    "Recommendations provided",
-    "No code changes made"
+    "INVESTIGATION.md exists with findings",
+    "getUserOrderSummary handles unknown email correctly",
+    "getAllUserSummaries returns all users",
+    "getOrdersByStatus filters correctly"
   ],
   "validation": {
-    "command": "test -f INVESTIGATION.md && grep -q 'N+1' INVESTIGATION.md && grep -q 'index' INVESTIGATION.md",
-    "expectedExitCode": 0
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
   },
   "expectedInvariants": [
-    "Investigation is documented",
-    "Root cause is accurate",
-    "No code modifications"
+    "All edge cases are handled",
+    "Filter operations are correct"
   ]
 }

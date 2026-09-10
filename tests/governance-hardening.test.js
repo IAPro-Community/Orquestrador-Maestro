@@ -2,16 +2,20 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const {
   CHANGE_CLASSES,
   HIGH_RISK_CHANGE_CLASSES,
   classifyChange,
   classifyDiscovery,
+  isRiskExecutionEligible,
   isTaskCompletionEligible
 } = require("../runtime/governance/change-governance");
 const { createSemanticTask } = require("../runtime/planner/task-graph-proposal");
 const { GraphValidator } = require("../runtime/planner/graph-validator");
 const { LaneExecutor } = require("../runtime/planner/lane-executor");
+const { LegacyExecutionProjection } = require("../runtime/planner/legacy-execution-projection");
 const router = require("../orquestrador/SKILLS_ROUTER.json");
 const chains = require("../orquestrador/SKILL_CHAINS.json");
 
@@ -29,6 +33,10 @@ test("governance uses one deterministic risk taxonomy for security, structure an
   const routerRequired = Object.fromEntries(Object.entries(router.riskClasses.classes).map(([k, v]) => [k, { mandatoryPreCode: v.required }]));
   assert.deepEqual(routerRequired, chains.riskClasses);
   assert.deepEqual(routerRequired, CHANGE_CLASSES);
+  const routerSource = fs.readFileSync(path.join(__dirname, "..", "orquestrador/SKILLS_ROUTER.json"), "utf8");
+  assert.equal((routerSource.match(/"riskClasses"\s*:/g) || []).length, 1);
+  assert.equal(isRiskExecutionEligible("security-compliance", { profileId: "developer" }), false);
+  assert.equal(isRiskExecutionEligible("security-compliance", { profileId: "developer", riskOverride: { marker: "proceed with warning", note: "reviewed" } }), true);
 });
 
 test("scope control makes discovery decisions explicit and blocks unjustified work", () => {
@@ -68,4 +76,53 @@ test("lane executor refuses discovered work before calling the application", asy
   assert.equal(executions, 0);
   assert.equal(results.discovered.status, "failed");
   assert.match(results.discovered.error, /scope classification/);
+});
+
+test("lane executor forwards semantic metadata from legacy projections", async () => {
+  const semantic = createSemanticTask({
+    id: "semantic-auth",
+    title: "Authentication",
+    objective: "Add authentication",
+    changeClass: "security-compliance",
+    scopeClassification: "DISCOVERED_WORK"
+  });
+  const projected = LegacyExecutionProjection.projectTask(semantic, { executionTarget: { providerId: "fake", model: "default" } });
+  let request;
+  const executor = new LaneExecutor({
+    application: {
+      getMission: async () => ({ projectId: "p1" }),
+      executeRun: async (value) => { request = value; return { run: { status: "completed" } }; }
+    }
+  });
+  const results = await executor.execute([projected], "m1");
+  assert.equal(results[semantic.id].status, "failed");
+  assert.equal(request, undefined);
+
+  const inScope = createSemanticTask({ ...semantic, id: "semantic-auth-in-scope", scopeClassification: "IN_SCOPE" });
+  const inScopeProjection = LegacyExecutionProjection.projectTask(inScope, { executionTarget: { providerId: "fake", model: "default" } });
+  const forwarded = [];
+  const inScopeExecutor = new LaneExecutor({
+    application: {
+      getMission: async () => ({ projectId: "p1" }),
+      executeRun: async (value) => { forwarded.push(value.semanticTask); return { run: { status: "completed" } }; }
+    }
+  });
+  await inScopeExecutor.execute([inScopeProjection], "m1");
+  assert.deepEqual(forwarded[0], inScope);
+});
+
+test("lane executor settles dependents after a scope block", async () => {
+  const executor = new LaneExecutor({
+    application: { getMission: async () => ({ projectId: "p1" }), executeRun: async () => ({}) }
+  });
+  const result = await Promise.race([
+    executor.execute([
+      { id: "blocked", description: "out", scopeClassification: "DISCOVERED_WORK" },
+      { id: "dependent", description: "depends", dependsOn: ["blocked"] }
+    ], "m1"),
+    new Promise((resolve) => setTimeout(() => resolve("TIMEOUT"), 200))
+  ]);
+  assert.notEqual(result, "TIMEOUT");
+  assert.equal(result.blocked.status, "failed");
+  assert.match(result.dependent.error, /failed dependency/);
 });

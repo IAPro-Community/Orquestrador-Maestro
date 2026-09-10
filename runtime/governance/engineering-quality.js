@@ -1,5 +1,7 @@
 "use strict";
 
+const { CHANGE_CLASSES } = require("./change-governance");
+
 const QUALITY_SEVERITIES = Object.freeze(["BLOCKER", "HIGH", "MEDIUM", "LOW"]);
 const BAD_CODE_CATEGORIES = Object.freeze([
   "ARCHITECTURE", "RESPONSIBILITY", "COUPLING", "SEMANTICS", "STATE",
@@ -34,11 +36,15 @@ function buildEngineeringContract({ task = {}, missionBrief = {}, verificationSt
   const qualityExpectations = Array.isArray(task.qualityExpectations) ? [...task.qualityExpectations] : [
     "coherent-responsibilities", "domain-meaningful-names", "proportional-tests", "verified-acceptance"
   ];
+  const mandatoryPreCode = Array.isArray(task.mandatoryPreCode)
+    ? [...task.mandatoryPreCode]
+    : [...(CHANGE_CLASSES[task.changeClass]?.mandatoryPreCode || [])];
   return Object.freeze({
     goal: normalize(task.objective),
     scope: Object.freeze({ classification: task.scopeClassification || "IN_SCOPE", justification: task.scopeJustification || "" }),
     constraints: Object.freeze(constraints),
     changeClass: task.changeClass || "local",
+    mandatoryPreCode: Object.freeze(mandatoryPreCode),
     affectedDomain: task.type || "unspecified",
     affectedBoundaries: Object.freeze(boundaries),
     affectedCapabilities: Object.freeze(capabilities),

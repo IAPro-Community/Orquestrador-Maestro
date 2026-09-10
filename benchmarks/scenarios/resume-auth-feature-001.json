@@ -1,0 +1,29 @@
+{
+  "id": "resume-auth-feature-001",
+  "name": "Add Rate Limiting to Auth Endpoint",
+  "type": "resume",
+  "version": 1,
+  "difficulty": "hard",
+  "tags": ["auth", "rate-limiting", "security", "sliding-window", "resume"],
+  "timeoutMs": 120000,
+  "resources": { "cpu": "1", "memory": "512m" },
+  "description": "Second task depends on a previous authentication implementation decision",
+  "prompt": "Now that you've implemented the authentication middleware, add rate limiting to the /api/auth/login endpoint. Use a sliding window algorithm with a limit of 5 attempts per minute per IP.",
+  "fixtureDir": "_fixtures/resume-auth-feature-001",
+  "hiddenTests": "test/hidden.test.js",
+  "acceptance": [
+    "Rate limiter uses sliding window algorithm",
+    "Rate limit is 5 attempts per minute per IP",
+    "Rate limiter integrates with auth middleware",
+    "Exceeding rate limit returns 429 status"
+  ],
+  "validation": {
+    "command": "node --test test/hidden.test.js",
+    "expectedExitCode": 0,
+    "timeoutMs": 30000
+  },
+  "expectedInvariants": [
+    "Rate limiting is per-IP",
+    "Sliding window is correctly implemented"
+  ]
+}
