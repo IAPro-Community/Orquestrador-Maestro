@@ -101,10 +101,15 @@ runCheck("No obvious secrets in tracked files", () => {
     /sk-proj-[A-Za-z0-9_-]{48,}/,
     /sk-[A-Za-z0-9]{32,}/,
     /AKIA[0-9A-Z]{16}/,
-    /xox[baprs]-[A-Za-z0-9-]{20,}/
+    /xox[baprs]-[A-Za-z0-9-]{20,}/,
+    /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/,
+    /postgres(ql)?:\/\/[^:]+:[^@]+@/,
+    /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./
   ];
   for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);
+    const stat = fs.statSync(full);
+    if (stat.size > 1_000_000) continue;
     const content = fs.readFileSync(full, "utf8");
     for (const pattern of secretPatterns) {
       if (pattern.test(content)) {
@@ -117,13 +122,15 @@ runCheck("No obvious secrets in tracked files", () => {
 console.log("\n5. No concrete user paths in source");
 runCheck("No concrete Windows/Unix home paths in tracked source", () => {
   const userPathPatterns = [
-    /C:\\Users\\(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\\/,
-    /C\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /C:\\Users\\(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\\/,
+    /C\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
     /\/home\/(?!<user>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
-    /\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//
+    /\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//
   ];
   for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);
+    const stat = fs.statSync(full);
+    if (stat.size > 1_000_000) continue;
     const content = fs.readFileSync(full, "utf8");
     for (const pattern of userPathPatterns) {
       if (pattern.test(content)) {

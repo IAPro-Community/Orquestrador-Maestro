@@ -15,6 +15,10 @@ function isSafeRelativePath(value) {
   return parts.length > 0 && parts.every(part => part.length > 0 && part !== "." && part !== "..");
 }
 
+function isSafeToolId(value) {
+  return typeof value === "string" && /^[a-z0-9][a-z0-9-]*$/u.test(value);
+}
+
 function isSha256(value) {
   return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
 }
@@ -38,7 +42,7 @@ function validateState(parsed) {
     if ("enabled" in target && typeof target.enabled !== "boolean") return false;
     if ("managedFiles" in target) {
       if (!Array.isArray(target.managedFiles)) return false;
-      if (!target.managedFiles.every(item => typeof item === "string" && item.length > 0)) return false;
+      if (!target.managedFiles.every(item => typeof item === "string" && item.length > 0 && isSafeRelativePath(item))) return false;
     }
     if ("managedDirectories" in target) {
       if (!Array.isArray(target.managedDirectories)) return false;
@@ -152,7 +156,8 @@ function writeState(orquestradorDir, state) {
 
   const content = JSON.stringify(payload, null, 2) + "\n";
 
-  const tmpPath = statePath + ".tmp." + process.pid;
+  const crypto = require("node:crypto");
+  const tmpPath = statePath + ".tmp." + process.pid + "." + crypto.randomBytes(4).toString("hex");
   try {
     fs.writeFileSync(tmpPath, content, { mode: 0o600 });
     fs.renameSync(tmpPath, statePath);
@@ -173,6 +178,7 @@ function isTargetEnabled(state, toolId) {
 }
 
 function enableTarget(state, toolId, selection, detectionState) {
+  if (!isSafeToolId(toolId)) throw new Error(`Invalid toolId: ${toolId}`);
   if (!state) state = getDefaultState();
   if (!state.targets) state.targets = {};
   state.targets[toolId] = {
@@ -185,6 +191,7 @@ function enableTarget(state, toolId, selection, detectionState) {
 }
 
 function disableTarget(state, toolId) {
+  if (!isSafeToolId(toolId)) throw new Error(`Invalid toolId: ${toolId}`);
   if (!state || !state.targets) return state;
   if (state.targets[toolId]) {
     state.targets[toolId].enabled = false;
@@ -201,6 +208,8 @@ function getEnabledTargets(state) {
 }
 
 function updateDetectionState(state, toolId, detectionResult) {
+  if (!isSafeToolId(toolId)) throw new Error(`Invalid toolId: ${toolId}`);
+  if (!detectionResult || !detectionResult.state) return state || getDefaultState();
   if (!state) state = getDefaultState();
   if (!state.targets) state.targets = {};
   if (!state.targets[toolId]) {

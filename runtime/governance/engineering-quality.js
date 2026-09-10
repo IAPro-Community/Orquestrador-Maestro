@@ -63,13 +63,13 @@ function detectQualityFindings({ filePath = "", source = "" } = {}) {
   if (lines.length > LINE_LIMIT) {
     findings.push(classifyQualityFinding({ code: "excessive-file-responsibility", category: "RESPONSIBILITY", severity: "HIGH", message: `${filePath} has ${lines.length} lines (limit ${LINE_LIMIT}); review its responsibilities before completion.` }));
   }
-  if (/\b(?:processData|doStuff|executeThing)\s*\(/u.test(source)) {
+  if (/\b(?:process\w+|do\w+|execute\w+|handle\w+|run\w+)\s*\(/u.test(source)) {
     findings.push(classifyQualityFinding({ code: "generic-operation-name", category: "SEMANTICS", severity: "LOW", message: `${filePath} contains a generic operation name whose domain intent should be checked.` }));
   }
-  if (/catch\s*\{\s*\}/u.test(source)) {
+  if (/catch\s*(?:\([^)]*\))?\s*\{\s*\}/u.test(source)) {
     findings.push(classifyQualityFinding({ code: "swallowed-error", category: "ERROR_HANDLING", severity: "HIGH", message: `${filePath} contains an empty catch block.` }));
   }
-  if (/:\s*any\b/u.test(source)) {
+  if (/\.(?:ts|tsx)$/u.test(filePath) && /:\s*any\b/u.test(source)) {
     findings.push(classifyQualityFinding({ code: "unsafe-any", category: "MAINTAINABILITY", severity: "MEDIUM", message: `${filePath} uses ': any' where a domain type should be considered.` }));
   }
   return Object.freeze(findings);

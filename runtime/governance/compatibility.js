@@ -57,7 +57,8 @@ function writeGovernanceConfig({ cwd = process.cwd(), patch = {} } = {}) {
   const current = loadGovernanceConfig({ cwd }).config;
   const next = mergeConfig({ ...current, ...patch, checks: { ...current.checks, ...(patch.checks || {}) }, hooks: { ...current.hooks, ...(patch.hooks || {}) } });
   fs.mkdirSync(directory, { recursive: true });
-  const temporary = `${filePath}.${process.pid}.tmp`;
+  const crypto = require("node:crypto");
+  const temporary = `${filePath}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`;
   try {
     fs.writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, "utf8");
     fs.renameSync(temporary, filePath);

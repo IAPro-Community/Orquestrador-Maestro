@@ -12,10 +12,12 @@ const { isScopeExecutionEligible } = require("../governance/change-governance");
  * conclui quando não há mais tarefas pendentes nem em execução.
  */
 class LaneExecutor extends EventEmitter {
-  constructor({ application, maxParallel = 3 }) {
+  constructor({ application, maxParallel = 3, interactionProfile, executionProfile } = {}) {
     super();
     this.app = application;
     this.maxParallel = maxParallel;
+    this.interactionProfile = interactionProfile;
+    this.executionProfile = executionProfile;
   }
 
   async execute(tasks, missionId) {
@@ -73,6 +75,9 @@ class LaneExecutor extends EventEmitter {
 
           this.emit("task.started", task);
 
+          const executionOptions = ["fast", "standard", "deep", "security", "multiagent"].includes(this.executionProfile)
+            ? { policyId: this.executionProfile }
+            : this.executionProfile ? { profileId: this.executionProfile } : {};
           this.app.executeRun({
             description: task.description,
             providerId: task.provider,
@@ -81,7 +86,9 @@ class LaneExecutor extends EventEmitter {
             projectId,
             missionId,
             semanticTaskId: task.id,
-            semanticTask
+            semanticTask,
+            ...executionOptions,
+            interactionProfile: this.interactionProfile
           })
             .then((result) => {
               results[task.id] = { status: "completed", result };
@@ -93,7 +100,7 @@ class LaneExecutor extends EventEmitter {
             })
             .finally(() => {
               running.delete(task.id);
-              checkNext();
+              try { checkNext(); } catch (err) { reject(err); }
           });
         }
 

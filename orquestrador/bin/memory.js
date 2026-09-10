@@ -192,7 +192,8 @@ class Memory {
   }
 
   writeAtomic(filePath, content) {
-    const tmpPath = `${filePath}.tmp.${Date.now()}`;
+    const crypto = require("node:crypto");
+    const tmpPath = `${filePath}.tmp.${Date.now()}.${crypto.randomBytes(4).toString("hex")}`;
     fs.writeFileSync(tmpPath, content, { encoding: "utf8", mode: 0o600 });
     try {
       fs.renameSync(tmpPath, filePath);
