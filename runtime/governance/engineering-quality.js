@@ -52,8 +52,10 @@ function buildEngineeringContract({ task = {}, missionBrief = {}, verificationSt
 function detectQualityFindings({ filePath = "", source = "" } = {}) {
   const findings = [];
   const lines = String(source).split(/\r?\n/);
-  if (lines.length > 800) {
-    findings.push(classifyQualityFinding({ code: "excessive-file-responsibility", category: "RESPONSIBILITY", severity: "HIGH", message: `${filePath} has ${lines.length} lines; review its responsibilities before completion.` }));
+  // Threshold based on typical module size; files exceeding this likely mix unrelated responsibilities.
+  const LINE_LIMIT = 800;
+  if (lines.length > LINE_LIMIT) {
+    findings.push(classifyQualityFinding({ code: "excessive-file-responsibility", category: "RESPONSIBILITY", severity: "HIGH", message: `${filePath} has ${lines.length} lines (limit ${LINE_LIMIT}); review its responsibilities before completion.` }));
   }
   if (/\b(?:processData|doStuff|executeThing)\s*\(/u.test(source)) {
     findings.push(classifyQualityFinding({ code: "generic-operation-name", category: "SEMANTICS", severity: "LOW", message: `${filePath} contains a generic operation name whose domain intent should be checked.` }));
@@ -61,8 +63,8 @@ function detectQualityFindings({ filePath = "", source = "" } = {}) {
   if (/catch\s*\{\s*\}/u.test(source)) {
     findings.push(classifyQualityFinding({ code: "swallowed-error", category: "ERROR_HANDLING", severity: "HIGH", message: `${filePath} contains an empty catch block.` }));
   }
-  if (/\b(?:any|unknown)\b/u.test(source) && /:\s*any\b/u.test(source)) {
-    findings.push(classifyQualityFinding({ code: "unsafe-any", category: "MAINTAINABILITY", severity: "MEDIUM", message: `${filePath} uses any where a domain type should be considered.` }));
+  if (/:\s*any\b/u.test(source)) {
+    findings.push(classifyQualityFinding({ code: "unsafe-any", category: "MAINTAINABILITY", severity: "MEDIUM", message: `${filePath} uses ': any' where a domain type should be considered.` }));
   }
   return Object.freeze(findings);
 }

@@ -1,0 +1,84 @@
+name: Auto-tag release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag-release
+  cancel-in-progress: false
+
+jobs:
+  auto-tag:
+    name: Detect version bump and create tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Compare package version with npm registry
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f package.json ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No package.json found — skipping."
+            exit 0
+          fi
+
+          local_version="$(node -p "require('./package.json').version")"
+          echo "local_version=$local_version" >> "$GITHUB_OUTPUT"
+
+          if [ "$local_version" = "0.0.0" ] || [ -z "$local_version" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Local version is $local_version — skipping."
+            exit 0
+          fi
+
+          npm_versions="$(npm view @iapro/orquestrador-maestro-cli versions --json 2>/dev/null || echo "[]")"
+
+          if echo "$npm_versions" | LOCAL_VERSION="$local_version" node -e "
+            const versions = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            const local = process.env.LOCAL_VERSION;
+            process.exit(versions.includes(local) ? 0 : 1);
+          " 2>/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $local_version already published — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Version $local_version not in registry — will create tag v$local_version"
+          fi
+
+      - name: Create and push tag
+        if: steps.check.outputs.skip == 'false'
+        shell: bash
+        env:
+          LOCAL_VERSION: ${{ steps.check.outputs.local_version }}
+        run: |
+          set -euo pipefail
+          version="$LOCAL_VERSION"
+          tag="v${version}"
+
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists — skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+          echo "Created and pushed $tag"

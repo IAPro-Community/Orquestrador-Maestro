@@ -30,3 +30,6 @@ build/
 security-reports/
 benchmarks/results/
 *.tgz
+.yarn/
+.yarnrc.yml
+yarn.lock

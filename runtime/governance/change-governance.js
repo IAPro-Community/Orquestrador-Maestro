@@ -16,7 +16,7 @@ const SCOPE_CLASSIFICATIONS = Object.freeze(["IN_SCOPE", "REQUIRED_DEPENDENCY", 
 const PATTERNS = Object.freeze([
   ["security-compliance", /\b(authentication|authorization|permission|permissions|secret|secrets|token|credential|pii|lgpd|security|tenant isolation|rls|payment|billing|webhook)\b/i],
   ["domain-critical", /\b(domain rule|business rule|invariant|financial|medical|compliance|entitlement)\b/i],
-  ["integration", /\b(api|adapter|provider|integration|external service|webhook|deployment|infra|infrastructure)\b/i],
+  ["integration", /\b(api|adapter|provider|integration|external service|deployment|infra|infrastructure)\b/i],
   ["structural", /\b(architecture|architectural|refactor|boundary|boundaries|coupling|cycle|layering|module split|schema migration|database migration|migration)\b/i]
 ]);
 

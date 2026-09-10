@@ -260,7 +260,16 @@ class MaestroApplication {
     await this.store.saveExecution(execution);
     await this.record(run.id, "run.started", { executionId: execution.id });
     const before = snapshot(workspacePath);
-    const executionPackage = Object.freeze({ task, run, step, profile, policy, workspace: { path: workspacePath }, permissions: request.permissions || {}, skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean), previousArtifacts: request.previousArtifacts || [], engineeringContract: request.engineeringContract || buildEngineeringContract({ task: request.semanticTask || task, missionBrief: request.missionBrief }) });
+    const engineeringContract = request.engineeringContract
+      || buildEngineeringContract({ task: request.semanticTask || task, missionBrief: request.missionBrief });
+    const executionPackage = Object.freeze({
+      task, run, step, profile, policy,
+      workspace: { path: workspacePath },
+      permissions: request.permissions || {},
+      skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean),
+      previousArtifacts: request.previousArtifacts || [],
+      engineeringContract
+    });
     const handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
     this.activeRuns.set(run.id, handle);
     const result = await handle.result;
@@ -275,8 +284,11 @@ class MaestroApplication {
     await this.store.saveVerification(verification);
     await this.record(run.id, verification.status === "passed" ? "verification.completed" : "verification.failed", { verificationId: verification.id });
     const qualityReview = request.qualityReview === true || profile.id === "guided-engineering";
+    const filesToReview = changes.available && changes.changedFiles.length > 0
+      ? changes.changedFiles
+      : filesForQualityReview(workspacePath);
     const qualityFindings = qualityReview
-      ? filesForQualityReview(workspacePath).map((filePath) => {
+      ? filesToReview.map((filePath) => {
         const fullPath = path.join(workspacePath, filePath);
         if (!fs.existsSync(fullPath)) return [];
         return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });

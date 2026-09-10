@@ -22,8 +22,13 @@ test("governance uses one deterministic risk taxonomy for security, structure an
   assert.equal(classifyChange({ text: "refactor module boundaries and remove a cycle" }).changeClass, "structural");
   assert.equal(classifyChange({ text: "fix typo in documentation", paths: ["README.md"] }).changeClass, "trivial");
   assert.deepEqual(classifyChange({ text: "update authentication permissions" }).mandatoryPreCode, ["deep-interview", "skill-preflight", "skill-adr"]);
-  assert.deepEqual(router.riskClasses, chains.riskClasses);
-  assert.deepEqual(router.riskClasses, CHANGE_CLASSES);
+  assert.deepEqual(Object.keys(router.riskClasses.classes), ["trivial", "local", "structural", "integration", "security-compliance", "domain-critical"]);
+  for (const [cls, entry] of Object.entries(router.riskClasses.classes)) {
+    assert.ok(Array.isArray(entry.required), `${cls} must have a required array`);
+  }
+  const routerRequired = Object.fromEntries(Object.entries(router.riskClasses.classes).map(([k, v]) => [k, { mandatoryPreCode: v.required }]));
+  assert.deepEqual(routerRequired, chains.riskClasses);
+  assert.deepEqual(routerRequired, CHANGE_CLASSES);
 });
 
 test("scope control makes discovery decisions explicit and blocks unjustified work", () => {
