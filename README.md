@@ -81,10 +81,10 @@ cd Orquestrador-Maestro
 npm test
 
 # Rodar o benchmark real (requer API keys)
-node benchmarks/real-ai-benchmark.js
+orquestrador-maestro benchmark pair --scenario benchmark-harness/scenarios/api-handler.json
 
 # Ver resultados
-cat benchmarks/results/real/real-ai-benchmark-report.json
+cat benchmark-report.json
 ~~~
 
 ### O que esta medição demonstra
@@ -92,11 +92,11 @@ cat benchmarks/results/real/real-ai-benchmark-report.json
 Existem dois tipos de benchmark:
 
 - **Sintético/infraestrutura** (`npm test`): valida cenários com fixtures locais. Não executa modelo de IA nem coleta tokens de provider.
-- **Provider API smoke** (`node benchmarks/real-ai-benchmark.js`): chama APIs reais (Anthropic/OpenAI) usando `ANTHROPIC_API_KEY` e `OPENAI_API_KEY`. Coleta tokens reportados pelo provider. Não é elegível para afirmações de performance do Maestro (`publicClaimEligible: false`).
+- **Benchmark Harness v2** (`orquestrador-maestro benchmark pair`): executa comparações isoladas vanilla, Maestro e Maestro Focus. Execuções reais exigem o provider configurado e não devem publicar chaves, logs ou resultados locais.
 
 Ambos os tipos não medem qualidade de código, produtividade, custo ou redução de bugs. Os resultados variam com o commit, ambiente e cenários; portanto não devem ser usados como promessa geral de desempenho.
 
-Os cenários e o código estão em [`benchmarks/scenarios/`](benchmarks/scenarios/) e [`benchmarks/real-ai-benchmark.js`](benchmarks/real-ai-benchmark.js). Os resultados do provider smoke são gerados localmente em `benchmarks/results/ai-real/` e não fazem parte do pacote público.
+Os cenários e o código estão em [`benchmark-harness/scenarios/`](benchmark-harness/scenarios/) e [`benchmark-harness/src/`](benchmark-harness/src/). Resultados são gerados localmente e não fazem parte do pacote público.
 
 ### Smoke test opcional com xKiro
 
@@ -462,7 +462,8 @@ orquestrador-maestro memory prune --project PATH [--keep-recent N] [--keep-verif
 orquestrador-maestro memory consolidate --project PATH --ids OBS_ID,OBS_ID
 orquestrador-maestro memory cleanup --project PATH
 orquestrador-maestro benchmark list
-orquestrador-maestro benchmark run --scenario ID --condition CONDITION
+orquestrador-maestro benchmark run --scenario PATH --condition vanilla|maestro|maestro-focus
+orquestrador-maestro benchmark pair --scenario PATH
 orquestrador-maestro changelog [--full]
 orquestrador-maestro list-targets
 orquestrador-maestro dry-run

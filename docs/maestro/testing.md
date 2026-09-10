@@ -25,13 +25,13 @@ npm pack --dry-run
 | `npm test` | suíte completa de unidades e integração |
 | `npm run test:smoke` | caminhos críticos curtos |
 | `npm run verify:pr` | higiene pública, referências e arquivos gerados |
-| `npm run bench:validate` | schema e fixtures dos seis cenários |
+| `npm run bench:validate` | schema e fixtures dos cenários publicados |
 | `npm pack --dry-run` | conteúdo que entrará no pacote npm |
 
 ## Verificação de sintaxe
 
 ```bash
-find bin runtime benchmarks scripts orquestrador \
+find bin runtime benchmark-harness scripts orquestrador \
   -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \) -print0 \
   | xargs -0 -n1 node --check
 ```
@@ -66,12 +66,12 @@ Esse teste confirma que o artefato publicado contém runtime, harness e CLI exec
 ## Benchmark com provider real
 
 ```bash
-node benchmarks/cli.js list
-node benchmarks/cli.js validate bug-fix-auth
-node benchmarks/cli.js run bug-fix-auth --model anthropic/claude-sonnet-4-20250514
+npm run bench:list
+npm run bench:validate
+npm run bench:pair -- --scenario benchmark-harness/scenarios/api-handler.json
 ```
 
-O benchmark de fixtures não chama IA. Execuções reais exigem OpenCode configurado, variam por modelo e não devem publicar chaves, logs ou resultados locais.
+O benchmark de fixtures não chama IA na validação. Execuções reais exigem OpenCode configurado, variam por modelo e não devem publicar chaves, logs ou resultados locais. O modo pareado mede `vanilla`, `maestro` e `maestro-focus`, incluindo tokens até a primeira ação, próxima ação, prosa não acionável, precisão de estado, evidência de conclusão, acionabilidade de erro e tokens de reorientação.
 
 ## Critério de conclusão
 

@@ -13,4 +13,8 @@ module.exports = {
   ...require("./workspaces"),
   ...require("./config/maestro-paths"),
   ...require("./governance/compatibility")
+  ,...require("./interaction")
+  ,...require("./progress")
+  ,...require("./status")
+  ,...require("./interaction/errors")
 };

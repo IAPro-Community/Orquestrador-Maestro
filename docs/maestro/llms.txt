@@ -13,6 +13,7 @@ This directory documents the compatibility-first governance layer of Orquestrado
 - upgrade.md: safe update, backups, and rollback.
 - config.example.json: reference configuration.
 - assets/: versioned SVG diagrams.
+- interaction-profiles.md: interaction configuration, precedence, status, and projection.
 
 Core implementation references:
 
@@ -20,4 +21,7 @@ Core implementation references:
 - runtime/config/maestro-paths.js
 - runtime/application/maestro-application.js
 - bin/orquestrador-maestro.js
-- benchmarks/cli.js
+- benchmark-harness/src/cli/index.ts
+- runtime/interaction/index.js
+- runtime/progress/index.js
+- runtime/status/index.js

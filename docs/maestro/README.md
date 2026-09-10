@@ -26,6 +26,7 @@ O diretório canônico de instalação é `~/.orquestrador-maestro`. Instalaçõ
 - [Riscos para o usuário final](./user-impact.md)
 - [Operação diária e troubleshooting](./operations.md)
 - [Configuração de exemplo](./config.example.json)
+- [Interaction Profiles](./interaction-profiles.md)
 
 ## Visão rápida
 

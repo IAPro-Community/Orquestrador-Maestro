@@ -71,6 +71,7 @@
     "install.sh",
     "orquestrador/*.json",
     "orquestrador/schemas/",
+    "orquestrador/interaction/",
     "orquestrador/*.md",
     "orquestrador/*.ps1",
     "orquestrador/*.sh",
@@ -81,9 +82,14 @@
     "orquestrador/personas/",
     "orquestrador/skills/",
     "runtime/",
-    "benchmarks/*.js",
-    "benchmarks/harness/",
-    "benchmarks/scenarios/",
+    "benchmark-harness/src/",
+    "benchmark-harness/scenarios/",
+    "benchmark-harness/fixtures/",
+    "benchmark-harness/schemas/",
+    "benchmark-harness/docs/",
+    "benchmark-harness/package.json",
+    "benchmark-harness/tsconfig.json",
+    "benchmark-harness/.env.example",
     "scripts/*.js",
     "scripts/*.py",
     "scripts/*.ps1",
@@ -102,16 +108,14 @@
     "test:xkiro": "node scripts/test-xkiro.js",
     "verify:pr": "node scripts/verify-pr.js",
     "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1",
-    "bench:list": "node benchmarks/cli.js list",
-    "bench:validate": "node benchmarks/cli.js validate",
-    "bench:run": "node benchmarks/cli.js run",
-    "bench:compare": "node benchmarks/cli.js compare",
-    "bench:suite": "node benchmarks/cli.js suite",
-    "bench:report": "node benchmarks/cli.js report",
-    "bench:verify": "node benchmarks/cli.js verify",
-    "bench:inspect": "node benchmarks/cli.js inspect",
-    "bench:preflight": "node benchmarks/cli.js preflight",
-    "bench:help": "node benchmarks/cli.js --help"
+    "bench:list": "node --import tsx benchmark-harness/src/cli/index.ts list --dir benchmark-harness/scenarios",
+    "bench:validate": "node --import tsx benchmark-harness/src/cli/index.ts validate",
+    "bench:run": "node --import tsx benchmark-harness/src/cli/index.ts run",
+    "bench:pair": "node --import tsx benchmark-harness/src/cli/index.ts pair",
+    "bench:report": "node --import tsx benchmark-harness/src/cli/index.ts report",
+    "bench:help": "node --import tsx benchmark-harness/src/cli/index.ts --help",
+    "bench:test": "node --import tsx --test benchmark-harness/tests/*.test.ts benchmark-harness/tests/**/*.test.ts",
+    "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json"
   },
   "config": {
     "telemetryEndpoint": ""
@@ -154,7 +158,8 @@
   "dependencies": {
     "@clack/prompts": "0.11.0",
     "@xterm/headless": "^5.5.0",
-    "node-notifier": "10.0.1"
+    "node-notifier": "10.0.1",
+    "tsx": "^4.23.13"
   },
   "devDependencies": {
     "uuid": "11.1.1"

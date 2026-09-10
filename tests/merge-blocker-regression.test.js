@@ -20,8 +20,15 @@ function setMtimeSync(filePath, mtime) {
 const { Memory } = require("../orquestrador/bin/memory.js");
 const { createAdapter, DEFAULT_OBSERVATION_TYPE_MAP } = require("../orquestrador/adapters/index.js");
 const { classifyTask } = require("../orquestrador/lib/task-classifier.js");
-const { isClaimEligibleRun } = require("../benchmarks/harness/evidence");
 const { validateBaseUrl } = require("../scripts/test-xkiro.js");
+
+// Dynamic import for ESM evidence module
+let isClaimEligibleRun, summarizeEvidence;
+beforeEach(async () => {
+  const evidence = await import("../benchmark-harness/src/evidence/index.ts");
+  isClaimEligibleRun = evidence.isClaimEligibleRun;
+  summarizeEvidence = evidence.summarizeEvidence;
+});
 
 function initGit(dir) {
   execFileSync("git", ["init"], { cwd: dir, stdio: "ignore" });
@@ -573,7 +580,6 @@ try {
     });
 
     it("should prevent mixed-evidence contamination in reports", () => {
-      const { summarizeEvidence } = require("../benchmarks/harness/evidence");
 
       const mixedResults = [
         {
@@ -600,7 +606,6 @@ try {
     });
 
     it("should set publicClaimEligible=false when no eligible runs", () => {
-      const { summarizeEvidence } = require("../benchmarks/harness/evidence");
 
       const infraResults = [
         {
@@ -618,7 +623,6 @@ try {
     });
 
     it("should set publicClaimEligible=true when all runs are eligible (no mixed)", () => {
-      const { summarizeEvidence } = require("../benchmarks/harness/evidence");
 
       const allEligibleResults = [
         {
@@ -644,7 +648,6 @@ try {
     });
 
     it("should have all runs counted", () => {
-      const { summarizeEvidence } = require("../benchmarks/harness/evidence");
 
       const results = [
         {

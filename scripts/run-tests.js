@@ -25,7 +25,7 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ["--test", ...files], {
+const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...files], {
   cwd: root,
   stdio: "inherit",
   shell: false

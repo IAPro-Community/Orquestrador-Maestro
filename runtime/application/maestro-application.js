@@ -18,6 +18,7 @@ const { buildEngineeringContract, detectQualityFindings } = require("../governan
 const { isTaskCompletionEligible, isRiskExecutionEligible } = require("../governance/change-governance");
 const { mergeConfig, loadGovernanceConfig, writeGovernanceConfig, buildGovernance } = require("../governance/compatibility");
 const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
+const { resolveInteractionProfile, interactionContract } = require("../interaction");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
@@ -67,6 +68,7 @@ class MaestroApplication {
     this.terminals = options.terminals || new TerminalManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.terminalSessions = options.terminalSessions || new TerminalSessionManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.governance = mergeConfig(options.governance || loadGovernanceConfig({ cwd: this.projectRoot }).config);
+    this.interaction = options.interaction || resolveInteractionProfile({ cwd: this.projectRoot, cliProfile: options.interactionProfile });
     this.governanceWarnings = new Set();
     this.governanceNotices = [];
   }
@@ -81,6 +83,7 @@ class MaestroApplication {
       providerModel: "informational"
     };
   }
+  getInteractionProfile() { return this.interaction; }
   updateGovernance(patch = {}) {
     const written = writeGovernanceConfig({ cwd: this.projectRoot, patch });
     this.governance = written.config;
@@ -285,6 +288,9 @@ class MaestroApplication {
     const before = snapshot(workspacePath);
     const engineeringContract = request.engineeringContract
       || buildEngineeringContract({ task: request.semanticTask || task, missionBrief: request.missionBrief });
+    const interaction = request.interactionProfile
+      ? resolveInteractionProfile({ cwd: workspacePath, cliProfile: request.interactionProfile })
+      : this.interaction;
     const executionPackage = Object.freeze({
       task, run, step, profile, policy,
       workspace: { path: workspacePath },
@@ -292,6 +298,7 @@ class MaestroApplication {
       skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean),
       previousArtifacts: request.previousArtifacts || [],
       engineeringContract,
+      interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
     });
     const handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
@@ -386,7 +393,7 @@ class MaestroApplication {
       skills: executionPackage.skills
     });
     const skillPaths = taskContext.skills.map((skill) => `- ${skill.identity}: ${skill.path}`).join("\n");
-    return [executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, `Task: ${taskContext.description}`, `Workspace: ${executionPackage.workspace.path}`, executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "", skillPaths ? `Resolved skills:\n${skillPaths}` : "", "Work only within the workspace and report concrete changes."].filter(Boolean).join("\n\n");
+    return [executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, interactionContract(executionPackage.interaction), `Task: ${taskContext.description}`, `Workspace: ${executionPackage.workspace.path}`, executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "", skillPaths ? `Resolved skills:\n${skillPaths}` : "", "Work only within the workspace and report concrete changes."].filter(Boolean).join("\n\n");
   }
 
   inferProjectVerification(workspacePath) {

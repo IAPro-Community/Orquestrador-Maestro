@@ -10,5 +10,6 @@
     "enabled": false
   },
   "scope": "project",
-  "providerModel": "informational"
+  "providerModel": "informational",
+  "interactionProfile": "default"
 }
