@@ -21,6 +21,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch remote tags
+        shell: bash
+        run: git fetch --force --tags origin
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -97,8 +101,8 @@ jobs:
           if git rev-parse "$tag" >/dev/null 2>&1; then
             existing_sha="$(git rev-list -n 1 "$tag")"
             head_sha="$(git rev-parse HEAD)"
-            if [ "$existing_sha" = "$head_sha" ]; then
-              echo "Tag $tag already points to HEAD — skipping."
+            if [ "$existing_sha" = "$head_sha" ] || git merge-base --is-ancestor "$existing_sha" "$head_sha"; then
+              echo "Tag $tag already points into the current main history — skipping."
               exit 0
             fi
             echo "Tag $tag already points to $existing_sha, not HEAD $head_sha." >&2
