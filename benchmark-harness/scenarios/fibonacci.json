@@ -11,7 +11,7 @@
       {
         "type": "custom",
         "name": "workspace-prepared",
-        "command": "node -e "process.exit(0)"",
+        "command": "node -e \"process.exit(0)\"",
         "description": "Ensure workspace has dependencies installed",
         "timeout": 60
       },

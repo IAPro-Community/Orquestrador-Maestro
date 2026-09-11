@@ -7,7 +7,7 @@ import { execSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const HARNESS_ROOT = resolve(__dirname, '..', '..');
+const HARNESS_ROOT = resolve(__dirname, '..');
 
 describe('Hardening regressions', () => {
   describe('1. Path resolution independent of CWD', () => {
