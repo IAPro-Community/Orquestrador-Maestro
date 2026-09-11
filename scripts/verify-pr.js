@@ -195,7 +195,30 @@ runCheck("No .omx, .local, or DEV in git tracked files", () => {
   }
 });
 
-console.log("\n10. Release ancestry");
+console.log("\n10. Git path validation (Windows-incompatible paths)");
+runCheck("No Windows-incompatible paths in tracked files", () => {
+  const lsResult = spawnSync("git", ["ls-tree", "-rz", "--name-only", "HEAD"], {
+    cwd: rootDir,
+    encoding: "utf8",
+    shell: false
+  });
+  if (lsResult.status !== 0) {
+    throw new Error("git ls-tree failed");
+  }
+  const allPaths = lsResult.stdout.split("\0").filter(Boolean);
+  const invalid = allPaths.filter(p => {
+    if (/[\n\r\x00]/.test(p)) return true;
+    if (/[<>:"|?*]/.test(p)) return true;
+    if (/\.$|\s$/.test(p)) return true;
+    const reserved = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
+    return p.split("/").some(seg => reserved.test(seg));
+  });
+  if (invalid.length > 0) {
+    throw new Error(`Invalid paths found:\n${invalid.join("\n")}`);
+  }
+});
+
+console.log("\n11. Release ancestry");
 runCheck("HEAD is descendant of origin/main", () => {
   const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", "origin/main", "HEAD"], {
     cwd: rootDir,

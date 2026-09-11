@@ -40,6 +40,8 @@ export interface IntegrityOptions {
   verifierHash?: string;
   /** Workspace directory to scan. */
   workspace: string;
+  /** Official mode: fail-closed for missing hashes. */
+  official?: boolean;
 }
 
 /**
@@ -397,6 +399,31 @@ export async function checkBenchmarkIntegrity(
     options.scenarioHash,
   );
   checks.push(scenarioCheck);
+
+  // Official mode: fail-closed for missing hashes
+  if (options.official) {
+    if (!options.scenarioHash) {
+      checks.push({
+        name: 'scenario-hash:required',
+        passed: false,
+        message: 'Official benchmark requires scenario hash',
+      });
+    }
+    if (!options.hiddenTestsHash) {
+      checks.push({
+        name: 'hidden-tests-hash:required',
+        passed: false,
+        message: 'Official benchmark requires hidden tests hash',
+      });
+    }
+    if (!options.verifierHash) {
+      checks.push({
+        name: 'verifier-hash:required',
+        passed: false,
+        message: 'Official benchmark requires verifier hash',
+      });
+    }
+  }
 
   const violations = checks
     .filter((c) => !c.passed)

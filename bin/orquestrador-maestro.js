@@ -31,7 +31,7 @@ const installState = require(path.join(rootDir, "orquestrador", "lib", "install-
 const telemetryTimeoutMs = 350;
 const telemetryConsentVersion = 2;
 const defaultTelemetryProvider = "posthog";
-const defaultTelemetryEndpointUrl = "https://us.i.posthog.com/capture/";
+const defaultTelemetryEndpointUrl = "";
 
 const installFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
@@ -1077,7 +1077,7 @@ function defaultTelemetryEndpoint() {
 
 function defaultTelemetryConfig() {
   return {
-    enabled: true,
+    enabled: false,
     provider: defaultTelemetryProvider,
     endpoint: defaultTelemetryEndpoint(),
     anonymousId: crypto.randomUUID(),

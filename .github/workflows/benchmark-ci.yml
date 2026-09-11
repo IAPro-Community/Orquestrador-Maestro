@@ -38,30 +38,38 @@ jobs:
             --profile ci \
             --runs 3
 
-      - name: Generate comparison report
+      - name: Generate report
         working-directory: benchmark-harness
         run: |
           RUN_SET=$(date +%Y%m%d-%H%M%S)
           mkdir -p results
-          npx tsx src/cli/index.ts report "$RUN_SET" --format markdown > results/ci-summary-${RUN_SET}.md
+          npx tsx src/cli/index.ts report "$RUN_SET" --format markdown > results/summary-${RUN_SET}.md
+          npx tsx src/cli/index.ts report "$RUN_SET" --format json > results/summary-${RUN_SET}.json
+
+      - name: Download previous benchmark artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-benchmark-results
+          path: benchmark-harness/previous-results/
+        continue-on-error: true
 
       - name: Compare with previous run
         working-directory: benchmark-harness
         run: |
-          RESULTS_DIR="results"
-          LATEST=$(ls -t "$RESULTS_DIR"/report-*.json 2>/dev/null | head -1)
-          PREVIOUS=$(ls -t "$RESULTS_DIR"/report-*.json 2>/dev/null | sed -n '2p')
+          CURRENT=$(ls -t results/summary-*.json 2>/dev/null | head -1)
+          PREVIOUS=$(ls -t previous-results/summary-*.json 2>/dev/null | head -1)
 
-          if [ -n "$LATEST" ] && [ -n "$PREVIOUS" ]; then
-            npx tsx src/cli/index.ts compare "$LATEST" "$PREVIOUS"
+          if [ -n "$CURRENT" ] && [ -n "$PREVIOUS" ]; then
+            npx tsx src/cli/index.ts compare "$CURRENT" "$PREVIOUS"
           else
-            echo "Not enough runs for comparison."
+            echo "## Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
+            echo "Baseline unavailable — skipping comparison." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload results
+      - name: Upload current results
         uses: actions/upload-artifact@v4
         with:
-          name: ci-benchmark-results-${{ github.run_id }}
+          name: ci-benchmark-results
           path: benchmark-harness/results/
           retention-days: 14
 
@@ -70,7 +78,7 @@ jobs:
         working-directory: benchmark-harness
         run: |
           RESULTS_DIR="results"
-          LATEST_MD=$(ls -t "$RESULTS_DIR"/ci-summary-*.md 2>/dev/null | head -1)
+          LATEST_MD=$(ls -t "$RESULTS_DIR"/summary-*.md 2>/dev/null | head -1)
           if [ -n "$LATEST_MD" ]; then
             echo "## Weekly CI Benchmark Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

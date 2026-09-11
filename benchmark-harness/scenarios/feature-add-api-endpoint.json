@@ -7,6 +7,7 @@
     "path": "../fixtures/feature-add-api-endpoint"
   },
   "acceptance": {
+    "hiddenTestPath": "../evaluators/feature-add-api-endpoint/test",
     "criteria": [
       {
         "type": "custom",

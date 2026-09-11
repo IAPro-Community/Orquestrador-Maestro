@@ -28,6 +28,11 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
+# Compiled test outputs (tests use .ts sources directly via tsx)
+tests/**/*.js
+tests/**/*.d.ts
+tests/**/*.js.map
+
 # Temporary
 tmp/
 tmp-*

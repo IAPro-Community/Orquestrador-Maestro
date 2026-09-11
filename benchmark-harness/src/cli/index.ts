@@ -11,7 +11,12 @@
  */
 
 import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const CLI_HARNESS_ROOT = resolve(__dirname, '..', '..');
 import { parseArgs } from 'node:util';
 import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
@@ -19,6 +24,7 @@ import { loadScenario, loadAllScenarios } from '../scenarios/loader.js';
 import { validateScenario } from '../scenarios/index.js';
 import { orchestrateRun, orchestratePair } from '../orchestrator/index.js';
 import { OpenCodeDriver } from '../drivers/opencode.js';
+import { MaestroDriver } from '../drivers/maestro.js';
 import { ContainerRunner } from '../container/runner.js';
 import { generateMarkdownReport } from '../reporter/markdown.js';
 import { generateJSONReport } from '../reporter/json.js';
@@ -106,7 +112,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
       scenario: { type: 'string' },
       condition: { type: 'string', default: 'vanilla' },
       container: { type: 'boolean', default: false },
-      evidence: { type: 'string', default: './evidence' },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
@@ -172,7 +178,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
   }
 
   // Create evidence directory
-  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
   // Resume from interrupted run
@@ -192,7 +198,9 @@ async function handleRun(args: string[]): Promise<CLIResult> {
   const effectiveModel = profileOverrides.model ?? String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash');
   const effectiveTimeout = profileOverrides.timeoutMs ?? parseInt(String(values.timeout ?? '300000'), 10);
 
-  const driver = new OpenCodeDriver({ version: '0.1.0' });
+  const driver = condition === 'vanilla'
+    ? new OpenCodeDriver({ version: '0.1.0' })
+    : new MaestroDriver({ version: '0.3.0' });
   const results: Array<{ success: boolean; report: BenchmarkRunReport; error?: string }> = [];
 
   if (parallel > 1) {
@@ -259,7 +267,7 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     args,
     options: {
       scenario: { type: 'string' },
-      evidence: { type: 'string', default: './evidence' },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
@@ -281,13 +289,15 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     };
   }
 
-  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
-  const driver = new OpenCodeDriver({ version: '0.1.0' });
+  const vanillaDriver = new OpenCodeDriver({ version: '0.1.0' });
+  const maestroDriver = new MaestroDriver({ version: '0.3.0' });
   const pair = await orchestratePair({
     scenario,
-    driver,
+    driver: vanillaDriver,
+    maestroDriver,
     evidenceBase: evidenceDir,
     model: String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash'),
     vanillaTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
@@ -312,14 +322,14 @@ async function handleReport(args: string[]): Promise<CLIResult> {
   const { values } = parseArgs({
     args,
     options: {
-      evidence: { type: 'string', default: './evidence' },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
       output: { type: 'string', default: './benchmark-report' },
       format: { type: 'string', default: 'both' },
     },
     strict: false,
   });
 
-  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   const outputPath = resolve(String(values.output ?? './benchmark-report'));
 
   // Load all run reports from evidence directory
@@ -357,12 +367,12 @@ async function handleList(args: string[]): Promise<CLIResult> {
   const { values } = parseArgs({
     args,
     options: {
-      dir: { type: 'string', default: './scenarios' },
+      dir: { type: 'string', default: join(CLI_HARNESS_ROOT, 'scenarios') },
     },
     strict: false,
   });
 
-  const scenariosDir = resolve(String(values.dir ?? './scenarios'));
+  const scenariosDir = resolve(String(values.dir ?? join(CLI_HARNESS_ROOT, 'scenarios')));
   const scenarios = await loadAllScenarios(scenariosDir);
 
   if (scenarios.length === 0) {
@@ -384,14 +394,14 @@ async function handleValidate(args: string[]): Promise<CLIResult> {
     args,
     options: {
       scenario: { type: 'string' },
-      dir: { type: 'string', default: './benchmark-harness/scenarios' },
+      dir: { type: 'string', default: join(CLI_HARNESS_ROOT, 'scenarios') },
     },
     strict: false,
   });
 
   const scenarioPath = String(values.scenario ?? '');
   if (!scenarioPath) {
-    const scenarios = await loadAllScenarios(resolve(String(values.dir ?? './benchmark-harness/scenarios')));
+    const scenarios = await loadAllScenarios(resolve(String(values.dir ?? join(CLI_HARNESS_ROOT, 'scenarios'))), { strict: true });
     const failures = scenarios.map((scenario) => ({ scenario, result: validateScenario(scenario) })).filter((entry) => !entry.result.valid);
     return failures.length === 0
       ? { exitCode: 0, message: scenarios.map((scenario) => `✓ Scenario '${scenario.id}' is valid`).join('\n') }
@@ -422,8 +432,8 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
     args,
     options: {
       scenario: { type: 'string' },
-      dir: { type: 'string', default: './scenarios' },
-      evidence: { type: 'string', default: './evidence' },
+      dir: { type: 'string', default: join(CLI_HARNESS_ROOT, 'scenarios') },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
     },
     strict: false,
   });
@@ -476,7 +486,7 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
 
   // Scenarios valid
   const scenarioPath = String(values.scenario ?? '');
-  const scenariosDir = String(values.dir ?? './scenarios');
+  const scenariosDir = String(values.dir ?? join(CLI_HARNESS_ROOT, 'scenarios'));
   try {
     if (scenarioPath) {
       const scenario = await loadScenario(resolve(scenarioPath));
@@ -492,7 +502,7 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
   }
 
   // Fixtures exist
-  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   try {
     await stat(evidenceDir);
     checks.push({ name: 'Evidence dir', ok: true, detail: evidenceDir });
@@ -701,13 +711,14 @@ async function handleSuite(args: string[]): Promise<CLIResult> {
     args,
     options: {
       container: { type: 'boolean', default: false },
-      evidence: { type: 'string', default: './evidence' },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
       runs: { type: 'string', default: '1' },
       profile: { type: 'string' },
       filter: { type: 'string' },
+      dir: { type: 'string', default: join(CLI_HARNESS_ROOT, 'scenarios') },
     },
     strict: false,
   });
@@ -715,7 +726,7 @@ async function handleSuite(args: string[]): Promise<CLIResult> {
   const profile = String(values.profile ?? '');
   const profileOverrides = getProfileOverrides(profile);
 
-  const scenariosDir = resolve(process.cwd(), 'scenarios');
+  const scenariosDir = resolve(String(values.dir ?? join(CLI_HARNESS_ROOT, 'scenarios')));
   let scenarioFiles: string[];
   try {
     scenarioFiles = readdirSync(scenariosDir)
@@ -732,7 +743,7 @@ async function handleSuite(args: string[]): Promise<CLIResult> {
   const filter = String(values.filter ?? '');
   const conditions = ['vanilla', 'maestro'] as const;
   const runs = parseInt(String(values.runs ?? '1'), 10) || 1;
-  const evidenceBase = String(values.evidence ?? './evidence');
+  const evidenceBase = String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence'));
   const useContainer = Boolean(values.container);
   const model = String(values.model ?? profileOverrides.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash');
   const timeout = parseInt(String(values.timeout ?? '300000'), 10) || 300_000;
@@ -873,9 +884,9 @@ function buildBenchmarkReport(runs: BenchmarkRunReport[]): BenchmarkReport {
     createdAt: new Date().toISOString(),
     methodology: {
       description: 'Paired comparison of Maestro vs Vanilla execution',
-      containerRequired: true,
+      containerRequired: runs.every((r) => r.environment?.container === true),
       externalVerifier: true,
-      isolatedRuns: true,
+      isolatedRuns: runs.every((r) => r.environment?.isolated === true),
       goldenFixture: true,
     },
     scenarios,

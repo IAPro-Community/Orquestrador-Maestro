@@ -15,8 +15,9 @@
  */
 
 import { randomUUID, createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { writeFile, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import type { BenchmarkScenario } from '../types/scenario.js';
 import type { BenchmarkRunReport, RunStatus, Condition } from '../types/run.js';
 import type { AgentDriver, DriverExecuteOptions } from '../types/driver.js';
@@ -27,6 +28,11 @@ import { verifyAcceptanceSuite } from '../verifier/index.js';
 import { checkBenchmarkIntegrity } from '../verifier/integrity.js';
 import { preserveRawEvidence, sanitizeSecrets } from '../evidence/index.js';
 import { runCmd } from '../utils/run-cmd.js';
+import { ContainerRunner } from '../container/runner.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const HARNESS_ROOT = resolve(__dirname, '..', '..');
 
 /** Orchestration options. */
 export interface OrchestrateOptions {
@@ -36,6 +42,8 @@ export interface OrchestrateOptions {
   condition: Condition;
   /** Agent driver to use. */
   driver: AgentDriver;
+  /** Optional separate driver for maestro conditions. */
+  maestroDriver?: AgentDriver;
   /** Base directory for evidence output. */
   evidenceBase: string;
   /** Whether to run in a container. */
@@ -46,6 +54,10 @@ export interface OrchestrateOptions {
   timeoutMs?: number;
   /** Override model (takes precedence over scenario.model). */
   model?: string;
+  /** Pair identifier for statistical grouping. */
+  pairId?: string;
+  /** Replicate number within a pair (0-indexed). */
+  replicate?: number;
 }
 
 /** Single run result. */
@@ -65,12 +77,21 @@ export async function orchestrateRun(
     scenario,
     condition,
     driver,
+    maestroDriver,
     evidenceBase,
     useContainer = false,
     env = {},
     timeoutMs,
     model: overrideModel,
+    pairId,
+    replicate,
   } = options;
+
+  // Select the appropriate driver based on condition
+  const activeDriver =
+    (condition === 'maestro' || condition === 'maestro-focus') && maestroDriver
+      ? maestroDriver
+      : driver;
 
   const runId = randomUUID();
   const startMs = Date.now();
@@ -104,13 +125,56 @@ export async function orchestrateRun(
     const task = condition === 'maestro-focus'
       ? `${scenario.task}\n\nInteraction profile: focus\nCommunication requirements: expose current state; show next action when required; suppress unrelated tangents; completion requires evidence.`
       : scenario.task;
-    const driverResult = await driver.execute(task, driverOptions);
+
+    let environment: Record<string, unknown> = {
+      os: process.platform,
+      arch: process.arch,
+      container: useContainer,
+      nodeVersion: process.version,
+      isolated: useContainer,
+    };
+    let driverResult;
+    if (useContainer) {
+      const containerRunner = new ContainerRunner({ image: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim' });
+      const containerResult = await containerRunner.runBenchmark({
+        task,
+        workspace,
+        fixturePath: scenario.fixture.path,
+        command: [activeDriver.name === 'maestro' ? 'orquestrador-maestro' : 'opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task],
+        env: { ...env, BENCHMARK_MODEL: driverOptions.model },
+        timeoutMs: driverOptions.timeoutMs,
+      });
+      driverResult = {
+        output: containerResult.output,
+        exitCode: containerResult.exitCode,
+        tokens: null,
+        durationMs: containerResult.durationMs,
+        sessionFile: '',
+        agentOutput: containerResult.output,
+        toolUsage: null,
+      };
+      // Record container provenance
+      environment = {
+        os: process.platform,
+        arch: process.arch,
+        container: true,
+        nodeVersion: process.version,
+        isolated: true,
+        containerImage: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim',
+        containerId: containerResult.containerId,
+      };
+    } else {
+      driverResult = await activeDriver.execute(task, driverOptions);
+    }
 
     // 7. Run external verifier
+    const hiddenTestPath = scenario.acceptance.hiddenTestPath
+      ? resolve(HARNESS_ROOT, scenario.acceptance.hiddenTestPath)
+      : undefined;
     const verifierResult = await verifyAcceptanceSuite(
       workspace,
       scenario.acceptance,
-      scenario.acceptance.hiddenTestPath,
+      hiddenTestPath,
     );
 
     // 8. Check benchmark integrity
@@ -163,10 +227,16 @@ export async function orchestrateRun(
     const report: BenchmarkRunReport = {
       runId,
       scenarioId: scenario.id,
+      pairId,
+      replicate,
+      model: driverOptions.model,
+      provider: activeDriver.name,
+      scenarioHash: scenario.integrity?.scenarioHash,
+      fixtureHash,
       condition,
       driver: {
-        name: driver.name,
-        version: driver.version,
+        name: activeDriver.name,
+        version: activeDriver.version,
         config: { model: driverOptions.model },
       },
       fixture: {
@@ -174,13 +244,7 @@ export async function orchestrateRun(
         hash: fixtureHash,
       },
       taskHash,
-      environment: {
-        os: process.platform,
-        arch: process.arch,
-        container: useContainer,
-        nodeVersion: process.version,
-        isolated: useContainer,
-      },
+      environment: environment as any,
       status,
       failureType,
       results: {
@@ -234,7 +298,7 @@ export async function orchestrateRun(
         runId,
         scenarioId: scenario.id,
         condition,
-        driver: { name: driver.name, version: driver.version },
+        driver: { name: activeDriver.name, version: activeDriver.version },
         fixture: { path: scenario.fixture.path, hash: '' },
         status: 'error',
         failureType: errorMsg,
@@ -265,7 +329,7 @@ export async function orchestrateRun(
           runId,
           scenarioId: scenario.id,
           condition,
-          driver: { name: driver.name, version: driver.version },
+          driver: { name: activeDriver.name, version: activeDriver.version },
           fixture: { path: scenario.fixture.path, hash: '' },
           status: 'error',
           failureType: errorMsg,
@@ -288,8 +352,10 @@ export async function orchestrateRun(
 export async function orchestratePair(options: {
   scenario: BenchmarkScenario;
   driver: AgentDriver;
+  maestroDriver?: AgentDriver;
   evidenceBase: string;
   model?: string;
+  pairId?: string;
   vanillaEnv?: Record<string, string>;
   maestroEnv?: Record<string, string>;
   vanillaTimeoutMs?: number;
@@ -301,37 +367,49 @@ export async function orchestratePair(options: {
   maestro: OrchestrateResult;
   maestroFocus: OrchestrateResult;
 }> {
+  const vanillaDriver = options.driver;
+  const maestroDriver = options.maestroDriver ?? options.driver;
+  const pairId = options.pairId ?? `pair-${Date.now()}`;
+
   const vanilla = await orchestrateRun({
     scenario: options.scenario,
     condition: 'vanilla',
-    driver: options.driver,
+    driver: vanillaDriver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
     model: options.model,
     env: options.vanillaEnv,
     timeoutMs: options.vanillaTimeoutMs,
+    pairId,
+    replicate: 0,
   });
 
   const maestro = await orchestrateRun({
     scenario: options.scenario,
     condition: 'maestro',
-    driver: options.driver,
+    driver: vanillaDriver,
+    maestroDriver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
     model: options.model,
     env: options.maestroEnv,
     timeoutMs: options.maestroTimeoutMs,
+    pairId,
+    replicate: 1,
   });
 
   const maestroFocus = await orchestrateRun({
     scenario: options.scenario,
     condition: 'maestro-focus',
-    driver: options.driver,
+    driver: vanillaDriver,
+    maestroDriver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
     model: options.model,
     env: options.maestroFocusEnv ?? { ...options.maestroEnv, MAESTRO_INTERACTION_PROFILE: 'focus' },
     timeoutMs: options.maestroFocusTimeoutMs ?? options.maestroTimeoutMs,
+    pairId,
+    replicate: 2,
   });
 
   return { vanilla, maestro, maestroFocus };

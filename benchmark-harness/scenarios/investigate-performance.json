@@ -7,6 +7,7 @@
     "path": "../fixtures/investigate-performance"
   },
   "acceptance": {
+    "hiddenTestPath": "../evaluators/investigate-performance/test",
     "criteria": [
       {
         "type": "custom",

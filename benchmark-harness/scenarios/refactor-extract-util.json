@@ -7,6 +7,7 @@
     "path": "../fixtures/refactor-extract-util"
   },
   "acceptance": {
+    "hiddenTestPath": "../evaluators/refactor-extract-util/test",
     "criteria": [
       {
         "type": "custom",

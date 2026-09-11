@@ -85,19 +85,16 @@ jobs:
         run: npm ci
 
       - name: Benchmark list
-        run: node benchmarks/cli.js list
+        run: npm run bench:list
 
       - name: Benchmark validate
-        run: |
-          node benchmarks/cli.js validate bug-fix-auth
-          node benchmarks/cli.js validate feature-add-button
-          node benchmarks/cli.js validate refactor-extract-util
-          node benchmarks/cli.js validate investigate-performance
-          node benchmarks/cli.js validate resume-auth-feature
-          node benchmarks/cli.js validate cross-session-migration
+        run: npm run bench:validate
+
+      - name: Benchmark typecheck
+        run: npm run bench:typecheck
 
       - name: Benchmark unit tests
-        run: node --test tests/benchmark-*.test.js
+        run: npm run bench:test
 
   test-windows:
     name: Smoke tests — Node ${{ matrix.node-version }} on Windows
