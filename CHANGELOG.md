@@ -4,6 +4,21 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.5 - 2026-09-11
+
+Esta release corrige o alinhamento de versão dos instaladores bootstrap para o pacote publicado.
+
+### O que mudou
+
+- Atualizados os bootstrap installers PowerShell e shell para a versão `0.3.5`.
+- Mantidos os gates de qualidade, benchmark, segurança, instalação e compatibilidade multiplataforma da release anterior.
+
+### Verificação
+
+- Suíte Node completa em Windows e Linux/WSL.
+- Matriz oficial de smoke em Ubuntu, Windows e macOS com Node 20 e 22.
+- Validação pública, skills, auditoria, smoke, empacotamento e contrato dos instaladores.
+
 ## 0.3.4 - 2026-09-11
 
 Esta release integra os gates de qualidade e endurece a execução multiplataforma do Orquestrador Maestro.
@@ -14,6 +29,7 @@ Esta release integra os gates de qualidade e endurece a execução multiplatafor
 - Corrigida a validação de cenários, o isolamento do harness e a resolução de diretórios de telemetria no Windows.
 - Tornada a suíte principal determinística em ambientes com muitos processos, preservando cobertura multiplataforma.
 - Atualizados os testes de segurança, empacotamento e smoke para a publicação do pacote.
+- Alinhadas as versões dos bootstrap installers com a release `0.3.4`.
 
 ### Verificação
 
