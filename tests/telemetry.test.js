@@ -11,11 +11,17 @@ const { makeTempDir } = require("./test-helpers.js");
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(repoRoot, "bin", "orquestrador-maestro.js");
 
+function telemetryHomeEnv(configHome) {
+  return process.platform === "win32"
+    ? { APPDATA: configHome, XDG_CONFIG_HOME: configHome }
+    : { XDG_CONFIG_HOME: configHome };
+}
+
 function runCli(args, configHome, extraEnv = {}) {
   return spawnSync(process.execPath, [cliPath, ...args], {
     cwd: repoRoot,
     encoding: "utf8",
-    env: { ...process.env, XDG_CONFIG_HOME: configHome, ...extraEnv }
+    env: { ...process.env, ...telemetryHomeEnv(configHome), ...extraEnv }
   });
 }
 
@@ -23,7 +29,7 @@ function runCliAsync(args, configHome, extraEnv = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd: repoRoot,
-      env: { ...process.env, XDG_CONFIG_HOME: configHome, ...extraEnv }
+      env: { ...process.env, ...telemetryHomeEnv(configHome), ...extraEnv }
     });
     let stdout = "";
     let stderr = "";
@@ -40,7 +46,11 @@ test("telemetry status creates and persists an anonymous installation id without
   assert.match(first.stdout, /Telemetria: desabilitada/u);
   assert.doesNotMatch(first.stdout, /AnonymousId|Config:/u);
 
-  const configPath = path.join(configHome, "orquestrador-maestro", "telemetry.json");
+  const configPath = path.join(
+    configHome,
+    process.platform === "win32" ? "OrquestradorMaestro" : "orquestrador-maestro",
+    "telemetry.json"
+  );
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   assert.equal(config.enabled, false);
   assert.match(config.anonymousId, /^[0-9a-f-]{36}$/u);
@@ -53,7 +63,10 @@ test("telemetry status creates and persists an anonymous installation id without
 
 test("telemetry payload is minimal and does not include argument values or paths", async () => {
   const configHome = makeTempDir("orquestrador-telemetry-");
-  const configDir = path.join(configHome, "orquestrador-maestro");
+  const configDir = path.join(
+    configHome,
+    process.platform === "win32" ? "OrquestradorMaestro" : "orquestrador-maestro"
+  );
   fs.mkdirSync(configDir, { recursive: true });
   const anonymousId = "test-anonymous-id-00000000-0000-0000-0000-000000000000";
   fs.writeFileSync(path.join(configDir, "telemetry.json"), JSON.stringify({
