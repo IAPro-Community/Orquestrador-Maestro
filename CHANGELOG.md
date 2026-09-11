@@ -4,6 +4,24 @@
 
 Próximas mudanças serão registradas aqui.
 
+## 0.3.4 - 2026-09-11
+
+Esta release integra os gates de qualidade e endurece a execução multiplataforma do Orquestrador Maestro.
+
+### O que mudou
+
+- Adicionados gates de engenharia, benchmark e validação de cenários para a integração do PR 13.
+- Corrigida a validação de cenários, o isolamento do harness e a resolução de diretórios de telemetria no Windows.
+- Tornada a suíte principal determinística em ambientes com muitos processos, preservando cobertura multiplataforma.
+- Atualizados os testes de segurança, empacotamento e smoke para a publicação do pacote.
+
+### Verificação
+
+- Suíte Node completa em Windows e Linux/WSL.
+- Benchmark: validação, typecheck, build e testes.
+- Validação pública, skills, auditoria, smoke e `npm pack --dry-run`.
+- Matriz oficial configurada para Ubuntu, Windows e macOS em Node 20 e 22.
+
 ## 0.3.3 - 2026-09-09
 
 Esta release adiciona o roteamento Architecture First por classe de risco.
