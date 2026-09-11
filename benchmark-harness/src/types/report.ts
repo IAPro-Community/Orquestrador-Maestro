@@ -79,6 +79,8 @@ export interface PairedComparison {
   vanilla: RunSummary;
   /** Maestro (treatment) run summary. */
   maestro: RunSummary;
+  /** Maestro-focus (focused treatment) run summary. */
+  maestroFocus?: RunSummary;
   /** Computed delta between the two runs. */
   delta?: PairDelta;
 }

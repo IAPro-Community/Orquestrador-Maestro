@@ -4,7 +4,7 @@ O snapshot público compartilha comportamento e estrutura, não o conteúdo priv
 
 ![Fronteira entre conteúdo público e local](diagrams/privacy-boundary.svg)
 
-Use este guia para conferir o que entra no repositório, o que permanece local e como funciona a telemetria opcional.
+Use este guia para conferir o que entra no repositório, o que permanece local e como funciona a telemetria anônima ativa por padrão.
 
 ## Incluído
 
@@ -52,7 +52,7 @@ Esses packs são permitidos como contexto local, mas não fazem parte do snapsho
 
 ## Telemetria
 
-O CLI npm pode enviar telemetria anônima somente depois de o usuário configurar um endpoint e habilitar explicitamente com `orquestrador-maestro telemetry enable`. O objetivo é medir uso técnico do pacote, não identificar pessoas. Sem endpoint e sem habilitação explícita, nenhum evento é enviado. Configurações antigas sem consentimento versionado são consideradas desabilitadas até novo opt-in explícito.
+O CLI npm envia telemetria anônima mínima por padrão ao PostHog Cloud na região US (Virginia), usando captura server-side. A finalidade exclusiva é medir adoção e uso técnico. O identificador é um pseudônimo aleatório de instalação, não uma identidade pessoal e não permite afirmar quantas pessoas usam o pacote.
 
 Permitido:
 
@@ -62,7 +62,8 @@ Permitido:
 - plataforma, arquitetura e versão major do Node.js;
 - exit code;
 - sucesso ou falha;
-- identificador anônimo aleatório.
+- identificador anônimo aleatório;
+- data UTC arredondada ao dia.
 
 Proibido:
 
@@ -70,14 +71,16 @@ Proibido:
 - nome de usuário;
 - caminho local;
 - conteúdo de projeto;
-- tokens, prompts, logs ou nomes de arquivos privados.
+- tokens, prompts, logs ou nomes de arquivos privados;
+- valores de argumentos, IP armazenado pelo produto, cookies, sessão, replay, heatmaps e autocaptura.
 
-A telemetria pode ser habilitada com:
+Consulte o estado e as instruções simples com:
 
 ```bash
-orquestrador-maestro telemetry endpoint https://seu-dominio.example/api/orquestrador-telemetry
-orquestrador-maestro telemetry enable
+orquestrador-maestro telemetry status
 ```
+
+Depois de um opt-out, reabilite explicitamente com `orquestrador-maestro telemetry enable`.
 
 E pode ser desabilitada com:
 
@@ -90,6 +93,10 @@ Ou por variável de ambiente:
 ```bash
 ORQUESTRADOR_MAESTRO_TELEMETRY=0
 ```
+
+O processamento usa o endpoint US do PostHog. O prazo de retenção, eliminação, subprocessadores, transferência internacional e base legal devem ser confirmados pelo mantenedor com orientação jurídica antes do lançamento; esta documentação não afirma conformidade automática.
+
+O registro detalhado de tratamento está em [telemetry-processing-record.md](telemetry-processing-record.md).
 
 ## Checagem
 

@@ -119,7 +119,8 @@
     "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json"
   },
   "config": {
-    "telemetryEndpoint": ""
+    "telemetryEndpoint": "https://us.i.posthog.com/capture/",
+    "telemetryProjectKey": "phc_vgCyeZgXtQvRCxqnNXqsu6x2QVafmuZRFHLAxZB32kPX"
   },
   "repository": {
     "type": "git",

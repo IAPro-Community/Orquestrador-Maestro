@@ -81,6 +81,19 @@ function pairToRows(pair: BenchmarkReport['pairs'][number]): CsvRow[] {
     evidence_gate: pair.maestro.acceptanceRate === 1 ? 'pass' : 'fail',
   });
 
+  if (pair.maestroFocus) {
+    rows.push({
+      scenario: pair.scenarioId ?? 'unknown',
+      condition: 'maestro-focus',
+      run: pair.maestroFocus.runId,
+      model: '',
+      tokens: pair.maestroFocus.tokens !== null ? String(pair.maestroFocus.tokens) : '',
+      duration: String(pair.maestroFocus.durationMs),
+      accepted: pair.maestroFocus.accepted ? 'true' : 'false',
+      evidence_gate: pair.maestroFocus.acceptanceRate === 1 ? 'pass' : 'fail',
+    });
+  }
+
   return rows;
 }
 

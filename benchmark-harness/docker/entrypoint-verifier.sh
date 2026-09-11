@@ -16,12 +16,13 @@ for run_dir in "$EVIDENCE_DIR"/*/; do
   [ -d "$run_dir" ] || continue
   TOTAL=$((TOTAL + 1))
 
-  if [ -f "${run_dir}run-report.json" ]; then
+  REPORT_FILE="${run_dir}run-report.json"
+  if [ -f "$REPORT_FILE" ]; then
     ACCEPTED=$(node -e "
       const fs = require('fs');
-      const r = JSON.parse(fs.readFileSync('${run_dir}run-report.json','utf8'));
+      const r = JSON.parse(fs.readFileSync(process.argv[1],'utf8'));
       console.log(r.results?.accepted ? 'true' : 'false');
-    " 2>/dev/null || echo "false")
+    " "$REPORT_FILE" 2>/dev/null || echo "false")
 
     if [ "$ACCEPTED" = "true" ]; then
       PASS=$((PASS + 1))

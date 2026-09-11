@@ -12,7 +12,7 @@ fi
 
 timeout --signal=SIGTERM "$((TIMEOUT / 1000))" \
   opencode --non-interactive \
-    --model "${BENCHMARK_MODEL:-claude-sonnet-4-20250514}" \
+    --model "${BENCHMARK_MODEL:-deepseek/deepseek-v4-flash}" \
     --prompt "Run benchmark scenario ${SCENARIO} under condition ${CONDITION}."
 
 EXIT_CODE=$?
