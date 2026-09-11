@@ -7,6 +7,7 @@
     "path": "../fixtures/bug-fix-auth"
   },
   "acceptance": {
+    "hiddenTestPath": "../evaluators/bug-fix-auth/test",
     "criteria": [
       {
         "type": "custom",

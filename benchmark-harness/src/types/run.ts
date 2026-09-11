@@ -45,6 +45,14 @@ export interface RunEnvironment {
   container?: boolean;
   /** Container image tag, if applicable. */
   containerImage?: string;
+  /** Container ID, if applicable. */
+  containerId?: string;
+  /** Container network mode, if applicable. */
+  networkMode?: 'none' | 'bridge' | 'host';
+  /** Container CPU limit, if applicable. */
+  cpuLimit?: number;
+  /** Container memory limit, if applicable. */
+  memoryLimit?: string;
   /** Node.js version. */
   nodeVersion?: string;
   /** Whether the run was isolated from external state. */
@@ -113,6 +121,18 @@ export interface BenchmarkRunReport {
   runId: string;
   /** Scenario this run executed. */
   scenarioId: string;
+  /** Pair identifier for statistical grouping. */
+  pairId?: string;
+  /** Replicate number within a pair (0-indexed). */
+  replicate?: number;
+  /** Model used for this run. */
+  model?: string;
+  /** Provider used for this run. */
+  provider?: string;
+  /** Scenario hash for this run. */
+  scenarioHash?: string;
+  /** Fixture hash for this run. */
+  fixtureHash?: string;
   /** Experimental condition. */
   condition: Condition;
   /** Driver that performed the execution. */

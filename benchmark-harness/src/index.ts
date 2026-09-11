@@ -41,6 +41,7 @@ export { TokenSource, TokenConfidence } from './types/tokens.js';
 
 // Core modules
 export { OpenCodeDriver } from './drivers/opencode.js';
+export { MaestroDriver } from './drivers/maestro.js';
 export { ContainerRunner, verifyContainerIsolation } from './container/runner.js';
 export { orchestrateRun, orchestratePair } from './orchestrator/index.js';
 export { verifyAcceptanceSuite } from './verifier/index.js';

@@ -90,6 +90,9 @@ jobs:
       - name: Benchmark validate
         run: npm run bench:validate
 
+      - name: Benchmark typecheck
+        run: npm run bench:typecheck
+
       - name: Benchmark unit tests
         run: npm run bench:test
 

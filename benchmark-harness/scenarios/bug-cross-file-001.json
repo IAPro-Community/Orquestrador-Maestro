@@ -7,6 +7,7 @@
     "path": "../fixtures/bug-cross-file-001"
   },
   "acceptance": {
+    "hiddenTestPath": "../evaluators/bug-cross-file-001/test",
     "criteria": [
       {
         "type": "custom",

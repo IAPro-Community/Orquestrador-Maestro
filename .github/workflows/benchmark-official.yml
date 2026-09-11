@@ -22,7 +22,7 @@ on:
           - official
           - ci
       filter:
-        description: "Filter scenarios by type (bug, feature, refactor, investigation, migration)"
+        description: "Filter scenarios by tag (bug, feature, refactor, investigation, migration)"
         required: false
         default: ""
         type: string
@@ -34,6 +34,43 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      - name: Validate inputs
+        run: |
+          # Validate runs is integer 1-10
+          RUNS="${{ inputs.runs }}"
+          if ! [[ "$RUNS" =~ ^[0-9]+$ ]]; then
+            echo "::error::runs must be an integer"
+            exit 1
+          fi
+          if [ "$RUNS" -lt 1 ] || [ "$RUNS" -gt 10 ]; then
+            echo "::error::runs must be between 1 and 10 (got $RUNS)"
+            exit 1
+          fi
+
+          # Validate profile against allowlist
+          PROFILE="${{ inputs.profile }}"
+          case "$PROFILE" in
+            official|ci) ;;
+            *)
+              echo "::error::Invalid profile '$PROFILE'. Allowed: official, ci"
+              exit 1
+              ;;
+          esac
+
+          # Validate filter against allowed tags
+          FILTER="${{ inputs.filter }}"
+          if [ -n "$FILTER" ]; then
+            case "$FILTER" in
+              bug|feature|refactor|investigation|migration) ;;
+              *)
+                echo "::error::Invalid filter '$FILTER'. Allowed: bug, feature, refactor, investigation, migration"
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Inputs validated successfully: model=${{ inputs.model }}, runs=$RUNS, profile=$PROFILE, filter=$FILTER"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -56,15 +93,19 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BENCHMARK_MODEL: ${{ inputs.model }}
+          BENCHMARK_RUNS: ${{ inputs.runs }}
+          BENCHMARK_PROFILE: ${{ inputs.profile }}
+          BENCHMARK_FILTER: ${{ inputs.filter }}
         run: |
           FILTER_FLAG=""
-          if [ -n "${{ inputs.filter }}" ]; then
-            FILTER_FLAG="--filter ${{ inputs.filter }}"
+          if [ -n "$BENCHMARK_FILTER" ]; then
+            FILTER_FLAG="--filter $BENCHMARK_FILTER"
           fi
           npx tsx src/cli/index.ts suite \
-            --profile ${{ inputs.profile }} \
-            --model ${{ inputs.model }} \
-            --runs ${{ inputs.runs }} \
+            --profile "$BENCHMARK_PROFILE" \
+            --model "$BENCHMARK_MODEL" \
+            --runs "$BENCHMARK_RUNS" \
             $FILTER_FLAG
 
       - name: Generate report
@@ -86,12 +127,11 @@ jobs:
         if: always()
         working-directory: benchmark-harness
         run: |
-          RUN_SET=$(date +%Y%m%d-%H%M%S)
-          SUMMARY_FILE="results/summary-${RUN_SET}.md"
-          if [ -f "$SUMMARY_FILE" ]; then
+          LATEST_MD=$(ls -t results/summary-*.md 2>/dev/null | head -1)
+          if [ -n "$LATEST_MD" ]; then
             echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
+            cat "$LATEST_MD" >> $GITHUB_STEP_SUMMARY
           else
             echo "## Benchmark Run Completed" >> $GITHUB_STEP_SUMMARY
             echo "Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY

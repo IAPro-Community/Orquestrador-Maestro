@@ -116,11 +116,11 @@
     "bench:report": "node --import tsx benchmark-harness/src/cli/index.ts report",
     "bench:help": "node --import tsx benchmark-harness/src/cli/index.ts --help",
     "bench:test": "node --import tsx --test benchmark-harness/tests/*.test.ts benchmark-harness/tests/**/*.test.ts",
-    "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json"
+    "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json",
+    "bench:build": "cd benchmark-harness && npm run build"
   },
   "config": {
-    "telemetryEndpoint": "https://us.i.posthog.com/capture/",
-    "telemetryProjectKey": "phc_vgCyeZgXtQvRCxqnNXqsu6x2QVafmuZRFHLAxZB32kPX"
+    "telemetryEndpoint": ""
   },
   "repository": {
     "type": "git",

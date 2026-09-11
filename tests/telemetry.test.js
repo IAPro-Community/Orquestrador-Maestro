@@ -37,12 +37,12 @@ test("telemetry status creates and persists an anonymous installation id without
   const configHome = makeTempDir("orquestrador-telemetry-");
   const first = runCli(["telemetry", "status"], configHome);
   assert.equal(first.status, 0, first.stderr);
-  assert.match(first.stdout, /Telemetria: habilitada/u);
+  assert.match(first.stdout, /Telemetria: desabilitada/u);
   assert.doesNotMatch(first.stdout, /AnonymousId|Config:/u);
 
   const configPath = path.join(configHome, "orquestrador-maestro", "telemetry.json");
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  assert.equal(config.enabled, true);
+  assert.equal(config.enabled, false);
   assert.match(config.anonymousId, /^[0-9a-f-]{36}$/u);
 
   const second = runCli(["telemetry", "status"], configHome);
@@ -53,6 +53,16 @@ test("telemetry status creates and persists an anonymous installation id without
 
 test("telemetry payload is minimal and does not include argument values or paths", async () => {
   const configHome = makeTempDir("orquestrador-telemetry-");
+  const configDir = path.join(configHome, "orquestrador-maestro");
+  fs.mkdirSync(configDir, { recursive: true });
+  const anonymousId = "test-anonymous-id-00000000-0000-0000-0000-000000000000";
+  fs.writeFileSync(path.join(configDir, "telemetry.json"), JSON.stringify({
+    enabled: true,
+    anonymousId,
+    endpoint: "",
+    provider: "posthog",
+    consentVersion: 2
+  }, null, 2));
   let received = null;
   const server = http.createServer((request, response) => {
     let body = "";

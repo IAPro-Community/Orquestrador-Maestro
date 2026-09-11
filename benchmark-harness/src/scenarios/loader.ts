@@ -62,7 +62,7 @@ export async function loadScenario(path: string): Promise<Scenario> {
  * @param dir  Directory to scan for scenario JSON files.
  * @returns    Array of validated Scenario objects.
  */
-export async function loadAllScenarios(dir: string): Promise<Scenario[]> {
+export async function loadAllScenarios(dir: string, options?: { strict?: boolean }): Promise<Scenario[]> {
   const resolved = resolve(dir);
   const scenarios: Scenario[] = [];
 
@@ -77,7 +77,7 @@ export async function loadAllScenarios(dir: string): Promise<Scenario[]> {
     const fullPath = join(resolved, entry.name);
 
     if (entry.isDirectory()) {
-      const subScenarios = await loadAllScenarios(fullPath);
+      const subScenarios = await loadAllScenarios(fullPath, options);
       scenarios.push(...subScenarios);
       continue;
     }
@@ -89,9 +89,21 @@ export async function loadAllScenarios(dir: string): Promise<Scenario[]> {
     try {
       const scenario = await loadScenario(fullPath);
       scenarios.push(scenario);
-    } catch {
+    } catch (error) {
+      if (options?.strict) {
+        throw new Error(`Failed to load scenario from ${entry.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
       // Skip invalid scenario files silently
     }
+  }
+
+  // Check for duplicate scenario IDs
+  const ids = new Set<string>();
+  for (const scenario of scenarios) {
+    if (ids.has(scenario.id)) {
+      throw new Error(`Duplicate scenario ID: ${scenario.id}`);
+    }
+    ids.add(scenario.id);
   }
 
   return scenarios;
