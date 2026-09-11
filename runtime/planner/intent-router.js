@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { resolveMaestroRoot } = require("../config/maestro-paths");
 
 /**
  * IntentRouter — Resolve a intenção do usuário para skills concretas
@@ -11,7 +12,7 @@ const path = require("node:path");
  */
 class IntentRouter {
   constructor({ maestroRoot }) {
-    this.maestroRoot = maestroRoot || path.join(require("os").homedir(), ".orquestrador");
+    this.maestroRoot = maestroRoot || resolveMaestroRoot();
     this._aliases = null;
     this._router = null;
     this._chains = null;
@@ -62,6 +63,8 @@ class IntentRouter {
   resolve(description) {
     const lowerDesc = description.toLowerCase();
     const matchedSkills = new Map(); // skillId -> { score, source }
+    const engineeringCapabilities = [];
+    const capabilitySkillIds = new Set();
 
     // 1. Alias matching (exact phrases)
     for (const [alias, skillId] of Object.entries(this.aliases)) {
@@ -85,13 +88,27 @@ class IntentRouter {
       }
     }
 
+    // Capability routing is deliberately separate from native skill triggers:
+    // it lets a beginner express outcomes while keeping the loaded skill set small.
+    for (const [capability, route] of Object.entries(this.router.capabilityRoutes || {})) {
+      if (!(route.triggers || []).some((trigger) => this._phraseMatches(lowerDesc, trigger))) continue;
+      engineeringCapabilities.push(capability);
+      for (const skillId of route.skills || []) {
+        capabilitySkillIds.add(skillId);
+        const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
+        current.score += 1;
+        current.sources.push(`capability:${capability}`);
+        matchedSkills.set(skillId, current);
+      }
+    }
+
     // 3. Sort by score, pick primary
     const ranked = [...matchedSkills.entries()]
       .sort((a, b) => b[1].score - a[1].score);
 
     const primarySkillId = ranked[0]?.[0] || null;
     const primarySkill = primarySkillId
-      ? { id: primarySkillId, ...(this.router.skills?.[primarySkillId] || {}) }
+      ? { id: primarySkillId, ...(this.router.skills?.[primarySkillId] || this.router.librarySkills?.[primarySkillId] || {}) }
       : null;
 
     // 4. Chain resolution — what secondary skills does the primary allow?
@@ -103,26 +120,43 @@ class IntentRouter {
         if (matchedSkills.has(allowedSkill)) {
           chainedSkills.push({
             id: allowedSkill,
-            ...(this.router.skills?.[allowedSkill] || {}),
+            ...(this.router.skills?.[allowedSkill] || this.router.librarySkills?.[allowedSkill] || {}),
             matchScore: matchedSkills.get(allowedSkill).score
           });
         }
       }
     }
 
+    const guidedSkills = ranked
+      .filter(([skillId]) => capabilitySkillIds.has(skillId) && skillId !== primarySkillId)
+      .slice(0, 4)
+      .map(([skillId, details]) => ({
+        id: skillId,
+        ...(this.router.skills?.[skillId] || this.router.librarySkills?.[skillId] || {}),
+        matchScore: details.score
+      }));
+
     // 5. Select execution profile based on scope
     const totalSkills = 1 + chainedSkills.length;
-    const profile = totalSkills > 3 ? "deep" : totalSkills > 1 ? "standard" : "fast";
+    const profile = engineeringCapabilities.length > 0
+      ? "guided-engineering"
+      : totalSkills > 3 ? "deep" : totalSkills > 1 ? "standard" : "fast";
 
     // 6. Determine risk from primary skill
     const risk = primarySkill?.safety || "standard";
+    const maxSkills = this.profiles.profiles?.[profile]?.maxSkills;
+    const allSkills = [primarySkill, ...guidedSkills, ...chainedSkills]
+      .filter(Boolean)
+      .filter((skill, index, list) => list.findIndex((candidate) => candidate.id === skill.id) === index);
 
     return Object.freeze({
       primarySkill,
       chainedSkills,
-      allSkills: [primarySkill, ...chainedSkills].filter(Boolean),
+      allSkills: Number.isInteger(maxSkills) ? allSkills.slice(0, maxSkills) : allSkills,
+      guidedSkills: Object.freeze(guidedSkills),
       profile,
       risk,
+      engineeringCapabilities: Object.freeze(engineeringCapabilities),
       matchDetails: Object.fromEntries(ranked)
     });
   }

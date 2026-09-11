@@ -1,6 +1,54 @@
 {
   "version": 1,
   "purpose": "Compact routing index. Read this first, then open only the matching SKILL.md and referenced files.",
+  "capabilityRoutes": {
+    "software-architecture": {
+      "triggers": ["novo módulo", "módulo novo", "muito acoplado", "arquivo gigante", "revisar arquitetura", "architecture"],
+      "skills": ["skill-repo-health", "improve-codebase-architecture"]
+    },
+    "backend-engineering": {
+      "triggers": ["criar api", "nova api", "endpoint", "controller", "backend", "roles", "permissions"],
+      "skills": ["skill-repo-health", "skill-preflight"]
+    },
+    "frontend-architecture": {
+      "triggers": ["nova tela", "frontend architecture", "estado da interface", "componentes", "state management"],
+      "skills": ["skill-repo-health"]
+    },
+    "code-semantics": {
+      "triggers": ["naming", "nomes", "semântica do código", "nome ruim", "processdata", "doStuff"],
+      "skills": ["skill-repo-health"]
+    },
+    "data-modeling": {
+      "triggers": ["criar tabela", "modelar tabela", "modelagem de dados", "invariante", "unicidade", "email único", "constraint", "roles", "permissions"],
+      "skills": ["skill-repo-health", "skill-preflight"]
+    },
+    "database-migrations": {
+      "triggers": ["criar migration", "migração de banco", "migration de banco", "alterar schema"],
+      "skills": ["skill-database-migrations", "skill-preflight"]
+    },
+    "testing-strategy": {
+      "triggers": ["adicionar testes", "estratégia de testes", "função matemática", "cobertura de testes"],
+      "skills": ["skill-verification-before-completion"]
+    },
+    "e2e-testing": {
+      "triggers": ["teste e2e", "jornada crítica", "fluxo ponta a ponta"],
+      "skills": ["skill-verification-before-completion", "skill-webapp-testing"]
+    },
+    "security": {
+      "triggers": ["auth", "authentication", "autorização", "permissões", "permissions", "roles", "segurança", "secret"],
+      "skills": ["skill-preflight", "skill-verification-before-completion"]
+    }
+  },
+  "librarySkills": {
+    "improve-codebase-architecture": {
+      "description": "Análise arquitetural profunda sob demanda, sem carregar a skill em tarefas comuns.",
+      "triggers": ["revisar a arquitetura", "saúde arquitetural", "acoplamento do código", "débito estrutural", "architecture review"],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/community-skills/improve-codebase-architecture/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/community-skills/improve-codebase-architecture/SKILL.md",
+      "cost": "high-on-demand",
+      "safety": "read-only-architecture-diagnostics"
+    }
+  },
   "skills": {
     "skill-saas-factory": {
       "description": "Top-level SaaS construction and review workflow for dashboards, admin, Supabase, payments, security, infra, and production readiness.",

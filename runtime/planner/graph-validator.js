@@ -31,6 +31,13 @@ class GraphValidator {
       }
       seenIds.add(task.id);
 
+      if (task.scopeClassification === "OUT_OF_SCOPE" || task.scopeClassification === "DISCOVERED_WORK") {
+        blockers.push({ code: "SCOPE_EXECUTION_BLOCKED", message: `Task "${task.title}" has scope classification ${task.scopeClassification} and cannot enter execution.`, taskId: task.id });
+      }
+      if (task.scopeClassification === "REQUIRED_DEPENDENCY" && !task.scopeJustification) {
+        blockers.push({ code: "UNJUSTIFIED_REQUIRED_DEPENDENCY", message: `Task "${task.title}" requires a scope justification before execution.`, taskId: task.id });
+      }
+
       if (task.title && GENERIC_TITLES.includes(task.title.trim().toUpperCase())) {
         blockers.push({
           code: "GENERIC_TASK_TITLE_REJECTED",

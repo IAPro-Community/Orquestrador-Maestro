@@ -1,0 +1,38 @@
+{
+  "id": "fibonacci-test",
+  "name": "Fibonacci Function",
+  "description": "Agent must implement a correct fibonacci function",
+  "task": "Create fibonacci.ts with this exact content:\n\nexport function fib(n: number): number {\n  if (n < 0) throw new Error('n must be non-negative');\n  let a = 0, b = 1;\n  for (let i = 0; i < n; i++) [a, b] = [b, a + b];\n  return a;\n}\n\nDo NOT run any commands. Just write the file.",
+  "fixture": {
+    "path": "../fixtures/fibonacci-stub"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "node -e "process.exit(0)"",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "build",
+        "name": "typescript-compiles",
+        "command": "npx tsc fibonacci.ts --noEmit --esModuleInterop",
+        "timeout": 30
+      },
+      {
+        "type": "hidden_tests",
+        "name": "fibonacci-correctness",
+        "command": "node --import tsx --input-type=module -e \"import {fib} from './fibonacci.ts'; const tests=[[0,0],[1,1],[2,1],[5,5],[10,55]]; let ok=true; tests.forEach(([n,e])=>{const r=fib(n); if(r!==e){console.error('fib('+n+') expected '+e+' got '+r); ok=false}}); if(!ok)process.exit(1); console.log('PASS')\"",
+        "timeout": 10
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 60000,
+    "maxRetries": 1
+  },
+  "model": "deepseek/deepseek-v4-flash",
+  "tags": ["simple", "function-implementation"]
+}

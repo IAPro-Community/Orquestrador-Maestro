@@ -1,0 +1,46 @@
+name: Benchmark PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "feat/*"
+    paths:
+      - "benchmark-harness/**"
+      - "package.json"
+      - "benchmark-harness/package.json"
+
+jobs:
+  validate:
+    name: Validate Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: benchmark-harness
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: benchmark-harness
+        run: npx tsc --noEmit
+
+      - name: Validate scenario definitions
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts validate
+
+      - name: Run unit tests
+        working-directory: benchmark-harness
+        run: npm test
+
+      - name: Preflight check
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts preflight --json || true

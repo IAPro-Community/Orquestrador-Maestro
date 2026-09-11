@@ -1,5 +1,7 @@
 # Hierarquia DEV Dos Projetos
 
+`DEV/` dá à próxima pessoa ou IA o contexto que a conversa sozinha não preserva: objetivo, evidência, riscos e próximo passo. Use esta referência ao estruturar um projeto; o uso diário está no [guia operacional](ai-agent-operating-guide.md).
+
 Nos projetos que usam o Orquestrador Maestro, `DEV/` e a raiz canonica de documentacao e memoria operacional do projeto.
 
 A intencao e economizar tokens: a IA le primeiro arquivos curtos de controle, entende o estado atual e so abre os detalhes necessarios para a tarefa.

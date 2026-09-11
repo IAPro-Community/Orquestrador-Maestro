@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="redGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="greenGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="40" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="700">Sem vs Com Orquestrador Maestro</text>
+  <text x="450" y="62" text-anchor="middle" fill="#fbbf24" font-size="12">Exemplo ilustrativo — não representa resultado oficial</text>
+
+  <!-- LEFT: Without Maestro -->
+  <rect x="30" y="85" width="400" height="410" rx="10" fill="#1e1e2e" stroke="#ef4444" stroke-width="1.5" opacity="0.9"/>
+  <rect x="30" y="85" width="400" height="36" rx="10" fill="#ef4444" opacity="0.15"/>
+  <text x="230" y="108" text-anchor="middle" fill="#fca5a5" font-size="13" font-weight="600">❌ SEM MAESTRO (Vanilla)</text>
+
+  <!-- Without: Flow boxes -->
+  <rect x="60" y="140" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="230" y="164" text-anchor="middle" fill="#e2e8f0" font-size="11">1. Prompt enviado direto ao modelo</text>
+
+  <rect x="60" y="195" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="230" y="219" text-anchor="middle" fill="#e2e8f0" font-size="11">2. Modelo lê TODO o repositório</text>
+  <text x="230" y="232" text-anchor="middle" fill="#f87171" font-size="9">↑ Mais contexto = mais tokens</text>
+
+  <rect x="60" y="250" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="230" y="274" text-anchor="middle" fill="#e2e8f0" font-size="11">3. Executa sem limites claros</text>
+
+  <rect x="60" y="305" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="230" y="329" text-anchor="middle" fill="#e2e8f0" font-size="11">4. Declara "pronto" sem verificação</text>
+  <text x="230" y="342" text-anchor="middle" fill="#f87171" font-size="9">↑ Pode estar errado</text>
+
+  <rect x="60" y="360" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="230" y="384" text-anchor="middle" fill="#e2e8f0" font-size="11">5. Resultado: sem evidência, sem rastro</text>
+
+  <!-- Without: Stats -->
+  <rect x="60" y="420" width="155" height="55" rx="6" fill="#ef4444" opacity="0.12"/>
+  <text x="137" y="442" text-anchor="middle" fill="#fca5a5" font-size="18" font-weight="700">~226K</text>
+  <text x="137" y="460" text-anchor="middle" fill="#f87171" font-size="10">tokens por tarefa</text>
+
+  <rect x="230" y="420" width="155" height="55" rx="6" fill="#ef4444" opacity="0.12"/>
+  <text x="307" y="442" text-anchor="middle" fill="#fca5a5" font-size="18" font-weight="700">80%</text>
+  <text x="307" y="460" text-anchor="middle" fill="#f87171" font-size="10">taxa de aceitação</text>
+
+  <!-- RIGHT: With Maestro -->
+  <rect x="470" y="85" width="400" height="410" rx="10" fill="#1e1e2e" stroke="#22c55e" stroke-width="1.5" opacity="0.9"/>
+  <rect x="470" y="85" width="400" height="36" rx="10" fill="#22c55e" opacity="0.15"/>
+  <text x="670" y="108" text-anchor="middle" fill="#86efac" font-size="13" font-weight="600">✅ COM MAESTRO (Orquestrado)</text>
+
+  <!-- With: Flow boxes -->
+  <rect x="500" y="140" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="670" y="164" text-anchor="middle" fill="#e2e8f0" font-size="11">1. Roteamento: qual skill ler</text>
+  <text x="670" y="177" text-anchor="middle" fill="#4ade80" font-size="9">↓ Menor contexto necessário</text>
+
+  <rect x="500" y="195" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="670" y="219" text-anchor="middle" fill="#e2e8f0" font-size="11">2. Modelo lê APENAS o necessário</text>
+
+  <rect x="500" y="250" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="670" y="274" text-anchor="middle" fill="#e2e8f0" font-size="11">3. Executa com limites e timeout</text>
+
+  <rect x="500" y="305" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="670" y="329" text-anchor="middle" fill="#e2e8f0" font-size="11">4. Verificação: hidden tests + integrity</text>
+  <text x="670" y="342" text-anchor="middle" fill="#4ade80" font-size="9">↑ Só declara pronto se passar</text>
+
+  <rect x="500" y="360" width="340" height="40" rx="6" fill="#2d2d3f" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="670" y="384" text-anchor="middle" fill="#e2e8f0" font-size="11">5. Evidência: imutável, sanitizada</text>
+
+  <!-- With: Stats -->
+  <rect x="500" y="420" width="155" height="55" rx="6" fill="#22c55e" opacity="0.12"/>
+  <text x="577" y="442" text-anchor="middle" fill="#86efac" font-size="18" font-weight="700">~127K</text>
+  <text x="577" y="460" text-anchor="middle" fill="#4ade80" font-size="10">tokens por tarefa</text>
+
+  <rect x="670" y="420" width="155" height="55" rx="6" fill="#22c55e" opacity="0.12"/>
+  <text x="747" y="442" text-anchor="middle" fill="#86efac" font-size="18" font-weight="700">100%</text>
+  <text x="747" y="460" text-anchor="middle" fill="#4ade80" font-size="10">taxa de aceitação</text>
+
+  <!-- Center arrow -->
+  <line x1="435" y1="290" x2="465" y2="290" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Footer -->
+  <text x="450" y="508" text-anchor="middle" fill="#64748b" font-size="10">Rode o benchmark no seu ambiente para obter dados verificáveis</text>
+</svg>

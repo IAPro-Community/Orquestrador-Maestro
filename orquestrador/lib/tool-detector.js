@@ -17,8 +17,8 @@ function executableExists(command) {
   try {
     const result = spawnSync(command, ["--version"], {
       stdio: "ignore",
-      shell: process.platform === "win32",
-      timeout: 3000
+      shell: false,
+      timeout: 5000
     });
     return !result.error && result.status === 0;
   } catch {
@@ -43,16 +43,14 @@ function hasMaestroMarker(homePath, toolId) {
   if (!def) return false;
   const configPaths = resolveToolConfigPaths(toolId, homePath);
   for (const configPath of configPaths) {
-    if (!fs.existsSync(configPath)) continue;
     const markerPath = path.join(configPath, ".maestro-managed");
-    if (!fs.existsSync(markerPath)) continue;
     try {
       const marker = fs.readFileSync(markerPath, "utf8");
       const expected = `managed by orquestrador-maestro\ntool: ${toolId}\n`;
       // `true` is the legacy marker emitted by earlier installers.
       if (marker === expected || marker.trim() === "true") return true;
     } catch {
-      // An unreadable marker is not proof of Maestro ownership.
+      // An unreadable or missing marker is not proof of Maestro ownership.
     }
   }
   return false;

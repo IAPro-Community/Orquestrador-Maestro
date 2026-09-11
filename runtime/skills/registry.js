@@ -52,6 +52,7 @@ class SkillRegistry {
       { provider: "gemini", path: path.join(this.userHome, ".gemini", "skills") }
     ];
     this.projectSources = options.projectSources || [
+      path.join(this.projectRoot, ".orquestrador-maestro", "skills"),
       path.join(this.projectRoot, ".orquestrador", "skills"),
       path.join(this.projectRoot, ".codex", "skills"),
       path.join(this.projectRoot, ".claude", "skills")
@@ -59,11 +60,13 @@ class SkillRegistry {
   }
 
   list() {
-    return Object.freeze([
+    const records = [
       ...this.listMaestro(),
       ...this.listUser(),
       ...this.listProject()
-    ].sort((left, right) => left.identity.localeCompare(right.identity)));
+    ];
+    return Object.freeze([...new Map(records.map((record) => [record.identity, record])).values()]
+      .sort((left, right) => left.identity.localeCompare(right.identity)));
   }
 
   get(identity) {

@@ -16,6 +16,15 @@
       "validation": "task-appropriate",
       "notes": "Default profile for most work."
     },
+    "guided-engineering": {
+      "maxSkills": 5,
+      "startSkill": "skill-repo-health",
+      "loadReferences": "progressive",
+      "allowSubagents": false,
+      "validation": "quality-gates",
+      "routingSource": "SKILLS_ROUTER.json",
+      "notes": "Use for non-trivial engineering work; select only the applicable architecture, backend, frontend, data, semantics, security, and testing capabilities."
+    },
     "deep": {
       "maxSkills": 5,
       "startSkill": "skill-multiagent-orchestration",

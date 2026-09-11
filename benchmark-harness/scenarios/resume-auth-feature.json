@@ -1,0 +1,31 @@
+{
+  "id": "resume-auth-feature",
+  "name": "Complete Authentication Service Implementation",
+  "description": "AuthService has TODO items for password reset and session refresh",
+  "task": "Complete the AuthService implementation in src/AuthService.js. The service has TODO comments for password reset and session refresh functionality. Implement: 1) A passwordReset method that generates a reset token and stores it with an expiry, 2) A refreshSession method that extends an existing session's expiry, 3) Ensure all edge cases are handled (expired tokens, invalid sessions, etc).",
+  "fixture": {
+    "path": "../fixtures/resume-auth-feature"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "node -e "process.exit(0)"",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "auth-complete",
+        "command": "node --test test/hidden.test.js",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["feature", "auth", "resume"]
+}

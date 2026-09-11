@@ -1,0 +1,8 @@
+{
+  "name": "fibonacci-stub",
+  "type": "module",
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0"
+  }
+}

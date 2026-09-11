@@ -1,5 +1,7 @@
 # Testes de segurança
 
+Use esta esteira para encontrar riscos no próprio projeto ou em ambientes explicitamente autorizados. Ela melhora a evidência de segurança, mas não promete ausência total de vulnerabilidades.
+
 O Orquestrador oferece uma esteira em camadas para testar o próprio código e ambientes controlados. Ela é complementar, não uma garantia de ausência de vulnerabilidades.
 
 ## Execução local

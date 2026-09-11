@@ -1,5 +1,7 @@
 # Solução de problemas de instalação
 
+Se a instalação normal não terminou como esperado, use este guia para recuperar o ambiente sem improvisar comandos. Para instalar primeiro, siga o [guia de instalação](installation.md).
+
 ## Skill ausente no OpenCode/DANTE
 
 O Codex e o OpenCode mantêm raízes nativas diferentes. Por isso, uma skill disponível em `%USERPROFILE%\.codex\skills` pode não aparecer automaticamente no DANTE/OpenCode.
@@ -20,13 +22,13 @@ Use uma sessão normal do usuário. Não use `sudo`, `su`, root nem PowerShell c
 macOS e Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FernandoBolzan/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/FernandoBolzan/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
 ```
 
 O bootstrap exige Node.js 18 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
@@ -54,7 +56,7 @@ npm uninstall -g @iapro/orquestrador-maestro-cli
 rm -rf -- "$HOME/.orquestrador" "$HOME/.orquestrador-public-backups"
 
 # 5. Faça uma instalação limpa e verifique o resultado.
-curl -fsSL https://raw.githubusercontent.com/FernandoBolzan/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
 orquestrador-maestro verify
 ```
 

@@ -113,7 +113,13 @@ count_files() {
   find "$path" -maxdepth 1 -type f | wc -l | tr -d ' '
 }
 
-ORQUESTRADOR="$HOME_PATH/.orquestrador"
+if [ -d "$HOME_PATH/.orquestrador-maestro" ]; then
+  ORQUESTRADOR="$HOME_PATH/.orquestrador-maestro"
+else
+  ORQUESTRADOR="$HOME_PATH/.orquestrador"
+fi
+MAESTRO_REFERENCE=".orquestrador-maestro"
+if [ "$(basename "$ORQUESTRADOR")" = ".orquestrador" ]; then MAESTRO_REFERENCE=".orquestrador"; fi
 CODEX="$HOME_PATH/.codex"
 INSTALL_POLICY="$ORQUESTRADOR/SKILL_INSTALL_POLICY.json"
 NATIVE_ROOT_SPECS=(
@@ -235,7 +241,7 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
   assert_file_contains "$HOME_PATH/.ai-standards/core/rules.md" "DEV/WORKLOG\\.md" "Antigravity AI standards rules"
 
   HOOK_CHECKS=(
-    "$HOME_PATH/.orquestrador/hooks.md|80|Orquestrador hooks profile"
+    "$ORQUESTRADOR/hooks.md|80|Orquestrador hooks profile"
     "$HOME_PATH/.opencode/hooks.md|30|OpenCode hooks profile"
     "$HOME_PATH/.claude/hooks.md|20|Claude hooks profile"
     "$HOME_PATH/.cursor/hooks.md|20|Cursor hooks profile"
@@ -252,10 +258,10 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
 
   OPENCODE_CONFIG="$HOME_PATH/.config/opencode/opencode.json"
   if [ -f "$OPENCODE_CONFIG" ]; then
-    if ! grep -q "~/.orquestrador/rules.md" "$OPENCODE_CONFIG"; then
+    if ! grep -q "~/$MAESTRO_REFERENCE/rules.md" "$OPENCODE_CONFIG"; then
       add_issue "OpenCode global config does not include Orquestrador rules: $OPENCODE_CONFIG"
     fi
-    if ! grep -q "~/.orquestrador/maestro.md" "$OPENCODE_CONFIG"; then
+    if ! grep -q "~/$MAESTRO_REFERENCE/maestro.md" "$OPENCODE_CONFIG"; then
       add_issue "OpenCode global config does not include Orquestrador maestro: $OPENCODE_CONFIG"
     fi
   fi

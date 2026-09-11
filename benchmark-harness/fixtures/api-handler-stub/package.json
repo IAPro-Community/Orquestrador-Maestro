@@ -1,0 +1,6 @@
+{
+  "name": "api-handler-stub",
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

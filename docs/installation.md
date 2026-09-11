@@ -1,6 +1,18 @@
-# Guia De Instalação
+# Guia de instalação
 
-Este guia é para quem baixou o repositório e quer instalar o Orquestrador no próprio usuário do Windows, Linux ou macOS.
+Instale o Maestro no seu usuário e passe a usar o mesmo processo em ferramentas de IA compatíveis. A instalação não inclui modelos, logins ou credenciais: ela prepara regras, skills e pontos de entrada.
+
+## Caminho mais curto
+
+Com Node.js 18 ou superior:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@latest
+orquestrador-maestro install
+orquestrador-maestro verify
+```
+
+Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue neste guia. Depois de instalar, use o [guia operacional para IAs](ai-agent-operating-guide.md).
 
 ## Pré-Requisitos
 
@@ -25,7 +37,7 @@ bash install.sh --dry-run
 ### Windows
 
 ```powershell
-git clone https://github.com/FernandoBolzan/Orquestrador-Maestro.git
+git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -33,7 +45,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ### Linux/macOS
 
 ```bash
-git clone https://github.com/FernandoBolzan/Orquestrador-Maestro.git
+git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 bash install.sh
 ```

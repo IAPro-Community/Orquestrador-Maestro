@@ -21,6 +21,10 @@ const { createBridge, createStdioServer, runtimePaths, startSocketRuntime } = re
 const { SocketMaestroClient } = require(path.join(rootDir, "runtime", "client", "socket-maestro-client"));
 const { createProtocolV2Server } = require(path.join(rootDir, "runtime", "protocol", "protocol-v2"));
 const { startTui } = require(path.join(rootDir, "runtime", "tui"));
+const { resolveMaestroRoot } = require(path.join(rootDir, "runtime", "config", "maestro-paths"));
+const { loadGovernanceConfig, writeGovernanceConfig } = require(path.join(rootDir, "runtime", "governance", "compatibility"));
+const { loadInteractionCatalog, resolveInteractionProfile, setInteractionProfile, resetInteractionProfile } = require(path.join(rootDir, "runtime", "interaction"));
+const { formatStatus, resolveStatus } = require(path.join(rootDir, "runtime", "status"));
 const { listSupportedTools, getToolDefinition, isSupportedTool, resolveToolConfigPaths } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
 const { DETECTION_STATES, detectTool, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
 const installState = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
@@ -70,6 +74,9 @@ Uso:
   orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
   orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro tui [--project-path PATH] [--classic]
+  orquestrador-maestro governance <status|set> [opcoes]
+  orquestrador-maestro interaction <list|get|set|reset> [opcoes]
+  orquestrador-maestro status [--json] [--task-id ID] [--lockfile PATH] [--project-path PATH]
   orquestrador-maestro projects|missions|terminal|providers|skills [opcoes]
   orquestrador-maestro memory record [--project PATH] --type TYPE --summary TEXT [opcoes]
   orquestrador-maestro memory search [--project PATH] [--search TEXT] [--type TYPE] [--verified] [--unverified]
@@ -81,8 +88,8 @@ Uso:
   orquestrador-maestro memory cleanup [--project PATH]
   orquestrador-maestro benchmark list
   orquestrador-maestro benchmark run [--scenario ID] [--condition CONDITION]
-  orquestrador-maestro benchmark real
-  orquestrador-maestro benchmark ai-real [--claude] [--openai]
+  orquestrador-maestro benchmark validate <scenario>
+  orquestrador-maestro benchmark run [scenario] [opcoes]
   orquestrador-maestro run [--provider ID] [--profile ID] [--policy ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
@@ -121,7 +128,7 @@ Uso:
 
 Opcoes de install/update/uninstall:
   --home-path <path>          Instala em outro home para teste
-  --core-only                 Instala somente .orquestrador e AGENTS.md
+  --core-only                 Instala somente .orquestrador-maestro e AGENTS.md
   --only <component>          Limita a um componente: core, codex, agents,
                               claude, opencode, cursor, gemini, windsurf,
                               antigravity
@@ -386,7 +393,7 @@ async function runInstall(args, injectedFlags = []) {
 
   if (!isNonInteractive && !isAllTargets && !hasOnly && process.stdin.isTTY) {
     const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
-    const orquestradorDir = path.join(homePath, ".orquestrador");
+    const orquestradorDir = resolveMaestroRoot({ home: homePath });
     const detections = detectAllTools(homePath);
     const state = installState.readState(orquestradorDir) || installState.getDefaultState();
 
@@ -553,11 +560,6 @@ function runToolAdapters(args) {
   return run(process.execPath, [script, ...args], { cwd: process.cwd() });
 }
 
-function resolveProjectPath(explicitProject) {
-  if (explicitProject) return explicitProject;
-  return process.cwd();
-}
-
 function runMemoryCommand(args) {
   const memory = new Memory();
   const [subcommand = "help", ...rest] = args;
@@ -698,53 +700,33 @@ function extractPositionalArg(args, knownFlags) {
   return null;
 }
 
+function resolveBenchmarkScenario(value) {
+  if (!value || value.includes(path.sep) || value.includes("/") || value.endsWith(".json") || value.includes("..")) return value;
+  return path.join(rootDir, "benchmark-harness", "scenarios", `${value}.json`);
+}
+
 function runBenchmarkCommand(args) {
   const [subcommand = "list", ...rest] = args;
-  const runner = require(path.join(rootDir, "benchmarks", "runner.js"));
-  const benchmarkRunner = new runner.BenchmarkRunner();
-
-  if (subcommand === "list") {
-    const scenarios = benchmarkRunner.listScenarios();
-    console.log(JSON.stringify(scenarios, null, 2));
-    return 0;
+  if (subcommand === "real" || subcommand === "ai-real") throw new Error("Os benchmarks legados foram removidos; use `benchmark run` com o harness v2.");
+  const forwarded = [subcommand];
+  if (subcommand === "list" && !rest.some((arg) => arg === "--dir" || arg.startsWith("--dir="))) {
+    forwarded.push("--dir", path.join(rootDir, "benchmark-harness", "scenarios"));
   }
-
   if (subcommand === "run") {
-    const scenarioId = getArg(rest, "--scenario");
-    const condition = getArg(rest, "--condition") || "vanilla";
-    if (!scenarioId) {
-      const scenarios = benchmarkRunner.listScenarios();
-      console.log(JSON.stringify({ scenarios, conditions: ["vanilla", "maestro-core", "maestro-memory"] }, null, 2));
-      return 0;
+    const scenario = getArg(rest, "--scenario");
+    const condition = getArg(rest, "--condition");
+    if (scenario) forwarded.push("--scenario", resolveBenchmarkScenario(scenario));
+    for (let index = 0; index < rest.length; index += 1) {
+      if (rest[index] === "--scenario" || rest[index] === "--condition") { index += 1; continue; }
+      forwarded.push(rest[index]);
     }
-    return benchmarkRunner.runScenario(scenarioId, condition, 1).then(result => {
-      console.log(JSON.stringify(result, null, 2));
-      return 0;
-    });
-  }
-
-  if (subcommand === "real") {
-    const { RealBenchmarkRunner } = require(path.join(rootDir, "benchmarks", "real-benchmark.js"));
-    const realRunner = new RealBenchmarkRunner();
-    const results = realRunner.runAll();
-    const report = realRunner.generateReport(results);
-    console.log(JSON.stringify(report, null, 2));
-    return 0;
-  }
-
-  if (subcommand === "ai-real") {
-    const { RealAIBenchmark } = require(path.join(rootDir, "benchmarks", "real-ai-benchmark.js"));
-    const providers = [];
-    if (rest.includes("--claude")) providers.push("claude");
-    if (rest.includes("--openai")) providers.push("openai");
-    if (providers.length === 0) throw new Error("Informe --claude ou --openai; este comando usa APIs reais e pode gerar custos.");
-    return new RealAIBenchmark().runAll(providers).then((results) => {
-      console.log(JSON.stringify(results, null, 2));
-      return 0;
-    });
-  }
-
-  throw new Error(`Unknown benchmark subcommand: ${subcommand}`);
+    if (condition) forwarded.push("--condition", condition);
+  } else if (subcommand === "validate") {
+    const scenario = rest.find((arg) => !arg.startsWith("--"));
+    if (scenario) forwarded.push("--scenario", resolveBenchmarkScenario(scenario));
+    forwarded.push(...rest.filter((arg, index) => !(arg === scenario && index === rest.indexOf(scenario))));
+  } else forwarded.push(...rest);
+  return run(process.execPath, ["--import", "tsx", path.join(rootDir, "benchmark-harness", "src", "cli", "index.ts"), ...forwarded], { cwd: rootDir });
 }
 
 function parseRuntimeArgs(args, allowed = [], booleanFlags = []) {
@@ -765,6 +747,33 @@ function parseRuntimeArgs(args, allowed = [], booleanFlags = []) {
     index += 1;
   }
   return options;
+}
+
+function handleGovernanceCommand(args) {
+  const [subcommand = "status", ...rest] = args;
+  const options = parseRuntimeArgs(rest, ["--project-path", "--mode", "--warning-frequency", "--hooks", "--missing-verification", "--missing-evidence"]);
+  if (options.values.length > 0 || !["status", "set"].includes(subcommand)) {
+    throw new Error("Uso: maestro governance <status|set> [--project-path PATH] [--mode compatibility|strict]");
+  }
+  const cwd = path.resolve(options.projectPath);
+  if (subcommand === "status") {
+    const loaded = loadGovernanceConfig({ cwd });
+    console.log(JSON.stringify({ ...loaded.config, source: loaded.source, projectRoot: cwd }, null, 2));
+    return 0;
+  }
+  const patch = {};
+  if (options.mode) patch.mode = options.mode;
+  if (options.warningFrequency) patch.warningFrequency = options.warningFrequency;
+  if (options.missingVerification) patch.checks = { ...(patch.checks || {}), missingVerification: options.missingVerification };
+  if (options.missingEvidence) patch.checks = { ...(patch.checks || {}), missingEvidence: options.missingEvidence };
+  if (options.hooks) {
+    if (!["on", "off", "true", "false"].includes(options.hooks)) throw new Error("--hooks aceita on, off, true ou false");
+    patch.hooks = { enabled: ["on", "true"].includes(options.hooks) };
+  }
+  if (Object.keys(patch).length === 0) throw new Error("Informe ao menos uma configuração para alterar.");
+  const written = writeGovernanceConfig({ cwd, patch });
+  console.log(JSON.stringify({ ...written.config, path: written.path }, null, 2));
+  return 0;
 }
 
 async function createRuntimeApplication(projectPath) {
@@ -800,15 +809,36 @@ async function handleRunCommand(args) {
     if (!cancelled) throw new Error(`Run ativo nao encontrado: ${runId}`);
     console.log(`Cancelamento solicitado para ${runId}.`); return 0;
   }
-  const options = parseRuntimeArgs(args, ["--provider", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox"]);
+  const options = parseRuntimeArgs(args, ["--provider", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox", "--interaction"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error("Informe a tarefa: maestro run [opcoes] \"tarefa\"");
   const outcome = await (await createRuntimeApplication(options.projectPath)).executeRun({
     description, providerId: options.provider, profileId: options.profile, policyId: options.policy,
-    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent, sandbox: options.sandbox
+    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent, sandbox: options.sandbox, interactionProfile: options.interaction
   });
   console.log(JSON.stringify({ run: outcome.run, verification: outcome.verification, changes: outcome.changes }, null, 2));
   return outcome.run.status === "completed" ? 0 : 1;
+}
+
+function handleInteractionCommand(args) {
+  const [subcommand = "get", ...rest] = args;
+  const options = parseRuntimeArgs(rest, ["--project-path", "--scope", "--interaction"]);
+  const cwd = path.resolve(options.projectPath); const catalog = loadInteractionCatalog();
+  if (subcommand === "list") { if (options.values.length) throw new Error("list não aceita argumentos"); console.log(JSON.stringify(catalog, null, 2)); return 0; }
+  if (subcommand === "get") { if (options.values.length) throw new Error("get não aceita argumentos"); console.log(JSON.stringify(resolveInteractionProfile({ cwd }), null, 2)); return 0; }
+  const scope = options.scope || "project";
+  if (subcommand === "set") { if (options.values.length > 1) throw new Error("Informe somente um profile"); const id = options.values[0] || options.interaction; if (!id) throw new Error("Informe o profile: default|focus"); console.log(JSON.stringify(setInteractionProfile({ cwd, id, scope }), null, 2)); return 0; }
+  if (subcommand === "reset") { if (options.values.length) throw new Error("reset não aceita profile"); console.log(JSON.stringify(resetInteractionProfile({ cwd, scope }), null, 2)); return 0; }
+  throw new Error("Subcomando de interaction desconhecido: " + subcommand);
+}
+
+async function handleStatusCommand(args) {
+  const options = parseRuntimeArgs(args, ["--project-path", "--task-id", "--lockfile"], ["--json"]);
+  if (options.values.length) throw new Error("Uso: maestro status [--json] [--task-id ID] [--lockfile PATH]");
+  const projectRoot = path.resolve(options.projectPath); const app = await createRuntimeApplication(projectRoot);
+  const status = await resolveStatus({ projectRoot, taskId: options.taskId, lockfile: options.lockfile, application: app });
+  console.log(options.json ? JSON.stringify(status, null, 2) : formatStatus(status));
+  return 0;
 }
 
 async function handleRunsCommand(args) {
@@ -1419,7 +1449,7 @@ function handleVersionCommand(args) {
 }
 
 async function handleGoCommand(args, planningOnly = false) {
-  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--interviewer", "--max-cost", "--max-parallel"], ["--auto", "--plan"]);
+  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--interviewer", "--max-cost", "--max-parallel", "--profile", "--interaction"], ["--auto", "--plan"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error('Informe a intenção: orquestrador-maestro go "tarefa"');
 
@@ -1638,7 +1668,7 @@ async function handleGoCommand(args, planningOnly = false) {
   // Fase 5: Execução
   updateTitle("Executando tarefas...");
   const mission = await app.createMission({ workspacePath, objective: spec.answers?.intent || description, status: "running", startedAt: new Date().toISOString() });
-  const executor = new LaneExecutor({ application: app, maxParallel: parseInt(options.maxParallel, 10) || 3 });
+  const executor = new LaneExecutor({ application: app, maxParallel: parseInt(options.maxParallel, 10) || 3, executionProfile: options.profile, interactionProfile: options.interaction });
   const { TaskLifecycleMonitor } = require(path.join(rootDir, "runtime", "planner", "task-lifecycle-monitor"));
   const lifecycleMonitor = TaskLifecycleMonitor.attach({ executor, app, graphs, store: app.store });
 
@@ -1735,7 +1765,7 @@ function handleTargetsCommand(args) {
   };
 
   const homePath = getHomePath();
-  const orquestradorDir = path.join(homePath, ".orquestrador");
+  const orquestradorDir = resolveMaestroRoot({ home: homePath });
 
   const normalizeManagedPath = (value) => {
     if (typeof value !== "string" || value.length === 0 || value.includes("\0")) return null;
@@ -2262,21 +2292,6 @@ async function dispatch(command, args) {
   if (command === "version") {
     return handleVersionCommand(args);
   }
-  if (command === "install") {
-    return runInstall(args);
-  }
-
-  if (command === "update") {
-    if (args.includes("--dry-run") || args.includes("--list-targets")) {
-      return runInstall(args);
-    }
-    const childResult = runCliUpdate(args);
-    if (childResult) {
-      if (childResult.error) throw childResult.error;
-      return typeof childResult.status === "number" ? childResult.status : 1;
-    }
-    return runInstall(args);
-  }
   if (command === "uninstall") {
     return await runInstall(args, ["--uninstall"]);
   }
@@ -2322,6 +2337,9 @@ async function dispatch(command, args) {
   if (command === "providers") return handleProvidersCommand(args);
   if (command === "bridge") return handleBridgeCommand(args);
   if (command === "runtime") return handleRuntimeCommand(args);
+  if (command === "governance") return handleGovernanceCommand(args);
+  if (command === "interaction") return handleInteractionCommand(args);
+  if (command === "status") return handleStatusCommand(args);
 
   if (command === "memory") {
     if (args.includes("--help") || args.includes("-h")) {

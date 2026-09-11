@@ -1,0 +1,9 @@
+node_modules
+.git
+dist
+evidence
+*.md
+!docker/*.md
+.env
+.env.*
+!docker/.env.example

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "defaultProfile": "default",
+  "profiles": {
+    "default": {
+      "leadWithAction": false,
+      "showProgress": true,
+      "showCompletionEvidence": true,
+      "maxVisibleItems": 8,
+      "suppressTangents": false,
+      "nextAction": "when-relevant",
+      "errorFormat": "standard",
+      "timeEstimate": "disabled"
+    },
+    "focus": {
+      "leadWithAction": true,
+      "showProgress": true,
+      "showCompletionEvidence": true,
+      "maxVisibleItems": 5,
+      "suppressTangents": true,
+      "nextAction": "when-required",
+      "errorFormat": "cause-fix",
+      "timeEstimate": "telemetry-only"
+    }
+  }
+}

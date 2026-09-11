@@ -1,5 +1,7 @@
 # Workflows declarativos
 
+Use workflows declarativos quando uma tarefa precisa sobreviver a várias fases, sessões ou aprovações humanas. Para uma alteração comum, o processo padrão do Maestro continua mais leve.
+
 O Orquestrador Maestro agora possui contratos opt-in para trabalhos que precisam de mais estrutura do que um fluxo direto. O perfil `phase-loop` organiza a execução em `discuss`, `plan`, `execute`, `verify` e `ship`, mantendo a experiência padrão intacta.
 
 ## Quando usar

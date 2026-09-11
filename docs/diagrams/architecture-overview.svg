@@ -150,5 +150,5 @@
   <text x="280" y="440" fill="#67e8f9" font-size="8">DEV/</text>
 
   <!-- Footer -->
-  <text x="450" y="580" text-anchor="middle" fill="#475569" font-size="10">Zero dependencies • Node.js standard library only • 193 tests passing</text>
+  <text x="450" y="580" text-anchor="middle" fill="#475569" font-size="10">Arquitetura em evolução — consulte os testes e a documentação atual</text>
 </svg>

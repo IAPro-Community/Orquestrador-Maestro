@@ -74,13 +74,24 @@ fi
 mkdir -p "$HOME_PATH"
 HOME_PATH="$(CDPATH= cd -- "$HOME_PATH" && pwd -P)"
 
+if [ -d "$HOME_PATH/.orquestrador-maestro" ]; then
+  MAESTRO_ROOT="$HOME_PATH/.orquestrador-maestro"
+else
+  MAESTRO_ROOT="$HOME_PATH/.orquestrador"
+fi
+
 resolve_home_relative() {
   local rel="$1"
   rel="${rel//\\//}"
+  if [[ "$rel" == .orquestrador/* ]]; then
+    rel="${rel#\.orquestrador/}"
+    printf '%s/%s\n' "$MAESTRO_ROOT" "$rel"
+    return 0
+  fi
   printf '%s/%s\n' "$HOME_PATH" "$rel"
 }
 
-POLICY_PATH="$HOME_PATH/.orquestrador/SKILL_INSTALL_POLICY.json"
+POLICY_PATH="$MAESTRO_ROOT/SKILL_INSTALL_POLICY.json"
 COMMUNITY_LIBRARY="$(resolve_home_relative ".orquestrador/skill-library/community-skills")"
 CODEX_LIBRARY="$(resolve_home_relative ".orquestrador/skill-library/codex-skills")"
 DISABLED_NATIVE_ROOT="$(resolve_home_relative ".orquestrador/skill-library/disabled-native")"
@@ -137,7 +148,7 @@ if [ -f "$POLICY_PATH" ] && command -v node >/dev/null 2>&1; then
 fi
 
 CANONICAL_SOURCES=(
-  "$HOME_PATH/.orquestrador/skills"
+  "$MAESTRO_ROOT/skills"
   "$HOME_PATH/.global-skills"
   "$COMMUNITY_LIBRARY"
   "$HOME_PATH/.codex/skills"
@@ -163,7 +174,7 @@ filter_existing_dirs_into() {
 filter_existing_dirs_into CANONICAL_SOURCES "${CANONICAL_SOURCES[@]}"
 filter_existing_dirs_into CODEX_MANAGED_SOURCES "${CODEX_MANAGED_SOURCES[@]}"
 
-MANIFEST="$HOME_PATH/.orquestrador/SKILLS_MANIFEST.json"
+MANIFEST="$MAESTRO_ROOT/SKILLS_MANIFEST.json"
 if [ -f "$MANIFEST" ] && command -v node >/dev/null 2>&1; then
   MUST_HAVE=()
   while IFS= read -r skill_name; do

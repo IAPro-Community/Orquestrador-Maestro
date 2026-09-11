@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="260" viewBox="0 0 920 260" role="img" aria-labelledby="title desc">
+  <title id="title">Fluxo da governança compatível do Maestro</title>
+  <desc id="desc">O CLI nativo continua executando. O Maestro observa e recomenda, e só bloqueia riscos críticos ou o modo strict.</desc>
+  <defs>
+    <style>
+      .box { fill: #f7f4ed; stroke: #193c3c; stroke-width: 2; }
+      .accent { fill: #d7eee4; stroke: #193c3c; stroke-width: 2; }
+      .warn { fill: #fff0c7; stroke: #8a5a00; stroke-width: 2; }
+      text { font-family: Arial, sans-serif; fill: #193c3c; }
+      .label { font-size: 17px; font-weight: 700; }
+      .small { font-size: 13px; }
+      line { stroke: #193c3c; stroke-width: 2; }
+    </style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#193c3c"/></marker>
+  </defs>
+  <rect class="box" x="24" y="84" width="180" height="90" rx="12"/>
+  <text class="label" x="114" y="119" text-anchor="middle">CLI favorito</text>
+  <text class="small" x="114" y="144" text-anchor="middle">Codex, Claude, etc.</text>
+  <line x1="204" y1="129" x2="272" y2="129" marker-end="url(#arrow)"/>
+  <rect class="accent" x="272" y="64" width="210" height="130" rx="12"/>
+  <text class="label" x="377" y="104" text-anchor="middle">Maestro</text>
+  <text class="small" x="377" y="130" text-anchor="middle">observa + recomenda</text>
+  <text class="small" x="377" y="153" text-anchor="middle">sem trocar o tom</text>
+  <line x1="482" y1="129" x2="550" y2="129" marker-end="url(#arrow)"/>
+  <rect class="box" x="550" y="84" width="180" height="90" rx="12"/>
+  <text class="label" x="640" y="119" text-anchor="middle">Execução nativa</text>
+  <text class="small" x="640" y="144" text-anchor="middle">modelo sob controle do usuário</text>
+  <line x1="730" y1="129" x2="798" y2="129" marker-end="url(#arrow)"/>
+  <rect class="warn" x="798" y="84" width="100" height="90" rx="12"/>
+  <text class="label" x="848" y="119" text-anchor="middle">Gate</text>
+  <text class="small" x="848" y="143" text-anchor="middle">crítico?</text>
+</svg>

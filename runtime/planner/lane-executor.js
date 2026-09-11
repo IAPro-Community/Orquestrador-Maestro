@@ -1,6 +1,7 @@
 "use strict";
 
 const EventEmitter = require("node:events");
+const { isScopeExecutionEligible } = require("../governance/change-governance");
 
 /**
  * Executa tarefas paralelamente respeitando restrições de dependências
@@ -11,10 +12,12 @@ const EventEmitter = require("node:events");
  * conclui quando não há mais tarefas pendentes nem em execução.
  */
 class LaneExecutor extends EventEmitter {
-  constructor({ application, maxParallel = 3 }) {
+  constructor({ application, maxParallel = 3, interactionProfile, executionProfile } = {}) {
     super();
     this.app = application;
     this.maxParallel = maxParallel;
+    this.interactionProfile = interactionProfile;
+    this.executionProfile = executionProfile;
   }
 
   async execute(tasks, missionId) {
@@ -61,10 +64,20 @@ class LaneExecutor extends EventEmitter {
           if (nextIndex === -1) break; // No tasks ready
 
           const task = pending.splice(nextIndex, 1)[0];
+          const semanticTask = task.semanticMetadata && typeof task.semanticMetadata === "object"
+            ? task.semanticMetadata
+            : task;
+          if (!isScopeExecutionEligible(semanticTask)) {
+            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`);
+            continue;
+          }
           running.add(task.id);
 
           this.emit("task.started", task);
 
+          const executionOptions = ["fast", "standard", "deep", "security", "multiagent"].includes(this.executionProfile)
+            ? { policyId: this.executionProfile }
+            : this.executionProfile ? { profileId: this.executionProfile } : {};
           this.app.executeRun({
             description: task.description,
             providerId: task.provider,
@@ -72,7 +85,10 @@ class LaneExecutor extends EventEmitter {
             skills: task.skills,
             projectId,
             missionId,
-            semanticTaskId: task.id
+            semanticTaskId: task.id,
+            semanticTask,
+            ...executionOptions,
+            interactionProfile: this.interactionProfile
           })
             .then((result) => {
               results[task.id] = { status: "completed", result };
@@ -84,9 +100,22 @@ class LaneExecutor extends EventEmitter {
             })
             .finally(() => {
               running.delete(task.id);
-              checkNext();
-            });
+              try { checkNext(); } catch (err) { reject(err); }
+          });
         }
+
+        if (pending.length > 0 && running.size === 0) {
+          const hasFailedDependency = pending.some((task) =>
+            (task.dependsOn || []).some((dep) => failed.has(dep))
+          );
+          if (hasFailedDependency) return checkNext();
+
+          for (const task of pending.splice(0)) {
+            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`);
+          }
+        }
+
+        if (pending.length === 0 && running.size === 0) resolve(results);
       };
 
       checkNext();

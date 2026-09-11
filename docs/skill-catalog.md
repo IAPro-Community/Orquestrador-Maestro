@@ -1,5 +1,7 @@
 # Catálogo De Skills
 
+Use o catálogo para descobrir capacidades depois de o roteador indicar uma direção. No trabalho cotidiano, a IA deve consultar o índice e abrir somente a skill relevante.
+
 Este catálogo é gerado a partir dos arquivos `SKILL.md` publicados no repositório sanitizado. Ele ajuda uma IA ou usuário humano a descobrir o que existe sem precisar abrir centenas de pastas manualmente.
 
 Regra de uso: escolha primeiro pelo roteador em `orquestrador/SKILLS_ROUTER.json`; abra o `SKILL.md` completo somente da skill selecionada e dos arquivos referenciados diretamente por ela.

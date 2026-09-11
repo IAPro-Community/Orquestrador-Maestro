@@ -1,0 +1,98 @@
+name: Official Benchmark Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Model to benchmark"
+        required: true
+        default: "anthropic/claude-sonnet-4-20250514"
+        type: string
+      runs:
+        description: "Number of runs per scenario"
+        required: true
+        default: 10
+        type: number
+      profile:
+        description: "Benchmark profile"
+        required: true
+        default: "official"
+        type: choice
+        options:
+          - official
+          - ci
+      filter:
+        description: "Filter scenarios by type (bug, feature, refactor, investigation, migration)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  benchmark:
+    name: Run Official Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: benchmark-harness
+        run: npm ci
+
+      - name: Preflight check
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts preflight
+
+      - name: Run benchmark suite
+        working-directory: benchmark-harness
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          FILTER_FLAG=""
+          if [ -n "${{ inputs.filter }}" ]; then
+            FILTER_FLAG="--filter ${{ inputs.filter }}"
+          fi
+          npx tsx src/cli/index.ts suite \
+            --profile ${{ inputs.profile }} \
+            --model ${{ inputs.model }} \
+            --runs ${{ inputs.runs }} \
+            $FILTER_FLAG
+
+      - name: Generate report
+        working-directory: benchmark-harness
+        run: |
+          RUN_SET=$(date +%Y%m%d-%H%M%S)
+          mkdir -p results
+          npx tsx src/cli/index.ts report "$RUN_SET" --format markdown > results/summary-${RUN_SET}.md
+          npx tsx src/cli/index.ts report "$RUN_SET" --format json > results/summary-${RUN_SET}.json
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: benchmark-harness/results/
+          retention-days: 30
+
+      - name: Post summary
+        if: always()
+        working-directory: benchmark-harness
+        run: |
+          RUN_SET=$(date +%Y%m%d-%H%M%S)
+          SUMMARY_FILE="results/summary-${RUN_SET}.md"
+          if [ -f "$SUMMARY_FILE" ]; then
+            echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Benchmark Run Completed" >> $GITHUB_STEP_SUMMARY
+            echo "Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
+          fi

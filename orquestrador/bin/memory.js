@@ -35,7 +35,10 @@ const PROMPT_INJECTION_PATTERNS = [
 
 class Memory {
   constructor(options = {}) {
-    this.baseDir = options.baseDir || process.env.ORQUESTRADOR_MAESTRO_MEMORY_DIR || path.join(os.homedir(), ".orquestrador", "memory");
+    const canonicalRoot = path.join(os.homedir(), ".orquestrador-maestro");
+    const legacyRoot = path.join(os.homedir(), ".orquestrador");
+    const maestroRoot = fs.existsSync(canonicalRoot) ? canonicalRoot : legacyRoot;
+    this.baseDir = options.baseDir || process.env.ORQUESTRADOR_MAESTRO_MEMORY_DIR || path.join(maestroRoot, "memory");
     this.schemaVersion = 1;
     this.capturePolicy = options.capturePolicy || new CapturePolicy();
   }
@@ -189,7 +192,8 @@ class Memory {
   }
 
   writeAtomic(filePath, content) {
-    const tmpPath = `${filePath}.tmp.${Date.now()}`;
+    const crypto = require("node:crypto");
+    const tmpPath = `${filePath}.tmp.${Date.now()}.${crypto.randomBytes(4).toString("hex")}`;
     fs.writeFileSync(tmpPath, content, { encoding: "utf8", mode: 0o600 });
     try {
       fs.renameSync(tmpPath, filePath);

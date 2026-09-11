@@ -1,0 +1,31 @@
+{
+  "id": "investigate-performance",
+  "name": "Investigate Data Service Query Patterns",
+  "description": "Analyze dataService.js for query efficiency and missing edge cases",
+  "task": "Analyze src/dataService.js and identify any inefficiencies, missing edge cases, or potential bugs. Document your findings in an INVESTIGATION.md file. Pay attention to: null handling, filter efficiency, and missing validation. Then fix any issues you find in the code.",
+  "fixture": {
+    "path": "../fixtures/investigate-performance"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "node -e "process.exit(0)"",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "investigation-complete",
+        "command": "node --test test/hidden.test.js",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["investigation", "performance", "analysis"]
+}

@@ -1,0 +1,21 @@
+FROM node:20-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git \
+      ca-certificates \
+      curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g opencode@latest
+
+RUN groupadd -r agent && useradd -r -g agent -m -s /bin/bash agent
+
+WORKDIR /workspace
+
+COPY docker/entrypoint-agent.sh /usr/local/bin/entrypoint-agent.sh
+RUN chmod +x /usr/local/bin/entrypoint-agent.sh
+
+USER agent
+
+ENTRYPOINT ["entrypoint-agent.sh"]

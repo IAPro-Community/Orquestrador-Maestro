@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { runtimePaths } = require("../bridge/socket-server");
+const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
 
 function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
@@ -49,7 +50,7 @@ function createProjectRuntimeOwnership(projectRoot, options = {}) {
   if (typeof projectRoot !== "string" || projectRoot.trim() === "") throw new TypeError("projectRoot must be a non-empty string");
   const resolvedRoot = path.resolve(projectRoot);
   const paths = runtimePaths(resolvedRoot);
-  const storeFile = path.resolve(options.storeFile || path.join(resolvedRoot, ".orquestrador", "runtime", "runs.json"));
+  const storeFile = path.resolve(options.storeFile || path.join(resolveProjectMaestroRoot(resolvedRoot), "runtime", "runs.json"));
   return deepFreeze({
     topology: "per-project",
     projectRoot: resolvedRoot,

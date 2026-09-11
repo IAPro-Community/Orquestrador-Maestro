@@ -149,6 +149,9 @@ class PlanRevisionCompiler {
       requiredCapabilities: t.requiredCapabilities || [],
       complexity: t.complexity || "medium",
       risk: t.risk || "low",
+      changeClass: t.changeClass || undefined,
+      scopeClassification: t.scopeClassification || "IN_SCOPE",
+      scopeJustification: t.scopeJustification || "",
       sourceRequirements: t.sourceRequirements || [],
       planningReason: t.planningReason || "",
       dependencyReasons: t.dependencyReasons || {}

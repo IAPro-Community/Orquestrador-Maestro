@@ -1,5 +1,7 @@
 # Fluxo De Atualização
 
+Este é o guia de manutenção do snapshot público. Ele existe para manter o projeto instalável e sanitizado; usuários finais normalmente devem seguir a instalação ou atualização pela CLI.
+
 ## Fonte Da Verdade
 
 Edite primeiro a instalação local:

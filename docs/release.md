@@ -1,5 +1,7 @@
 # Release
 
+Este guia é para mantenedores que publicam uma versão. Ele mantém releases rastreáveis e reversíveis; não é necessário para instalar ou usar o Maestro.
+
 O release estável segue um único contrato: a versão do `package.json`, do `package-lock.json` e do `CHANGELOG.md` deve ser igual à tag anotada `vX.Y.Z`.
 
 ## Fluxo do mantenedor

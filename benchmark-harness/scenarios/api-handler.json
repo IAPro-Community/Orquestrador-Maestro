@@ -1,0 +1,38 @@
+{
+  "id": "api-handler",
+  "name": "REST API Handler",
+  "description": "Agent must implement a correct REST API handler with validation",
+  "task": "Create a file called handler.ts that exports a function handleRequest(input: {method: string, path: string, body?: any}): {status: number, body: any} that implements: GET /health returns {status: 200, body: {ok: true}}, POST /users with {name: string} returns {status: 201, body: {id: 1, name}}, GET /users/:id returns {status: 200, body: {id: <number>}}, any other route returns {status: 404}.",
+  "fixture": {
+    "path": "../fixtures/api-handler-stub"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "node -e "process.exit(0)"",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "build",
+        "name": "typescript-compiles",
+        "command": "npx tsc handler.ts --noEmit --esModuleInterop --module commonjs --moduleResolution node",
+        "timeout": 30
+      },
+      {
+        "type": "hidden_tests",
+        "name": "api-handler-correctness",
+        "command": "node -e \"const h=require('./handler.js'); const tests=[[{method:'GET',path:'/health'},{status:200,body:{ok:true}}],[{method:'POST',path:'/users',body:{name:'Test'}},{status:201,body:{id:1,name:'Test'}}],[{method:'GET',path:'/users/42'},{status:200,body:{id:42}}],[{method:'GET',path:'/unknown'},{status:404}]]; let ok=true; tests.forEach(([i,e])=>{const r=h.handleRequest(i); if(JSON.stringify(r)!==JSON.stringify(e)){console.error('Expected '+JSON.stringify(e)+' got '+JSON.stringify(r)); ok=false}}); if(!ok)process.exit(1); console.log('PASS')\"",
+        "timeout": 10
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "model": "claude-sonnet-4-20250514",
+  "tags": ["medium", "api-handler", "validation"]
+}

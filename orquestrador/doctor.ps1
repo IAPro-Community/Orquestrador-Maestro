@@ -3,6 +3,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
+$legacyMaestroRoot = Join-Path $HomePath ".orquestrador"
+$script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
 
 function Test-FileMojibake {
   param([string]$Path)
@@ -159,7 +162,7 @@ function Get-DefaultInstallPolicy {
 
 function Get-InstallPolicy {
   param([string]$HomePath)
-  $path = Join-Path $HomePath ".orquestrador\SKILL_INSTALL_POLICY.json"
+  $path = Join-Path $script:MaestroRoot "SKILL_INSTALL_POLICY.json"
   if (Test-Path -LiteralPath $path) {
     try {
       return Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -181,7 +184,7 @@ function Add-RoutingIssue {
 
 function Get-OrchestratorRoutingHealth {
   param([string]$HomePath, [string]$CanonicalSkillsRoot)
-  $root = Join-Path $HomePath ".orquestrador"
+  $root = $script:MaestroRoot
   $docs = @(
     (Read-JsonDocument -Path (Join-Path $root "SKILLS_ROUTER.json") -Name "router"),
     (Read-JsonDocument -Path (Join-Path $root "SKILL_ALIASES.json") -Name "aliases"),
@@ -324,7 +327,7 @@ function Get-OrchestratorRoutingHealth {
 function Get-HookHealth {
   param([string]$HomePath)
   $specs = @(
-    @{ Program = "orquestrador"; Path = (Join-Path $HomePath ".orquestrador\hooks.md"); MaxLines = 80 },
+    @{ Program = "orquestrador"; Path = (Join-Path $script:MaestroRoot "hooks.md"); MaxLines = 80 },
     @{ Program = "opencode"; Path = (Join-Path $HomePath ".opencode\hooks.md"); MaxLines = 30 },
     @{ Program = "claude"; Path = (Join-Path $HomePath ".claude\hooks.md"); MaxLines = 20 },
     @{ Program = "cursor"; Path = (Join-Path $HomePath ".cursor\hooks.md"); MaxLines = 20 },
@@ -395,7 +398,7 @@ function Get-NativeSkillRootHealth {
   }
 }
 
-$entrypoints = Join-Path $HomePath ".orquestrador\PROGRAM_ENTRYPOINTS.json"
+$entrypoints = Join-Path $script:MaestroRoot "PROGRAM_ENTRYPOINTS.json"
 $map = Get-Content -LiteralPath $entrypoints -Raw -Encoding UTF8 | ConvertFrom-Json
 
 $rows = New-Object System.Collections.Generic.List[object]
@@ -440,7 +443,7 @@ $omx = @("state-server.js","memory-server.js","code-intel-server.js","trace-serv
   [pscustomobject]@{ Component = "omx"; Name = $_; Exists = Test-Path -LiteralPath (Join-Path $omxRoot $_) }
 }
 
-$canonicalSkillsRoot = Join-Path $HomePath ".orquestrador\skills"
+$canonicalSkillsRoot = Join-Path $script:MaestroRoot "skills"
 $skillMirrorTargets = @(
   (Join-Path $HomePath ".codex\skills"),
   (Join-Path $HomePath ".opencode\skills"),

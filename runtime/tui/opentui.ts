@@ -24,6 +24,8 @@ const { paletteModel, selectResult } = require("./commands/palette")
 const { explorerModel } = require("./views/skills-explorer")
 const { initialSkillsState, skillsReducer } = require("./skills/skills-state")
 const { resolveAction } = require("./shell/terminal-actions")
+const { resolveStatus } = require("../status")
+const { resolveInteractionProfile, setInteractionProfile } = require("../interaction")
 const { ScrollbackRing } = require("./shell/scrollback")
 const { projectTerminals } = require("./views/terminal-layouts")
 const { NORMAL_MODE, enterInput, exitInput } = require("./views/terminal-mouse")
@@ -104,6 +106,8 @@ async function main() {
   const scrollbacks = new Map<string, any>()
   const tuiStore = createTuiStore()
   const commands = createRegistry({ includeDefaults: false })
+  let interaction = resolveInteractionProfile({ cwd: workspacePath })
+  let progress: any = { status: "idle", interaction }
 
   const renderer = await createCliRenderer({ exitOnCtrlC: false, clearOnShutdown: true, useMouse: true, enableMouseMovement: true, targetFps: 30 })
   const layout = () => cockpitLayout(renderer.terminalWidth || process.stdout.columns || 120, renderer.terminalHeight || process.stdout.rows || 36, maximized)
@@ -169,6 +173,8 @@ async function main() {
   commands.register({ id: "view.close", title: "Fechar painel selecionado", category: "view", execute: () => enqueue(closeSelected) })
   commands.register({ id: "terminal.terminate", title: "Encerrar agente", category: "agent", tooltip: "Indisponível: runtime kill contract ausente.", availability: () => false, execute: () => { const session = currentSession(); if (session) return resolveAction("terminate_agent", { terminalId: session.id, runtimeSupportsKill: false }) } })
   commands.register({ id: "view.maximize", title: "Alternar painel maximizado", category: "view", execute: () => { maximized = !maximized; scheduleRefresh() } })
+  commands.register({ id: "interaction.default", title: "Usar interação default", category: "view", execute: () => { setInteractionProfile({ cwd: workspacePath, id: "default" }); interaction = resolveInteractionProfile({ cwd: workspacePath }); return scheduleRefresh("Interação default ativada.") } })
+  commands.register({ id: "interaction.focus", title: "Usar interação focus", category: "view", execute: () => { setInteractionProfile({ cwd: workspacePath, id: "focus" }); interaction = resolveInteractionProfile({ cwd: workspacePath }); return scheduleRefresh("Interação focus ativada.") } })
 
   function consumeRuntimeEntry(entry: any) {
     tuiStore.dispatch(normalizeEvent(entry))
@@ -229,6 +235,8 @@ async function main() {
       if (destroyed) return
       missions = results[0] as Mission[]; sessions = (results[1] as Session[]).filter((entry) => entry.backend === "pty" && !hiddenSessionIds.has(entry.id))
       skills = results[2] as any[]
+      interaction = resolveInteractionProfile({ cwd: workspacePath })
+      progress = await resolveStatus({ projectRoot: workspacePath })
       skillsState = skillsReducer(skillsState, { type: "catalog.loaded", skills })
       if (preferredSessionId) { const preferred = sessions.findIndex((entry) => entry.id === preferredSessionId); if (preferred >= 0) { selectedSession = preferred; selectionTouched = true } preferredSessionId = undefined }
       else if (!selectionTouched) selectedSession = firstInteractiveIndex(sessions)
@@ -262,9 +270,12 @@ async function main() {
           return `${marker} ${String(task.title || task.name || task.id || "task").slice(0, 44)}  ${state.toUpperCase()}`
         }).join("\n")
         : "No active TaskGraph\n\nOpen Plan or create a mission to begin."
+      const projectionSummary = progress.status === "idle"
+        ? `INTERAÇÃO  ·  ${interaction.id.toUpperCase()}\nWorkflow sem state ativo`
+        : `INTERAÇÃO  ·  ${interaction.id.toUpperCase()}\n${progress.workflow || "Workflow"}  ·  ${progress.phase?.id || "—"}  ·  ${progress.completed}/${progress.total}\nAtual: ${progress.current?.title || "—"}\nPróximo: ${progress.next?.title || "—"}`
       missionText.content = active
-        ? `${primaryWorkspaceSurface({ hasTaskGraph, width: renderer.terminalWidth || 120 }) === "taskgraph" ? "TASKGRAPH" : "MISSÃO"}  ·  ${missionState(active).toUpperCase()}\n${active.objective}\n${hasTaskGraph ? `${taskGraph}\n` : ""}${tasks} tarefas  ·  ${blockers} bloqueios  ·  verificação ${project.verification?.status || "pendente"}\n${active.status === "running" ? "● Em execução — A adiciona agente · T abre terminal" : canStartMission(active) ? "▶ R ou clique aqui para iniciar" : "M para criar uma nova missão"}`
-        : "MISSÃO\nNenhum objetivo definido.\n\n▶ M para criar e iniciar a primeira missão"
+        ? `${primaryWorkspaceSurface({ hasTaskGraph, width: renderer.terminalWidth || 120 }) === "taskgraph" ? "TASKGRAPH" : "MISSÃO"}  ·  ${missionState(active).toUpperCase()}\n${active.objective}\n${hasTaskGraph ? `${taskGraph}\n` : ""}${projectionSummary}\n${tasks} tarefas  ·  ${blockers} bloqueios  ·  verificação ${project.verification?.status || "pendente"}\n${active.status === "running" ? "● Em execução — A adiciona agente · T abre terminal" : canStartMission(active) ? "▶ R ou clique aqui para iniciar" : "M para criar uma nova missão"}`
+        : `${projectionSummary}\n\nMISSÃO\nNenhum objetivo definido.\n\n▶ M para criar e iniciar a primeira missão`
       sidebarFoot.content = `ATIVOS  ${projects.filter((entry) => ["running", "active", "executing"].includes(String(entry.status).toLowerCase())).length}/${projects.length}\nATENÇÃO  ${projects.reduce((total, entry) => total + tabStatus(tuiStore.getState(), entry.id).attentionCount, 0)}\nRUNTIME  ${connectedRuntime ? "conectado" : "local"}\n\nCtrl+P trocar projeto`
 
       await Promise.all(panels.map(async (panel, slot) => {
@@ -326,7 +337,7 @@ async function main() {
       const toastText = toastModel.visible.map((toast) => `${toast.prominent ? "‼" : "•"} ${toast.message}${toast.count > 1 ? ` (${toast.count})` : ""}`).join(" · ")
       footer.content = terminalInputActive()
         ? `  TECLADO NO TERMINAL → ${currentSession()?.label || "terminal"}   Ctrl+] voltar ao cockpit`
-        : `  T terminal   S skills   A atenção   Ctrl+F fullscreen   Ctrl+K paleta   Ctrl+P projetos   Q sair${notice || toastText ? `\n  ${[notice, toastText].filter(Boolean).join(" · ")}` : ""}`
+        : `  T terminal   S skills   A atenção   I interação   Ctrl+F fullscreen   Ctrl+K paleta   Ctrl+P projetos   Q sair${notice || toastText ? `\n  ${[notice, toastText].filter(Boolean).join(" · ")}` : ""}`
     } catch (error) { if (!destroyed) { notice = `Erro: ${(error as Error).message}`; footer.content = `  ${notice}`; footer.fg = theme.red } }
     finally { refreshing = false; if (!destroyed && refreshQueued) { refreshQueued = false; scheduleRefresh() } }
   }
@@ -458,6 +469,7 @@ async function main() {
     else if (name === "return") enqueue(enterSelected)
     else if (name === "tab") projectSelect.focus()
     else if (name === "r") enqueue(startMission)
+    else if (name === "i") { setWizard("palette"); prompt.value = "interaction." }
     else if (name === "/" || key.sequence === "/") setWizard("search")
     else if (name === "escape") { setWizard("none"); surface = "cockpit"; scheduleRefresh() }
   })

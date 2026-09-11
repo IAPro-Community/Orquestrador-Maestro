@@ -23,7 +23,12 @@ $SourceAgents = Join-Path $RepoRoot "home\AGENTS.md"
 $SourceCodex = Join-Path $RepoRoot "codex"
 $SourceCommunitySkills = Join-Path $RepoRoot "skill-library\community-skills"
 $SourceToolProfiles = Join-Path $RepoRoot "tool-profiles"
-$TargetOrquestrador = Join-Path $HomePath ".orquestrador"
+$CanonicalOrquestradorName = ".orquestrador-maestro"
+$LegacyOrquestradorName = ".orquestrador"
+$CanonicalOrquestrador = Join-Path $HomePath $CanonicalOrquestradorName
+$LegacyOrquestrador = Join-Path $HomePath $LegacyOrquestradorName
+$TargetOrquestrador = if (Test-Path -LiteralPath $CanonicalOrquestrador) { $CanonicalOrquestrador } elseif (Test-Path -LiteralPath $LegacyOrquestrador) { $LegacyOrquestrador } else { $CanonicalOrquestrador }
+$TargetOrquestradorName = Split-Path -Leaf $TargetOrquestrador
 $TargetSkillLibrary = Join-Path $TargetOrquestrador "skill-library"
 $TargetAgents = Join-Path $HomePath "AGENTS.md"
 $BackupRoot = Join-Path $HomePath ".orquestrador-public-backups"
@@ -142,7 +147,9 @@ function Copy-WithPlaceholders {
 
   try {
     $content = Get-Content -LiteralPath $SourceFile -Raw -Encoding UTF8
+    $content = $content.Replace("{{USER_HOME}}/.orquestrador", ($TargetOrquestrador -replace "\\", "/"))
     $content = $content.Replace("{{USER_HOME}}", $homeForText)
+    $content = $content.Replace("~/.orquestrador", "~/$TargetOrquestradorName")
     $content = $content.Replace("{{USER_NAME}}", $userName)
     $content = $content.Replace("{{USER_FULL_NAME}}", $userName)
     [System.IO.File]::WriteAllText($DestinationFile, $content, [System.Text.UTF8Encoding]::new($false))
@@ -346,7 +353,7 @@ if ($includeCore) {
     [pscustomobject]@{
       Source = $SourceOrquestrador
       Destination = $TargetOrquestrador
-      Label = ".orquestrador"
+      Label = $TargetOrquestradorName
       Component = "core"
       Kind = "directory"
     },
@@ -436,7 +443,7 @@ if ($ListTargets -or $DryRun) {
 
 if ($Uninstall) {
   if ($includeCore) {
-    Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label ".orquestrador"
+    Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
     Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
   }
   foreach ($target in $extraTargets) {
@@ -480,7 +487,7 @@ if ($Uninstall) {
   return
 }
 
-Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label ".orquestrador"
+Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
 Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
 $backedUpExtraTargets = @{}
 foreach ($target in $extraTargets) {
@@ -530,7 +537,7 @@ if (-not $SkipSkillSync) {
 
 [pscustomobject]@{
   HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
-  InstalledOrquestrador = if ($VerbosePaths) { $TargetOrquestrador } else { ".orquestrador" }
+  InstalledOrquestrador = if ($VerbosePaths) { $TargetOrquestrador } else { $TargetOrquestradorName }
   InstalledAgents = if ($VerbosePaths) { $TargetAgents } else { "AGENTS.md" }
   Backup = if (Test-Path -LiteralPath $BackupDir) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
   SkillSync = -not $SkipSkillSync

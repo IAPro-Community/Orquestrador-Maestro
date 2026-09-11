@@ -89,7 +89,10 @@ function Get-InstallPolicy {
   return Get-DefaultInstallPolicy
 }
 
-$orquestrador = Join-Path $HomePath ".orquestrador"
+$canonicalOrquestrador = Join-Path $HomePath ".orquestrador-maestro"
+$legacyOrquestrador = Join-Path $HomePath ".orquestrador"
+$orquestrador = if (Test-Path -LiteralPath $canonicalOrquestrador) { $canonicalOrquestrador } else { $legacyOrquestrador }
+$maestroReference = Split-Path -Leaf $orquestrador
 $codex = Join-Path $HomePath ".codex"
 
 Assert-Path -Path (Join-Path $orquestrador "rules.md") -Label "Orquestrador rules"
@@ -185,7 +188,7 @@ if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
   Assert-FileContains -Path (Join-Path $HomePath "antigravity-rules.json") -Pattern "PERSISTENCE\.md" -Label "Antigravity global rules"
 
   $hookChecks = @(
-    @{ Path = (Join-Path $HomePath ".orquestrador\hooks.md"); MaxLines = 80; Label = "Orquestrador hooks profile" },
+    @{ Path = (Join-Path $orquestrador "hooks.md"); MaxLines = 80; Label = "Orquestrador hooks profile" },
     @{ Path = (Join-Path $HomePath ".opencode\hooks.md"); MaxLines = 30; Label = "OpenCode hooks profile" },
     @{ Path = (Join-Path $HomePath ".claude\hooks.md"); MaxLines = 20; Label = "Claude hooks profile" },
     @{ Path = (Join-Path $HomePath ".cursor\hooks.md"); MaxLines = 20; Label = "Cursor hooks profile" },
@@ -204,10 +207,10 @@ if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
     try {
       $config = Get-Content -LiteralPath $opencodeConfig -Raw -Encoding UTF8 | ConvertFrom-Json
       $instructions = @($config.instructions)
-      if (-not ($instructions -contains "~/.orquestrador/rules.md")) {
+      if (-not ($instructions -contains "~/$maestroReference/rules.md")) {
         Add-Issue "OpenCode global config does not include Orquestrador rules: $opencodeConfig"
       }
-      if (-not ($instructions -contains "~/.orquestrador/maestro.md")) {
+      if (-not ($instructions -contains "~/$maestroReference/maestro.md")) {
         Add-Issue "OpenCode global config does not include Orquestrador maestro: $opencodeConfig"
       }
     } catch {

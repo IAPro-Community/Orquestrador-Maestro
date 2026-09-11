@@ -1,6 +1,12 @@
-# Guia Para IAs Resolverem Tarefas
+# Guia para IAs resolverem tarefas
 
-Este documento explica como uma IA deve trabalhar depois que o Orquestrador Maestro estiver instalado no usuário.
+## Em três passos
+
+1. Entenda o pedido e as regras aplicáveis.
+2. Abra apenas o contexto e a skill necessários.
+3. Execute, verifique e registre o que a próxima sessão precisa saber.
+
+Este guia explica como uma IA trabalha depois que o Orquestrador Maestro está instalado. Use-o para configurar um agente, adaptar um prompt ou conferir o processo; para instalar o ambiente, comece pelo [guia de instalação](installation.md).
 
 ## Contrato Principal
 

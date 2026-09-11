@@ -1,0 +1,1 @@
+{"id":"root-scenario","name":"Test Scenario","task":"Fix the bug in index.ts","fixture":{"path":"./fixtures/test"},"acceptance":{"criteria":[{"type":"build","name":"build check","command":"npm run build"}]},"limits":{"maxTimeMs":30000}}

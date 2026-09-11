@@ -1,5 +1,7 @@
 # Opções Do Instalador
 
+Use este guia quando a instalação padrão não é suficiente: dry-run, instalação parcial, home temporário ou remoção conservadora. Para o caminho usual, comece pelo [guia de instalação](installation.md).
+
 O instalador tem dois níveis:
 
 - wrapper da raiz: `install.ps1` no Windows e `install.sh` no Linux/macOS;

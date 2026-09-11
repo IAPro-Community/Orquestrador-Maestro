@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const SMOKE_TESTS = [
-  "tests/benchmark.test.js",
+  "tests/interaction-profiles.test.js",
   "tests/memory.test.js",
   "tests/memory-context.test.js",
   "tests/memory-retention.test.js",
@@ -21,7 +21,7 @@ for (const testFile of SMOKE_TESTS) {
   const fullPath = path.join(ROOT, testFile);
   console.log(`[SMOKE] START ${testFile}`);
 
-  const result = spawnSync(process.execPath, ["--test", fullPath], {
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--test", fullPath], {
     cwd: ROOT,
     stdio: "inherit",
     timeout: 60000,

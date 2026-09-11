@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BenchmarkReport",
+  "description": "Final benchmark report with paired comparison statistics.",
+  "type": "object",
+  "required": ["benchmarkId", "version", "scenarios", "pairs", "summary", "methodology"],
+  "additionalProperties": false,
+  "properties": {
+    "benchmarkId": { "type": "string" },
+    "version": { "type": "string", "const": "2" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "methodology": {
+      "type": "object",
+      "required": ["description", "containerRequired", "externalVerifier"],
+      "properties": {
+        "description": { "type": "string" },
+        "containerRequired": { "type": "boolean" },
+        "externalVerifier": { "type": "boolean" },
+        "isolatedRuns": { "type": "boolean" },
+        "goldenFixture": { "type": "boolean" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string" },
+        "arch": { "type": "string" },
+        "containerImage": { "type": "string" },
+        "nodeVersion": { "type": "string" },
+        "providerVersions": { "type": "object" }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "pairs"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "pairs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/pairedComparison" }
+          }
+        }
+      }
+    },
+    "pairs": { "type": "array", "items": { "$ref": "#/$defs/pairedComparison" } },
+    "summary": {
+      "type": "object",
+      "required": ["totalRuns", "vanillaRuns", "maestroRuns", "acceptanceRates"],
+      "properties": {
+        "totalRuns": { "type": "integer" },
+        "vanillaRuns": { "type": "integer" },
+        "maestroRuns": { "type": "integer" },
+        "maestroFocusRuns": { "type": "integer" },
+        "acceptanceRates": {
+          "type": "object",
+          "properties": {
+            "vanilla": { "type": "number" },
+            "maestro": { "type": "number" }
+            ,"maestroFocus": { "type": "number" }
+          }
+        },
+        "tokensPerAcceptedRun": {
+          "type": "object",
+          "properties": {
+            "vanilla": { "$ref": "#/$defs/distribution" },
+            "maestro": { "$ref": "#/$defs/distribution" }
+            ,"maestroFocus": { "$ref": "#/$defs/distribution" }
+          }
+        },
+        "cumulativeTokensToFirstSuccess": {
+          "type": "object",
+          "properties": {
+            "vanilla": { "$ref": "#/$defs/distribution" },
+            "maestro": { "$ref": "#/$defs/distribution" }
+            ,"maestroFocus": { "$ref": "#/$defs/distribution" }
+          }
+        }
+      }
+    },
+    "actionability": { "type": "object" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "metric": { "type": "string" },
+          "vanilla": {},
+          "maestro": {},
+          "delta": {},
+          "deltaPercent": {},
+          "pValue": { "type": "number" },
+          "significant": { "type": "boolean" }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "rawEvidencePath": { "type": "string" }
+  },
+  "$defs": {
+    "pairedComparison": {
+      "type": "object",
+      "required": ["pairId", "vanilla", "maestro"],
+      "properties": {
+        "pairId": { "type": "string" },
+        "scenarioId": { "type": "string" },
+        "fixtureHash": { "type": "string" },
+        "taskHash": { "type": "string" },
+        "model": { "type": "string" },
+        "vanilla": { "$ref": "#/$defs/runSummary" },
+        "maestro": { "$ref": "#/$defs/runSummary" },
+        "delta": { "$ref": "#/$defs/pairDelta" }
+      }
+    },
+    "runSummary": {
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string" },
+        "status": { "type": "string" },
+        "accepted": { "type": "boolean" },
+        "tokens": { "type": ["integer", "null"] },
+        "durationMs": { "type": "integer" },
+        "acceptanceRate": { "type": "number" }
+      }
+    },
+    "pairDelta": {
+      "type": "object",
+      "properties": {
+        "tokensAbsolute": { "type": ["integer", "null"] },
+        "tokensRelative": { "type": ["number", "null"] },
+        "durationAbsolute": { "type": "integer" },
+        "durationRelative": { "type": "number" },
+        "winner": { "type": "string", "enum": ["vanilla", "maestro", "tie"] }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "properties": {
+        "n": { "type": "integer" },
+        "mean": { "type": "number" },
+        "median": { "type": "number" },
+        "stddev": { "type": "number" },
+        "p25": { "type": "number" },
+        "p75": { "type": "number" },
+        "p90": { "type": "number" },
+        "p95": { "type": "number" },
+        "ci95Lower": { "type": ["number", "null"] },
+        "ci95Upper": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

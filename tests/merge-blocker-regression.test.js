@@ -20,8 +20,15 @@ function setMtimeSync(filePath, mtime) {
 const { Memory } = require("../orquestrador/bin/memory.js");
 const { createAdapter, DEFAULT_OBSERVATION_TYPE_MAP } = require("../orquestrador/adapters/index.js");
 const { classifyTask } = require("../orquestrador/lib/task-classifier.js");
-const { isClaimEligibleRun } = require("../benchmarks/runner.js");
 const { validateBaseUrl } = require("../scripts/test-xkiro.js");
+
+// Dynamic import for ESM evidence module
+let isClaimEligibleRun, summarizeEvidence;
+beforeEach(async () => {
+  const evidence = await import("../benchmark-harness/src/evidence/index.ts");
+  isClaimEligibleRun = evidence.isClaimEligibleRun;
+  summarizeEvidence = evidence.summarizeEvidence;
+});
 
 function initGit(dir) {
   execFileSync("git", ["init"], { cwd: dir, stdio: "ignore" });
@@ -573,8 +580,6 @@ try {
     });
 
     it("should prevent mixed-evidence contamination in reports", () => {
-      const { BenchmarkRunner } = require("../benchmarks/runner.js");
-      const runner = new BenchmarkRunner();
 
       const mixedResults = [
         {
@@ -593,18 +598,14 @@ try {
         }
       ];
 
-      const report = runner.generateReport(mixedResults);
-      assert.ok(report.evidenceGate.hasMixedEvidence, "Should detect mixed evidence");
-      assert.equal(report.evidenceGate.allRunsCount, 2, "Should count all runs");
-      assert.equal(report.evidenceGate.claimEligibleRunsCount, 1, "Should count claim-eligible runs");
-      assert.equal(report.evidenceGate.publicClaimEligible, false, "Global should be false when mixed evidence");
-      assert.ok(report.summary.claimEligibleRuns["test-001_maestro-memory"], "Should have claim-eligible summary");
-      assert.ok(!report.summary.claimEligibleRuns["test-001_vanilla"], "Should not have vanilla in claim-eligible summary");
+      const summary = summarizeEvidence(mixedResults);
+      assert.equal(summary.hasMixedEvidence, true, "Should detect mixed evidence");
+      assert.equal(summary.totalRuns, 2, "Should count all runs");
+      assert.equal(summary.claimEligibleRuns, 1, "Should count claim-eligible runs");
+      assert.equal(summary.publicClaimEligible, false, "Global should be false when mixed evidence");
     });
 
     it("should set publicClaimEligible=false when no eligible runs", () => {
-      const { BenchmarkRunner } = require("../benchmarks/runner.js");
-      const runner = new BenchmarkRunner();
 
       const infraResults = [
         {
@@ -616,14 +617,12 @@ try {
         }
       ];
 
-      const report = runner.generateReport(infraResults);
-      assert.equal(report.evidenceGate.publicClaimEligible, false, "Should be false when no eligible runs");
-      assert.equal(report.evidenceGate.claimEligibleRunsCount, 0, "Should have 0 eligible runs");
+      const summary = summarizeEvidence(infraResults);
+      assert.equal(summary.publicClaimEligible, false, "Should be false when no eligible runs");
+      assert.equal(summary.claimEligibleRuns, 0, "Should have 0 eligible runs");
     });
 
     it("should set publicClaimEligible=true when all runs are eligible (no mixed)", () => {
-      const { BenchmarkRunner } = require("../benchmarks/runner.js");
-      const runner = new BenchmarkRunner();
 
       const allEligibleResults = [
         {
@@ -642,15 +641,13 @@ try {
         }
       ];
 
-      const report = runner.generateReport(allEligibleResults);
-      assert.equal(report.evidenceGate.hasMixedEvidence, false, "Should not have mixed evidence");
-      assert.equal(report.evidenceGate.publicClaimEligible, true, "Should be true when all eligible");
-      assert.equal(report.evidenceGate.claimEligibleRunsCount, 2, "Should have 2 eligible runs");
+      const summary = summarizeEvidence(allEligibleResults);
+      assert.equal(summary.hasMixedEvidence, false, "Should not have mixed evidence");
+      assert.equal(summary.publicClaimEligible, true, "Should be true when all eligible");
+      assert.equal(summary.claimEligibleRuns, 2, "Should have 2 eligible runs");
     });
 
-    it("should have all runs in allRuns summary", () => {
-      const { BenchmarkRunner } = require("../benchmarks/runner.js");
-      const runner = new BenchmarkRunner();
+    it("should have all runs counted", () => {
 
       const results = [
         {
@@ -669,11 +666,9 @@ try {
         }
       ];
 
-      const report = runner.generateReport(results);
-      assert.ok(report.summary.allRuns["test-001_vanilla"], "Should have vanilla in allRuns");
-      assert.ok(report.summary.allRuns["test-001_maestro-memory"], "Should have maestro-memory in allRuns");
-      assert.equal(report.summary.allRuns["test-001_vanilla"].totalRuns, 1);
-      assert.equal(report.summary.allRuns["test-001_maestro-memory"].totalRuns, 1);
+      const summary = summarizeEvidence(results);
+      assert.equal(summary.totalRuns, 2, "Should count all runs");
+      assert.equal(summary.claimEligibleRuns, 1, "Should count 1 eligible run");
     });
   });
 

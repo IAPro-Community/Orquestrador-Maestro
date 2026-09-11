@@ -69,7 +69,8 @@ function Get-DefaultInstallPolicy {
 
 function Read-InstallPolicy {
   param([string]$HomePath)
-  $policyPath = Join-Path $HomePath ".orquestrador\SKILL_INSTALL_POLICY.json"
+  $policyRoot = if ($script:MaestroRoot) { $script:MaestroRoot } elseif (Test-Path -LiteralPath (Join-Path $HomePath ".orquestrador-maestro")) { Join-Path $HomePath ".orquestrador-maestro" } else { Join-Path $HomePath ".orquestrador" }
+  $policyPath = Join-Path $policyRoot "SKILL_INSTALL_POLICY.json"
   if (Test-Path -LiteralPath $policyPath) {
     try {
       return Get-Content -LiteralPath $policyPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -83,6 +84,10 @@ function Read-InstallPolicy {
 function Resolve-HomeRelativePath {
   param([string]$HomePath, [string]$RelativePath)
   $clean = $RelativePath -replace "/", "\"
+  if ($clean.StartsWith(".orquestrador\", [StringComparison]::OrdinalIgnoreCase)) {
+    $clean = $clean.Substring(".orquestrador\".Length)
+    return Join-Path $script:MaestroRoot $clean
+  }
   return Join-Path $HomePath $clean
 }
 
@@ -198,6 +203,9 @@ function Move-NativeExtraDirectory {
   return $destination
 }
 
+$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
+$legacyMaestroRoot = Join-Path $HomePath ".orquestrador"
+$script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
 $policy = Read-InstallPolicy -HomePath $HomePath
 $libraryRoots = [pscustomobject]@{
   Community = Resolve-HomeRelativePath -HomePath $HomePath -RelativePath $policy.libraryRoots.community
@@ -206,7 +214,7 @@ $libraryRoots = [pscustomobject]@{
 }
 
 $canonicalSourceRoots = @(
-  (Join-Path $HomePath ".orquestrador\skills"),
+  (Join-Path $script:MaestroRoot "skills"),
   (Join-Path $HomePath ".global-skills"),
   $libraryRoots.Community,
   (Join-Path $HomePath ".codex\skills"),
@@ -228,7 +236,7 @@ foreach ($prop in $policy.nativeRoots.PSObject.Properties) {
   }
 }
 
-$manifestPath = Join-Path $HomePath ".orquestrador\SKILLS_MANIFEST.json"
+$manifestPath = Join-Path $script:MaestroRoot "SKILLS_MANIFEST.json"
 if (Test-Path -LiteralPath $manifestPath) {
   $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
   $mustHave = @(

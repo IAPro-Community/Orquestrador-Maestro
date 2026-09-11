@@ -1,5 +1,7 @@
 # Integração opcional com ai-memory
 
+Use esta integração somente se você precisa de memória longa adicional. O Maestro já oferece memória episódica e `DEV/`; esta camada não é requisito para instalar nem para trabalhar bem.
+
 O Orquestrador Maestro possui um sistema de **memória episódica integrada** (JSONL, busca por branch/workspace/tarefa, promoção para DEV/, consolidação e retenção). O [ai-memory](https://github.com/akitaonrails/ai-memory) pode ser usado como camada opcional adicional para memória longa entre agentes. Isso não é requisito para instalar ou usar o Orquestrador.
 
 ## Divisão de responsabilidades
@@ -32,4 +34,3 @@ Comece pelo modo local e sem LLM. Habilite hooks, embeddings ou servidor remoto 
 ## Próximo passo
 
 Implementar um adaptador documental e um smoke test opt-in conforme as RFCs [0001](rfcs/0001-contrato-de-memoria-entre-agentes.md), [0002](rfcs/0002-provider-de-memoria-ai-memory.md) e [0003](rfcs/0003-captura-e-privacidade-da-memoria.md).
-

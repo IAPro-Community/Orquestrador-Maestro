@@ -1,0 +1,31 @@
+{
+  "id": "refactor-extract-util",
+  "name": "Extract Duplicated Date Logic to Shared Utility",
+  "description": "ReportService duplicates date formatting logic that exists in dateUtils",
+  "task": "Refactor src/services/ReportService.js to import and use the shared date utility functions from src/utils/dateUtils.js instead of duplicating the logic. Add parseDate and daysBetween functions to dateUtils.js if they don't exist. Remove the duplicated formatDate, addDays, and isWeekend functions from ReportService.js.",
+  "fixture": {
+    "path": "../fixtures/refactor-extract-util"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "custom",
+        "name": "workspace-prepared",
+        "command": "node -e "process.exit(0)"",
+        "description": "Ensure workspace has dependencies installed",
+        "timeout": 60
+      },
+      {
+        "type": "hidden_tests",
+        "name": "refactor-correctness",
+        "command": "node --test test/hidden.test.js",
+        "timeout": 30
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  },
+  "tags": ["refactor", "dedup", "utility"]
+}

@@ -1,5 +1,7 @@
 # Pacote npm
 
+Este guia atende quem instala, publica ou mantém a CLI npm. Se você só quer começar a usar o Maestro, siga primeiro o [guia de instalação](installation.md).
+
 O Orquestrador Maestro pode ser distribuído como CLI npm pelo pacote:
 
 ```bash
@@ -28,13 +30,13 @@ Para publicar nesse nome, a conta npm precisa ser o usuário `iapro` ou ter perm
 Instalação automática recomendada no macOS/Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FernandoBolzan/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
 ```
 
 No Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/FernandoBolzan/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
 ```
 
 Esses bootstraps detectam permissões do npm, configuram um prefixo no perfil do usuário quando necessário, ajustam o `PATH`, instalam a CLI e executam `install` e `verify`. A instalação normal não deve usar `sudo` nem executar como Administrador.

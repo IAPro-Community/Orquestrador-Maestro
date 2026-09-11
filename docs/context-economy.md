@@ -1,6 +1,12 @@
-# Economia De Contexto
+# Economia de contexto
 
-O Orquestrador Maestro foi desenhado para reduzir tokens por organizacao, nao por compressao cega. A IA deve carregar primeiro contratos curtos, indices e roteadores; so depois abre arquivos maiores quando houver evidencia de necessidade.
+## O benefício em uma frase
+
+O Maestro ajuda a IA a encontrar o contexto certo antes de gastar tempo e tokens lendo o projeto inteiro. Não é compressão cega: é uma ordem de leitura que preserva profundidade quando ela realmente é necessária.
+
+**Leia este guia** se você quer entender por que índices, handoffs e skills sob demanda tornam sessões mais econômicas. Para instalar primeiro, use o [guia de instalação](installation.md); para ver o fluxo completo, use o [guia operacional](ai-agent-operating-guide.md).
+
+O Orquestrador Maestro foi desenhado para reduzir tokens por organização, não por compressão cega. A IA carrega primeiro contratos curtos, índices e roteadores; só depois abre arquivos maiores quando houver evidência de necessidade.
 
 As referencias externas mais uteis aqui continuam sendo duas ideias:
 
