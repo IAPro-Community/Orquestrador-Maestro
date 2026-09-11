@@ -1,5 +1,7 @@
 # Pacotes De Skills
 
+Esta página explica como o Maestro mantém uma biblioteca rica sem obrigar cada ferramenta a carregar tudo em toda sessão. Para escolher uma skill em uma tarefa, veja o [guia operacional](ai-agent-operating-guide.md).
+
 Este repositório publica o máximo prático de conteúdo textual reutilizável sem virar dump do home do usuário.
 
 ## Pacotes

@@ -50,11 +50,6 @@ export async function loadScenario(path: string): Promise<Scenario> {
     );
   }
 
-  // Ensure fixture path is absolute after validation
-  if (result.scenario.fixture.path && !result.scenario.fixture.path.startsWith('/')) {
-    result.scenario.fixture.path = resolve(scenarioDir, result.scenario.fixture.path);
-  }
-
   return result.scenario;
 }
 

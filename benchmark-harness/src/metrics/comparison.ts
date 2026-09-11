@@ -11,7 +11,7 @@ import type {
   ComparisonResult,
   PairedRun,
 } from '../types/report.js';
-import { computeDistribution, pairedTTest } from './statistics.js';
+import { computeDistribution, welchTTest } from './statistics.js';
 
 /**
  * Group run reports by scenario into matched vanilla/maestro pairs.
@@ -139,7 +139,7 @@ export function comparePairs(pairs: PairedRun[]): ComparisonResult {
   // Statistical significance
   const tTest =
     vanillaAcceptedTokens.length >= 2 && maestroAcceptedTokens.length >= 2
-      ? pairedTTest(vanillaAcceptedTokens, maestroAcceptedTokens)
+      ? welchTTest(vanillaAcceptedTokens, maestroAcceptedTokens)
       : { pValue: null, significant: false };
 
   const winner = determineWinner(

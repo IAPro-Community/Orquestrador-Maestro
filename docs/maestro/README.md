@@ -1,5 +1,7 @@
 # Maestro: governança compatível
 
+Esta área é para quem quer adicionar governança sem descaracterizar o comportamento nativo da ferramenta. Para entender o produto e instalar o caminho padrão, comece pelo [README](../../README.md).
+
 Esta área descreve a camada opcional do Maestro para usuários que continuam trabalhando diretamente nos CLIs nativos.
 
 ## Promessa de compatibilidade

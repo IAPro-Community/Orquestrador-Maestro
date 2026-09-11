@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="barRed" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+    <linearGradient id="barGreen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#4ade80"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="400" fill="url(#bg2)" rx="12"/>
+
+  <!-- Title -->
+  <text x="400" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Economia de Tokens por Cenário</text>
+  <text x="400" y="55" text-anchor="middle" fill="#fbbf24" font-size="11">Exemplo ilustrativo — rode o benchmark para dados reais</text>
+
+  <!-- Y axis labels -->
+  <text x="145" y="100" text-anchor="end" fill="#64748b" font-size="10">300K</text>
+  <text x="145" y="155" text-anchor="end" fill="#64748b" font-size="10">200K</text>
+  <text x="145" y="210" text-anchor="end" fill="#64748b" font-size="10">100K</text>
+  <text x="145" y="265" text-anchor="end" fill="#64748b" font-size="10">0</text>
+
+  <!-- Grid lines -->
+  <line x1="155" y1="95" x2="750" y2="95" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+  <line x1="155" y1="150" x2="750" y2="150" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+  <line x1="155" y1="205" x2="750" y2="205" stroke="#334155" stroke-width="0.5" stroke-dasharray="4"/>
+  <line x1="155" y1="260" x2="750" y2="260" stroke="#475569" stroke-width="1"/>
+
+  <!-- Scenario bars (grouped: vanilla red, maestro green) -->
+  <!-- bug-fix-auth -->
+  <rect x="170" y="130" width="35" height="130" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="210" y="165" width="35" height="95" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="207" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">bug-fix</text>
+  <text x="187" y="125" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-30%</text>
+
+  <!-- feature-add -->
+  <rect x="270" y="110" width="35" height="150" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="310" y="145" width="35" height="115" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="307" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">feature</text>
+  <text x="287" y="105" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-25%</text>
+
+  <!-- refactor -->
+  <rect x="370" y="120" width="35" height="140" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="410" y="155" width="35" height="105" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="407" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">refactor</text>
+  <text x="387" y="115" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-27%</text>
+
+  <!-- investigate -->
+  <rect x="470" y="140" width="35" height="120" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="510" y="170" width="35" height="90" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="507" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">investigate</text>
+  <text x="487" y="135" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-22%</text>
+
+  <!-- cross-file -->
+  <rect x="570" y="105" width="35" height="155" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="610" y="140" width="35" height="120" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="607" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">cross-file</text>
+  <text x="587" y="100" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-28%</text>
+
+  <!-- resume -->
+  <rect x="670" y="125" width="35" height="135" rx="3" fill="url(#barRed)" opacity="0.85"/>
+  <rect x="710" y="160" width="35" height="100" rx="3" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="707" y="280" text-anchor="middle" fill="#94a3b8" font-size="9">resume</text>
+  <text x="687" y="120" text-anchor="middle" fill="#fca5a5" font-size="9" font-weight="600">-26%</text>
+
+  <!-- Legend -->
+  <rect x="280" y="310" width="12" height="12" rx="2" fill="url(#barRed)" opacity="0.85"/>
+  <text x="298" y="321" fill="#fca5a5" font-size="11">Sem Maestro (vanilla)</text>
+
+  <rect x="440" y="310" width="12" height="12" rx="2" fill="url(#barGreen)" opacity="0.85"/>
+  <text x="458" y="321" fill="#86efac" font-size="11">Com Maestro</text>
+
+  <!-- Summary box -->
+  <rect x="250" y="340" width="300" height="45" rx="8" fill="#22c55e" opacity="0.1" stroke="#22c55e" stroke-width="1"/>
+  <text x="400" y="362" text-anchor="middle" fill="#86efac" font-size="14" font-weight="700">↓ 30% menos tokens em média</text>
+  <text x="400" y="378" text-anchor="middle" fill="#6ee7b7" font-size="10">Resultados reais dependem de modelo, cenário e ambiente</text>
+</svg>

@@ -9,8 +9,8 @@ import type { BenchmarkRunReport } from '../types/run.js';
 export interface TokenSummary {
   /** Total tokens consumed across all runs. */
   total: number;
-  /** Per-run total token consumption. */
-  perRun: number[];
+  /** Per-run total token consumption (null when unavailable). */
+  perRun: (number | null)[];
   /** Total tokens consumed by accepted runs only. */
   accepted: number;
   /** Total tokens consumed by failed runs only. */
@@ -58,7 +58,7 @@ export function sumTokenUsage(runs: BenchmarkRunReport[]): TokenSummary {
 
   return {
     total,
-    perRun: perRun as number[],
+    perRun,
     accepted,
     failed,
     perAcceptedRun,

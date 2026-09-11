@@ -1,22 +1,24 @@
 # Orquestrador Maestro
 
+> Para a experiência de entrada atual, use o [README](../README.md) e o [guia de instalação](installation.md). Este guia mantém detalhes de distribuição e operação.
+
 Este guia explica o que é o Orquestrador Maestro, onde baixar, como instalar, como verificar a instalação e como usar a hierarquia de regras e documentação em projetos.
 
 ## Link De Download
 
 Repositório oficial:
 
-[https://github.com/FernandoBolzan/Orquestrador-Maestro](https://github.com/FernandoBolzan/Orquestrador-Maestro)
+[https://github.com/IAPro-Community/Orquestrador-Maestro](https://github.com/IAPro-Community/Orquestrador-Maestro)
 
 Clone por Git:
 
 ```bash
-git clone https://github.com/FernandoBolzan/Orquestrador-Maestro.git
+git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 ```
 
 Download em ZIP:
 
-[Baixar ZIP da branch main](https://github.com/FernandoBolzan/Orquestrador-Maestro/archive/refs/heads/main.zip)
+[Baixar ZIP da branch main](https://github.com/IAPro-Community/Orquestrador-Maestro/archive/refs/heads/main.zip)
 
 ## O Que É
 
@@ -82,7 +84,7 @@ Credenciais, tokens, logins e chaves de API não são instalados por este reposi
 Abra o PowerShell e rode:
 
 ```powershell
-git clone https://github.com/FernandoBolzan/Orquestrador-Maestro.git
+git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -92,7 +94,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 Abra o terminal e rode:
 
 ```bash
-git clone https://github.com/FernandoBolzan/Orquestrador-Maestro.git
+git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 bash install.sh
 ```
@@ -114,7 +116,7 @@ Linux/macOS: $HOME/.orquestrador-public-backups
 ## Instalar A Partir Do ZIP
 
 1. Baixe o ZIP pelo link:
-   [Orquestrador-Maestro main.zip](https://github.com/FernandoBolzan/Orquestrador-Maestro/archive/refs/heads/main.zip)
+   [Orquestrador-Maestro main.zip](https://github.com/IAPro-Community/Orquestrador-Maestro/archive/refs/heads/main.zip)
 2. Extraia o ZIP em uma pasta local.
 3. Abra o PowerShell dentro da pasta extraída.
 4. Rode:

@@ -6,9 +6,9 @@ on:
       - main
       - "feat/*"
     paths:
-      - "benchmarks/**"
+      - "benchmark-harness/**"
       - "package.json"
-      - "benchmarks/package.json"
+      - "benchmark-harness/package.json"
 
 jobs:
   validate:
@@ -26,25 +26,21 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
+        working-directory: benchmark-harness
         run: npm ci
 
       - name: TypeScript type check
-        working-directory: benchmarks
+        working-directory: benchmark-harness
         run: npx tsc --noEmit
 
       - name: Validate scenario definitions
-        run: node benchmarks/cli.js validate
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts validate
 
       - name: Run unit tests
+        working-directory: benchmark-harness
         run: npm test
 
-      - name: Docker build test (agent)
-        working-directory: benchmarks/docker
-        run: docker build -f Dockerfile.agent -t bench-agent:test .
-
-      - name: Docker build test (verifier)
-        working-directory: benchmarks/docker
-        run: docker build -f Dockerfile.verifier -t bench-verifier:test .
-
       - name: Preflight check
-        run: node benchmarks/cli.js preflight --json || true
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts preflight --json || true

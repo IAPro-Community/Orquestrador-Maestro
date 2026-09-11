@@ -8,12 +8,13 @@
  */
 
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { AgentDriver, DriverExecuteOptions, DriverResult, ToolUsage } from '../types/driver.js';
 import type { TokenUsage } from '../types/tokens.js';
 import { TokenSource, TokenConfidence } from '../types/tokens.js';
+import { createUnavailableTokens } from '../utils/tokens.js';
 
 /**
  * OpenCode driver — first official driver for the benchmark harness.
@@ -158,7 +159,6 @@ export class OpenCodeDriver implements AgentDriver {
 
   private async findSessionFile(workspace: string): Promise<string | null> {
     try {
-      const { readdir } = await import('node:fs/promises');
       // Check common session locations
       const candidates = [
         join(workspace, '.opencode', 'sessions'),
@@ -219,7 +219,7 @@ export class OpenCodeDriver implements AgentDriver {
       // Fallback: extract from text output
       return this.extractFromText(content);
     } catch {
-      return this.createUnavailableTokens();
+      return createUnavailableTokens();
     }
   }
 
@@ -274,7 +274,7 @@ export class OpenCodeDriver implements AgentDriver {
     const total = parse(totalMatch?.[1]);
 
     if (input === null && output === null && total === null) {
-      return this.createUnavailableTokens();
+      return createUnavailableTokens();
     }
 
     return {
@@ -301,7 +301,7 @@ export class OpenCodeDriver implements AgentDriver {
    * Aggregates tokens across all steps (multi-step tasks may have multiple step_finish events).
    */
   private extractFromJsonl(text: string): TokenUsage {
-    if (!text) return this.createUnavailableTokens();
+    if (!text) return createUnavailableTokens();
 
     const lines = text.split('\n').filter(Boolean);
     let totalInput = 0;
@@ -339,7 +339,7 @@ export class OpenCodeDriver implements AgentDriver {
       }
     }
 
-    if (!found) return this.createUnavailableTokens();
+    if (!found) return createUnavailableTokens();
 
     return {
       inputTokens: totalInput || null,
@@ -374,13 +374,15 @@ export class OpenCodeDriver implements AgentDriver {
         const parsed = JSON.parse(line) as Record<string, unknown>;
         const type = parsed.type as string | undefined;
 
-        if (type === 'tool_call' || type === 'tool-result') {
+        if (type === 'tool_call' || type === 'tool-result' || type === 'tool_use') {
           calls++;
 
           // Extract file operations from tool name or parameters
           const part = parsed.part as Record<string, unknown> | undefined;
-          const toolName = (part?.toolName ?? part?.name ?? '') as string;
-          const params = part?.params as Record<string, unknown> | undefined;
+          const toolName = (part?.toolName ?? part?.tool ?? part?.name ?? '') as string;
+          const state = part?.state as Record<string, unknown> | undefined;
+          const input = state?.input as Record<string, unknown> | undefined;
+          const params = (input ?? part?.params) as Record<string, unknown> | undefined;
           const filePath = (params?.filePath ?? params?.file_path ?? params?.path ?? '') as string;
 
           if (toolName.includes('read') || toolName.includes('cat') || toolName.includes('head')) {
@@ -403,16 +405,26 @@ export class OpenCodeDriver implements AgentDriver {
     return { calls, filesRead, filesModified, filesCreated, filesDeleted };
   }
 
-  private createUnavailableTokens(): TokenUsage {
-    return {
-      inputTokens: null,
-      outputTokens: null,
-      reasoningTokens: null,
-      cacheReadTokens: null,
-      cacheWriteTokens: null,
-      total: null,
-      source: TokenSource.Unavailable,
-      confidence: TokenConfidence.Unavailable,
-    };
+
+
+  private isSuccessfulResult(result: DriverResult): boolean {
+    return result.exitCode === 0 && result.output.length > 0 && !result.output.includes('agent-error:');
   }
+
+  private isTransientError(output: string): boolean {
+    if (!output) return false;
+    // Detect OpenCode server errors, API timeouts, rate limits
+    const transientPatterns = [
+      'Unexpected server error',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'rate limit',
+      '429',
+      '502',
+      '503',
+      'timeout',
+    ];
+    return transientPatterns.some((p) => output.toLowerCase().includes(p.toLowerCase()));
+  }
+
 }

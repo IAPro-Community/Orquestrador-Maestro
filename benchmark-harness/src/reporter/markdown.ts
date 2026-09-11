@@ -10,6 +10,11 @@ import type {
   BenchmarkClaim,
 } from '../types/report.js';
 import type { BenchmarkRunReport } from '../types/run.js';
+import {
+  generateAcceptanceBarChart,
+  generateTokenBoxPlot,
+  generateDurationTimeline,
+} from './charts.js';
 
 /**
  * Formats a number for display in the report.
@@ -121,6 +126,16 @@ export function generateMarkdownReport(report: BenchmarkReport): string {
   if (report.summary.acceptanceRates.maestroFocus !== undefined) {
     sections.push(`- **Maestro Focus:** ${(report.summary.acceptanceRates.maestroFocus * 100).toFixed(1)}%`);
   }
+  sections.push('');
+
+  // Mermaid Charts
+  sections.push('## Visualizations');
+  sections.push('');
+  sections.push(generateAcceptanceBarChart(report));
+  sections.push('');
+  sections.push(generateTokenBoxPlot(report));
+  sections.push('');
+  sections.push(generateDurationTimeline(report));
   sections.push('');
 
   if (report.summary.actionability) {

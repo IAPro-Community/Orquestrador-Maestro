@@ -1,5 +1,7 @@
 # Contratos de tarefa e workspace
 
+Estes contratos tornam trabalhos maiores retomáveis sem entregar autonomia ilimitada à ferramenta. Leia esta referência ao definir workflow, artefatos, dependências ou gates humanos.
+
 O Maestro usa três contratos relacionados:
 
 1. `WORKFLOW_SCHEMAS.json` descreve fases, etapas, eventos e gates.

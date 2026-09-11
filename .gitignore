@@ -30,6 +30,7 @@ dist/
 build/
 security-reports/
 benchmark-harness/evidence/
+evidence/
 benchmark-harness/node_modules/
 benchmark-harness/dist/
 *.tgz

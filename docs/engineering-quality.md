@@ -1,6 +1,12 @@
 # Engenharia guiada e definição de pronto
 
-O Maestro mantém tarefas pequenas baratas e compõe disciplina adicional quando a intenção indica uma mudança não trivial. O usuário descreve o resultado; o roteador deriva capacidades como arquitetura, backend, modelagem de dados, semântica, segurança e estratégia de testes sem exigir que a pessoa conheça o catálogo.
+## O benefício em uma frase
+
+Uma tarefa só fica pronta quando há evidência proporcional ao que ela mudou. O Maestro mantém ajustes simples leves e adiciona disciplina quando a mudança pede arquitetura, segurança ou testes mais profundos.
+
+**Leia este guia** para entender como qualidade e verificação entram no fluxo sem transformar toda tarefa em burocracia. Para o processo completo da IA, veja o [guia operacional](ai-agent-operating-guide.md).
+
+O usuário descreve o resultado; o roteador deriva capacidades como arquitetura, backend, modelagem de dados, semântica, segurança e estratégia de testes sem exigir que a pessoa conheça o catálogo.
 
 ## Roteamento proporcional
 

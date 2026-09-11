@@ -17,37 +17,16 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { writeFile, mkdir } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
 import type { BenchmarkScenario } from '../types/scenario.js';
 import type { BenchmarkRunReport, RunStatus, Condition } from '../types/run.js';
 import type { AgentDriver, DriverExecuteOptions } from '../types/driver.js';
 import type { TokenUsage } from '../types/tokens.js';
-import { TokenSource, TokenConfidence } from '../types/tokens.js';
+import { createUnavailableTokens } from '../utils/tokens.js';
 import { hashFixture, copyFixtureToTemp } from '../fixtures/index.js';
 import { verifyAcceptanceSuite } from '../verifier/index.js';
 import { checkBenchmarkIntegrity } from '../verifier/integrity.js';
 import { preserveRawEvidence, sanitizeSecrets } from '../evidence/index.js';
-
-/**
- * Run a shell command via spawn. Returns { stdout, exitCode }.
- */
-async function runCmd(
-  command: string,
-  args: string[],
-  opts: { cwd: string; timeout?: number },
-): Promise<{ stdout: string; exitCode: number }> {
-  return new Promise((resolve) => {
-    const proc = spawn(command, args, {
-      cwd: opts.cwd,
-      timeout: opts.timeout ?? 10_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.on('close', (code) => resolve({ stdout, exitCode: code ?? 1 }));
-    proc.on('error', () => resolve({ stdout: '', exitCode: 1 }));
-  });
-}
+import { runCmd } from '../utils/run-cmd.js';
 
 /** Orchestration options. */
 export interface OrchestrateOptions {
@@ -65,6 +44,8 @@ export interface OrchestrateOptions {
   env?: Record<string, string>;
   /** Override timeout (ms). */
   timeoutMs?: number;
+  /** Override model (takes precedence over scenario.model). */
+  model?: string;
 }
 
 /** Single run result. */
@@ -88,6 +69,7 @@ export async function orchestrateRun(
     useContainer = false,
     env = {},
     timeoutMs,
+    model: overrideModel,
   } = options;
 
   const runId = randomUUID();
@@ -115,7 +97,7 @@ export async function orchestrateRun(
       workspace,
       fixture: scenario.fixture.path,
       timeoutMs: timeoutMs ?? scenario.limits.maxTimeMs ?? 300_000,
-      model: scenario.model ?? 'claude-sonnet-4-20250514',
+      model: overrideModel ?? scenario.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash',
       env,
     };
 
@@ -166,9 +148,9 @@ export async function orchestrateRun(
     const evidence = await preserveRawEvidence({
       workspace,
       runId,
-      agentOutput: sanitizeSecrets(driverResult.output),
+      agentOutput: driverResult.output,
       agentExitCode: driverResult.exitCode,
-      verifierOutput: sanitizeSecrets(JSON.stringify(verifierResult, null, 2)),
+      verifierOutput: JSON.stringify(verifierResult, null, 2),
       verifierExitCode: verifierResult.passed ? 0 : 1,
       sessionFile: driverResult.sessionFile,
       gitDiff,
@@ -205,12 +187,8 @@ export async function orchestrateRun(
         acceptanceRate: verifierResult.acceptanceRate,
         accepted: verifierResult.passed,
         criteria: verifierResult.criteria.map((c) => ({
-          type: c.type,
-          name: c.name,
-          passed: c.passed,
-          duration: c.duration,
-          output: c.output ? sanitizeSecrets(c.output) : undefined,
-          error: c.error,
+          ...c,
+          output: sanitizeSecrets(c.output),
         })),
       },
       tokens: driverResult.tokens ?? createUnavailableTokens(),
@@ -311,6 +289,7 @@ export async function orchestratePair(options: {
   scenario: BenchmarkScenario;
   driver: AgentDriver;
   evidenceBase: string;
+  model?: string;
   vanillaEnv?: Record<string, string>;
   maestroEnv?: Record<string, string>;
   vanillaTimeoutMs?: number;
@@ -328,6 +307,7 @@ export async function orchestratePair(options: {
     driver: options.driver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
+    model: options.model,
     env: options.vanillaEnv,
     timeoutMs: options.vanillaTimeoutMs,
   });
@@ -338,6 +318,7 @@ export async function orchestratePair(options: {
     driver: options.driver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
+    model: options.model,
     env: options.maestroEnv,
     timeoutMs: options.maestroTimeoutMs,
   });
@@ -348,6 +329,7 @@ export async function orchestratePair(options: {
     driver: options.driver,
     evidenceBase: options.evidenceBase,
     useContainer: true,
+    model: options.model,
     env: options.maestroFocusEnv ?? { ...options.maestroEnv, MAESTRO_INTERACTION_PROFILE: 'focus' },
     timeoutMs: options.maestroFocusTimeoutMs ?? options.maestroTimeoutMs,
   });
@@ -403,15 +385,4 @@ async function getGitDiff(workspace: string): Promise<string> {
   }
 }
 
-function createUnavailableTokens(): TokenUsage {
-  return {
-    inputTokens: null,
-    outputTokens: null,
-    reasoningTokens: null,
-    cacheReadTokens: null,
-    cacheWriteTokens: null,
-    total: null,
-    source: TokenSource.Unavailable,
-    confidence: TokenConfidence.Unavailable,
-  };
-}
+

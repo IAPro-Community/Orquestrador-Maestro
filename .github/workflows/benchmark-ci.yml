@@ -21,34 +21,39 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
+        working-directory: benchmark-harness
         run: npm ci
 
       - name: Preflight check
-        run: node benchmarks/cli.js preflight
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts preflight
 
       - name: Run CI benchmark
+        working-directory: benchmark-harness
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          node benchmarks/cli.js suite \
+          npx tsx src/cli/index.ts suite \
             --profile ci \
-            --runs 3 \
-            --useContainer
+            --runs 3
 
       - name: Generate comparison report
+        working-directory: benchmark-harness
         run: |
           RUN_SET=$(date +%Y%m%d-%H%M%S)
-          node benchmarks/cli.js report "$RUN_SET" --format markdown > benchmarks/results/ci-summary-${RUN_SET}.md
+          mkdir -p results
+          npx tsx src/cli/index.ts report "$RUN_SET" --format markdown > results/ci-summary-${RUN_SET}.md
 
       - name: Compare with previous run
+        working-directory: benchmark-harness
         run: |
-          RESULTS_DIR="benchmarks/results"
+          RESULTS_DIR="results"
           LATEST=$(ls -t "$RESULTS_DIR"/report-*.json 2>/dev/null | head -1)
           PREVIOUS=$(ls -t "$RESULTS_DIR"/report-*.json 2>/dev/null | sed -n '2p')
 
           if [ -n "$LATEST" ] && [ -n "$PREVIOUS" ]; then
-            node benchmarks/cli.js compare "$LATEST" "$PREVIOUS"
+            npx tsx src/cli/index.ts compare "$LATEST" "$PREVIOUS"
           else
             echo "Not enough runs for comparison."
           fi
@@ -57,13 +62,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ci-benchmark-results-${{ github.run_id }}
-          path: benchmarks/results/
+          path: benchmark-harness/results/
           retention-days: 14
 
       - name: Post results to Step Summary
         if: always()
+        working-directory: benchmark-harness
         run: |
-          RESULTS_DIR="benchmarks/results"
+          RESULTS_DIR="results"
           LATEST_MD=$(ls -t "$RESULTS_DIR"/ci-summary-*.md 2>/dev/null | head -1)
           if [ -n "$LATEST_MD" ]; then
             echo "## Weekly CI Benchmark Results" >> $GITHUB_STEP_SUMMARY

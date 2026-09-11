@@ -1,5 +1,7 @@
 # Memory Scopes
 
+This reference explains where episodic observations are visible and why a branch does not accidentally leak context into another workspace. Start with the [operating guide](ai-agent-operating-guide.md) for the everyday workflow.
+
 This document describes the memory scope system in Orquestrador Maestro.
 
 ## Scope Levels

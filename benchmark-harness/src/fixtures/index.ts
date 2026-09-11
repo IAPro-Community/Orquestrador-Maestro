@@ -6,7 +6,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readdir, stat, readFile, copyFile, mkdir, rm } from 'node:fs/promises';
+import { readdir, readFile, copyFile, mkdir, rm } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 

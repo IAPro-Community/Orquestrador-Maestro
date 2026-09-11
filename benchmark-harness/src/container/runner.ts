@@ -11,26 +11,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-
-/**
- * Run a shell command via spawn. Returns { stdout, exitCode }.
- */
-async function runCmd(
-  command: string,
-  args: string[],
-  opts: { timeout?: number },
-): Promise<{ stdout: string; exitCode: number }> {
-  return new Promise((resolve) => {
-    const proc = spawn(command, args, {
-      timeout: opts.timeout ?? 10_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.on('close', (code) => resolve({ stdout, exitCode: code ?? 1 }));
-    proc.on('error', () => resolve({ stdout: '', exitCode: 1 }));
-  });
-}
+import { runCmd } from '../utils/run-cmd.js';
 
 /** Container execution options. */
 export interface ContainerRunOptions {

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="350" fill="url(#bg3)" rx="12"/>
+
+  <text x="400" y="30" text-anchor="middle" fill="#f8fafc" font-size="16" font-weight="700">Evidence Gate: O que garante honestidade</text>
+  <text x="400" y="48" text-anchor="middle" fill="#94a3b8" font-size="10">Exemplo do processo de elegibilidade para claims verificáveis</text>
+
+  <!-- Flow: Left to Right -->
+  <!-- Step 1 -->
+  <rect x="30" y="80" width="120" height="80" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="90" y="110" text-anchor="middle" fill="#60a5fa" font-size="20">🔑</text>
+  <text x="90" y="130" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Provider-Reported</text>
+  <text x="90" y="145" text-anchor="middle" fill="#94a3b8" font-size="8">Tokens do provider</text>
+
+  <!-- Arrow -->
+  <line x1="155" y1="120" x2="175" y2="120" stroke="#475569" stroke-width="1.5"/>
+  <polygon points="175,116 183,120 175,124" fill="#475569"/>
+
+  <!-- Step 2 -->
+  <rect x="185" y="80" width="120" height="80" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="245" y="110" text-anchor="middle" fill="#60a5fa" font-size="20">🧪</text>
+  <text x="245" y="130" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Hidden Tests</text>
+  <text x="245" y="145" text-anchor="middle" fill="#94a3b8" font-size="8">Testes não visíveis</text>
+
+  <!-- Arrow -->
+  <line x1="310" y1="120" x2="330" y2="120" stroke="#475569" stroke-width="1.5"/>
+  <polygon points="330,116 338,120 330,124" fill="#475569"/>
+
+  <!-- Step 3 -->
+  <rect x="340" y="80" width="120" height="80" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="400" y="110" text-anchor="middle" fill="#60a5fa" font-size="20">🔒</text>
+  <text x="400" y="130" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Isolation</text>
+  <text x="400" y="145" text-anchor="middle" fill="#94a3b8" font-size="8">Container isolado</text>
+
+  <!-- Arrow -->
+  <line x1="465" y1="120" x2="485" y2="120" stroke="#475569" stroke-width="1.5"/>
+  <polygon points="485,116 493,120 485,124" fill="#475569"/>
+
+  <!-- Step 4 -->
+  <rect x="495" y="80" width="120" height="80" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="555" y="110" text-anchor="middle" fill="#60a5fa" font-size="20">🛡️</text>
+  <text x="555" y="130" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Anti-Gaming</text>
+  <text x="555" y="145" text-anchor="middle" fill="#94a3b8" font-size="8">Verifica sinais de manipulação</text>
+
+  <!-- Arrow -->
+  <line x1="620" y1="120" x2="640" y2="120" stroke="#475569" stroke-width="1.5"/>
+  <polygon points="640,116 648,120 640,124" fill="#475569"/>
+
+  <!-- Step 5 -->
+  <rect x="650" y="80" width="120" height="80" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="710" y="110" text-anchor="middle" fill="#60a5fa" font-size="20">📊</text>
+  <text x="710" y="130" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="600">Reproducible</text>
+  <text x="710" y="145" text-anchor="middle" fill="#94a3b8" font-size="8">SHA-256 de tudo</text>
+
+  <!-- Result -->
+  <rect x="250" y="200" width="300" height="60" rx="10" fill="#22c55e" opacity="0.12" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="400" y="225" text-anchor="middle" fill="#86efac" font-size="13" font-weight="700">✅ Resultado: Claim-Eligible</text>
+  <text x="400" y="245" text-anchor="middle" fill="#6ee7b7" font-size="10">Pode ser publicado com responsabilidade</text>
+
+  <!-- Failed path -->
+  <rect x="250" y="280" width="300" height="50" rx="10" fill="#ef4444" opacity="0.08" stroke="#ef4444" stroke-width="1"/>
+  <text x="400" y="305" text-anchor="middle" fill="#fca5a5" font-size="11">❌ Falhou = Não publica, preserva evidência</text>
+
+  <!-- Arrows to result -->
+  <line x1="400" y1="165" x2="400" y2="195" stroke="#22c55e" stroke-width="1.5"/>
+  <polygon points="396,195 400,203 404,195" fill="#22c55e"/>
+
+  <line x1="400" y1="265" x2="400" y2="275" stroke="#ef4444" stroke-width="1" stroke-dasharray="3"/>
+</svg>

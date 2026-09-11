@@ -60,9 +60,9 @@ export interface CriterionResult {
   /** Whether this criterion passed. */
   passed: boolean;
   /** Wall-clock duration in milliseconds. */
-  duration?: number;
+  duration: number;
   /** Captured stdout / stderr output. */
-  output?: string;
+  output: string;
   /** Error message if the criterion failed. */
   error?: string;
 }

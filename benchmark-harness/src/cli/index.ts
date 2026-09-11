@@ -1,5 +1,5 @@
 /**
- * CLI entry point for Benchmark Harness v2.
+ * CLI entry point for Benchmark Harness v3.
  *
  * Usage:
  *   benchmark run --scenario <path> [--condition vanilla|maestro] [--container] [--evidence <dir>]
@@ -10,9 +10,10 @@
  * @module cli
  */
 
-import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { spawn } from 'node:child_process';
 import { loadScenario, loadAllScenarios } from '../scenarios/loader.js';
 import { validateScenario } from '../scenarios/index.js';
 import { orchestrateRun, orchestratePair } from '../orchestrator/index.js';
@@ -20,13 +21,14 @@ import { OpenCodeDriver } from '../drivers/opencode.js';
 import { ContainerRunner } from '../container/runner.js';
 import { generateMarkdownReport } from '../reporter/markdown.js';
 import { generateJSONReport } from '../reporter/json.js';
+import { generateCsvReport } from '../reporter/csv.js';
 import type { BenchmarkRunReport } from '../types/run.js';
 import type { BenchmarkReport } from '../types/report.js';
 import type { BenchmarkScenario } from '../types/scenario.js';
 import { summarizeActionability } from '../metrics/actionability.js';
 
 const HELP = `
-Benchmark Harness v2 — Maestro vs Vanilla
+Benchmark Harness v3 — Maestro vs Vanilla
 
 Usage:
   benchmark run      --scenario <path> [options]    Run a benchmark
@@ -34,6 +36,9 @@ Usage:
   benchmark report   --evidence <dir> [options]     Generate report
   benchmark list     --dir <path>                   List scenarios
   benchmark validate [--scenario <path>]            Validate one or all scenarios
+  benchmark preflight [--scenario <path>]           Check environment readiness
+  benchmark inspect  <run-id>                       Show detailed run evidence
+  benchmark compare  <dir-a> <dir-b>                Compare two evidence sets
   benchmark --help                                  Show this help
 
 Options:
@@ -43,7 +48,7 @@ Options:
   --model <name>                 Model identifier
   --timeout <ms>                 Timeout in milliseconds
   --output <path>                Report output path
-  --format <markdown|json>       Report format (default: both)
+  --format <markdown|json|csv|both>  Report format (default: both)
   --image <image>                Docker image for container mode
   --dry-run                      Validate scenario without executing
   --parallel <N>                 Run N scenarios in parallel (default: 1)
@@ -78,6 +83,12 @@ async function main(): Promise<CLIResult> {
       return handleList(args.slice(1));
     case 'validate':
       return handleValidate(args.slice(1));
+    case 'preflight':
+      return handlePreflight(args.slice(1));
+    case 'inspect':
+      return handleInspect(args.slice(1));
+    case 'compare':
+      return handleCompare(args.slice(1));
     default:
       return { exitCode: 1, message: `Unknown command: ${command}\n${HELP}` };
   }
@@ -91,7 +102,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
       condition: { type: 'string', default: 'vanilla' },
       container: { type: 'boolean', default: false },
       evidence: { type: 'string', default: './evidence' },
-      model: { type: 'string', default: 'claude-sonnet-4-20250514' },
+      model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
       'dry-run': { type: 'boolean', default: false },
@@ -173,7 +184,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
 
   const runs = parseInt(String(values.runs ?? '1'), 10);
   const parallel = parseInt(String(values.parallel ?? '1'), 10);
-  const effectiveModel = profileOverrides.model ?? String(values.model ?? 'claude-sonnet-4-20250514');
+  const effectiveModel = profileOverrides.model ?? String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash');
   const effectiveTimeout = profileOverrides.timeoutMs ?? parseInt(String(values.timeout ?? '300000'), 10);
 
   const driver = new OpenCodeDriver({ version: '0.1.0' });
@@ -192,7 +203,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
             driver,
             evidenceBase: evidenceDir,
             useContainer,
-            env: { OPENAI_MODEL: effectiveModel },
+            model: effectiveModel,
             timeoutMs: effectiveTimeout,
           }),
         ),
@@ -208,7 +219,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
         driver,
         evidenceBase: evidenceDir,
         useContainer,
-        env: { OPENAI_MODEL: effectiveModel },
+        model: effectiveModel,
         timeoutMs: effectiveTimeout,
       });
       results.push(result);
@@ -244,7 +255,7 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     options: {
       scenario: { type: 'string' },
       evidence: { type: 'string', default: './evidence' },
-      model: { type: 'string', default: 'claude-sonnet-4-20250514' },
+      model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
     },
@@ -273,8 +284,7 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     scenario,
     driver,
     evidenceBase: evidenceDir,
-    vanillaEnv: { OPENAI_MODEL: String(values.model ?? 'claude-sonnet-4-20250514') },
-    maestroEnv: { OPENAI_MODEL: String(values.model ?? 'claude-sonnet-4-20250514') },
+    model: String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash'),
     vanillaTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
     maestroTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
     maestroFocusTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
@@ -326,6 +336,10 @@ async function handleReport(args: string[]): Promise<CLIResult> {
   if (format === 'json' || format === 'both') {
     const json = generateJSONReport(report);
     await writeFile(`${outputPath}.json`, json, 'utf-8');
+  }
+  if (format === 'csv' || format === 'both') {
+    const csv = generateCsvReport(report);
+    await writeFile(`${outputPath}.csv`, csv, 'utf-8');
   }
 
   return {
@@ -398,7 +412,354 @@ async function handleValidate(args: string[]): Promise<CLIResult> {
   }
 }
 
+async function handlePreflight(args: string[]): Promise<CLIResult> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      scenario: { type: 'string' },
+      dir: { type: 'string', default: './scenarios' },
+      evidence: { type: 'string', default: './evidence' },
+    },
+    strict: false,
+  });
+
+  type PreflightCheck = { name: string; ok: boolean; detail: string };
+  const checks: PreflightCheck[] = [];
+
+  // Docker
+  try {
+    const { stdout } = await runCommand('docker', ['--version'], 5_000);
+    checks.push({ name: 'Docker', ok: stdout.includes('Docker version'), detail: stdout.trim() || 'not available' });
+  } catch {
+    checks.push({ name: 'Docker', ok: false, detail: 'not found' });
+  }
+
+  // Node.js
+  try {
+    const { stdout } = await runCommand('node', ['--version'], 5_000);
+    checks.push({ name: 'Node.js', ok: true, detail: stdout.trim() });
+  } catch {
+    checks.push({ name: 'Node.js', ok: false, detail: 'not found' });
+  }
+
+  // OpenCode CLI
+  try {
+    const { stdout, exitCode } = await runCommand('opencode', ['--version'], 5_000);
+    checks.push({ name: 'OpenCode CLI', ok: exitCode === 0, detail: stdout.trim() || 'available' });
+  } catch {
+    checks.push({ name: 'OpenCode CLI', ok: false, detail: 'not found' });
+  }
+
+  // API key
+  const apiKey = process.env.BENCHMARK_API_KEY;
+  if (apiKey) {
+    checks.push({ name: 'API Key (env)', ok: true, detail: `set (${apiKey.slice(0, 4)}...)` });
+  } else {
+    // Check .env file
+    try {
+      const envContent = await readFile(resolve('.env'), 'utf-8');
+      const match = envContent.match(/^BENCHMARK_API_KEY=(.+)$/m);
+      if (match && match[1].length > 0) {
+        checks.push({ name: 'API Key (.env)', ok: true, detail: `set (${match[1].slice(0, 4)}...)` });
+      } else {
+        checks.push({ name: 'API Key', ok: false, detail: 'not configured' });
+      }
+    } catch {
+      checks.push({ name: 'API Key', ok: false, detail: 'not configured' });
+    }
+  }
+
+  // Scenarios valid
+  const scenarioPath = String(values.scenario ?? '');
+  const scenariosDir = String(values.dir ?? './scenarios');
+  try {
+    if (scenarioPath) {
+      const scenario = await loadScenario(resolve(scenarioPath));
+      const v = validateScenario(scenario);
+      checks.push({ name: 'Scenario', ok: v.valid, detail: v.valid ? scenario.id : v.errors.join('; ') });
+    } else {
+      const scenarios = await loadAllScenarios(resolve(scenariosDir));
+      const valid = scenarios.filter((s) => validateScenario(s).valid).length;
+      checks.push({ name: 'Scenarios', ok: valid > 0, detail: `${valid}/${scenarios.length} valid in ${scenariosDir}` });
+    }
+  } catch (error) {
+    checks.push({ name: 'Scenarios', ok: false, detail: error instanceof Error ? error.message : String(error) });
+  }
+
+  // Fixtures exist
+  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  try {
+    await stat(evidenceDir);
+    checks.push({ name: 'Evidence dir', ok: true, detail: evidenceDir });
+  } catch {
+    checks.push({ name: 'Evidence dir', ok: false, detail: `${evidenceDir} (will be created)` });
+  }
+
+  // Format output
+  const lines = [
+    'Preflight checks:',
+    '',
+    ...checks.map((c) => `  ${c.ok ? '✅' : '❌'} ${c.name.padEnd(20)} ${c.detail}`),
+    '',
+    `Result: ${checks.every((c) => c.ok) ? 'All checks passed' : 'Some checks failed'}`,
+  ];
+
+  return {
+    exitCode: checks.every((c) => c.ok) ? 0 : 1,
+    message: lines.join('\n'),
+  };
+}
+
+async function handleInspect(args: string[]): Promise<CLIResult> {
+  const { values, positionals } = parseArgs({
+    args,
+    options: {
+      evidence: { type: 'string', default: './evidence' },
+      'raw': { type: 'boolean', default: false },
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+
+  const runId = positionals[0];
+  if (!runId) {
+    return { exitCode: 1, message: 'Error: run ID or path is required\n  Usage: benchmark inspect <run-id> [--evidence <dir>] [--raw]' };
+  }
+
+  const evidenceDir = resolve(String(values.evidence ?? './evidence'));
+  const showRaw = Boolean(values.raw);
+
+  // Find the run report
+  let report: BenchmarkRunReport | null = null;
+  let runDir = '';
+
+  // Try as direct path first
+  try {
+    const reportPath = join(resolve(runId), 'run-report.json');
+    const content = await readFile(reportPath, 'utf-8');
+    report = JSON.parse(content) as BenchmarkRunReport;
+    runDir = resolve(runId);
+  } catch {
+    // Not a direct path — search by ID
+    report = await loadRunReportById(evidenceDir, runId);
+    if (report) {
+      runDir = join(evidenceDir, runId);
+    }
+  }
+
+  if (!report) {
+    return { exitCode: 1, message: `Run not found: ${runId}\n  Searched in: ${evidenceDir}` };
+  }
+
+  const lines = [
+    `Run: ${report.runId}`,
+    `  Scenario:     ${report.scenarioId}`,
+    `  Condition:    ${report.condition}`,
+    `  Driver:       ${report.driver.name}@${report.driver.version}`,
+    `  Status:       ${report.status}`,
+    `  Accepted:     ${report.results.accepted ?? false} (${(report.results.acceptanceRate * 100).toFixed(1)}%)`,
+    `  Tokens:       ${report.tokens.total ?? 'unavailable'}`,
+    `  Duration:     ${report.timing.durationMs}ms`,
+    `  Created:      ${report.createdAt}`,
+    `  Fixture:      hash=${report.fixture.hash.slice(0, 12)}...`,
+    '',
+    '  Acceptance Criteria:',
+    ...report.results.criteria.map(
+      (c) => `    ${c.passed ? '✅' : '❌'} ${c.name} (${c.type})${c.error ? ` — ${c.error}` : ''}`,
+    ),
+  ];
+
+  if (report.evidence) {
+    lines.push('', '  Evidence:');
+    lines.push(`    Raw dir:      ${report.evidence.rawDir}`);
+    if (report.evidence.agentExitCode !== undefined) {
+      lines.push(`    Agent exit:   ${report.evidence.agentExitCode}`);
+    }
+    if (report.evidence.verifierExitCode !== undefined) {
+      lines.push(`    Verifier exit: ${report.evidence.verifierExitCode}`);
+    }
+    if (report.evidence.filesChanged && report.evidence.filesChanged.length > 0) {
+      lines.push(`    Files changed: ${report.evidence.filesChanged.length}`);
+    }
+  }
+
+  if (showRaw) {
+    lines.push('', '  Raw Evidence Files:');
+    try {
+      const entries = await readdir(runDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          lines.push(`    ${entry.name}`);
+        }
+      }
+    } catch {
+      lines.push('    (unable to list files)');
+    }
+  }
+
+  return { exitCode: 0, message: lines.join('\n') };
+}
+
+async function handleCompare(args: string[]): Promise<CLIResult> {
+  const { values, positionals } = parseArgs({
+    args,
+    options: {
+      format: { type: 'string', default: 'table' },
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+
+  if (positionals.length < 2) {
+    return {
+      exitCode: 1,
+      message: 'Error: two evidence directories are required\n  Usage: benchmark compare <dir-a> <dir-b> [--format table|json]',
+    };
+  }
+
+  const dirA = resolve(positionals[0]);
+  const dirB = resolve(positionals[1]);
+  const format = String(values.format ?? 'table');
+
+  const runsA = await loadRunReports(dirA);
+  const runsB = await loadRunReports(dirB);
+
+  if (runsA.length === 0 && runsB.length === 0) {
+    return { exitCode: 1, message: `No run reports found in either directory:\n  A: ${dirA}\n  B: ${dirB}` };
+  }
+
+  // Group by scenario for each side
+  const byScenarioA = groupByScenario(runsA);
+  const byScenarioB = groupByScenario(runsB);
+  const allScenarios = new Set([...byScenarioA.keys(), ...byScenarioB.keys()]);
+
+  if (format === 'json') {
+    const result = {
+      dirA,
+      dirB,
+      summaryA: summarizeRuns(runsA),
+      summaryB: summarizeRuns(runsB),
+      scenarios: Array.from(allScenarios).map((id) => ({
+        id,
+        a: byScenarioA.has(id) ? summarizeRuns(byScenarioA.get(id)!) : null,
+        b: byScenarioB.has(id) ? summarizeRuns(byScenarioB.get(id)!) : null,
+      })),
+    };
+    return { exitCode: 0, message: JSON.stringify(result, null, 2) };
+  }
+
+  // Table format
+  const lines = [
+    'Comparison:',
+    `  A: ${dirA} (${runsA.length} runs)`,
+    `  B: ${dirB} (${runsB.length} runs)`,
+    '',
+  ];
+
+  // Summary row
+  const sA = summarizeRuns(runsA);
+  const sB = summarizeRuns(runsB);
+  lines.push('  Overall:');
+  lines.push(`    ${'Metric'.padEnd(20)} ${'A'.padStart(12)} ${'B'.padStart(12)}`);
+  lines.push(`    ${'─'.repeat(20)} ${'─'.repeat(12)} ${'─'.repeat(12)}`);
+  lines.push(`    ${'Runs'.padEnd(20)} ${String(sA.total).padStart(12)} ${String(sB.total).padStart(12)}`);
+  lines.push(`    ${'Accepted'.padEnd(20)} ${String(sA.accepted).padStart(12)} ${String(sB.accepted).padStart(12)}`);
+  lines.push(`    ${'Accept Rate'.padEnd(20)} ${(sA.acceptRate * 100).toFixed(1).padStart(11)}% ${(sB.acceptRate * 100).toFixed(1).padStart(11)}%`);
+  lines.push(`    ${'Mean Tokens'.padEnd(20)} ${formatTokens(sA.meanTokens).padStart(12)} ${formatTokens(sB.meanTokens).padStart(12)}`);
+  lines.push(`    ${'Mean Duration'.padEnd(20)} ${formatDuration(sA.meanDuration).padStart(12)} ${formatDuration(sB.meanDuration).padStart(12)}`);
+
+  // Per-scenario breakdown
+  if (allScenarios.size > 0) {
+    lines.push('', '  By Scenario:');
+    for (const id of allScenarios) {
+      const summaryA = byScenarioA.has(id) ? summarizeRuns(byScenarioA.get(id)!) : null;
+      const summaryB = byScenarioB.has(id) ? summarizeRuns(byScenarioB.get(id)!) : null;
+      lines.push(`    ${id}:`);
+      if (summaryA) {
+        lines.push(`      A: ${summaryA.accepted}/${summaryA.total} accepted, ${formatTokens(summaryA.meanTokens)} tokens, ${formatDuration(summaryA.meanDuration)}`);
+      } else {
+        lines.push('      A: (no runs)');
+      }
+      if (summaryB) {
+        lines.push(`      B: ${summaryB.accepted}/${summaryB.total} accepted, ${formatTokens(summaryB.meanTokens)} tokens, ${formatDuration(summaryB.meanDuration)}`);
+      } else {
+        lines.push('      B: (no runs)');
+      }
+    }
+  }
+
+  return { exitCode: 0, message: lines.join('\n') };
+}
+
+function groupByScenario(runs: BenchmarkRunReport[]): Map<string, BenchmarkRunReport[]> {
+  const map = new Map<string, BenchmarkRunReport[]>();
+  for (const run of runs) {
+    const existing = map.get(run.scenarioId) ?? [];
+    existing.push(run);
+    map.set(run.scenarioId, existing);
+  }
+  return map;
+}
+
+interface RunSummary {
+  total: number;
+  accepted: number;
+  acceptRate: number;
+  meanTokens: number | null;
+  meanDuration: number;
+}
+
+function summarizeRuns(runs: BenchmarkRunReport[]): RunSummary {
+  if (runs.length === 0) {
+    return { total: 0, accepted: 0, acceptRate: 0, meanTokens: null, meanDuration: 0 };
+  }
+  const accepted = runs.filter((r) => r.results.accepted).length;
+  const tokenValues = runs.map((r) => r.tokens.total).filter((t): t is number => t !== null);
+  const meanTokens = tokenValues.length > 0 ? tokenValues.reduce((a, b) => a + b, 0) / tokenValues.length : null;
+  const meanDuration = runs.reduce((sum, r) => sum + r.timing.durationMs, 0) / runs.length;
+  return {
+    total: runs.length,
+    accepted,
+    acceptRate: accepted / runs.length,
+    meanTokens,
+    meanDuration,
+  };
+}
+
+function formatTokens(tokens: number | null): string {
+  if (tokens === null) return 'N/A';
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
+  return String(tokens);
+}
+
+function formatDuration(ms: number): string {
+  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)}m`;
+  if (ms >= 1_000) return `${(ms / 1_000).toFixed(1)}s`;
+  return `${ms}ms`;
+}
+
 // --- Helpers ---
+
+/**
+ * Run a shell command via spawn. Returns { stdout, exitCode }.
+ */
+function runCommand(
+  command: string,
+  args: string[],
+  timeoutMs: number,
+): Promise<{ stdout: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    const proc = spawn(command, args, {
+      timeout: timeoutMs,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    proc.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+    proc.on('close', (code) => resolve({ stdout, exitCode: code ?? 1 }));
+    proc.on('error', () => resolve({ stdout: '', exitCode: 1 }));
+  });
+}
 
 async function loadRunReports(evidenceDir: string): Promise<BenchmarkRunReport[]> {
   const runs: BenchmarkRunReport[] = [];
@@ -443,7 +804,7 @@ function buildBenchmarkReport(runs: BenchmarkRunReport[]): BenchmarkReport {
 
   return {
     benchmarkId: `benchmark-${Date.now()}`,
-    version: '2',
+    version: '3',
     createdAt: new Date().toISOString(),
     methodology: {
       description: 'Paired comparison of Maestro vs Vanilla execution',
@@ -481,28 +842,42 @@ function buildPairs(runs: BenchmarkRunReport[]): Array<{
   scenarioId: string;
   vanilla: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
   maestro: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
+  maestroFocus?: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
 }> {
   const vanillaRuns = runs.filter((r) => r.condition === 'vanilla');
   const maestroRuns = runs.filter((r) => r.condition === 'maestro');
+  const maestroFocusRuns = runs.filter((r) => r.condition === 'maestro-focus');
 
   const pairs: Array<{
     pairId: string;
     scenarioId: string;
     vanilla: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
     maestro: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
+    maestroFocus?: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
   }> = [];
 
-  const maxLen = Math.max(vanillaRuns.length, maestroRuns.length);
+  const maxLen = Math.max(vanillaRuns.length, maestroRuns.length, maestroFocusRuns.length);
   for (let i = 0; i < maxLen; i++) {
     const v = vanillaRuns[i];
     const m = maestroRuns[i];
+    const mf = maestroFocusRuns[i];
     if (v && m) {
-      pairs.push({
+      const pair: {
+        pairId: string;
+        scenarioId: string;
+        vanilla: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
+        maestro: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
+        maestroFocus?: { runId: string; status: string; accepted: boolean; tokens: number | null; durationMs: number; acceptanceRate: number };
+      } = {
         pairId: `pair-${i}`,
         scenarioId: v.scenarioId,
         vanilla: { runId: v.runId, status: v.status, accepted: v.results.accepted ?? false, tokens: v.tokens.total, durationMs: v.timing.durationMs, acceptanceRate: v.results.acceptanceRate },
         maestro: { runId: m.runId, status: m.status, accepted: m.results.accepted ?? false, tokens: m.tokens.total, durationMs: m.timing.durationMs, acceptanceRate: m.results.acceptanceRate },
-      });
+      };
+      if (mf) {
+        pair.maestroFocus = { runId: mf.runId, status: mf.status, accepted: mf.results.accepted ?? false, tokens: mf.tokens.total, durationMs: mf.timing.durationMs, acceptanceRate: mf.results.acceptanceRate };
+      }
+      pairs.push(pair);
     }
   }
 

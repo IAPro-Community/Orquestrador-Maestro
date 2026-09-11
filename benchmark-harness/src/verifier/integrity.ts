@@ -6,8 +6,9 @@
  * @module integrity
  */
 
-import { readFile, access } from 'node:fs/promises';
-import { resolve, basename } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { resolve, join, basename } from 'node:path';
 
 /** Result of a single integrity check. */
 export interface IntegrityCheck {
@@ -46,9 +47,7 @@ export interface IntegrityOptions {
  * Returns the hex-encoded hash string.
  */
 async function sha256File(filePath: string): Promise<string> {
-  const { createHash } = await import('node:crypto');
-  const { readFile: read } = await import('node:fs/promises');
-  const content = await read(filePath);
+  const content = await readFile(filePath);
   return createHash('sha256').update(content).digest('hex');
 }
 
@@ -56,8 +55,6 @@ async function sha256File(filePath: string): Promise<string> {
  * Recursively read all files under a directory.
  */
 async function readAllFiles(dir: string): Promise<string[]> {
-  const { readdir, stat } = await import('node:fs/promises');
-  const { join } = await import('node:path');
   const entries = await readdir(dir, { withFileTypes: true });
   const files: string[] = [];
 
@@ -76,7 +73,6 @@ async function readAllFiles(dir: string): Promise<string[]> {
  * Compute SHA-256 hash of all files in a directory (sorted for determinism).
  */
 async function sha256Dir(dir: string): Promise<string> {
-  const { createHash } = await import('node:crypto');
   const files = await readAllFiles(dir);
   files.sort();
   const hash = createHash('sha256');
@@ -199,7 +195,6 @@ async function checkHiddenTestIntegrity(
   }
 
   // Search for hidden test directories.
-  const { readdir } = await import('node:fs/promises');
   let entries: string[];
   try {
     entries = await readdir(workspace);
@@ -261,7 +256,6 @@ async function checkVerifierIntegrity(
     };
   }
 
-  const { readdir } = await import('node:fs/promises');
   let entries: string[];
   try {
     entries = await readdir(workspace);
@@ -324,7 +318,6 @@ async function checkScenarioIntegrity(
     };
   }
 
-  const { readdir } = await import('node:fs/promises');
   let entries: string[];
   try {
     entries = await readdir(workspace);

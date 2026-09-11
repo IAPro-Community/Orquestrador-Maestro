@@ -1,0 +1,31 @@
+services:
+  agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agent
+    volumes:
+      - ../evidence:/workspace/evidence
+      - ../fixtures:/workspace/fixtures
+    environment:
+      - BENCHMARK_MODEL=${BENCHMARK_MODEL:-claude-sonnet-4-20250514}
+      - BENCHMARK_TIMEOUT=${BENCHMARK_TIMEOUT:-300000}
+      - BENCHMARK_SCENARIO=${BENCHMARK_SCENARIO:-}
+      - BENCHMARK_CONDITION=${BENCHMARK_CONDITION:-vanilla}
+    networks:
+      - benchmark
+    depends_on: []
+
+  verifier:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.verifier
+    volumes:
+      - ../evidence:/workspace/evidence
+    environment:
+      - BENCHMARK_EVIDENCE=${BENCHMARK_EVIDENCE:-/workspace/evidence}
+    networks:
+      - benchmark
+
+networks:
+  benchmark:
+    driver: bridge

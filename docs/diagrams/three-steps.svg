@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 230" role="img" aria-labelledby="title desc">
+  <title id="title">Três passos do Orquestrador Maestro</title>
+  <desc id="desc">Orientar a IA, executar com contexto mínimo e verificar com evidência.</desc>
+  <rect width="960" height="230" rx="24" fill="#0f172a"/>
+  <g font-family="system-ui, sans-serif">
+    <text x="480" y="38" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="700">Um processo simples para qualquer ferramenta de IA</text>
+    <path d="M300 125H338M620 125H658" stroke="#b58c3a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M326 116l12 9-12 9M646 116l12 9-12 9" fill="none" stroke="#b58c3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(30 75)">
+      <circle cx="54" cy="50" r="36" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+      <text x="54" y="58" text-anchor="middle" fill="#bfdbfe" font-size="25" font-weight="700">1</text>
+      <text x="102" y="43" fill="#f8fafc" font-size="15" font-weight="700">Oriente</text>
+      <text x="102" y="67" fill="#cbd5e1" font-size="11">Regras e objetivo certo</text>
+    </g>
+    <g transform="translate(350 75)">
+      <circle cx="54" cy="50" r="36" fill="#12333b" stroke="#5eead4" stroke-width="2"/>
+      <text x="54" y="58" text-anchor="middle" fill="#ccfbf1" font-size="25" font-weight="700">2</text>
+      <text x="102" y="43" fill="#f8fafc" font-size="15" font-weight="700">Execute</text>
+      <text x="102" y="67" fill="#cbd5e1" font-size="11">Só o contexto necessário</text>
+    </g>
+    <g transform="translate(670 75)">
+      <circle cx="54" cy="50" r="36" fill="#3a2c12" stroke="#fbbf24" stroke-width="2"/>
+      <text x="54" y="58" text-anchor="middle" fill="#fef3c7" font-size="25" font-weight="700">3</text>
+      <text x="102" y="43" fill="#f8fafc" font-size="15" font-weight="700">Verifique</text>
+      <text x="102" y="67" fill="#cbd5e1" font-size="11">Evidência antes do pronto</text>
+    </g>
+  </g>
+</svg>

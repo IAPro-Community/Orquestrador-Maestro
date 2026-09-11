@@ -1,5 +1,7 @@
 # Tool Profiles
 
+Tool profiles let each supported client find the same Maestro contract without taking over its login, model, or runtime. For installation, start with the [installation guide](installation.md).
+
 ## Grok CLI
 
 The Grok CLI reads the Orquestrador through the same portable `AGENTS.md` and skill roots used by the other agents. Configure a user installation with:

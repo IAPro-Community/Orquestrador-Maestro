@@ -1,5 +1,7 @@
 # RFCs do Orquestrador Maestro
 
+Esta área é para propostas que ainda precisam de discussão e decisão. Para usar ou instalar o produto, comece pelo [README](../../README.md).
+
 RFC significa *Request for Comments*. Neste projeto, uma RFC registra uma proposta que ainda está aberta para discussão. Ela não é uma decisão final.
 
 ## Fluxo

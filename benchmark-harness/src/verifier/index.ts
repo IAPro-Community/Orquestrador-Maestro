@@ -8,18 +8,9 @@
 
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { CriterionResult } from '../types/run.js';
 
 const execAsync = promisify(execCb);
-
-/** Result of evaluating a single acceptance criterion. */
-export interface CriterionResult {
-  type: string;
-  name: string;
-  passed: boolean;
-  duration: number;
-  output: string;
-  error?: string;
-}
 
 /** Aggregate result of the acceptance suite. */
 export interface VerifierResult {

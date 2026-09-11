@@ -1,5 +1,5 @@
 /**
- * Benchmark Harness v2 — public API.
+ * Benchmark Harness v3 — public API.
  *
  * @module benchmark-harness
  */
@@ -9,6 +9,7 @@ export type {
   AgentDriver,
   DriverExecuteOptions,
   DriverResult,
+  ToolUsage,
 } from './types/driver.js';
 export type {
   BenchmarkScenario,
@@ -48,11 +49,19 @@ export { validateScenario } from './scenarios/index.js';
 export { loadScenario, loadAllScenarios } from './scenarios/loader.js';
 export { hashFixture, copyFixtureToTemp } from './fixtures/index.js';
 export { createEvidenceDir, preserveRawEvidence, sanitizeSecrets } from './evidence/index.js';
-export { generateMarkdownReport } from './reporter/markdown.js';
+export { generateMarkdownReport, formatToolUsageTable } from './reporter/markdown.js';
 export { generateJSONReport } from './reporter/json.js';
+export { generateCsvReport } from './reporter/csv.js';
+export {
+  generateAcceptanceBarChart,
+  generateTokenBoxPlot,
+  generateDurationTimeline,
+} from './reporter/charts.js';
 export { sumTokenUsage, cumulativeTokensToFirstSuccess } from './metrics/tokens.js';
-export { computeDistribution, pairedTTest } from './metrics/statistics.js';
+export { computeDistribution, welchTTest } from './metrics/statistics.js';
 export { comparePairs } from './metrics/comparison.js';
 export { reconcileTokenUsage, validateTokenUsage } from './metrics/reconciliation.js';
 export { measureActionability, summarizeActionability } from './metrics/actionability.js';
 export type { ActionabilityMetrics, ActionabilitySummary } from './metrics/actionability.js';
+export { TokenizerRegistry } from './metrics/tokenizer-registry.js';
+export type { TokenEstimate, Tokenizer } from './metrics/tokenizer-registry.js';

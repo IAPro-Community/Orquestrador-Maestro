@@ -175,8 +175,8 @@ export interface BenchmarkSummary {
 export interface BenchmarkReport {
   /** Unique benchmark run identifier. */
   benchmarkId: string;
-  /** Report format version (always `'2'`). */
-  version: '2';
+  /** Report format version (always `'3'`). */
+  version: '3';
   /** ISO-8601 timestamp of report creation. */
   createdAt?: string;
   /** Methodology description. */

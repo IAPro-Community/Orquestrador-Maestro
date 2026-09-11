@@ -1,5 +1,7 @@
 # Reference Packs Locais
 
+Reference packs permitem usar uma biblioteca privada sem despejá-la no contexto ou no repositório público. Este guia define como indexar e consultar esse material com segurança.
+
 O Orquestrador não deve publicar bibliotecas privadas ou de terceiros dentro do snapshot público. Mesmo assim, muitos usuários têm acervos úteis em Google Drive, PDFs, playbooks, apostilas, runbooks e documentação interna.
 
 Este documento define o padrão recomendado para consumir esse material localmente sem misturar tudo no repositório público.

@@ -23,8 +23,8 @@
 
   <rect width="900" height="500" fill="url(#bg3)" rx="12"/>
 
-  <text x="450" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Benchmark Design: 6 × 3 × 5</text>
-  <text x="450" y="55" text-anchor="middle" fill="#94a3b8" font-size="11">6 Scenarios × 3 Conditions × 5 Repetitions = 90 Runs</text>
+  <text x="450" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Benchmark Design</text>
+  <text x="450" y="55" text-anchor="middle" fill="#fbbf24" font-size="11">Esquema ilustrativo — cenários e repetições são definidos por execução</text>
 
   <!-- Scenarios Column -->
   <text x="80" y="85" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600" letter-spacing="1">SCENARIOS</text>

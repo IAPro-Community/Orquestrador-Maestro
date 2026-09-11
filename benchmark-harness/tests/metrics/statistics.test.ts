@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeDistribution, pairedTTest } from '../../src/metrics/statistics.js';
+import { computeDistribution, welchTTest } from '../../src/metrics/statistics.js';
 
 describe('computeDistribution', () => {
   it('returns zeros for empty array', () => {
@@ -81,16 +81,16 @@ describe('computeDistribution', () => {
   });
 });
 
-describe('pairedTTest', () => {
+describe('welchTTest', () => {
   it('returns neutral result when either sample has n < 2', () => {
-    const result = pairedTTest([1], [2, 3]);
+    const result = welchTTest([1], [2, 3]);
     assert.equal(result.tStatistic, 0);
     assert.equal(result.pValue, 1);
     assert.equal(result.significant, false);
   });
 
   it('returns neutral result for empty arrays', () => {
-    const result = pairedTTest([], []);
+    const result = welchTTest([], []);
     assert.equal(result.tStatistic, 0);
     assert.equal(result.pValue, 1);
     assert.equal(result.significant, false);
@@ -99,7 +99,7 @@ describe('pairedTTest', () => {
   it('detects significant difference between clearly different distributions', () => {
     const vanilla = [100, 120, 110, 130, 140];
     const maestro = [50, 60, 55, 65, 70];
-    const result = pairedTTest(vanilla, maestro);
+    const result = welchTTest(vanilla, maestro);
     assert.equal(result.significant, true);
     assert.ok(result.pValue < 0.05);
     assert.ok(result.tStatistic > 0);
@@ -108,14 +108,14 @@ describe('pairedTTest', () => {
   it('does not flag identical distributions as significant', () => {
     const vanilla = [10, 20, 30, 40, 50];
     const maestro = [10, 20, 30, 40, 50];
-    const result = pairedTTest(vanilla, maestro);
+    const result = welchTTest(vanilla, maestro);
     assert.equal(result.significant, false);
     assert.equal(result.tStatistic, 0);
     assert.equal(result.pValue, 1);
   });
 
   it('works with small sample sizes (n=2)', () => {
-    const result = pairedTTest([10, 20], [30, 40]);
+    const result = welchTTest([10, 20], [30, 40]);
     // Should not crash, may or may not be significant
     assert.ok(typeof result.tStatistic === 'number');
     assert.ok(typeof result.pValue === 'number');

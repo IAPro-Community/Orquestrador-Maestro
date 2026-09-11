@@ -1,7 +1,7 @@
 {
   "name": "benchmark-harness",
-  "version": "2.0.0",
-  "description": "Benchmark Harness v2 — Maestro vs Vanilla comparison",
+  "version": "3.0.0",
+  "description": "Benchmark Harness v3 — Maestro vs Vanilla comparison",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

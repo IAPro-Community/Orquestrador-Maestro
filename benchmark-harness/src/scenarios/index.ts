@@ -7,75 +7,24 @@
  */
 
 import { createHash } from 'node:crypto';
-import { access } from 'node:fs/promises';
+import type {
+  BenchmarkScenario,
+  CriterionType,
+  AcceptanceCriterion,
+  Acceptance,
+  FixtureRef,
+  ScenarioLimits,
+  ScenarioIntegrity,
+} from '../types/scenario.js';
 
-/** Acceptance criterion type discriminators. */
-export type CriterionType =
-  | 'hidden_tests'
-  | 'build'
-  | 'typecheck'
-  | 'existing_tests'
-  | 'lint'
-  | 'integrity'
-  | 'filesystem'
-  | 'custom';
-
-/** A single acceptance criterion. */
-export interface AcceptanceCriterion {
-  type: CriterionType;
-  name: string;
-  command?: string;
-  description?: string;
-  timeout?: number;
-}
-
-/** Acceptance block. */
-export interface Acceptance {
-  criteria: AcceptanceCriterion[];
-  hiddenTestPath?: string;
-}
-
-/** Fixture reference. */
-export interface FixtureRef {
-  path: string;
-  hash?: string;
-}
-
-/** Resource and time limits. */
-export interface ScenarioLimits {
-  maxTokens?: number;
-  maxTimeMs?: number;
-  maxRetries?: number;
-}
-
-/** Expected integrity hashes. */
-export interface ScenarioIntegrity {
-  hiddenTestsHash?: string;
-  verifierHash?: string;
-  scenarioHash?: string;
-}
-
-/** A benchmark scenario. */
-export interface Scenario {
-  id: string;
-  name: string;
-  description?: string;
-  task: string;
-  fixture: FixtureRef;
-  acceptance: Acceptance;
-  limits: ScenarioLimits;
-  model?: string;
-  tags?: string[];
-  integrity?: ScenarioIntegrity;
-  /** SHA-256 of the task prompt — computed at load/validation time. */
-  taskHash?: string;
-}
+/** @deprecated Use BenchmarkScenario instead. */
+export type Scenario = BenchmarkScenario;
 
 /** Validation result. */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-  scenario?: Scenario;
+  scenario?: BenchmarkScenario;
 }
 
 const VALID_CRITERION_TYPES = new Set<CriterionType>([
@@ -104,7 +53,7 @@ const VALID_ID_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
  * @param data  Unknown input to validate.
  * @returns     ValidationResult with errors or the validated Scenario.
  */
-export function validateScenario(data: unknown): ValidationResult {
+export function validateScenario(data: unknown): ValidationResult & { scenario?: BenchmarkScenario } {
   const errors: string[] = [];
 
   if (typeof data !== 'object' || data === null) {
@@ -202,7 +151,7 @@ export function validateScenario(data: unknown): ValidationResult {
   const limits = (obj.limits as Record<string, unknown> | undefined) ?? {};
   const integrity = obj.integrity as Record<string, unknown> | undefined;
 
-  const scenario: Scenario = {
+  const scenario: BenchmarkScenario = {
     id: obj.id as string,
     name: obj.name as string,
     task: obj.task as string,

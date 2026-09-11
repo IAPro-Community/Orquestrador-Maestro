@@ -1,0 +1,17 @@
+FROM node:20-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r verifier && useradd -r -g verifier -m -s /bin/bash verifier
+
+WORKDIR /workspace
+
+COPY docker/entrypoint-verifier.sh /usr/local/bin/entrypoint-verifier.sh
+RUN chmod +x /usr/local/bin/entrypoint-verifier.sh
+
+USER verifier
+
+ENTRYPOINT ["entrypoint-verifier.sh"]

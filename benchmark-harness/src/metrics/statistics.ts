@@ -112,7 +112,7 @@ export function computeDistribution(values: number[]): Distribution {
  *
  * When either sample has n < 2, returns `{ tStatistic: 0, pValue: 1, significant: false }`.
  */
-export function pairedTTest(
+export function welchTTest(
   vanilla: number[],
   maestro: number[],
 ): { tStatistic: number; pValue: number; significant: boolean } {

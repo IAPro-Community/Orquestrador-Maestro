@@ -43,18 +43,15 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
+        working-directory: benchmark-harness
         run: npm ci
 
       - name: Preflight check
-        run: node benchmarks/cli.js preflight
-
-      - name: Build Docker images
-        working-directory: benchmarks/docker
-        run: |
-          docker build -f Dockerfile.agent -t bench-agent:latest .
-          docker build -f Dockerfile.verifier -t bench-verifier:latest .
+        working-directory: benchmark-harness
+        run: npx tsx src/cli/index.ts preflight
 
       - name: Run benchmark suite
+        working-directory: benchmark-harness
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -64,31 +61,33 @@ jobs:
           if [ -n "${{ inputs.filter }}" ]; then
             FILTER_FLAG="--filter ${{ inputs.filter }}"
           fi
-          node benchmarks/cli.js suite \
+          npx tsx src/cli/index.ts suite \
             --profile ${{ inputs.profile }} \
             --model ${{ inputs.model }} \
             --runs ${{ inputs.runs }} \
-            $FILTER_FLAG \
-            --useContainer
+            $FILTER_FLAG
 
       - name: Generate report
+        working-directory: benchmark-harness
         run: |
           RUN_SET=$(date +%Y%m%d-%H%M%S)
-          node benchmarks/cli.js report "$RUN_SET" --format markdown > benchmarks/results/summary-${RUN_SET}.md
-          node benchmarks/cli.js report "$RUN_SET" --format json > benchmarks/results/summary-${RUN_SET}.json
+          mkdir -p results
+          npx tsx src/cli/index.ts report "$RUN_SET" --format markdown > results/summary-${RUN_SET}.md
+          npx tsx src/cli/index.ts report "$RUN_SET" --format json > results/summary-${RUN_SET}.json
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.run_id }}
-          path: benchmarks/results/
+          path: benchmark-harness/results/
           retention-days: 30
 
       - name: Post summary
         if: always()
+        working-directory: benchmark-harness
         run: |
           RUN_SET=$(date +%Y%m%d-%H%M%S)
-          SUMMARY_FILE="benchmarks/results/summary-${RUN_SET}.md"
+          SUMMARY_FILE="results/summary-${RUN_SET}.md"
           if [ -f "$SUMMARY_FILE" ]; then
             echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

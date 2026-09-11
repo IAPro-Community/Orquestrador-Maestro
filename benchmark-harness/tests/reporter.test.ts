@@ -7,7 +7,7 @@ import type { BenchmarkReport } from '../src/types/report.js';
 function makeReport(overrides: Partial<BenchmarkReport> = {}): BenchmarkReport {
   return {
     benchmarkId: 'bench-001',
-    version: '2',
+    version: '3',
     createdAt: '2026-01-01T00:00:00.000Z',
     methodology: {
       description: 'Test methodology',
@@ -20,7 +20,7 @@ function makeReport(overrides: Partial<BenchmarkReport> = {}): BenchmarkReport {
       totalRuns: 4,
       vanillaRuns: 2,
       maestroRuns: 2,
-      acceptanceRates: { vanilla: 50, maestro: 100 },
+      acceptanceRates: { vanilla: 0.5, maestro: 1.0 },
     },
     claims: [],
     limitations: ['Small sample size'],
@@ -90,7 +90,7 @@ describe('generateMarkdownReport', () => {
             accepted: true,
             tokens: 150,
             durationMs: 1000,
-            acceptanceRate: 100,
+            acceptanceRate: 1.0,
           },
           maestro: {
             runId: 'm1',
@@ -98,7 +98,7 @@ describe('generateMarkdownReport', () => {
             accepted: true,
             tokens: 100,
             durationMs: 800,
-            acceptanceRate: 100,
+            acceptanceRate: 1.0,
           },
           delta: {
             tokensAbsolute: 50,
@@ -121,7 +121,7 @@ describe('generateMarkdownReport', () => {
         totalRuns: 4,
         vanillaRuns: 2,
         maestroRuns: 2,
-        acceptanceRates: { vanilla: 50, maestro: 100 },
+        acceptanceRates: { vanilla: 0.5, maestro: 1.0 },
         tokensPerAcceptedRun: {
           vanilla: {
             n: 1,
@@ -164,7 +164,7 @@ describe('generateMarkdownReport', () => {
         totalRuns: 2,
         vanillaRuns: 1,
         maestroRuns: 1,
-        acceptanceRates: { vanilla: 100, maestro: 100 },
+        acceptanceRates: { vanilla: 1.0, maestro: 1.0 },
         tokensPerAcceptedRun: {
           vanilla: {
             n: 1,
@@ -192,7 +192,7 @@ describe('generateJSONReport', () => {
     const json = generateJSONReport(report);
     const parsed = JSON.parse(json);
     assert.equal(parsed.benchmarkId, 'bench-001');
-    assert.equal(parsed.version, '2');
+    assert.equal(parsed.version, '3');
   });
 
   it('preserves all fields', () => {

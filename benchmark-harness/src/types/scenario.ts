@@ -86,4 +86,6 @@ export interface BenchmarkScenario {
   tags?: string[];
   /** Expected integrity hashes. */
   integrity?: ScenarioIntegrity;
+  /** SHA-256 of the task prompt — computed at load/validation time. */
+  taskHash?: string;
 }

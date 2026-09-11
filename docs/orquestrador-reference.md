@@ -1,6 +1,6 @@
-# Referencia Tecnica Do Orquestrador
+# Referência técnica do Orquestrador
 
-Este documento explica a logica interna do Orquestrador Maestro: como ele escolhe skills, como os hooks funcionam, quais arquivos controlam o comportamento e como uma IA deve usar o pacote depois da instalacao.
+Este é o mergulho técnico para quem quer auditar como o Maestro escolhe skills, mantém o contexto curto e aplica regras entre ferramentas. Para uma visão de produto e instalação, comece pelo [README](../README.md).
 
 Para a lista completa de skills publicadas, use tambem [skill-catalog.md](skill-catalog.md).
 Para a estrategia de economia de contexto, use [context-economy.md](context-economy.md).

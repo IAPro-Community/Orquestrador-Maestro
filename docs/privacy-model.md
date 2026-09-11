@@ -1,6 +1,10 @@
-# Modelo De Privacidade
+# Modelo de privacidade
 
-Este repo compartilha comportamento e estrutura, não o conteúdo privado da máquina original.
+O snapshot público compartilha comportamento e estrutura, não o conteúdo privado da máquina original. Você pode revisar o que é instalado sem publicar credenciais, histórico de trabalho ou dados de projetos.
+
+![Fronteira entre conteúdo público e local](diagrams/privacy-boundary.svg)
+
+Use este guia para conferir o que entra no repositório, o que permanece local e como funciona a telemetria opcional.
 
 ## Incluído
 

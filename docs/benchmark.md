@@ -1,6 +1,10 @@
 # Orquestrador Maestro Benchmark — Methodology
 
-This document specifies the methodology for the Orquestrador Maestro benchmark harness. It is a reference for reproducible comparison of agent harnesses, not a leaderboard.
+## What this benchmark is for
+
+This harness lets you compare an AI workflow with and without Maestro under the same scenario, model, and acceptance criteria. It is a reproducible method, not a leaderboard and not proof that one result applies to every model or project.
+
+Use the [quick start](#quick-start) to run your own comparison. Read the [claims policy](#claims-policy) before publishing a number: the useful question is not “who wins forever?”, but “what happened under these recorded conditions?”
 
 ---
 
@@ -38,14 +42,15 @@ The following factors can invalidate results if uncontrolled.
 
 ## 3. Experimental Conditions
 
-A benchmark run compares two conditions on identical task prompts.
+A paired benchmark command evaluates three conditions on identical task prompts. A single run can select one of them.
 
 | Condition | Agent sees | Purpose |
 |-----------|-----------|---------|
 | `vanilla` | Raw prompt only — no Maestro workflow, no `AGENTS.md`, no skill routing | Baseline: model performance without orchestration |
-| `maestro-core` | Prompt prefixed with Maestro rules (observe → route → select → act → verify → report) | Workflow-augmented: model performance with structured orchestration |
+| `maestro` | Prompt prefixed with Maestro rules (observe → route → select → act → verify → report) | Workflow-augmented: model performance with structured orchestration |
+| `maestro-focus` | Maestro workflow plus the focus interaction profile | A more constrained communication profile for comparison |
 
-The `maestro-core` condition prepends the following preamble to the scenario prompt (see `benchmark-harness/src/drivers/opencode-driver.js:72-86`):
+The `maestro` condition prepends the workflow guidance to the scenario task. The implementation is in `benchmark-harness/src/drivers/opencode.ts`.
 
 ```
 You are working with the Orquestrador Maestro.
@@ -78,9 +83,9 @@ The harness creates an ephemeral copy of the fixture directory in the system tem
 
 The fixture is copied recursively. After the run completes (pass or fail), the workspace is deleted. No two runs share a workspace.
 
-### 4.2 Container Isolation (Planned)
+### 4.2 Container Isolation
 
-Future runs will execute agent processes inside Docker containers with:
+Official runs can execute agent processes inside Docker containers with:
 
 - No host network access (only the provider API endpoint)
 - CPU limits (2 vCPU)
@@ -88,7 +93,7 @@ Future runs will execute agent processes inside Docker containers with:
 - Ephemeral filesystem (no persistent volumes)
 - Verifier runs in a separate container from the agent
 
-The `RunOptions` type already declares `useContainer: boolean` (`benchmark-harness/src/types.js:38`). The container runtime is a planned extension.
+Use `--container` for official runs. The container runner validates the required isolation metadata before an official claim is eligible.
 
 ### 4.3 Verifier Isolation
 
@@ -237,7 +242,7 @@ Defined in `benchmark-harness/src/types.js:11-22` and validated in `benchmark-ha
 2. Populate it with realistic source code and a `package.json` with test scripts
 3. Create `test/hidden.test.js` using Node.js built-in test runner (`node:test`)
 4. Create `benchmark-harness/<your-scenario>.json` following the schema
-5. Validate: `node npm run bench:validate <your-scenario>`
+5. Validate from the repository root with `npm run bench:validate`
 
 ### 8.4 Design Principles
 
@@ -271,6 +276,8 @@ For TypeScript fixtures, hidden tests should include `tsc --noEmit` or equivalen
 ### 9.4 Linting
 
 For fixtures with ESLint or similar, hidden tests may include lint assertions. This is scenario-specific.
+
+<a id="evidence-gate"></a>
 
 ### 9.5 Evidence Gate
 
@@ -472,6 +479,8 @@ Planned heuristics to detect gaming:
 
 ---
 
+<a id="claims-policy"></a>
+
 ## 14. Claims Policy
 
 This section defines what can and cannot be claimed based on benchmark results.
@@ -511,13 +520,17 @@ A claim must reference all of the following:
 
 ## 15. Reproducibility
 
+<a id="quick-start"></a>
+
 ### 15.1 Quick Start
 
 ```bash
 git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
+cd benchmark-harness
 npm ci
-node npm run bench:run --model anthropic/claude-sonnet-4-20250514 --runs 5
+npx tsx src/cli/index.ts preflight --scenario scenarios/bug-fix-auth.json
+npx tsx src/cli/index.ts pair --scenario scenarios/bug-fix-auth.json --container
 ```
 
 ### 15.2 What's Fixed
@@ -550,7 +563,7 @@ On every pull request, the CI pipeline runs:
 ```bash
 npm run bench:validate          # Schema validation for all scenarios
 npm run bench:test              # Unit tests for harness code
-docker build -t bench-harness . # Verify Docker build (when container support is ready)
+docker build -t bench-harness benchmark-harness/docker # Verify the benchmark image
 ```
 
 This ensures scenarios are well-formed and harness code is correct before merge.
@@ -560,11 +573,10 @@ This ensures scenarios are well-formed and harness code is correct before merge.
 Scheduled runs (weekly or on-demand) execute the full suite:
 
 ```bash
-node npm run bench:run \
-  --model anthropic/claude-sonnet-4-20250514 \
-  --runs 5 \
-  --conditions vanilla,maestro-core \
-  --output evidence
+npm run bench:pair -- \
+  --scenario benchmark-harness/scenarios/bug-fix-auth.json \
+  --container \
+  --evidence evidence
 ```
 
 Results are stored as artifacts and compared against previous runs for regression detection.
@@ -574,10 +586,9 @@ Results are stored as artifacts and compared against previous runs for regressio
 A lightweight CI benchmark uses a free-tier model to verify harness correctness without incurring API costs:
 
 ```bash
-node npm run bench:run \
-  --model <free-model-id> \
-  --runs 1 \
-  --conditions vanilla,maestro-core
+npm run bench:run -- \
+  --scenario benchmark-harness/scenarios/bug-fix-auth.json \
+  --condition vanilla
 ```
 
 This catches harness regressions (broken fixtures, schema changes) without burning budget.
@@ -586,11 +597,11 @@ This catches harness regressions (broken fixtures, schema changes) without burni
 
 | Script | Command |
 |--------|---------|
-| `npm run bench:list` | List available scenarios |
-| `npm run bench:validate` | Validate all scenario definitions |
-| `npm run bench:run` | Run benchmarks (pass scenario IDs as arguments) |
-| `npm run bench:compare` | Compare two result files |
-| `npm run bench:help` | Show CLI help |
+| `npx tsx src/cli/index.ts list` | List available scenarios |
+| `npx tsx src/cli/index.ts validate` | Validate scenario definitions |
+| `npx tsx src/cli/index.ts run` | Run one condition |
+| `npx tsx src/cli/index.ts pair` | Run the three-condition comparison |
+| `npx tsx src/cli/index.ts --help` | Show CLI help |
 
 ---
 
@@ -601,7 +612,7 @@ Every `RunResult` written to disk follows this structure:
 ```json
 {
   "benchmark": "bug-fix-auth",
-  "condition": "maestro-core",
+  "condition": "maestro",
   "run": 1,
   "model": "anthropic/claude-sonnet-4-20250514",
   "driver": "opencode",

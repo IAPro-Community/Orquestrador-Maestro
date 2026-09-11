@@ -7,8 +7,8 @@ dist/
 # Evidence (raw runs — never committed)
 evidence/*
 
-# Lock files generated during runs
-package-lock.json
+# Lock files generated during runs (package-lock.json IS tracked for reproducibility)
+# package-lock.json
 
 # OS artifacts
 .DS_Store
