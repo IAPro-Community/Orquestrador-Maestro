@@ -71,6 +71,8 @@ export class TokenizerRegistry {
     if (!tokenizer) return null;
 
     const tokens = tokenizer.count(text);
+    // All registered tokenizers are heuristic approximations (tiktoken-based).
+    // Exact tokenization would require provider API calls; we use estimates.
     return {
       tokens,
       estimated: true,

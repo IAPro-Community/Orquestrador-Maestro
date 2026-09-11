@@ -28,8 +28,10 @@ const { formatStatus, resolveStatus } = require(path.join(rootDir, "runtime", "s
 const { listSupportedTools, getToolDefinition, isSupportedTool, resolveToolConfigPaths } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
 const { DETECTION_STATES, detectTool, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
 const installState = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
-const telemetryTimeoutMs = 1200;
-const telemetryConsentVersion = 1;
+const telemetryTimeoutMs = 350;
+const telemetryConsentVersion = 2;
+const defaultTelemetryProvider = "posthog";
+const defaultTelemetryEndpointUrl = "https://us.i.posthog.com/capture/";
 
 const installFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
@@ -1070,38 +1072,44 @@ function getTelemetryConfigPath() {
 function defaultTelemetryEndpoint() {
   return process.env.ORQUESTRADOR_MAESTRO_TELEMETRY_ENDPOINT ||
     (packageJson.config && packageJson.config.telemetryEndpoint) ||
-    "";
+    defaultTelemetryEndpointUrl;
 }
 
 function defaultTelemetryConfig() {
   return {
-    enabled: false,
+    enabled: true,
+    provider: defaultTelemetryProvider,
     endpoint: defaultTelemetryEndpoint(),
     anonymousId: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    consentVersion: 0
+    consentVersion: telemetryConsentVersion
   };
 }
 
 function normalizeTelemetryConfig(config) {
   const rawConfig = config && typeof config === "object" ? config : {};
-  const hasCurrentConsent =
-    rawConfig.enabled === true &&
-    rawConfig.consentVersion === telemetryConsentVersion;
+  const hasCurrentConsent = rawConfig.consentVersion === telemetryConsentVersion;
 
   return {
     ...defaultTelemetryConfig(),
     ...rawConfig,
-    enabled: hasCurrentConsent,
+    enabled: hasCurrentConsent && rawConfig.enabled !== false,
+    provider: rawConfig.provider || defaultTelemetryProvider,
     endpoint: rawConfig.endpoint || defaultTelemetryEndpoint(),
     consentVersion: hasCurrentConsent ? telemetryConsentVersion : (rawConfig.consentVersion || 0)
   };
 }
 
+/**
+ * Read telemetry config from disk. If the file doesn't exist, creates it with defaults.
+ * Side effect: writes default config to disk when first called.
+ */
 function readTelemetryConfig() {
   const configPath = getTelemetryConfigPath();
   if (!fs.existsSync(configPath)) {
-    return defaultTelemetryConfig();
+    const config = defaultTelemetryConfig();
+    writeTelemetryConfig(config);
+    return config;
   }
 
   try {
@@ -1130,8 +1138,12 @@ function validateTelemetryEndpoint(endpoint) {
 
   const url = new URL(endpoint);
   const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  const isPostHog = url.hostname === "eu.i.posthog.com" || url.hostname === "us.i.posthog.com";
   if (url.protocol !== "https:" && !(url.protocol === "http:" && isLocalhost)) {
     throw new Error("Endpoint de telemetria deve usar HTTPS, exceto localhost para desenvolvimento.");
+  }
+  if (!isLocalhost && !isPostHog) {
+    throw new Error("A telemetria usa somente endpoints oficiais do PostHog ou localhost para testes.");
   }
   return url.toString();
 }
@@ -1203,14 +1215,18 @@ function buildTelemetryPayload(command, args, exitCode, errorName) {
     flags: sanitizeFlags(args),
     exitCode,
     success: exitCode === 0,
-    errorName: errorName || null,
+    errorCategory: errorName ? normalizeTelemetryError(errorName) : null,
     platform: process.platform,
     arch: process.arch,
     nodeMajor: Number(process.versions.node.split(".")[0]),
-    ci: Boolean(process.env.CI),
     anonymousId: config.anonymousId,
-    timestamp: new Date().toISOString()
+    date: new Date().toISOString().slice(0, 10)
   };
+}
+
+function normalizeTelemetryError(errorName) {
+  const knownCategories = new Set(["Error", "TypeError", "RangeError", "SyntaxError", "AbortError"]);
+  return knownCategories.has(errorName) ? errorName : "unknown";
 }
 
 function postTelemetry(endpoint, payload) {
@@ -1274,12 +1290,35 @@ async function sendTelemetry(payload) {
     return { sent: false, reason: "invalid-endpoint" };
   }
 
-  if (!endpoint) {
-    return { sent: false, reason: "no-endpoint" };
-  }
+  if (!endpoint) return { sent: false, reason: "no-endpoint" };
+
+  const projectKey = process.env.ORQUESTRADOR_MAESTRO_TELEMETRY_API_KEY ||
+    (packageJson.config && packageJson.config.telemetryProjectKey) || "";
+  if (!projectKey) return { sent: false, reason: "no-provider-key" };
 
   writeTelemetryConfig({ ...config, endpoint });
-  const result = await postTelemetry(endpoint, payload);
+  const result = await postTelemetry(endpoint, {
+    api_key: projectKey,
+    ip: false,
+    event: payload.event,
+    distinct_id: payload.anonymousId,
+    properties: {
+      schemaVersion: payload.schemaVersion,
+      packageName: payload.packageName,
+      packageVersion: payload.packageVersion,
+      command: payload.command,
+      flags: payload.flags,
+      exitCode: payload.exitCode,
+      success: payload.success,
+      errorCategory: payload.errorCategory,
+      platform: payload.platform,
+      arch: payload.arch,
+      nodeMajor: payload.nodeMajor,
+      date: payload.date,
+      $process_person_profile: false
+    },
+    timestamp: `${payload.date}T00:00:00.000Z`
+  });
   if (!result.sent && process.env.ORQUESTRADOR_MAESTRO_TELEMETRY_DEBUG) {
     console.error(`Telemetry skipped: ${result.reason}`);
   }
@@ -1290,18 +1329,20 @@ function printTelemetryStatus() {
   const config = readTelemetryConfig();
   const envDisabled = telemetryDisabledByEnv();
   const endpoint = config.endpoint || defaultTelemetryEndpoint();
+  const hasProviderKey = Boolean(process.env.ORQUESTRADOR_MAESTRO_TELEMETRY_API_KEY ||
+    (packageJson.config && packageJson.config.telemetryProjectKey));
   let status = "desabilitada";
-  if (config.enabled && !envDisabled && endpoint) {
+  if (config.enabled && !envDisabled && endpoint && hasProviderKey) {
     status = "habilitada e enviando";
   } else if (config.enabled && !envDisabled) {
-    status = "habilitada, aguardando endpoint";
+    status = "habilitada, aguardando configuração do provedor";
   }
 
   console.log(`Telemetria: ${status}
 
 Endpoint: ${endpointLabel(endpoint)}
-Config: ${getTelemetryConfigPath()}
-AnonymousId: ${config.anonymousId}
+Provedor: PostHog (US Cloud)
+Finalidade: medir adoção e uso técnico por instalação anônima
 
 Payload permitido:
   - comando executado
@@ -1323,7 +1364,6 @@ Para desabilitar:
   ORQUESTRADOR_MAESTRO_TELEMETRY=0 orquestrador-maestro install
 
 Para habilitar:
-  orquestrador-maestro telemetry endpoint https://seu-dominio.example/api/orquestrador-telemetry
   orquestrador-maestro telemetry enable`);
 }
 
@@ -2386,7 +2426,14 @@ async function main() {
     exitCode = 1;
   }
 
-  if (["install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor", "init-dev", "compact-worklog", "check-dev-gates", "changelog"].includes(command)) {
+  const telemetryCommands = new Set([
+    "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
+    "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
+    "runs", "projects", "project", "missions", "mission", "terminal", "terminals",
+    "tui", "skills", "providers", "bridge", "runtime", "governance", "interaction",
+    "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
+  ]);
+  if (telemetryCommands.has(command)) {
     await sendTelemetry(buildTelemetryPayload(command, args, exitCode, errorName));
   }
 

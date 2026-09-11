@@ -169,7 +169,9 @@ orquestrador-maestro verify --home-path "$env:TEMP\orquestrador-test" --core-onl
 
 ## Telemetria
 
-O CLI tem suporte a telemetria anônima de runtime para medir uso real do pacote. Ela fica desabilitada por padrão. Nenhum evento é enviado sem endpoint configurado e sem habilitação explícita do usuário com `orquestrador-maestro telemetry enable`. Configurações antigas sem consentimento versionado são carregadas como desabilitadas e precisam de novo `telemetry enable`.
+O CLI envia, por padrão, telemetria anônima mínima para medir adoção e uso técnico do pacote. O provedor inicial é o PostHog Cloud na região US (Virginia), por captura server-side, sem SDK de sessão, replay, cookies, heatmaps ou autocaptura. O mantenedor deve revisar privacidade, retenção, eliminação e transferência internacional do projeto PostHog antes de publicar.
+
+O indicador é **instalação anônima ativa**, não pessoa única. Uma pessoa em dois computadores conta duas instalações, e remover a configuração pode gerar outro ID. A base legal e o aviso de privacidade devem ser revisados com orientação jurídica; esta documentação não afirma conformidade automática.
 
 Eventos coletáveis:
 
@@ -195,7 +197,8 @@ Payload permitido:
 - versão major do Node.js;
 - exit code;
 - sucesso ou falha;
-- identificador anônimo aleatório.
+- identificador anônimo aleatório persistido localmente;
+- data UTC, sem horário preciso.
 
 O payload nunca deve conter:
 
@@ -206,7 +209,8 @@ O payload nunca deve conter:
 - token;
 - prompt;
 - log;
-- nomes de arquivos privados.
+- nomes de arquivos privados;
+- IP armazenado pelo produto, prompts ou valores de argumentos.
 
 Status:
 
@@ -214,19 +218,13 @@ Status:
 orquestrador-maestro telemetry
 ```
 
-Configurar endpoint:
+Consultar o estado e instruções simples:
 
 ```bash
-orquestrador-maestro telemetry endpoint https://seu-dominio.example/api/orquestrador-telemetry
+orquestrador-maestro telemetry status
 ```
 
-Atalho equivalente:
-
-```bash
-orquestrador-maestro telemetry enable --endpoint https://seu-dominio.example/api/orquestrador-telemetry
-```
-
-Habilitar:
+Reabilitar depois de um opt-out:
 
 ```bash
 orquestrador-maestro telemetry enable
@@ -257,23 +255,24 @@ $env:ORQUESTRADOR_MAESTRO_TELEMETRY = "0"
 orquestrador-maestro install
 ```
 
-O endpoint também pode ser configurado por variável de ambiente, mas isso não habilita telemetria sozinho:
+O endpoint e a chave pública de ingestão do projeto PostHog são definidos pelo mantenedor no release ou por variáveis de ambiente:
 
 ```bash
-ORQUESTRADOR_MAESTRO_TELEMETRY_ENDPOINT=https://seu-dominio.example/api/orquestrador-telemetry
+ORQUESTRADOR_MAESTRO_TELEMETRY_ENDPOINT=https://us.i.posthog.com/capture/
+ORQUESTRADOR_MAESTRO_TELEMETRY_API_KEY=<chave-publica-do-projeto>
 ```
 
-Antes do publish, o mantenedor pode gravar um endpoint sugerido em `package.json`, mas a telemetria continuará exigindo `orquestrador-maestro telemetry enable` no usuário:
+Antes do publish, o mantenedor pode gravar o endpoint sugerido em `package.json`. O usuário pode desligar a telemetria a qualquer momento:
 
 ```json
 {
   "config": {
-    "telemetryEndpoint": "https://seu-dominio.example/api/orquestrador-telemetry"
+    "telemetryEndpoint": "https://us.i.posthog.com/capture/"
   }
 }
 ```
 
-Sem endpoint e sem `telemetry enable`, a telemetria fica pronta no CLI, mas nenhum evento é enviado.
+Sem a chave pública do projeto, nenhum evento é enviado. Configurações antigas sem a versão atual são carregadas desabilitadas.
 
 Exemplo de evento:
 
@@ -287,15 +286,18 @@ Exemplo de evento:
   "flags": ["--core-only"],
   "exitCode": 0,
   "success": true,
-  "errorName": null,
+  "errorCategory": null,
   "platform": "win32",
   "arch": "x64",
   "nodeMajor": 22,
-  "ci": false,
   "anonymousId": "uuid-aleatorio",
-  "timestamp": "2026-05-25T00:00:00.000Z"
+  "date": "2026-05-25"
 }
 ```
+
+Métricas recomendadas no painel: `active_installations` (distinct IDs que emitiram evento no período), `new_installations` (primeiro evento por ID), comandos mais usados, funil `install` → `verify`, versões em uso, plataforma aproximada e taxa de erro por comando. Não use os dados para marketing individual, publicidade, perfilização ou venda.
+
+Registro de tratamento: finalidade medir adoção e uso técnico; origem CLI instalado; categorias identificador pseudônimo de instalação, comando, resultado, versão e ambiente técnico; compartilhamento com PostHog como operador de analytics; retenção conforme a configuração mínima aprovada no projeto PostHog; eliminação pela exclusão dos eventos/projeto conforme o procedimento vigente do provedor. Confirme prazo, região, subprocessadores e transferências no contrato antes do lançamento.
 
 Métricas complementares:
 

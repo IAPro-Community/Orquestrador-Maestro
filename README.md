@@ -111,7 +111,9 @@ Este é um snapshot público e sanitizado: compartilha estrutura e comportamento
 
 ![Fronteira entre conteúdo público e local](docs/diagrams/privacy-boundary.svg)
 
-Leia o [modelo de privacidade](docs/privacy-model.md) para saber exatamente o que entra, o que fica local e como a telemetria opcional funciona.
+Leia o [modelo de privacidade](docs/privacy-model.md) para saber exatamente o que entra, o que fica local e como a telemetria anônima funciona.
+
+O CLI mede **instalações anônimas ativas** por padrão, nunca pessoas únicas. Envia somente comando, resultado, versão e ambiente técnico ao PostHog Cloud (US); não envia caminhos, argumentos, prompts, arquivos, nomes, IP armazenado pelo produto ou credenciais. Desative com `orquestrador-maestro telemetry disable` ou `ORQUESTRADOR_MAESTRO_TELEMETRY=0`.
 
 **Próximo passo:** [confira o modelo completo de privacidade](docs/privacy-model.md) antes de sincronizar uma instalação pública.
 

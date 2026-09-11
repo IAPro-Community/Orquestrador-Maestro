@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 
 /**
  * Run a shell command via spawn. Returns { stdout, exitCode }.
+ * On spawn error (e.g. command not found), exitCode is 1 and stdout is empty.
  */
 export async function runCmd(
   command: string,

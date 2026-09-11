@@ -11,9 +11,10 @@
  */
 
 import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, basename } from 'node:path';
 import { parseArgs } from 'node:util';
 import { spawn } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { loadScenario, loadAllScenarios } from '../scenarios/loader.js';
 import { validateScenario } from '../scenarios/index.js';
 import { orchestrateRun, orchestratePair } from '../orchestrator/index.js';
@@ -22,6 +23,7 @@ import { ContainerRunner } from '../container/runner.js';
 import { generateMarkdownReport } from '../reporter/markdown.js';
 import { generateJSONReport } from '../reporter/json.js';
 import { generateCsvReport } from '../reporter/csv.js';
+import { runCmd } from '../utils/run-cmd.js';
 import type { BenchmarkRunReport } from '../types/run.js';
 import type { BenchmarkReport } from '../types/report.js';
 import type { BenchmarkScenario } from '../types/scenario.js';
@@ -39,6 +41,7 @@ Usage:
   benchmark preflight [--scenario <path>]           Check environment readiness
   benchmark inspect  <run-id>                       Show detailed run evidence
   benchmark compare  <dir-a> <dir-b>                Compare two evidence sets
+  benchmark suite    [options]                       Run all scenarios in both conditions
   benchmark --help                                  Show this help
 
 Options:
@@ -48,7 +51,7 @@ Options:
   --model <name>                 Model identifier
   --timeout <ms>                 Timeout in milliseconds
   --output <path>                Report output path
-  --format <markdown|json|csv|both>  Report format (default: both)
+  --format <markdown|json|csv|both|all>  Report format (default: both)
   --image <image>                Docker image for container mode
   --dry-run                      Validate scenario without executing
   --parallel <N>                 Run N scenarios in parallel (default: 1)
@@ -89,6 +92,8 @@ async function main(): Promise<CLIResult> {
       return handleInspect(args.slice(1));
     case 'compare':
       return handleCompare(args.slice(1));
+    case 'suite':
+      return handleSuite(args.slice(1));
     default:
       return { exitCode: 1, message: `Unknown command: ${command}\n${HELP}` };
   }
@@ -329,15 +334,15 @@ async function handleReport(args: string[]): Promise<CLIResult> {
 
   // Generate output
   const format = String(values.format ?? 'both');
-  if (format === 'markdown' || format === 'both') {
+  if (format === 'markdown' || format === 'both' || format === 'all') {
     const md = generateMarkdownReport(report);
     await writeFile(`${outputPath}.md`, md, 'utf-8');
   }
-  if (format === 'json' || format === 'both') {
+  if (format === 'json' || format === 'both' || format === 'all') {
     const json = generateJSONReport(report);
     await writeFile(`${outputPath}.json`, json, 'utf-8');
   }
-  if (format === 'csv' || format === 'both') {
+  if (format === 'csv' || format === 'both' || format === 'all') {
     const csv = generateCsvReport(report);
     await writeFile(`${outputPath}.csv`, csv, 'utf-8');
   }
@@ -428,7 +433,7 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
 
   // Docker
   try {
-    const { stdout } = await runCommand('docker', ['--version'], 5_000);
+    const { stdout } = await runCmd('docker', ['--version'], { timeout: 5_000 });
     checks.push({ name: 'Docker', ok: stdout.includes('Docker version'), detail: stdout.trim() || 'not available' });
   } catch {
     checks.push({ name: 'Docker', ok: false, detail: 'not found' });
@@ -436,7 +441,7 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
 
   // Node.js
   try {
-    const { stdout } = await runCommand('node', ['--version'], 5_000);
+    const { stdout } = await runCmd('node', ['--version'], { timeout: 5_000 });
     checks.push({ name: 'Node.js', ok: true, detail: stdout.trim() });
   } catch {
     checks.push({ name: 'Node.js', ok: false, detail: 'not found' });
@@ -444,7 +449,7 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
 
   // OpenCode CLI
   try {
-    const { stdout, exitCode } = await runCommand('opencode', ['--version'], 5_000);
+    const { stdout, exitCode } = await runCmd('opencode', ['--version'], { timeout: 5_000 });
     checks.push({ name: 'OpenCode CLI', ok: exitCode === 0, detail: stdout.trim() || 'available' });
   } catch {
     checks.push({ name: 'OpenCode CLI', ok: false, detail: 'not found' });
@@ -691,6 +696,86 @@ async function handleCompare(args: string[]): Promise<CLIResult> {
   return { exitCode: 0, message: lines.join('\n') };
 }
 
+async function handleSuite(args: string[]): Promise<CLIResult> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      container: { type: 'boolean', default: false },
+      evidence: { type: 'string', default: './evidence' },
+      model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
+      timeout: { type: 'string', default: '300000' },
+      image: { type: 'string', default: 'node:20-slim' },
+      runs: { type: 'string', default: '1' },
+      profile: { type: 'string' },
+      filter: { type: 'string' },
+    },
+    strict: false,
+  });
+
+  const profile = String(values.profile ?? '');
+  const profileOverrides = getProfileOverrides(profile);
+
+  const scenariosDir = resolve(process.cwd(), 'scenarios');
+  let scenarioFiles: string[];
+  try {
+    scenarioFiles = readdirSync(scenariosDir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => resolve(scenariosDir, f));
+  } catch {
+    return { exitCode: 1, message: `Scenarios directory not found: ${scenariosDir}` };
+  }
+
+  if (scenarioFiles.length === 0) {
+    return { exitCode: 1, message: `No scenario files found in ${scenariosDir}` };
+  }
+
+  const filter = String(values.filter ?? '');
+  const conditions = ['vanilla', 'maestro'] as const;
+  const runs = parseInt(String(values.runs ?? '1'), 10) || 1;
+  const evidenceBase = String(values.evidence ?? './evidence');
+  const useContainer = Boolean(values.container);
+  const model = String(values.model ?? profileOverrides.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash');
+  const timeout = parseInt(String(values.timeout ?? '300000'), 10) || 300_000;
+  const image = String(values.image ?? 'node:20-slim');
+
+  let totalRuns = 0;
+  let passedRuns = 0;
+  const lines: string[] = [`Running ${scenarioFiles.length} scenarios × ${conditions.length} conditions × ${runs} runs...\n`];
+
+  for (const scenarioFile of scenarioFiles) {
+    for (const condition of conditions) {
+      for (let run = 0; run < runs; run++) {
+        if (filter && !scenarioFile.includes(filter)) continue;
+
+        const scenarioName = basename(scenarioFile, '.json');
+        const runLabel = `${scenarioName}/${condition}#${run + 1}`;
+        process.stdout.write(`  [${totalRuns + 1}] ${runLabel}...`);
+
+        // Delegate to handleRun via CLI args
+        const runArgs = [
+          'run',
+          '--scenario', scenarioFile,
+          '--condition', condition,
+          '--evidence', evidenceBase,
+          '--model', model,
+          '--timeout', String(timeout),
+          '--image', image,
+        ];
+        if (useContainer) runArgs.push('--container');
+
+        // Delegate to CLI via process.argv[0] (node) + this script
+        const result = await runCmd(process.execPath, [process.argv[1], ...runArgs], { timeout: timeout + 10_000 });
+        totalRuns++;
+        if (result.exitCode === 0) passedRuns++;
+        process.stdout.write(` ${result.exitCode === 0 ? 'PASS' : 'FAIL'}\n`);
+      }
+    }
+  }
+
+  lines.push(`\nResults: ${passedRuns}/${totalRuns} passed`);
+  return { exitCode: passedRuns === totalRuns ? 0 : 1, message: lines.join('\n') };
+}
+
 function groupByScenario(runs: BenchmarkRunReport[]): Map<string, BenchmarkRunReport[]> {
   const map = new Map<string, BenchmarkRunReport[]>();
   for (const run of runs) {
@@ -740,26 +825,6 @@ function formatDuration(ms: number): string {
 }
 
 // --- Helpers ---
-
-/**
- * Run a shell command via spawn. Returns { stdout, exitCode }.
- */
-function runCommand(
-  command: string,
-  args: string[],
-  timeoutMs: number,
-): Promise<{ stdout: string; exitCode: number }> {
-  return new Promise((resolve) => {
-    const proc = spawn(command, args, {
-      timeout: timeoutMs,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    proc.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
-    proc.on('close', (code) => resolve({ stdout, exitCode: code ?? 1 }));
-    proc.on('error', () => resolve({ stdout: '', exitCode: 1 }));
-  });
-}
 
 async function loadRunReports(evidenceDir: string): Promise<BenchmarkRunReport[]> {
   const runs: BenchmarkRunReport[] = [];
@@ -861,6 +926,7 @@ function buildPairs(runs: BenchmarkRunReport[]): Array<{
     const v = vanillaRuns[i];
     const m = maestroRuns[i];
     const mf = maestroFocusRuns[i];
+    // Both vanilla and maestro are required to form a pair; maestroFocus is optional
     if (v && m) {
       const pair: {
         pairId: string;
