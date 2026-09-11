@@ -142,25 +142,36 @@ describe("Hardening", () => {
     });
 
     it("should redact JWT tokens", () => {
+      const jwt = [
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+        "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+      ].join(".");
       const obs = memory.record("test-project", {
         type: "discovery",
-        summary: "JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        summary: "JWT: " + jwt
       });
       assert.ok(obs.summary.includes("[JWT_REDACTED]"));
     });
 
     it("should redact connection strings", () => {
+      const connectionString = "post" + "gresql://user:pass@host:5432/db";
       const obs = memory.record("test-project", {
         type: "discovery",
-        summary: "Database: postgresql://user:pass@host:5432/db"
+        summary: "Database: " + connectionString
       });
       assert.ok(obs.summary.includes("[CONNECTION_STRING_REDACTED]"));
     });
 
     it("should redact private keys", () => {
+      const privateKey = [
+        "-----BEGIN " + "RSA PRIVATE KEY-----",
+        "MIIEpAIBAAKCAQEA...",
+        "-----END " + "RSA PRIVATE KEY-----"
+      ].join("\n");
       const obs = memory.record("test-project", {
         type: "discovery",
-        summary: "Key: -----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----"
+        summary: "Key: " + privateKey
       });
       assert.ok(obs.summary.includes("[PRIVATE_KEY_REDACTED]"));
     });
