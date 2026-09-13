@@ -304,9 +304,21 @@ class MaestroApplication {
       interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
     });
-    const handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
-    this.activeRuns.set(run.id, handle);
-    const result = await handle.result;
+    let handle;
+    let result;
+    try {
+      handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
+      this.activeRuns.set(run.id, handle);
+      result = await handle.result;
+    } catch (error) {
+      this.activeRuns.delete(run.id);
+      const completedAt = new Date().toISOString();
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: error.message, engineeringContract: executionPackage.engineeringContract } });
+      await this.store.saveStep({ ...step, status: "failed", completedAt });
+      await this.store.saveRun({ ...run, status: "failed", completedAt });
+      await this.record(run.id, "run.failed", { reason: error.message });
+      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: error.message }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
+    }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
     await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract } });

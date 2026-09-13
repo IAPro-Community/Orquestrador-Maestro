@@ -26,7 +26,8 @@ function buildReviewPrompt({ task = {}, diff = "", verification = {}, evidence =
   let truncated = false;
   const output = ["You are an independent engineering reviewer. Do not edit files. Return only JSON: {\"verdict\":\"approved|rejected|inconclusive\",\"findings\":[],\"summary\":\"...\"}."];
   for (const [name, value] of sections) {
-    const item = bounded(value, Math.max(500, Math.min(remaining, name === "DIFF" ? remaining : Math.floor(maxChars / 3))));
+    const sectionBudget = remaining <= 0 ? 0 : Math.min(remaining, name === "DIFF" ? remaining : Math.max(500, Math.floor(maxChars / 3)));
+    const item = bounded(value, sectionBudget);
     output.push(`${name}:\n${item.value}`);
     remaining -= item.value.length;
     truncated ||= item.truncated;
