@@ -3,6 +3,7 @@
 const core = require("../core");
 const { deriveDependencies } = require("./dag-utils");
 const { CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, classifyChange } = require("../governance/change-governance");
+const { deriveOutcomeContract: deriveGovernanceOutcomeContract } = require("../governance/change-governance");
 
 const TASK_RISK_LEVELS = Object.freeze(["low", "medium", "high", "critical"]);
 const TASK_COMPLEXITY_LEVELS = Object.freeze(["simple", "medium", "complex", "expert"]);
@@ -17,6 +18,23 @@ const ENGINEERING_CAPABILITIES = Object.freeze([
   "architecture"
 ]);
 const PLANNING_MODES = Object.freeze(["local-ai", "deterministic-fallback"]);
+
+function normalizeAncestry(value) {
+  if (value === undefined || value === null) return Object.freeze({});
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("SemanticTask.ancestry must be an object");
+  }
+  const ancestry = {};
+  for (const key of ["goalId", "parentTaskId", "causedByDecisionId", "outcomeId"]) {
+    if (value[key] !== undefined) {
+      if (typeof value[key] !== "string" || value[key].trim() === "") {
+        throw new TypeError(`SemanticTask.ancestry.${key} must be a non-empty string`);
+      }
+      ancestry[key] = value[key].trim();
+    }
+  }
+  return Object.freeze(ancestry);
+}
 
 function createSemanticTask(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -86,9 +104,18 @@ function createSemanticTask(input) {
       input.dependencyReasons && typeof input.dependencyReasons === "object"
         ? { ...input.dependencyReasons }
         : {}
-    )
+    ),
+    ancestry: normalizeAncestry(input.ancestry),
+    expectedOutcome: typeof input.expectedOutcome === "string" && input.expectedOutcome.trim()
+      ? input.expectedOutcome.trim()
+      : input.objective.trim(),
+    evidenceRequirements: Object.freeze(Array.isArray(input.evidenceRequirements)
+      ? input.evidenceRequirements.map((item) => String(item).trim()).filter(Boolean)
+      : [])
   });
 }
+
+const deriveOutcomeContract = deriveGovernanceOutcomeContract;
 
 function createPlanningAssumption(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -127,14 +154,19 @@ function createTaskGraphProposal(input) {
   });
 }
 
-function toCoreTask(semanticTask, { projectId, createdAt } = {}) {
+function toCoreTask(semanticTask, { projectId, missionId, createdAt } = {}) {
+  const ancestry = {
+    ...(semanticTask.ancestry || {}),
+    ...(missionId ? { goalId: semanticTask.ancestry.goalId || missionId } : {})
+  };
   return core.createTask({
     id: semanticTask.id,
     description: `${semanticTask.title}: ${semanticTask.objective}`,
     projectId,
     createdAt: createdAt || new Date().toISOString(),
     metadata: {
-      semantic: semanticTask
+      semantic: semanticTask,
+      ancestry: Object.freeze(ancestry)
     }
   });
 }
@@ -143,7 +175,7 @@ function toCoreTaskGraph({ id, missionId, semanticTasks, metadata = {} }) {
   if (!id || typeof id !== "string") throw new TypeError("TaskGraph id is required");
   if (!missionId || typeof missionId !== "string") throw new TypeError("TaskGraph missionId is required");
   const tasksArray = semanticTasks || [];
-  const coreTasks = tasksArray.map((st) => toCoreTask(st));
+  const coreTasks = tasksArray.map((st) => toCoreTask(st, { missionId }));
   const dependencies = deriveDependencies(tasksArray);
 
   return core.createTaskGraph({
@@ -187,6 +219,7 @@ module.exports = {
   TASK_COMPLEXITY_LEVELS,
   ENGINEERING_CAPABILITIES,
   PLANNING_MODES,
+  deriveOutcomeContract,
   createSemanticTask,
   createPlanningAssumption,
   createTaskGraphProposal,

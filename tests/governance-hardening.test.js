@@ -58,6 +58,13 @@ test("completion eligibility requires evidence for every criterion and passed ve
   assert.equal(isTaskCompletionEligible(task, { evidence, verification: { status: "passed" }, executor: "codex", verifier: "codex", deterministic: false }).eligible, false);
 });
 
+test("completion eligibility also enforces explicitly declared evidence requirements", () => {
+  const task = { id: "t1", objective: "Build feature", evidenceRequirements: ["test output"] };
+  assert.equal(isTaskCompletionEligible(task, { verification: { status: "passed" } }).eligible, false);
+  assert.deepEqual(isTaskCompletionEligible(task, { verification: { status: "passed" } }).missingEvidenceRequirements, ["test output"]);
+  assert.equal(isTaskCompletionEligible(task, { evidence: [{ taskId: "t1", acceptanceCriterion: "test output", content: "ok" }], verification: { status: "passed" } }).eligible, true);
+});
+
 test("planner preserves scope metadata and rejects discovered or out-of-scope execution", () => {
   const discovered = createSemanticTask({ id: "t1", title: "Refactor", objective: "Improve cohesion", scopeClassification: "DISCOVERED_WORK" });
   assert.equal(discovered.scopeClassification, "DISCOVERED_WORK");
