@@ -41,7 +41,7 @@ source: local-saas-entitlement-patterns
 
 ## Local Reference
 
-For a concrete local pattern, inspect `{{USER_HOME}}/Documents\Code\Nina\src\lib\planLimitChecker.ts` only when implementing similar Supabase/RPC usage checks.
+For a concrete local pattern, inspect `{{USER_HOME}}/Documents\Code\example-saas\src\lib\planLimitChecker.ts` only when implementing similar Supabase/RPC usage checks.
 
 ## Related Skills
 

@@ -3,7 +3,7 @@ name: skill-cobranca-automatizada-saas-abacatepay
 description: Automatic SaaS billing engine with AbacatePay (PIX + credit card), configurable dunning (regua de cobranca), trial management, invoice portal, email (Resend) and WhatsApp (Evolution API) notifications, admin CRUD, and billing metrics. Covers the full billing lifecycle from provisioning to collection.
 category: saas
 risk: high
-source: nina-saas-production-code
+source: example-saas-production-code
 last_verified: 2026-08-06
 ---
 
@@ -174,33 +174,33 @@ See `billing-config.md` for full schema and setup.
 8. Metrics queries (MRR, faturamento) should use aggregateBillingMetrics(), not ad-hoc SQL.
 9. New integrations must use `https://api.abacatepay.com/v2`, `/checkouts/create`, `/subscriptions/create`, and `/transparents/create` as appropriate. Keep `/v1/billing/*` and `billing.*` only inside an explicit legacy adapter.
 
-## Local Reference (Nina)
+## Local Reference (example-saas)
 
-This skill is extracted from the Nina SaaS billing system. The production codebase is at:
+This skill is extracted from the example-saas SaaS billing system. The production codebase is at:
 
-- `{{USER_HOME}}/Documents/Code/Nina/server/controllers/cobrancas.ts` — billing CRUD + processing + dunning
-- `{{USER_HOME}}/Documents/Code/Nina/server/controllers/abacatepay-webhook.ts` — webhook handler
-- `{{USER_HOME}}/Documents/Code/Nina/server/controllers/fatura.ts` — invoice lookup by shortlink
-- `{{USER_HOME}}/Documents/Code/Nina/server/controllers/trial.ts` — trial expiration processing
-- `{{USER_HOME}}/Documents/Code/Nina/server/services/abacatepay-create-billing-v2.ts` — AbacatePay billing creation
-- `{{USER_HOME}}/Documents/Code/Nina/server/services/billing-sender.ts` — notification dispatch (email + WhatsApp)
-- `{{USER_HOME}}/Documents/Code/Nina/server/services/billing-email-template.ts` — HTML invoice email template
-- `{{USER_HOME}}/Documents/Code/Nina/server/services/billing-integrations-config.ts` — encrypted config management
-- `{{USER_HOME}}/Documents/Code/Nina/server/services/billing-metrics.ts` — MRR and billing metrics
-- `{{USER_HOME}}/Documents/Code/Nina/server/utils/invoice-state-machine.ts` — state machine logic
-- `{{USER_HOME}}/Documents/Code/Nina/server/cron/billing-cron.ts` — main billing scheduler
-- `{{USER_HOME}}/Documents/Code/Nina/server/cron/trial-cron.ts` — trial scheduler
-- `{{USER_HOME}}/Documents/Code/Nina/src/pages/FaturaPage.tsx` — public invoice page
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/PlansPage.tsx` — pricing/plans page
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/PlanManager.tsx` — user plan manager
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/AdminCobrancas.tsx` — admin billing CRUD
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/AdminPlanos.tsx` — admin plan CRUD
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/AdminGlobalSettings.tsx` — global settings
-- `{{USER_HOME}}/Documents/Code/Nina/src/components/MinhasCobrancasSection.tsx` — user invoice list
-- `{{USER_HOME}}/Documents/Code/Nina/supabase/migrations/20260617_cobrancas_foundation.sql` — core tables
-- `{{USER_HOME}}/Documents/Code/Nina/supabase/migrations/20260617_cobrancas_website_final.sql` — shortlink trigger
-- `{{USER_HOME}}/Documents/Code/Nina/supabase/migrations/20240101_billing_config.sql` — billing_config table
-- `{{USER_HOME}}/Documents/Code/Nina/supabase/migrations/20240117_partner_billing.sql` — partner billing
+- `{{USER_HOME}}/Documents/Code/example-saas/server/controllers/cobrancas.ts` — billing CRUD + processing + dunning
+- `{{USER_HOME}}/Documents/Code/example-saas/server/controllers/abacatepay-webhook.ts` — webhook handler
+- `{{USER_HOME}}/Documents/Code/example-saas/server/controllers/fatura.ts` — invoice lookup by shortlink
+- `{{USER_HOME}}/Documents/Code/example-saas/server/controllers/trial.ts` — trial expiration processing
+- `{{USER_HOME}}/Documents/Code/example-saas/server/services/abacatepay-create-billing-v2.ts` — AbacatePay billing creation
+- `{{USER_HOME}}/Documents/Code/example-saas/server/services/billing-sender.ts` — notification dispatch (email + WhatsApp)
+- `{{USER_HOME}}/Documents/Code/example-saas/server/services/billing-email-template.ts` — HTML invoice email template
+- `{{USER_HOME}}/Documents/Code/example-saas/server/services/billing-integrations-config.ts` — encrypted config management
+- `{{USER_HOME}}/Documents/Code/example-saas/server/services/billing-metrics.ts` — MRR and billing metrics
+- `{{USER_HOME}}/Documents/Code/example-saas/server/utils/invoice-state-machine.ts` — state machine logic
+- `{{USER_HOME}}/Documents/Code/example-saas/server/cron/billing-cron.ts` — main billing scheduler
+- `{{USER_HOME}}/Documents/Code/example-saas/server/cron/trial-cron.ts` — trial scheduler
+- `{{USER_HOME}}/Documents/Code/example-saas/src/pages/FaturaPage.tsx` — public invoice page
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/PlansPage.tsx` — pricing/plans page
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/PlanManager.tsx` — user plan manager
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/AdminCobrancas.tsx` — admin billing CRUD
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/AdminPlanos.tsx` — admin plan CRUD
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/AdminGlobalSettings.tsx` — global settings
+- `{{USER_HOME}}/Documents/Code/example-saas/src/components/MinhasCobrancasSection.tsx` — user invoice list
+- `{{USER_HOME}}/Documents/Code/example-saas/supabase/migrations/20260617_cobrancas_foundation.sql` — core tables
+- `{{USER_HOME}}/Documents/Code/example-saas/supabase/migrations/20260617_cobrancas_website_final.sql` — shortlink trigger
+- `{{USER_HOME}}/Documents/Code/example-saas/supabase/migrations/20240101_billing_config.sql` — billing_config table
+- `{{USER_HOME}}/Documents/Code/example-saas/supabase/migrations/20240117_partner_billing.sql` — partner billing
 
 ## Reference Files
 
