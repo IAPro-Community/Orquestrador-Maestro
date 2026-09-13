@@ -357,7 +357,11 @@ class MaestroApplication {
     if (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview()) {
       return Object.freeze({ status: "unavailable", verdict: "inconclusive", calls: 0, reason: "provider-read-only-review-unavailable" });
     }
-    const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: changes?.diff || changes?.patch || "", verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
+    const reviewDiff = JSON.stringify({
+      changedFiles: changes?.changedFiles || [],
+      stats: changes?.stats || [],
+    });
+    const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
     const execution = core.createExecution({ id: id("review-execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", sourceRunId: run.id, contextTruncated: prompt.truncated } });
     await this.store.saveExecution(execution); await this.record(run.id, "review.started", { executionId: execution.id });
     try {
