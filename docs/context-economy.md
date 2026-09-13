@@ -51,6 +51,50 @@ A IA nao deve abrir `skill-library/community-skills/` inteira, nem carregar a ar
 | `DEV/WORKLOG.md` | Entender alteracoes recentes em poucas linhas. |
 | `DEV/VERIFY.md` | Ver a ultima evidencia de conclusao sem reabrir logs completos. |
 
+## Briefing Por Snapshot, Manifesto E Seção Sob Demanda
+
+`orquestrador-maestro context brief` não concatena os arquivos `DEV/` do início até esgotar
+o orçamento — isso entregava o trecho mais antigo de cada documento e omitia o mais recente.
+Cada arquivo compacto tem uma fatia determinística:
+
+| Arquivo | Fatia (`strategy` no manifesto) | Por quê |
+|---|---|---|
+| `DEV/HANDOFF.md` | primeira seção `##` (`handoff-first-section`) | snapshot mais recente primeiro (convenção de handoff por snapshot) |
+| `DEV/SPECS/ACTIVE.md` | bloco YAML cercado + seções de objetivo/estado/aceite/escopo (`spec-contract-and-state`) | o contrato da unidade (`change:` no PUE-UH) e o estado, sem filas históricas |
+| `DEV/CONTEXT.md` | seções de estado/restrições/limitações/riscos, ou a cauda do arquivo (`context-state-sections` / `context-tail`) | o estado atual costuma estar no fim |
+| demais | arquivo inteiro (`full`), sujeito ao orçamento | |
+
+Prioridade: `AGENTS.md` → `HANDOFF` → `SPECS/ACTIVE` → `CONTEXT` → `INDEX` → `README` → `VERIFY`,
+com fair share (nenhum arquivo consome sozinho mais de 40% do orçamento canônico na primeira
+passada) e dois bolsões distintos (arquivos canônicos × documentos relacionados à intenção).
+
+O resultado `--json` traz `manifest`: `headCommit`, `contentDigest` e, por entrada, `path`,
+`strategy`, `range` (linhas), `chars`/`sourceChars`, `digest` da fatia e `sourceDigest` do
+arquivo — proveniência verificável do que o agente recebeu. Specs no formato PUE-UH (bloco
+`change:`) são reconhecidas: `state.mode = "pue"`, `state.workItem`, status de arquitetura
+e autorização.
+
+Contexto sob demanda (lazy-loading de autoridade): em vez de enviar uma ADR inteira,
+referencie a cláusula e carregue só quando precisar:
+
+```bash
+orquestrador-maestro context section --path docs/architecture/decisions/ADR-0014.md --heading "D11"
+```
+
+Delta em vez de estado completo: `context brief --since <commit>` acrescenta commits,
+arquivos alterados e `diff --stat` desde o baseline (seção "Delta desde …", entrada
+`git delta` no manifesto).
+
+Medição antes/depois em um projeto real:
+
+```bash
+node scripts/context-brief-benchmark.js --project-path <projeto> --max-chars 16000
+```
+
+O benchmark compara o boot completo (AGENTS + INDEX + HANDOFF + CONTEXT + ACTIVE) com o
+briefing e falha se informação obrigatória (work item, snapshot mais recente, próxima
+ação, estado) tiver sido perdida — a economia não pode vir de truncamento cego.
+
 ## Hooks Compactos
 
 Para economizar tokens de forma consistente, os hooks precisam ser shims, nao catalogos:

@@ -71,7 +71,8 @@ Uso:
   orquestrador-maestro init-dev [--project-path PATH]
   orquestrador-maestro compact-worklog [--project-path PATH] [--keep N]
   orquestrador-maestro check-dev-gates [--project-path PATH] [--max-entries N] [--strict]
-  orquestrador-maestro context brief [--project-path PATH] [--task TEXT] [--max-chars N] [--json]
+  orquestrador-maestro context brief [--project-path PATH] [--task TEXT] [--max-chars N] [--since COMMIT] [--json]
+  orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
   orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
   orquestrador-maestro runtime [--project-path PATH]
