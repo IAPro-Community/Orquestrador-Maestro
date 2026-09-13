@@ -122,7 +122,10 @@ registrou 983 testes aprovados, 6 skips e 0 falhas.
 - `npm run bench:validate`: cenários existentes validados;
 - benchmark cognitivo A–E: aprovado, com reviewer somente em ASSURANCE;
 - `npm pack --dry-run`: pacote gerado com sucesso;
-- verificação de links e `git diff --check`: aprovadas;
+- `node scripts/skill-catalog.js validate`, `bash scripts/validate-skills.sh` e
+  `git diff --check`: aprovados;
+- não há um `scripts/check-links.js` neste snapshot; links de documentação ficam cobertos
+  pelos validadores de catálogo e pela inspeção dos documentos publicados;
 - `scripts/validate-public.ps1`: deve ser executado no CI Windows; `pwsh` não está
   disponível neste ambiente Linux.
 
