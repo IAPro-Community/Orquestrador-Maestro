@@ -72,3 +72,46 @@ atuais; provider/account, PTY, runtime hosting e scheduling continuam fora do Ma
 
 Este documento será atualizado após cada fatia com os contratos efetivamente implementados,
 evidências de teste, impacto de tokens e instruções de rollback.
+
+## IMPLEMENTED
+
+- `SemanticTask.ancestry` opcional, com Mission como goal canônico e consulta
+  `TaskGraphPersistence.ancestryForTask()`;
+- `expectedOutcome` e `evidenceRequirements` aditivos, além de
+  `deriveOutcomeContract()` derivado da objective/acceptance DoD;
+- descriptor de revisão com parent, motivo, actor/source, diff semântico e tasks afetadas;
+- evento durável `plan.revised`, sem cópia integral do plano;
+- orçamento determinístico LEAN/STANDARD/ASSURANCE em `evaluateCognitiveBudget()`;
+- reviewer independente opt-in, sessão nova, contexto limitado, artifact `REVIEW` e eventos
+  `review.*`, usando somente adapters que declaram `supportsReadOnlyReview()`;
+- telemetry de execução com chamadas, reviewers, retries, skills, outcome e provenance de
+  token indisponível.
+
+## REJECTED E DEFERRED
+
+Não foram criados GoalStore, Decision Ledger paralelo, manager/CEO/CTO agents, scheduler,
+provider discovery, gestão de contas, runtime hosting, skill studio, rollback semântico,
+learning loop automático ou evals obrigatórios. Esses itens ficam para uma fase posterior
+somente com evidência de valor e reutilização explícita dos stores/events/benchmark atuais.
+
+## TOKEN IMPACT
+
+Os testes determinísticos dos cenários A–E confirmam zero chamadas extras para LEAN,
+STANDARD e reviewer desabilitado. ASSURANCE habilitado adiciona exatamente uma chamada,
+apenas após execução bem-sucedida. A suíte não inventa tokens: contadores de provider ausentes
+permanecem `unavailable`/`UNKNOWN`; percentuais reais dependem de execução pareada do benchmark
+harness com provider configurado.
+
+## ARCHITECTURE IMPACT
+
+Os contratos alterados são aditivos em SemanticTask metadata, Run metadata, event families e
+configuração de governança. Mission, TaskGraph, RunStore, evidence, verification, memory e
+provider registry continuam sendo as fontes existentes. Não há migração obrigatória nem
+dependência do Nexus.
+
+## ROLLBACK E EVIDÊNCIA
+
+Desligar `features.independentReview` remove o reviewer imediatamente. Os commits são
+sequenciais e reversíveis: `1b88153`, `810a9d0`, `939a34e`, `77d18b0`, `4be503b` e `d5f6cab`.
+Após cada reversão, rode `npm test`, `git diff --check` e a validação pública. A suíte final
+registrou 983 testes aprovados, 6 skips e 0 falhas.

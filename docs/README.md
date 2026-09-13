@@ -11,6 +11,7 @@ Escolha o ponto de entrada conforme o que você quer fazer:
 | Retomar tarefas longas | [Workflows](workflows.md) |
 | Garantir qualidade | [Engenharia guiada](engineering-quality.md) |
 | Medir resultados | [Benchmark](benchmark.md) |
+| Evoluir o runtime com orçamento e review por risco | [Evolução controlada](maestro/controlled-evolution.md) |
 | Conferir privacidade | [Modelo de privacidade](privacy-model.md) |
 | Descobrir e combinar skills | [Portal de skills](skills/README.md) · [escolher por objetivo](skills/choose.md) · [receitas](skills/recipes.md) |
 | Resolver instalação | [Troubleshooting](installation-troubleshooting.md) |
