@@ -10,6 +10,8 @@ const DEFAULT_CONFIG = Object.freeze({
   warningFrequency: "once-per-session",
   checks: { missingVerification: "warn", missingEvidence: "recommend" },
   hooks: { enabled: false },
+  features: { independentReview: false },
+  cognitiveBudget: {},
   scope: "project",
   providerModel: "informational"
 });
@@ -22,6 +24,8 @@ function mergeConfig(value = {}) {
     ? source.warningFrequency : DEFAULT_CONFIG.warningFrequency;
   const checks = source.checks && typeof source.checks === "object" ? source.checks : {};
   const hooks = source.hooks && typeof source.hooks === "object" ? source.hooks : {};
+  const features = source.features && typeof source.features === "object" ? source.features : {};
+  const cognitiveBudget = source.cognitiveBudget && typeof source.cognitiveBudget === "object" ? source.cognitiveBudget : {};
   return Object.freeze({
     ...DEFAULT_CONFIG, ...source,
     mode, tone, warningFrequency,
@@ -32,7 +36,9 @@ function mergeConfig(value = {}) {
       missingEvidence: ["off", "recommend", "block"].includes(checks.missingEvidence)
         ? checks.missingEvidence : DEFAULT_CONFIG.checks.missingEvidence
     }),
-    hooks: Object.freeze({ enabled: hooks.enabled === true })
+    hooks: Object.freeze({ enabled: hooks.enabled === true }),
+    features: Object.freeze({ independentReview: features.independentReview === true }),
+    cognitiveBudget: Object.freeze({ ...cognitiveBudget })
   });
 }
 
@@ -55,7 +61,7 @@ function writeGovernanceConfig({ cwd = process.cwd(), patch = {} } = {}) {
   const directory = path.join(path.resolve(cwd), CANONICAL_DIR_NAME);
   const filePath = path.join(directory, "config.json");
   const current = loadGovernanceConfig({ cwd }).config;
-  const next = mergeConfig({ ...current, ...patch, checks: { ...current.checks, ...(patch.checks || {}) }, hooks: { ...current.hooks, ...(patch.hooks || {}) } });
+  const next = mergeConfig({ ...current, ...patch, checks: { ...current.checks, ...(patch.checks || {}) }, hooks: { ...current.hooks, ...(patch.hooks || {}) }, features: { ...current.features, ...(patch.features || {}) }, cognitiveBudget: { ...current.cognitiveBudget, ...(patch.cognitiveBudget || {}) } });
   fs.mkdirSync(directory, { recursive: true });
   const crypto = require("node:crypto");
   const temporary = `${filePath}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`;

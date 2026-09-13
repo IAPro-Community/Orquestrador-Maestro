@@ -10,6 +10,7 @@ const {
   classifyChange,
   classifyDiscovery,
   isRiskExecutionEligible,
+  evaluateCognitiveBudget,
   isTaskCompletionEligible
 } = require("../runtime/governance/change-governance");
 const { createSemanticTask } = require("../runtime/planner/task-graph-proposal");
@@ -37,6 +38,17 @@ test("governance uses one deterministic risk taxonomy for security, structure an
   assert.equal((routerSource.match(/"riskClasses"\s*:/g) || []).length, 1);
   assert.equal(isRiskExecutionEligible("security-compliance", { profileId: "developer" }), false);
   assert.equal(isRiskExecutionEligible("security-compliance", { profileId: "developer", riskOverride: { marker: "proceed with warning", note: "reviewed" } }), true);
+});
+
+test("cognitive budget is deterministic and proportional to risk", () => {
+  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "simple", changeClass: "trivial" }).id, "LEAN");
+  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "medium", changeClass: "local" }).id, "STANDARD");
+  const assurance = evaluateCognitiveBudget({ risk: "high", complexity: "complex", changeClass: "security-compliance" });
+  assert.equal(assurance.id, "ASSURANCE");
+  assert.equal(assurance.reviewRequirement, "independent");
+  assert.equal(assurance.humanApproval, false);
+  assert.equal(evaluateCognitiveBudget({ risk: "critical" }).humanApproval, true);
+  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "simple" }, { lean: { contextTokens: 1234 } }).contextTokens, 1234);
 });
 
 test("scope control makes discovery decisions explicit and blocks unjustified work", () => {
