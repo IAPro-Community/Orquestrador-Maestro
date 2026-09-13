@@ -268,3 +268,23 @@ test("PlanRevisionService.approveRevision records compact plan.revised event", a
   assert.equal(revised.data.revision.revisionId, "graph-1:r2");
   assert.equal(revised.data.revision.revisedProposal, undefined);
 });
+
+test("PlanRevisionService.approveRevision preserves a human rejection", async () => {
+  const events = [];
+  let hook = "";
+  const service = makeService({
+    _store: {
+      readPlanArtifact: async () => ({ exists: false, content: "" }),
+      planArtifactPath: (missionId) => `/tmp/${missionId}/PLAN.md`,
+      saveApproval: async (approval) => approval,
+      appendEvent: async (event) => { events.push(event); return event; }
+    },
+    persistenceHooks: { onApproved: async () => { hook = "approved"; }, onRejected: async () => { hook = "rejected"; } }
+  });
+  const approval = await service.approveRevision("mission-1", "graph-1", "rejected", {
+    revision: { planId: "graph-1", revisionId: "graph-1:r2" }
+  });
+  assert.equal(approval.approved, false);
+  assert.equal(hook, "rejected");
+  assert.deepEqual(events.map((event) => event.type), ["plan.rejected"]);
+});

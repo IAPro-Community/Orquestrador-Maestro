@@ -59,14 +59,14 @@ class PlanRevisionService {
     if (!read.exists) {
       return Object.freeze({
         changed: false,
-        valid: true,
+        valid: false,
         tasks: [],
         errors: Object.freeze(["Plan file not found"]),
         warnings: []
       });
     }
 
-    const originalContent = PlanArtifactRenderer.render(originalProposal);
+    const originalContent = PlanArtifactRenderer.render(originalProposal, context);
     const result = this.compiler.compile(originalContent, read.content, originalProposal, { allowTaskRemoval: context.allowTaskRemoval !== false });
     const missionBrief = context.missionBrief || null;
     const errors = [...result.errors];
@@ -126,7 +126,7 @@ class PlanRevisionService {
       await this.store.saveApproval(approval);
     }
 
-    if (metadata.revision && this.store && typeof this.store.appendEvent === "function") {
+    if (approval.approved && metadata.revision && this.store && typeof this.store.appendEvent === "function") {
       await this.store.appendEvent({
         id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         runId: undefined,
@@ -140,13 +140,13 @@ class PlanRevisionService {
       await this.store.appendEvent({
         id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         runId: undefined,
-        type: "plan.approved",
+        type: approval.approved ? "plan.approved" : "plan.rejected",
         occurredAt: new Date().toISOString(),
         data: { missionId, taskGraphId, approvalType: approval.approvalType, userDecision }
       });
     }
 
-    await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval, revision: metadata.revision, revisedProposal: metadata.revisedProposal });
+    await this._callPersistenceHook(approval.approved ? "onApproved" : "onRejected", { missionId, taskGraphId, approval, revision: metadata.revision, revisedProposal: metadata.revisedProposal });
 
     return approval;
   }
