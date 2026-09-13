@@ -12,7 +12,12 @@ Escolha o ponto de entrada conforme o que você quer fazer:
 | Garantir qualidade | [Engenharia guiada](engineering-quality.md) |
 | Medir resultados | [Benchmark](benchmark.md) |
 | Conferir privacidade | [Modelo de privacidade](privacy-model.md) |
+| Descobrir e combinar skills | [Portal de skills](skills/README.md) · [escolher por objetivo](skills/choose.md) · [receitas](skills/recipes.md) |
 | Resolver instalação | [Troubleshooting](installation-troubleshooting.md) |
 | Consultar detalhes internos | [Referência técnica](orquestrador-reference.md) |
 
-Para manutenção, release, segurança, skills e integrações opcionais, consulte os documentos relacionados na árvore deste diretório.
+## Skills
+
+Skills são capacidades especializadas roteadas conforme a intenção, o risco e o ambiente. O [portal de skills](skills/README.md) explica o modelo guia + catálogo; o [índice da referência](skills/reference/README.md) aponta para as páginas individuais geradas a partir do manifesto.
+
+Para manutenção, release, segurança e integrações opcionais, consulte os documentos relacionados na árvore deste diretório. A [referência técnica](orquestrador-reference.md) documenta o mecanismo; não é o catálogo humano.
