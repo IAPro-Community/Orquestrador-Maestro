@@ -5,6 +5,25 @@ const { PlanArtifactStore } = require("./plan-artifact-store");
 const { PlanRevisionCompiler } = require("./plan-revision-compiler");
 const { ExternalEditorLauncher } = require("./external-editor-launcher");
 const { PlanApprovalGate } = require("./plan-approval-gate");
+const { computeSemanticDiff, hasChanges } = require("./plan-semantic-diff");
+
+function affectedTaskIds(diff) {
+  return [...new Set([
+    ...diff.addedTasks.map((item) => item.id),
+    ...diff.removedTasks.map((item) => item.id),
+    ...diff.changedTasks.map((item) => item.id),
+    ...diff.dependencyChanges.map((item) => item.id),
+    ...diff.riskChanges.map((item) => item.id),
+    ...diff.complexityChanges.map((item) => item.id),
+    ...diff.capabilityChanges.map((item) => item.id)
+  ])].sort();
+}
+
+async function nextRevision(store, planId, originalProposal) {
+  const graph = store && typeof store.getTaskGraph === "function" ? await store.getTaskGraph(planId) : null;
+  const current = Number(graph?.metadata?.revision || originalProposal?.metadata?.revision || 0);
+  return { revision: current + 1, parentRevisionId: current > 0 ? `${planId}:r${current}` : null };
+}
 
 class PlanRevisionService {
   constructor({ store, editor, compiler, persistenceHooks, producers } = {}) {
@@ -65,12 +84,35 @@ class PlanRevisionService {
       }
     }
 
+    const revision = result.changed && errors.length === 0
+      ? await nextRevision(this.store, context.taskGraphId || originalProposal.id || missionId, originalProposal)
+      : null;
+    const planId = context.taskGraphId || originalProposal.id || missionId;
+    const semanticDiff = result.changed
+      ? computeSemanticDiff(originalProposal.tasks || [], result.tasks || [])
+      : null;
     return Object.freeze({
       changed: result.changed,
       valid: errors.length === 0,
       tasks: result.tasks,
       errors: Object.freeze(errors),
-      warnings: result.warnings
+      warnings: result.warnings,
+      revisedProposal: result.proposal || undefined,
+      revision: revision && semanticDiff && hasChanges(semanticDiff)
+        ? Object.freeze({
+          planId,
+          revisionId: `${planId}:r${revision.revision}`,
+          parentRevisionId: revision.parentRevisionId,
+          reason: typeof context.reason === "string" && context.reason.trim() ? context.reason.trim() : "plan content changed",
+          source: typeof context.source === "string" && context.source.trim() ? context.source.trim() : "plan-review",
+          actor: typeof context.actor === "string" && context.actor.trim() ? context.actor.trim() : "system",
+          timestamp: new Date().toISOString(),
+          semanticDiff,
+          affectedTaskIds: Object.freeze(affectedTaskIds(semanticDiff)),
+          riskChange: Object.freeze([...semanticDiff.riskChanges]),
+          approvalState: "pending"
+        })
+        : undefined
     });
   }
 
@@ -84,6 +126,16 @@ class PlanRevisionService {
       await this.store.saveApproval(approval);
     }
 
+    if (metadata.revision && this.store && typeof this.store.appendEvent === "function") {
+      await this.store.appendEvent({
+        id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        runId: undefined,
+        type: "plan.revised",
+        occurredAt: new Date().toISOString(),
+        data: { missionId, taskGraphId, revision: { ...metadata.revision, approvalState: "approved" } }
+      });
+    }
+
     if (this.store && typeof this.store.appendEvent === "function") {
       await this.store.appendEvent({
         id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -94,7 +146,7 @@ class PlanRevisionService {
       });
     }
 
-    await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval });
+    await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval, revision: metadata.revision, revisedProposal: metadata.revisedProposal });
 
     return approval;
   }
@@ -112,6 +164,16 @@ class PlanRevisionService {
       await this.store.saveApproval(evalResult);
     }
 
+    if (evalResult.approved && options.revision && this.store && typeof this.store.appendEvent === "function") {
+      await this.store.appendEvent({
+        id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        runId: undefined,
+        type: "plan.revised",
+        occurredAt: new Date().toISOString(),
+        data: { missionId, taskGraphId, revision: { ...options.revision, approvalState: "approved" } }
+      });
+    }
+
     if (evalResult.approved && this.store && typeof this.store.appendEvent === "function") {
       await this.store.appendEvent({
         id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -123,7 +185,7 @@ class PlanRevisionService {
     }
 
     if (evalResult.approved) {
-      await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval: evalResult });
+      await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval: evalResult, revision: options.revision, revisedProposal: options.revisedProposal });
     } else {
       await this._callPersistenceHook("onRejected", { missionId, taskGraphId, approval: evalResult });
       if (this.producers && typeof this.producers.humanApprovalRequest === "function") {
