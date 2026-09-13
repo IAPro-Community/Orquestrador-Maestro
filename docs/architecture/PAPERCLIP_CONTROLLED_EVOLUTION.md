@@ -1,6 +1,6 @@
 # Evolução controlada do Maestro inspirada no Paperclip
 
-Status: implementação incremental em andamento  
+Status: implementação incremental em andamento
 Escopo: extensões compatíveis do runtime do Maestro; sem dependência do Nexus.
 
 ## AS-IS
