@@ -72,7 +72,7 @@ Arquivos principais:
 
 No Linux/macOS, use os equivalentes em `$HOME/.orquestrador/`.
 
-A lógica detalhada de roteamento, hooks, perfis, chains e agentes está em [orquestrador-reference.md](orquestrador-reference.md). A lista completa das skills publicadas está em [skill-catalog.md](skill-catalog.md).
+A lógica detalhada de roteamento, hooks, perfis, chains e agentes está em [orquestrador-reference.md](orquestrador-reference.md). Para descobrir e consultar as skills publicadas, use o [portal de skills](skills/README.md) e a [referência gerada](skills/reference/README.md); o [catálogo compacto](skill-catalog.md) permanece por compatibilidade.
 
 Roteamento básico:
 
