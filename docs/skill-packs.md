@@ -1,10 +1,6 @@
-# Pacotes de skills
+# Pacotes De Skills
 
-Esta página explica como o Maestro distribui uma biblioteca rica sem obrigar cada ferramenta a carregar tudo em toda sessão. Para escolher uma skill em uma tarefa, comece pelo [portal de skills](skills/README.md) e pelo [guia de escolha](skills/choose.md).
-
-## Pacote não é receita
-
-**Pacote** é uma unidade de distribuição/instalação: reúne arquivos para um client, uma raiz nativa ou a biblioteca sob demanda. **Receita** é uma combinação operacional de skills ordenada por resultado, risco e evidência; consulte as [receitas](skills/recipes.md). Uma receita não instala nada automaticamente nem autoriza ações externas.
+Esta página explica como o Maestro mantém uma biblioteca rica sem obrigar cada ferramenta a carregar tudo em toda sessão. Para escolher uma skill em uma tarefa, veja o [guia operacional](ai-agent-operating-guide.md).
 
 Este repositório publica o máximo prático de conteúdo textual reutilizável sem virar dump do home do usuário.
 
@@ -17,11 +13,11 @@ Este repositório publica o máximo prático de conteúdo textual reutilizável 
 | Community Skills | `~/.orquestrador/skill-library/community-skills` | `skill-library/community-skills/` | Biblioteca deduplicada grande, instalada fora das raízes nativas |
 | Tool Profiles | perfis textuais selecionados | `tool-profiles/` | Hooks, regras e prompts globais reaproveitáveis de ferramentas |
 
-Para ver o que cada skill publicada faz, consulte a [referência individual](skills/reference/README.md) ou o [catálogo compacto compatível](skill-catalog.md). Para entender como essas skills são escolhidas e combinadas, consulte o [portal](skills/README.md) e a [referência técnica](orquestrador-reference.md).
+Para ver o que cada skill publicada faz, consulte [skill-catalog.md](skill-catalog.md). Para entender como essas skills são escolhidas e combinadas, consulte [orquestrador-reference.md](orquestrador-reference.md).
 
 ## Por Que Não Copiar Cada Raiz Inteira
 
-As raízes `.agents`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` e `.antigravity-skills` têm muita duplicação. O repositório guarda uma biblioteca deduplicada, mas o instalador não replica mais esse volume inteiro nas pastas nativas. Ele instala a biblioteca em `.orquestrador/skill-library/` e usa `sync-skills` para manter apenas o conjunto mínimo necessário em cada client.
+As raízes `.agents`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` e `.antigravity-skills` têm muita duplicação. O repo guarda uma biblioteca deduplicada, mas o instalador não replica mais esse volume inteiro nas pastas nativas. Ele instala a biblioteca em `.orquestrador/skill-library/` e usa `sync-skills` para manter apenas o conjunto mínimo necessário em cada cliente.
 
 Perfis como `.claude`, `.cursor`, `.gemini` e `.opencode` também costumam conter histórico, estado local, OAuth, configurações de IDE e dados de projetos. Por isso o pacote `tool-profiles/` é uma seleção controlada de arquivos textuais.
 

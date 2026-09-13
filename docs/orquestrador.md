@@ -29,7 +29,7 @@ Depois de instalado, ele cria uma estrutura no `%USERPROFILE%` do Windows ou no 
 Para entender a lógica interna, consulte:
 
 - [Referência técnica do Orquestrador](orquestrador-reference.md): roteamento, hooks, perfis, sync, verificação e lógica de execução.
-- [Portal de skills](skills/README.md): descoberta por objetivo, receitas operacionais e referência gerada. O [catálogo compacto](skill-catalog.md) permanece por compatibilidade.
+- [Catálogo de skills](skill-catalog.md): lista das skills canônicas, skills Codex e biblioteca comunitária deduplicada.
 
 ## O Que Ele Instala
 
@@ -329,7 +329,7 @@ Se uma ferramenta tiver regras globais apenas pela interface ou nuvem, copie o c
 
 - [Instalação detalhada](installation.md)
 - [Referência técnica do Orquestrador](orquestrador-reference.md)
-- [Portal e referência de skills](skills/README.md)
+- [Catálogo de skills](skill-catalog.md)
 - [Guia para IAs](ai-agent-operating-guide.md)
 - [Hierarquia DEV](project-dev-hierarchy.md)
 - [Perfis de ferramentas](tool-profiles.md)

@@ -7,14 +7,14 @@
 - Supabase client: browser anon key only, PKCE auth, persisted session, project-specific storage key, realtime throttling.
 - Security baseline: Supabase auth, RLS, secure uploads, session/inactivity protection, no sensitive logs.
 
-## example-saas
+## Nina
 
 - Stack: Vite React TS plus Express/Netlify backend, Supabase, OpenAI/Gemini, PostHog, Socket.IO, Playwright.
 - Strong backend boundary: `server/lib/supabase-admin.ts` keeps service-role access server-side.
 - Payments: AbacatePay via Netlify functions/controllers, billing creation, webhook handling, partner links, plan duration, custom limits, payment receipts.
 - Data discipline: explicit column selection, tenant context, idempotency/deduplication around operational payment evidence, migration-heavy RLS/performance work.
 
-## example-product
+## Proposta Ninja
 
 - Stack: frontend Vite React TS, backend Express, Supabase, helmet, rate-limit, express-validator, Pix/QrCode helpers, proposal/payment domain.
 - Admin shape: layout sidebar, dashboard, users, plans, payments, logs, help, onboarding.

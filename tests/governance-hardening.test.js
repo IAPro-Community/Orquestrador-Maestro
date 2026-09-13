@@ -10,7 +10,6 @@ const {
   classifyChange,
   classifyDiscovery,
   isRiskExecutionEligible,
-  evaluateCognitiveBudget,
   isTaskCompletionEligible
 } = require("../runtime/governance/change-governance");
 const { createSemanticTask } = require("../runtime/planner/task-graph-proposal");
@@ -40,17 +39,6 @@ test("governance uses one deterministic risk taxonomy for security, structure an
   assert.equal(isRiskExecutionEligible("security-compliance", { profileId: "developer", riskOverride: { marker: "proceed with warning", note: "reviewed" } }), true);
 });
 
-test("cognitive budget is deterministic and proportional to risk", () => {
-  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "simple", changeClass: "trivial" }).id, "LEAN");
-  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "medium", changeClass: "local" }).id, "STANDARD");
-  const assurance = evaluateCognitiveBudget({ risk: "high", complexity: "complex", changeClass: "security-compliance" });
-  assert.equal(assurance.id, "ASSURANCE");
-  assert.equal(assurance.reviewRequirement, "independent");
-  assert.equal(assurance.humanApproval, false);
-  assert.equal(evaluateCognitiveBudget({ risk: "critical" }).humanApproval, true);
-  assert.equal(evaluateCognitiveBudget({ risk: "low", complexity: "simple" }, { lean: { contextTokens: 1234 } }).contextTokens, 1234);
-});
-
 test("scope control makes discovery decisions explicit and blocks unjustified work", () => {
   assert.equal(classifyDiscovery({ necessary: true }).classification, "IN_SCOPE");
   assert.equal(classifyDiscovery({ requiredDependency: true, justification: "migration is required by the new column" }).classification, "REQUIRED_DEPENDENCY");
@@ -68,13 +56,6 @@ test("completion eligibility requires evidence for every criterion and passed ve
   assert.equal(isTaskCompletionEligible({ id: "legacy-failed", acceptanceCriteria: [] }, { verification: { status: "failed" } }).eligible, false);
   assert.equal(isTaskCompletionEligible({ id: "legacy", acceptanceCriteria: [] }, { executorClaim: "done" }).eligible, true);
   assert.equal(isTaskCompletionEligible(task, { evidence, verification: { status: "passed" }, executor: "codex", verifier: "codex", deterministic: false }).eligible, false);
-});
-
-test("completion eligibility also enforces explicitly declared evidence requirements", () => {
-  const task = { id: "t1", objective: "Build feature", evidenceRequirements: ["test output"] };
-  assert.equal(isTaskCompletionEligible(task, { verification: { status: "passed" } }).eligible, false);
-  assert.deepEqual(isTaskCompletionEligible(task, { verification: { status: "passed" } }).missingEvidenceRequirements, ["test output"]);
-  assert.equal(isTaskCompletionEligible(task, { evidence: [{ taskId: "t1", acceptanceCriterion: "test output", content: "ok" }], verification: { status: "passed" } }).eligible, true);
 });
 
 test("planner preserves scope metadata and rejects discovered or out-of-scope execution", () => {

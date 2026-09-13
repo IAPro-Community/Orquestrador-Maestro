@@ -87,28 +87,7 @@
         },
         "notes": {
           "$ref": "#/$defs/nonEmptyString"
-        },
-        "upstream": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "version": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "license": {
-          "$ref": "#/$defs/nonEmptyString"
         }
-      }
-    },
-    "documentation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["bestFor", "notFor", "examples", "prerequisites", "expectedEvidence"],
-      "properties": {
-        "bestFor": { "$ref": "#/$defs/stringList" },
-        "notFor": { "$ref": "#/$defs/stringList" },
-        "examples": { "$ref": "#/$defs/stringList" },
-        "prerequisites": { "$ref": "#/$defs/stringList" },
-        "expectedEvidence": { "$ref": "#/$defs/stringList" }
       }
     },
     "workflow": {
@@ -159,15 +138,11 @@
         "description",
         "category",
         "risk",
-      "source",
-      "mirrorEverywhere",
-      "triggers",
-      "aliases",
-      "status",
-      "tags",
-      "routerSummary",
-      "documentation",
-      "provenance"
+        "source",
+        "mirrorEverywhere",
+        "triggers",
+        "aliases",
+        "status"
       ],
       "properties": {
         "description": {
@@ -211,19 +186,6 @@
             "experimental",
             "deprecated"
           ]
-        },
-        "priority": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "tags": {
-          "$ref": "#/$defs/stringList"
-        },
-        "routerSummary": {
-          "$ref": "#/$defs/nonEmptyString"
-        },
-        "documentation": {
-          "$ref": "#/$defs/documentation"
         },
         "provenance": {
           "$ref": "#/$defs/provenance"

@@ -136,27 +136,6 @@ test("PlanRevisionService.compileRevision allows task removal (tracked by semant
   assert.equal(result.tasks.length, 1);
 });
 
-test("PlanRevisionService.compileRevision returns compact revision metadata for a changed plan", async () => {
-  const service = makeService({
-    _store: {
-      readPlanArtifact: async () => ({
-        exists: true,
-        content: `# Plan\n\n## Tasks\n\n### 01. Task A\n\n- **id**: task-1\n- **type**: other\n- **objective**: Revised\n`
-      }),
-      getTaskGraph: async () => ({ id: "graph-1", metadata: { revision: 2 }, tasks: [] }),
-      planArtifactPath: (missionId) => `/tmp/${missionId}/PLAN.md`
-    }
-  });
-  const result = await service.compileRevision("mission-1", { ...sampleProposal, id: "graph-1" }, { reason: "user correction", source: "human-editor" });
-  assert.equal(result.valid, true);
-  assert.equal(result.revision.planId, "graph-1");
-  assert.equal(result.revision.revisionId, "graph-1:r3");
-  assert.equal(result.revision.parentRevisionId, "graph-1:r2");
-  assert.equal(result.revision.reason, "user correction");
-  assert.ok(result.revision.semanticDiff);
-  assert.ok(Array.isArray(result.revision.affectedTaskIds));
-});
-
 test("PlanRevisionService.compileRevision detects mission constraint contradiction", async () => {
   const service = makeService({
     _store: {
@@ -247,44 +226,4 @@ test("PlanRevisionService.approveRevision records approval event", async () => {
   });
   await service.approveRevision("mission-1", "task-graph-1", "approved");
   assert.ok(events.some((e) => e.type === "plan.approved"));
-});
-
-test("PlanRevisionService.approveRevision records compact plan.revised event", async () => {
-  const events = [];
-  const service = makeService({
-    _store: {
-      readPlanArtifact: async () => ({ exists: false, content: "" }),
-      planArtifactPath: (missionId) => `/tmp/${missionId}/PLAN.md`,
-      saveApproval: async (approval) => approval,
-      appendEvent: async (event) => { events.push(event); return event; }
-    }
-  });
-  await service.approveRevision("mission-1", "graph-1", "approved", {
-    revision: { planId: "graph-1", revisionId: "graph-1:r2", semanticDiff: { changedTasks: [{ id: "task-1" }] } },
-    revisedProposal: { tasks: [{ id: "task-1" }] }
-  });
-  const revised = events.find((event) => event.type === "plan.revised");
-  assert.ok(revised);
-  assert.equal(revised.data.revision.revisionId, "graph-1:r2");
-  assert.equal(revised.data.revision.revisedProposal, undefined);
-});
-
-test("PlanRevisionService.approveRevision preserves a human rejection", async () => {
-  const events = [];
-  let hook = "";
-  const service = makeService({
-    _store: {
-      readPlanArtifact: async () => ({ exists: false, content: "" }),
-      planArtifactPath: (missionId) => `/tmp/${missionId}/PLAN.md`,
-      saveApproval: async (approval) => approval,
-      appendEvent: async (event) => { events.push(event); return event; }
-    },
-    persistenceHooks: { onApproved: async () => { hook = "approved"; }, onRejected: async () => { hook = "rejected"; } }
-  });
-  const approval = await service.approveRevision("mission-1", "graph-1", "rejected", {
-    revision: { planId: "graph-1", revisionId: "graph-1:r2" }
-  });
-  assert.equal(approval.approved, false);
-  assert.equal(hook, "rejected");
-  assert.deepEqual(events.map((event) => event.type), ["plan.rejected"]);
 });

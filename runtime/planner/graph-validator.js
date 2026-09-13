@@ -47,17 +47,6 @@ class GraphValidator {
       }
     }
 
-    for (const task of tasks) {
-      const parentTaskId = task.ancestry?.parentTaskId;
-      if (parentTaskId && (parentTaskId === task.id || !seenIds.has(parentTaskId))) {
-        blockers.push({
-          code: "INVALID_TASK_ANCESTRY",
-          message: `Task "${task.title}" references an invalid ancestry parent: ${parentTaskId}.`,
-          taskId: task.id
-        });
-      }
-    }
-
     const dagResult = validateDAG(tasks);
     if (!dagResult.valid) {
       for (const err of dagResult.errors) {

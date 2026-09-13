@@ -25,7 +25,6 @@ test("invalid configuration falls back to safe compatibility defaults", () => {
   assert.equal(config.warningFrequency, "once-per-session");
   assert.equal(config.checks.missingVerification, "block");
   assert.equal(config.hooks.enabled, false);
-  assert.equal(config.features.independentReview, false);
 });
 
 test("evidence recommendation is relevant only when acceptance criteria exist", () => {

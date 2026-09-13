@@ -18,8 +18,6 @@ class PlanReviewWorkflow {
 
     const revisionService = this.revisionService;
     let reviewApproved = false;
-    let pendingRevision;
-    let pendingProposal;
 
     while (!reviewApproved) {
       const action = await p.select({
@@ -53,12 +51,7 @@ class PlanReviewWorkflow {
           p.log.info("Aprovacao nao confirmada.");
           continue;
         }
-        const approval = await revisionService.approveRevision(
-          missionId,
-          options.taskGraphId || originalProposal.id || "unknown",
-          "approved",
-          { ...(options.actor ? { actor: options.actor } : {}), revision: pendingRevision, revisedProposal: pendingProposal }
-        );
+        const approval = await revisionService.approveRevision(missionId, originalProposal.id || "unknown", "approved");
         p.log.success(`Plano aprovado (${approval.approvalType}).`);
         reviewApproved = true;
         return { approved: true, approval };
@@ -98,10 +91,8 @@ class PlanReviewWorkflow {
           if (improved && improved.content) {
             await revisionService.store.writePlanArtifact(missionId, improved.content);
             p.log.success("Plano melhorado pela IA. Recompilando...");
-            const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "AI improvement", source: "ai-improvement", actor: "ai" });
+            const revision = await revisionService.compileRevision(missionId, originalProposal);
             if (revision.valid) {
-              pendingRevision = revision.revision;
-              pendingProposal = revision.revisedProposal;
               p.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
             } else {
               p.log.error("Plano melhorado contem erros:");
@@ -133,10 +124,8 @@ class PlanReviewWorkflow {
           if (regenerated && regenerated.content) {
             await revisionService.store.writePlanArtifact(missionId, regenerated.content);
             p.log.success("Plano regenerado. Recompilando...");
-            const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "AI regeneration", source: "ai-regeneration", actor: "ai" });
+            const revision = await revisionService.compileRevision(missionId, originalProposal);
             if (revision.valid) {
-              pendingRevision = revision.revision;
-              pendingProposal = revision.revisedProposal;
               p.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
             } else {
               p.log.error("Plano regenerado contem erros:");
@@ -151,7 +140,7 @@ class PlanReviewWorkflow {
       }
 
       if (action === "recompilar") {
-        const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "human plan edit", source: "human-editor", actor: options.actor || "user" });
+        const revision = await revisionService.compileRevision(missionId, originalProposal);
         if (!revision.changed) {
           p.log.info("Nenhuma alteracao detectada no plano.");
         } else if (!revision.valid) {
@@ -160,8 +149,6 @@ class PlanReviewWorkflow {
             p.log.error(`  - ${err}`);
           }
         } else {
-          pendingRevision = revision.revision;
-          pendingProposal = revision.revisedProposal;
           p.log.success(`Plano recompilado com sucesso (${revision.tasks.length} tarefas).`);
         }
       }

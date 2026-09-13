@@ -30,10 +30,10 @@ test("T9.2: busca por nome encontra skill e ranking põe prefix-exato primeiro",
 
 test("T9.2: busca por trigger/alias real encontra a skill certa", () => {
   const views = realViews();
-  const byAlias = searchSkills(views, "owasp zap");
+  const byAlias = searchSkills(views, "zap");
   assert.ok(
-    byAlias.results.some((r) => views[r.index].id === "skill-saas-dast-recon"),
-    "alias 'owasp zap' deve encontrar skill-saas-dast-recon"
+    byAlias.results.some((r) => views[r.index].id === "skill-evolution-api"),
+    "trigger 'zap' deve encontrar skill-evolution-api"
   );
   const byTrigger = searchSkills(views, "pix");
   assert.ok(

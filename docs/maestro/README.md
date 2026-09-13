@@ -24,7 +24,6 @@ O diretório canônico de instalação é `~/.orquestrador-maestro`. Instalaçõ
 - [Atualização segura e rollback](./upgrade.md)
 - [Compatibilidade e custo](./compatibility.md)
 - [Modos de governança](./governance-modes.md)
-- [Evolução controlada e orçamento cognitivo](./controlled-evolution.md)
 - [Modelos, providers e tom](./models-and-tone.md)
 - [Riscos para o usuário final](./user-impact.md)
 - [Operação diária e troubleshooting](./operations.md)

@@ -115,7 +115,6 @@ Uso:
   orquestrador-maestro terminal stop <id> [--project-path PATH]
   orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro skills list [--project-path PATH]
-  orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
   orquestrador-maestro runtime [--project-path PATH]
@@ -1019,22 +1018,6 @@ async function handleSkillsCommand(args) {
   if (args[0] !== "list" || options.values.length > 0) throw new Error("Uso: maestro skills list [--project-path PATH]");
   console.log(JSON.stringify((await createRuntimeApplication(options.projectPath)).skills.list(), null, 2));
   return 0;
-}
-
-function handleSkillCatalogCommand(args) {
-  const allowed = new Set(["generate", "check", "validate"]);
-  const [subcommand = "validate", ...rest] = args;
-  if (!allowed.has(subcommand) || rest.length > 0) {
-    throw new Error("Uso: maestro skill-catalog <generate|check|validate>");
-  }
-  const script = path.join(rootDir, "scripts", "skill-catalog.js");
-  const result = spawnSync(process.execPath, [script, subcommand], {
-    cwd: rootDir,
-    stdio: "inherit",
-    shell: false
-  });
-  if (result.error) throw result.error;
-  return typeof result.status === "number" ? result.status : 1;
 }
 
 async function handleProvidersCommand(args) {
@@ -2391,7 +2374,6 @@ async function dispatch(command, args) {
   if (command === "terminals") return handleTerminalsCommand(args);
   if (command === "tui") return handleTuiCommand(args);
   if (command === "skills") return handleSkillsCommand(args);
-  if (command === "skill-catalog") return handleSkillCatalogCommand(args);
   if (command === "providers") return handleProvidersCommand(args);
   if (command === "bridge") return handleBridgeCommand(args);
   if (command === "runtime") return handleRuntimeCommand(args);
@@ -2448,7 +2430,7 @@ async function main() {
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "projects", "project", "missions", "mission", "terminal", "terminals",
-    "tui", "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
+    "tui", "skills", "providers", "bridge", "runtime", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
   ]);
   if (telemetryCommands.has(command)) {

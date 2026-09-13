@@ -21,15 +21,6 @@ class FakeAdapter {
   }
 }
 
-class ReviewAdapter extends FakeAdapter {
-  supportsReadOnlyReview() { return true; }
-  async execute(request) {
-    this.prompts.push(request.prompt);
-    const review = this.prompts.length > 1 ? JSON.stringify({ verdict: "approved", findings: [], summary: "criteria verified" }) : "ok";
-    return { pid: 1, cancel() {}, result: Promise.resolve({ providerId: this.id, pid: 1, exitCode: 0, stdout: review, stderr: "", durationMs: 1, cancelled: false, timedOut: false }) };
-  }
-}
-
 test("application turns a task into a persisted provider run with real verification", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-application-"));
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: { test: `${process.execPath} -e \"process.exit(0)\"` } }), "utf8");
@@ -83,32 +74,6 @@ test("a skipped verification warns without breaking a compatibility run", async 
   assert.equal(outcome.verification.status, "skipped");
   assert.equal(outcome.run.status, "completed");
   assert.equal(outcome.governanceWarnings.length, 1);
-});
-
-test("independent review is opt-in, risk based, and uses a fresh read-only execution", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-independent-review-"));
-  const provider = new ReviewAdapter();
-  const app = new MaestroApplication({
-    projectRoot: root,
-    governance: { features: { independentReview: true } },
-    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
-    providers: new ProviderRegistry([provider]),
-    skills: { get: () => null }
-  });
-  const outcome = await app.executeRun({
-    providerId: "fake",
-    description: "Alterar autenticação",
-    semanticTask: { id: "auth", objective: "Alterar autenticação", title: "Auth", risk: "high", complexity: "complex", changeClass: "security-compliance", acceptanceCriteria: ["tests pass"] },
-    verificationCommands: [{ name: "test", command: `${process.execPath} -e "process.exit(0)"` }]
-  });
-  assert.equal(provider.prompts.length, 2);
-  assert.equal(outcome.review.status, "approved");
-  assert.equal(outcome.run.status, "completed");
-  assert.equal((await app.listArtifacts({ runId: outcome.run.id })).some((artifact) => artifact.type === "REVIEW"), true);
-  const executions = await app.store.listExecutions({ runId: outcome.run.id });
-  assert.equal(executions.filter((item) => item.metadata?.role === "independent-reviewer").length, 1);
-  assert.match(provider.prompts[1], /OBJECTIVE/u);
-  assert.equal(provider.prompts[1].includes(provider.prompts[0]), false);
 });
 
 test("compatibility mode preserves the native prompt and strict mode opts into governance context", async () => {

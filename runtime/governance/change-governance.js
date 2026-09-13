@@ -12,11 +12,6 @@ const CHANGE_CLASSES = Object.freeze({
 });
 const HIGH_RISK_CHANGE_CLASSES = Object.freeze(["structural", "integration", "security-compliance", "domain-critical"]);
 const SCOPE_CLASSIFICATIONS = Object.freeze(["IN_SCOPE", "REQUIRED_DEPENDENCY", "DISCOVERED_WORK", "OUT_OF_SCOPE"]);
-const COGNITIVE_BUDGETS = Object.freeze({
-  lean: Object.freeze({ id: "LEAN", contextTokens: 4000, maxSkills: 1, maxIntelligentRetries: 0, maxReviewers: 0, maxOverheadPercent: 0 }),
-  standard: Object.freeze({ id: "STANDARD", contextTokens: 8000, maxSkills: 3, maxIntelligentRetries: 1, maxReviewers: 0, maxOverheadPercent: 15 }),
-  assurance: Object.freeze({ id: "ASSURANCE", contextTokens: 12000, maxSkills: 3, maxIntelligentRetries: 2, maxReviewers: 1, maxOverheadPercent: null })
-});
 
 const PATTERNS = Object.freeze([
   ["security-compliance", /\b(authentication|authorization|permission|permissions|secret|secrets|token|credential|pii|lgpd|security|tenant isolation|rls|payment|billing|webhook)\b/i],
@@ -62,38 +57,8 @@ function isRiskExecutionEligible(changeClass, { profileId, riskOverride } = {}) 
     && riskOverride.note.trim().length > 0;
 }
 
-function evaluateCognitiveBudget(task = {}, overrides = {}) {
-  const risk = String(task.risk || "low").toLowerCase();
-  const complexity = String(task.complexity || "medium").toLowerCase();
-  const highRisk = risk === "high" || risk === "critical" || HIGH_RISK_CHANGE_CLASSES.includes(task.changeClass);
-  const tier = highRisk ? "assurance" : (risk === "low" && complexity === "simple" && ["trivial", "local", undefined].includes(task.changeClass) ? "lean" : "standard");
-  const defaults = COGNITIVE_BUDGETS[tier];
-  const configured = overrides && typeof overrides === "object" && overrides[tier] && typeof overrides[tier] === "object" ? overrides[tier] : {};
-  const budget = { ...defaults, ...configured, id: defaults.id };
-  return Object.freeze({
-    ...budget,
-    tier,
-    reviewRequirement: tier === "assurance" ? "independent" : "none",
-    humanApproval: risk === "critical",
-    reason: highRisk ? "risk-or-change-class" : tier === "lean" ? "simple-low-risk-task" : "default-standard-budget"
-  });
-}
-
 function criterionKey(value) {
-  if (typeof value === "string") return value.trim();
-  if (value && typeof value === "object") return String(value.id || value.condition || "").trim();
-  return "";
-}
-
-function deriveOutcomeContract(task = {}) {
-  return Object.freeze({
-    intent: typeof task.objective === "string" ? task.objective : "",
-    expectedOutcome: typeof task.expectedOutcome === "string" && task.expectedOutcome.trim()
-      ? task.expectedOutcome.trim()
-      : (typeof task.objective === "string" ? task.objective : ""),
-    acceptanceConditions: Object.freeze(Array.isArray(task.acceptanceCriteria) ? task.acceptanceCriteria.map(criterionKey).filter(Boolean) : []),
-    evidenceRequirements: Object.freeze(Array.isArray(task.evidenceRequirements) ? task.evidenceRequirements.map(criterionKey).filter(Boolean) : [])
-  });
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function evidenceCoversCriterion(evidence, criterion) {
@@ -103,17 +68,14 @@ function evidenceCoversCriterion(evidence, criterion) {
 }
 
 function isTaskCompletionEligible(task, { evidence = [], verification = {}, qualityFindings = [], executor, verifier, deterministic = true } = {}) {
-  const outcome = deriveOutcomeContract(task);
-  const criteria = outcome.acceptanceConditions;
-  const evidenceRequirements = outcome.evidenceRequirements;
+  const criteria = Array.isArray(task?.acceptanceCriteria) ? task.acceptanceCriteria.map(criterionKey).filter(Boolean) : [];
   const matchingEvidence = Array.isArray(evidence) ? evidence.filter((item) => item?.taskId === task?.id) : [];
   const missingCriteria = criteria.filter((criterion) => !matchingEvidence.some((item) => evidenceCoversCriterion(item, criterion)));
-  const missingEvidenceRequirements = evidenceRequirements.filter((requirement) => !matchingEvidence.some((item) => evidenceCoversCriterion(item, requirement)));
   const independent = deterministic || !executor || !verifier || executor !== verifier;
   const verificationFailed = verification?.status === "failed" || verification?.requiredFailure;
   const blockingFindings = qualityFindings.filter((finding) => finding && (finding.blocking || ["BLOCKER", "HIGH"].includes(String(finding.severity).toUpperCase())));
-  const eligible = missingCriteria.length === 0 && missingEvidenceRequirements.length === 0 && (!(criteria.length || evidenceRequirements.length) || verification?.status === "passed") && !verificationFailed && independent && blockingFindings.length === 0;
-  return Object.freeze({ eligible, missingCriteria: Object.freeze(missingCriteria), missingEvidenceRequirements: Object.freeze(missingEvidenceRequirements), blockingFindings: Object.freeze(blockingFindings), reason: eligible ? "criteria-and-verification-satisfied" : "required-evidence-verification-or-quality-gate-missing" });
+  const eligible = missingCriteria.length === 0 && (!criteria.length || verification?.status === "passed") && !verificationFailed && independent && blockingFindings.length === 0;
+  return Object.freeze({ eligible, missingCriteria: Object.freeze(missingCriteria), blockingFindings: Object.freeze(blockingFindings), reason: eligible ? "criteria-and-verification-satisfied" : "required-evidence-verification-or-quality-gate-missing" });
 }
 
-module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, COGNITIVE_BUDGETS, classifyChange, classifyDiscovery, isScopeExecutionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, deriveOutcomeContract, isTaskCompletionEligible };
+module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, classifyChange, classifyDiscovery, isScopeExecutionEligible, isRiskExecutionEligible, isTaskCompletionEligible };

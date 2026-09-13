@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1,
   "schema": "./SKILLS_MANIFEST_SCHEMA.json",
   "purpose": "Canonical registry for Orquestrador skills. Sync scripts use mirrorEverywhere instead of hardcoded skill lists.",
   "defaults": {
@@ -62,54 +62,14 @@
         "onboarding saas",
         "auth saas"
       ],
-      "status": "canonical",
-      "tags": [
-        "saas",
-        "factory"
-      ],
-      "routerSummary": "Top-level SaaS construction and review workflow for dashboards, admin, Supabase, payments, security, infra, and production readiness.",
-      "documentation": {
-        "bestFor": [
-          "Top-level SaaS construction and review workflow for dashboards, admin, Supabase, payments, security, infra, and production readiness."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para criar saas.",
-          "Use para novo saas.",
-          "Use para saas factory.",
-          "Use para dashboard saas.",
-          "Use para admin dashboard."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-saas-factory/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-project-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 5
+      "status": "canonical"
     },
     "skill-saas-admin-dashboard": {
       "description": "SaaS admin dashboard and internal panel patterns for users, plans, payments, logs, metrics, settings, and onboarding.",
       "category": "saas",
       "risk": "medium",
       "source": "local-project-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "admin panel",
         "painel administrativo",
@@ -126,55 +86,14 @@
         "painel admin",
         "admin"
       ],
-      "status": "canonical",
-      "tags": [
-        "saas",
-        "admin",
-        "dashboard"
-      ],
-      "routerSummary": "SaaS admin dashboard and internal panel patterns for users, plans, payments, logs, metrics, settings, and onboarding.",
-      "documentation": {
-        "bestFor": [
-          "SaaS admin dashboard and internal panel patterns for users, plans, payments, logs, metrics, settings, and onboarding."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para admin panel.",
-          "Use para painel administrativo.",
-          "Use para dashboard administrativo.",
-          "Use para users admin.",
-          "Use para pagamentos admin."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-saas-admin-dashboard/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-project-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-abacatepay-integration": {
       "description": "AbacatePay PIX/card billing, CPF/CNPJ, BRL checkout, billing webhooks, and entitlement sync.",
       "category": "payments",
       "risk": "medium",
       "source": "local-payment-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "abacatepay",
         "pix",
@@ -189,55 +108,14 @@
         "pix",
         "pagamento br"
       ],
-      "status": "canonical",
-      "tags": [
-        "payments",
-        "abacatepay",
-        "integration"
-      ],
-      "routerSummary": "AbacatePay PIX/card billing, CPF/CNPJ, BRL checkout, billing webhooks, and entitlement sync.",
-      "documentation": {
-        "bestFor": [
-          "AbacatePay PIX/card billing, CPF/CNPJ, BRL checkout, billing webhooks, and entitlement sync."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para abacatepay.",
-          "Use para pix.",
-          "Use para cpf.",
-          "Use para cnpj.",
-          "Use para billing.paid."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-abacatepay-integration/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-payment-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-stripe-integration": {
       "description": "Stripe Checkout, Billing subscriptions, customer portal, webhook verification, and SaaS entitlement sync.",
       "category": "payments",
       "risk": "medium",
       "source": "local-payment-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "stripe",
         "stripe checkout",
@@ -252,55 +130,14 @@
         "stripe",
         "checkout"
       ],
-      "status": "canonical",
-      "tags": [
-        "payments",
-        "stripe",
-        "integration"
-      ],
-      "routerSummary": "Stripe Checkout, Billing subscriptions, customer portal, webhook verification, and SaaS entitlement sync.",
-      "documentation": {
-        "bestFor": [
-          "Stripe Checkout, Billing subscriptions, customer portal, webhook verification, and SaaS entitlement sync."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para stripe.",
-          "Use para stripe checkout.",
-          "Use para stripe billing.",
-          "Use para customer portal.",
-          "Use para invoice.paid."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-stripe-integration/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-payment-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-saas-core-limits": {
       "description": "SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, and blocked account states.",
       "category": "saas",
       "risk": "medium",
       "source": "local-project-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "limites saas",
         "quotas",
@@ -316,48 +153,7 @@
         "planos",
         "assinaturas"
       ],
-      "status": "canonical",
-      "tags": [
-        "saas",
-        "core",
-        "limits"
-      ],
-      "routerSummary": "SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, and blocked account states.",
-      "documentation": {
-        "bestFor": [
-          "SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, and blocked account states."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para limites saas.",
-          "Use para quotas.",
-          "Use para feature flags.",
-          "Use para trial.",
-          "Use para grace period."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-saas-core-limits/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-project-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-saas-security-scan": {
       "description": "Authorized local SaaS repository security scan using maintained OSS tools.",
@@ -378,118 +174,34 @@
         "scan seguranca",
         "seguranca saas"
       ],
-      "status": "canonical",
-      "tags": [
-        "security",
-        "saas",
-        "scan"
-      ],
-      "routerSummary": "Authorized local SaaS repository security scan using maintained OSS tools.",
-      "documentation": {
-        "bestFor": [
-          "Authorized local SaaS repository security scan using maintained OSS tools."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para saas security scan.",
-          "Use para sast.",
-          "Use para secrets.",
-          "Use para dependency audit.",
-          "Use para repo security."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-saas-security-scan/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-security-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-saas-dast-recon": {
       "description": "Authorized staging/preview DAST and recon workflow for owned SaaS systems.",
       "category": "security",
       "risk": "high",
       "source": "local-security-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "dast",
         "preview scan",
         "staging scan",
         "nuclei",
-        "authorized url scan",
-        "owasp zap"
+        "authorized url scan"
       ],
       "aliases": [
         "dast",
-        "nuclei",
-        "owasp zap"
+        "zap",
+        "nuclei"
       ],
-      "status": "canonical",
-      "tags": [
-        "security",
-        "saas",
-        "dast",
-        "recon"
-      ],
-      "routerSummary": "Authorized staging/preview DAST and recon workflow for owned SaaS systems.",
-      "documentation": {
-        "bestFor": [
-          "Authorized staging/preview DAST and recon workflow for owned SaaS systems."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para dast.",
-          "Use para preview scan.",
-          "Use para staging scan.",
-          "Use para nuclei.",
-          "Use para authorized url scan."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-saas-dast-recon/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-security-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-security-hooks": {
       "description": "Git hooks and CI security gates for SaaS repositories.",
       "category": "security",
       "risk": "medium",
       "source": "local-security-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "security hooks",
         "pre-commit",
@@ -502,54 +214,14 @@
         "pre commit",
         "ci security"
       ],
-      "status": "canonical",
-      "tags": [
-        "security",
-        "hooks"
-      ],
-      "routerSummary": "Git hooks and CI security gates for SaaS repositories.",
-      "documentation": {
-        "bestFor": [
-          "Git hooks and CI security gates for SaaS repositories."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para security hooks.",
-          "Use para pre-commit.",
-          "Use para pre-push.",
-          "Use para ci security.",
-          "Use para security gate."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-security-hooks/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-security-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-supabase-rls": {
       "description": "Supabase/Postgres RLS design, tenant isolation, policies, indexes, and verification.",
       "category": "security",
       "risk": "high",
       "source": "local-supabase-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "supabase",
         "rls",
@@ -565,48 +237,7 @@
         "rls",
         "tenant isolation"
       ],
-      "status": "canonical",
-      "tags": [
-        "security",
-        "supabase",
-        "rls"
-      ],
-      "routerSummary": "Supabase/Postgres RLS design, tenant isolation, policies, indexes, and verification.",
-      "documentation": {
-        "bestFor": [
-          "Supabase/Postgres RLS design, tenant isolation, policies, indexes, and verification."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para supabase.",
-          "Use para rls.",
-          "Use para row level security.",
-          "Use para tenant isolation.",
-          "Use para policies."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-supabase-rls/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-supabase-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-ai-orchestration": {
       "description": "Server-side AI provider orchestration, routing, budgets, fallbacks, observability, and safe key handling.",
@@ -631,54 +262,14 @@
         "llm",
         "token budget"
       ],
-      "status": "canonical",
-      "tags": [
-        "ai",
-        "orchestration"
-      ],
-      "routerSummary": "Server-side AI provider orchestration, routing, budgets, fallbacks, observability, and safe key handling.",
-      "documentation": {
-        "bestFor": [
-          "Server-side AI provider orchestration, routing, budgets, fallbacks, observability, and safe key handling."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio ai; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para ai orchestration.",
-          "Use para llm router.",
-          "Use para openai.",
-          "Use para gemini.",
-          "Use para claude."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-ai-orchestration/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-ai-orchestration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-browser-agent": {
       "description": "Reliable web-browser agents using semantic page state, accessibility-tree inspection, structured Playwright actions, post-action validation, replay, and bounded visual fallbacks.",
       "category": "automation",
       "risk": "medium",
       "source": "local-browser-agent-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "browser agent",
         "agente de navegador",
@@ -698,48 +289,7 @@
         "automação de navegador",
         "playwright"
       ],
-      "status": "canonical",
-      "tags": [
-        "automation",
-        "browser",
-        "agent"
-      ],
-      "routerSummary": "Reliable web-browser agents using semantic page state, accessibility-tree inspection, structured Playwright actions, post-action validation, replay, and bounded visual fallbacks.",
-      "documentation": {
-        "bestFor": [
-          "Reliable web-browser agents using semantic page state, accessibility-tree inspection, structured Playwright actions, post-action validation, replay, and bounded visual fallbacks."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio automation; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para browser agent.",
-          "Use para agente de navegador.",
-          "Use para automacao web.",
-          "Use para automação web.",
-          "Use para navegar na web."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-browser-agent/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-browser-agent-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-multiagent-orchestration": {
       "description": "Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely.",
@@ -776,54 +326,14 @@
         "delegar",
         "orquestrar agentes"
       ],
-      "status": "canonical",
-      "tags": [
-        "orchestration",
-        "multiagent"
-      ],
-      "routerSummary": "Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely.",
-      "documentation": {
-        "bestFor": [
-          "Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio orchestration; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para multiagent.",
-          "Use para multiagents.",
-          "Use para subagent.",
-          "Use para subagents.",
-          "Use para multi agente."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-multiagent-orchestration/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-orchestration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-aionui-cowork-orchestration": {
       "description": "Safe AionUi cowork/team integration around Codex, Claude, Gemini, OpenCode, MCPs, and the user orchestrator without replacing the existing workflow.",
       "category": "orchestration",
       "risk": "medium",
       "source": "local-orchestration-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "aionui",
         "aion ui",
@@ -848,55 +358,14 @@
         "multi-agent cowork",
         "mcp unified management"
       ],
-      "status": "canonical",
-      "tags": [
-        "orchestration",
-        "aionui",
-        "cowork"
-      ],
-      "routerSummary": "Safe AionUi cowork/team integration around Codex, Claude, Gemini, OpenCode, MCPs, and the user orchestrator without replacing the existing workflow.",
-      "documentation": {
-        "bestFor": [
-          "Safe AionUi cowork/team integration around Codex, Claude, Gemini, OpenCode, MCPs, and the user orchestrator without replacing the existing workflow."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio orchestration; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para aionui.",
-          "Use para aion ui.",
-          "Use para cowork app.",
-          "Use para cowork agents.",
-          "Use para team mode."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-aionui-cowork-orchestration/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-orchestration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-evolution-api": {
       "description": "Evolution API WhatsApp integration with webhook idempotency, queueing, consent, and rate limits.",
       "category": "communication",
       "risk": "medium",
       "source": "local-integration-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "evolution api",
         "whatsapp",
@@ -906,57 +375,18 @@
         "mensagens whatsapp"
       ],
       "aliases": [
-        "evolution api"
+        "whatsapp",
+        "evolution api",
+        "zap"
       ],
-      "status": "canonical",
-      "tags": [
-        "communication",
-        "evolution",
-        "api"
-      ],
-      "routerSummary": "Evolution API WhatsApp integration with webhook idempotency, queueing, consent, and rate limits.",
-      "documentation": {
-        "bestFor": [
-          "Evolution API WhatsApp integration with webhook idempotency, queueing, consent, and rate limits."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio communication; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para evolution api.",
-          "Use para whatsapp.",
-          "Use para webhook whatsapp.",
-          "Use para instancia whatsapp.",
-          "Use para qr code whatsapp."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-evolution-api/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-integration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 10
+      "status": "canonical"
     },
     "skill-frontend-ux-guardrails": {
       "description": "Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.",
       "category": "frontend",
       "risk": "medium",
       "source": "local-frontend-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "ux guardrails",
         "frontend polish",
@@ -976,55 +406,14 @@
         "responsivo",
         "mobile quebrado"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "ux",
-        "guardrails"
-      ],
-      "routerSummary": "Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.",
-      "documentation": {
-        "bestFor": [
-          "Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para ux guardrails.",
-          "Use para frontend polish.",
-          "Use para responsive.",
-          "Use para overflow.",
-          "Use para layout quebrado."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-frontend-ux-guardrails/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-frontend-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-modern-ui-patterns": {
       "description": "Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency.",
       "category": "frontend",
       "risk": "low",
       "source": "local-frontend-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "modern ui",
         "ui patterns",
@@ -1048,56 +437,14 @@
         "ui moderna",
         "design system"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "modern",
-        "ui",
-        "patterns"
-      ],
-      "routerSummary": "Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency.",
-      "documentation": {
-        "bestFor": [
-          "Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para modern ui.",
-          "Use para ui patterns.",
-          "Use para componentes.",
-          "Use para design system.",
-          "Use para saas ui."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-modern-ui-patterns/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-frontend-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-open-design-ui": {
       "description": "Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear.",
       "category": "frontend",
       "risk": "low",
       "source": "local-frontend-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "open design",
         "design tokens",
@@ -1112,56 +459,14 @@
         "open design",
         "visual qa"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "open",
-        "design",
-        "ui"
-      ],
-      "routerSummary": "Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear.",
-      "documentation": {
-        "bestFor": [
-          "Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para open design.",
-          "Use para design tokens.",
-          "Use para design ui.",
-          "Use para visual qa.",
-          "Use para component library."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-open-design-ui/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-frontend-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-premium-web-experience": {
       "description": "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA.",
       "category": "frontend",
       "risk": "low",
       "source": "local-frontend-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "premium website",
         "site premium",
@@ -1206,56 +511,14 @@
         "site cinematografico",
         "parallax"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "premium",
-        "web",
-        "experience"
-      ],
-      "routerSummary": "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA.",
-      "documentation": {
-        "bestFor": [
-          "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para premium website.",
-          "Use para site premium.",
-          "Use para landing page premium.",
-          "Use para website redesign.",
-          "Use para redesign de site."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-premium-web-experience/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-frontend-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-live-processing": {
       "description": "Live media processing pipeline with capture, queueing, worker state, retries, and observability.",
       "category": "media",
       "risk": "medium",
       "source": "local-media-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "live processing",
         "processamento ao vivo",
@@ -1268,55 +531,14 @@
         "live video",
         "processamento ao vivo"
       ],
-      "status": "canonical",
-      "tags": [
-        "media",
-        "live",
-        "processing"
-      ],
-      "routerSummary": "Live media processing pipeline with capture, queueing, worker state, retries, and observability.",
-      "documentation": {
-        "bestFor": [
-          "Live media processing pipeline with capture, queueing, worker state, retries, and observability."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para live processing.",
-          "Use para processamento ao vivo.",
-          "Use para stream processing.",
-          "Use para live video.",
-          "Use para fila de video."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-live-processing/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-media-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-manual-video-processing": {
       "description": "Manual upload video processing with secure storage, validation, job states, and retryable workers.",
       "category": "media",
       "risk": "medium",
       "source": "local-media-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "manual video",
         "upload video",
@@ -1329,56 +551,14 @@
         "upload video",
         "processar video"
       ],
-      "status": "canonical",
-      "tags": [
-        "media",
-        "manual",
-        "video",
-        "processing"
-      ],
-      "routerSummary": "Manual upload video processing with secure storage, validation, job states, and retryable workers.",
-      "documentation": {
-        "bestFor": [
-          "Manual upload video processing with secure storage, validation, job states, and retryable workers."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para manual video.",
-          "Use para upload video.",
-          "Use para processar video.",
-          "Use para video processing.",
-          "Use para transcode."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-manual-video-processing/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-media-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-smart-clip-detection": {
       "description": "Smart clip candidate detection for video/audio using scored moments, metadata, and review workflows.",
       "category": "media",
       "risk": "medium",
       "source": "local-media-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "clip detection",
         "detectar cortes",
@@ -1391,56 +571,14 @@
         "clips",
         "cortes"
       ],
-      "status": "canonical",
-      "tags": [
-        "media",
-        "smart",
-        "clip",
-        "detection"
-      ],
-      "routerSummary": "Smart clip candidate detection for video/audio using scored moments, metadata, and review workflows.",
-      "documentation": {
-        "bestFor": [
-          "Smart clip candidate detection for video/audio using scored moments, metadata, and review workflows."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para clip detection.",
-          "Use para detectar cortes.",
-          "Use para smart clips.",
-          "Use para highlight detection.",
-          "Use para viral clips."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-smart-clip-detection/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-media-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-watch-evidence": {
       "description": "Video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, and deterministic verification.",
       "category": "media",
       "risk": "high",
       "source": "adapted-external-oxbshw-watch-skill-1.4.2",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "watch skill",
         "watch-skill",
@@ -1468,55 +606,14 @@
         "loop visual",
         "prova visual"
       ],
-      "status": "canonical",
-      "tags": [
-        "media",
-        "watch",
-        "evidence"
-      ],
-      "routerSummary": "Video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, and deterministic verification.",
-      "documentation": {
-        "bestFor": [
-          "Video, audio, screen-recording, and visual-flow analysis with persistent indexes, timestamped evidence, OCR/transcription, and deterministic verification."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para watch skill.",
-          "Use para watch-skill.",
-          "Use para watch this video.",
-          "Use para assistir vídeo.",
-          "Use para assistir video."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-watch-evidence/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "adapted-external-oxbshw-watch-skill-1.4.2",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-unified-analytics": {
       "description": "Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and privacy guardrails.",
       "category": "analytics",
       "risk": "medium",
       "source": "local-analytics-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "analytics",
         "event tracking",
@@ -1531,54 +628,14 @@
         "metricas",
         "event tracking"
       ],
-      "status": "canonical",
-      "tags": [
-        "analytics",
-        "unified"
-      ],
-      "routerSummary": "Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and privacy guardrails.",
-      "documentation": {
-        "bestFor": [
-          "Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and privacy guardrails."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio analytics; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para analytics.",
-          "Use para event tracking.",
-          "Use para metrics.",
-          "Use para funnels.",
-          "Use para dashboard metrics."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-unified-analytics/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-analytics-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-elevenlabs-voice-cloning": {
       "description": "ElevenLabs voice generation/cloning integration with consent, asset handling, and server-side API use.",
       "category": "ai",
       "risk": "high",
       "source": "local-ai-orchestration-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "elevenlabs",
         "voice cloning",
@@ -1591,56 +648,14 @@
         "elevenlabs",
         "voz"
       ],
-      "status": "canonical",
-      "tags": [
-        "ai",
-        "elevenlabs",
-        "voice",
-        "cloning"
-      ],
-      "routerSummary": "ElevenLabs voice generation/cloning integration with consent, asset handling, and server-side API use.",
-      "documentation": {
-        "bestFor": [
-          "ElevenLabs voice generation/cloning integration with consent, asset handling, and server-side API use."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio ai; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para elevenlabs.",
-          "Use para voice cloning.",
-          "Use para clonar voz.",
-          "Use para tts.",
-          "Use para text to speech."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-elevenlabs-voice-cloning/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-ai-orchestration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-google-workspace-sync": {
       "description": "Google Workspace sync patterns for Drive/Sheets/Calendar data, OAuth scopes, webhooks, and reconciliation.",
       "category": "integrations",
       "risk": "medium",
       "source": "local-integration-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "google workspace",
         "google drive",
@@ -1654,56 +669,14 @@
         "google calendar",
         "meet"
       ],
-      "status": "canonical",
-      "tags": [
-        "integrations",
-        "google",
-        "workspace",
-        "sync"
-      ],
-      "routerSummary": "Google Workspace sync patterns for Drive/Sheets/Calendar data, OAuth scopes, webhooks, and reconciliation.",
-      "documentation": {
-        "bestFor": [
-          "Google Workspace sync patterns for Drive/Sheets/Calendar data, OAuth scopes, webhooks, and reconciliation."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio integrations; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para google workspace.",
-          "Use para google drive.",
-          "Use para google sheets.",
-          "Use para google calendar.",
-          "Use para workspace sync."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-google-workspace-sync/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-integration-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-lgpd-brasil": {
       "description": "LGPD-focused privacy and data-governance skill for Brazilian software products. Use for data mapping, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfer review.",
       "category": "compliance",
       "risk": "high",
       "source": "local-privacy-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "lgpd",
         "lgpd brasil",
@@ -1725,48 +698,7 @@
         "dpo",
         "encarregado lgpd"
       ],
-      "status": "canonical",
-      "tags": [
-        "compliance",
-        "lgpd",
-        "brasil"
-      ],
-      "routerSummary": "LGPD-focused privacy and data-governance skill for Brazilian software products. Use for data mapping, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfer review.",
-      "documentation": {
-        "bestFor": [
-          "LGPD-focused privacy and data-governance skill for Brazilian software products. Use for data mapping, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfer review."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio compliance; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para lgpd.",
-          "Use para lgpd brasil.",
-          "Use para lei geral de protecao de dados.",
-          "Use para anpd.",
-          "Use para ripd."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-lgpd-brasil/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-privacy-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-whatsapp-meta-ads-leads": {
       "description": "Configura campanhas de WhatsApp no Meta Ads para gerar leads qualificados para negócios locais.",
@@ -1779,63 +711,28 @@
         ],
         "steward": "orquestrador-maintainers",
         "reviewedAt": "2026-08-06",
-        "upstream": "filipe-detrey-campanha-whatsapp-2026",
-        "version": "bundled",
-        "license": "repository-license",
         "legacyCompatible": true,
         "notes": "Imported canonical skill preserved with source-specific provenance."
       },
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "whatsapp meta ads",
         "campanha de whatsapp",
         "leads qualificados whatsapp",
-        "meta ads para negócios locais",
-        "meta ads whatsapp"
+        "meta ads para negócios locais"
       ],
       "aliases": [
         "whatsapp meta ads leads",
-        "campanha whatsapp",
-        "meta ads whatsapp"
+        "campanha whatsapp"
       ],
-      "status": "canonical",
-      "tags": [
-        "marketing",
-        "whatsapp",
-        "meta",
-        "ads",
-        "leads"
-      ],
-      "routerSummary": "Configura campanhas de WhatsApp no Meta Ads para gerar leads qualificados para negócios locais.",
-      "documentation": {
-        "bestFor": [
-          "Configura campanhas de WhatsApp no Meta Ads para gerar leads qualificados para negócios locais."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio marketing; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para whatsapp meta ads.",
-          "Use para campanha de whatsapp.",
-          "Use para leads qualificados whatsapp.",
-          "Use para meta ads para negócios locais."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "priority": 30
+      "status": "canonical"
     },
     "skill-cobranca-automatizada-saas-abacatepay": {
       "description": "Automatic SaaS billing engine with AbacatePay (PIX + card), dunning (regua de cobranca), trial management, invoice portal, Resend email and Evolution API WhatsApp notifications, admin CRUD, and billing metrics.",
       "category": "payments",
       "risk": "high",
       "source": "local-saas-billing-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "cobranca",
         "cobrança",
@@ -1860,50 +757,7 @@
         "billing automatizado",
         "regua de cobranca"
       ],
-      "status": "canonical",
-      "tags": [
-        "payments",
-        "cobranca",
-        "automatizada",
-        "saas",
-        "abacatepay"
-      ],
-      "routerSummary": "Automatic SaaS billing engine with AbacatePay (PIX + card), dunning (regua de cobranca), trial management, invoice portal, Resend email and Evolution API WhatsApp notifications, admin CRUD, and billing metrics.",
-      "documentation": {
-        "bestFor": [
-          "Automatic SaaS billing engine with AbacatePay (PIX + card), dunning (regua de cobranca), trial management, invoice portal, Resend email and Evolution API WhatsApp notifications, admin CRUD, and billing metrics."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para cobranca.",
-          "Use para cobrança.",
-          "Use para billing automatizado.",
-          "Use para regua de cobranca.",
-          "Use para régua de cobrança."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-cobranca-automatizada-saas-abacatepay/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-saas-billing-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-quality-gate": {
       "description": "Avalia skills, plugins e MCPs antes da adoção.",
@@ -1921,47 +775,7 @@
         "quality gate",
         "skill gate"
       ],
-      "status": "canonical",
-      "tags": [
-        "governance",
-        "quality",
-        "gate"
-      ],
-      "routerSummary": "Avalia skills, plugins e MCPs antes da adoção.",
-      "documentation": {
-        "bestFor": [
-          "Avalia skills, plugins e MCPs antes da adoção."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para quality gate.",
-          "Use para skill gate.",
-          "Use para avaliar skill.",
-          "Use para auditar plugin."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-quality-gate/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-repo-health": {
       "description": "Diagnóstico de saúde, stack, verificação e riscos de repositórios.",
@@ -1978,46 +792,7 @@
         "repo health",
         "health check repositorio"
       ],
-      "status": "canonical",
-      "tags": [
-        "engineering",
-        "repo",
-        "health"
-      ],
-      "routerSummary": "Diagnóstico de saúde, stack, verificação e riscos de repositórios.",
-      "documentation": {
-        "bestFor": [
-          "Diagnóstico de saúde, stack, verificação e riscos de repositórios."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio engineering; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para repo health.",
-          "Use para saúde do repositorio.",
-          "Use para inspecionar repositorio."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-repo-health/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-preflight": {
       "description": "Preflight de escopo, baseline, riscos, ownership e testes.",
@@ -2041,45 +816,7 @@
         "referencesOptional": true,
         "legacyCompatible": true,
         "notes": "Explicit workflow schema for operator-style preflight execution."
-      },
-      "tags": [
-        "workflow",
-        "preflight"
-      ],
-      "routerSummary": "Preflight de escopo, baseline, riscos, ownership e testes.",
-      "documentation": {
-        "bestFor": [
-          "Preflight de escopo, baseline, riscos, ownership e testes."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio workflow; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para preflight.",
-          "Use para pre-flight.",
-          "Use para antes de implementar."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-preflight/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      }
     },
     "skill-systematic-debugging": {
       "description": "Debugging sistemático orientado por evidência e causa raiz.",
@@ -2095,46 +832,7 @@
       "aliases": [
         "debug sistematico"
       ],
-      "status": "canonical",
-      "tags": [
-        "engineering",
-        "systematic",
-        "debugging"
-      ],
-      "routerSummary": "Debugging sistemático orientado por evidência e causa raiz.",
-      "documentation": {
-        "bestFor": [
-          "Debugging sistemático orientado por evidência e causa raiz."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio engineering; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para debug sistematico.",
-          "Use para causa raiz.",
-          "Use para investigar bug."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-systematic-debugging/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-verification-before-completion": {
       "description": "Verificação proporcional antes de declarar conclusão.",
@@ -2158,47 +856,7 @@
         "referencesOptional": true,
         "legacyCompatible": true,
         "notes": "Verification-oriented workflow override with stricter validation."
-      },
-      "tags": [
-        "quality",
-        "verification",
-        "before",
-        "completion"
-      ],
-      "routerSummary": "Verificação proporcional antes de declarar conclusão.",
-      "documentation": {
-        "bestFor": [
-          "Verificação proporcional antes de declarar conclusão."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio quality; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para verificar conclusão.",
-          "Use para verification before completion.",
-          "Use para validar antes de concluir."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-verification-before-completion/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      }
     },
     "skill-webapp-testing": {
       "description": "Testes web E2E, acessibilidade, estados e regressão visual.",
@@ -2216,53 +874,14 @@
         "teste web",
         "teste e2e"
       ],
-      "status": "canonical",
-      "tags": [
-        "testing",
-        "webapp"
-      ],
-      "routerSummary": "Testes web E2E, acessibilidade, estados e regressão visual.",
-      "documentation": {
-        "bestFor": [
-          "Testes web E2E, acessibilidade, estados e regressão visual."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio testing; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para webapp testing.",
-          "Use para teste e2e.",
-        "Use para teste E2E.",
-          "Use para teste de aplicação web."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-webapp-testing/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-web-clone": {
       "description": "Clonagem de uma página web por URL com extração de estrutura, reprodução visual, interações essenciais e verificação no navegador.",
       "category": "frontend",
       "risk": "medium",
       "source": "codex-native-web-clone",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "web clone",
         "web-clone",
@@ -2278,55 +897,14 @@
         "clonar site",
         "web clone"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "web",
-        "clone"
-      ],
-      "routerSummary": "Clonagem de uma página web por URL com extração de estrutura, reprodução visual, interações essenciais e verificação no navegador.",
-      "documentation": {
-        "bestFor": [
-          "Clonagem de uma página web por URL com extração de estrutura, reprodução visual, interações essenciais e verificação no navegador."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para web clone.",
-          "Use para web-clone.",
-          "Use para clone site.",
-          "Use para clone website.",
-          "Use para clonar site."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-web-clone/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "codex-native-web-clone",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-mcp-builder": {
       "description": "Construção segura de MCP servers tipados e testáveis.",
       "category": "integrations",
       "risk": "high",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "mcp builder",
         "criar mcp",
@@ -2335,53 +913,14 @@
       "aliases": [
         "mcp builder"
       ],
-      "status": "canonical",
-      "tags": [
-        "integrations",
-        "mcp",
-        "builder"
-      ],
-      "routerSummary": "Construção segura de MCP servers tipados e testáveis.",
-      "documentation": {
-        "bestFor": [
-          "Construção segura de MCP servers tipados e testáveis."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio integrations; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para mcp builder.",
-          "Use para criar mcp.",
-          "Use para servidor mcp."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-mcp-builder/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-deep-wiki": {
       "description": "Documentação técnica navegável com arquitetura, Mermaid e onboarding.",
       "category": "documentation",
       "risk": "low",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "deep wiki",
         "wiki tecnica",
@@ -2390,53 +929,14 @@
       "aliases": [
         "deep wiki"
       ],
-      "status": "canonical",
-      "tags": [
-        "documentation",
-        "deep",
-        "wiki"
-      ],
-      "routerSummary": "Documentação técnica navegável com arquitetura, Mermaid e onboarding.",
-      "documentation": {
-        "bestFor": [
-          "Documentação técnica navegável com arquitetura, Mermaid e onboarding."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio documentation; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para deep wiki.",
-          "Use para wiki tecnica.",
-          "Use para documentar repositorio."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-deep-wiki/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-agent-observability": {
       "description": "Observabilidade de agentes, custos, latência, qualidade e regressões.",
       "category": "observability",
       "risk": "medium",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "agent observability",
         "observabilidade de agente",
@@ -2445,45 +945,7 @@
       "aliases": [
         "agent observability"
       ],
-      "status": "canonical",
-      "tags": [
-        "observability",
-        "agent"
-      ],
-      "routerSummary": "Observabilidade de agentes, custos, latência, qualidade e regressões.",
-      "documentation": {
-        "bestFor": [
-          "Observabilidade de agentes, custos, latência, qualidade e regressões."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio observability; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para agent observability.",
-          "Use para observabilidade de agente.",
-          "Use para tracing agente."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-agent-observability/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-release-engineering": {
       "description": "Engenharia de release, smoke tests, rollback e checklist operacional.",
@@ -2499,53 +961,14 @@
       "aliases": [
         "release engineering"
       ],
-      "status": "canonical",
-      "tags": [
-        "delivery",
-        "release",
-        "engineering"
-      ],
-      "routerSummary": "Engenharia de release, smoke tests, rollback e checklist operacional.",
-      "documentation": {
-        "bestFor": [
-          "Engenharia de release, smoke tests, rollback e checklist operacional."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio delivery; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para release engineering.",
-          "Use para preparar release.",
-          "Use para rollback."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-release-engineering/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-database-migrations": {
       "description": "Migrações de banco seguras, compatíveis, idempotentes e verificáveis.",
       "category": "database",
       "risk": "high",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "database migration",
         "migração de banco",
@@ -2554,52 +977,14 @@
       "aliases": [
         "migração de banco"
       ],
-      "status": "canonical",
-      "tags": [
-        "database",
-        "migrations"
-      ],
-      "routerSummary": "Migrações de banco seguras, compatíveis, idempotentes e verificáveis.",
-      "documentation": {
-        "bestFor": [
-          "Migrações de banco seguras, compatíveis, idempotentes e verificáveis."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio database; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para database migration.",
-          "Use para migração de banco.",
-          "Use para migration sql."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-database-migrations/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-dependency-upgrade": {
       "description": "Atualização controlada de dependências e lockfiles.",
       "category": "maintenance",
       "risk": "medium",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "dependency upgrade",
         "atualizar dependencias",
@@ -2608,53 +993,14 @@
       "aliases": [
         "upgrade dependências"
       ],
-      "status": "canonical",
-      "tags": [
-        "maintenance",
-        "dependency",
-        "upgrade"
-      ],
-      "routerSummary": "Atualização controlada de dependências e lockfiles.",
-      "documentation": {
-        "bestFor": [
-          "Atualização controlada de dependências e lockfiles."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio maintenance; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para dependency upgrade.",
-          "Use para atualizar dependencias.",
-          "Use para upgrade dependencias."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-dependency-upgrade/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-incident-response": {
       "description": "Resposta a incidentes, contenção, recuperação e postmortem.",
       "category": "operations",
       "risk": "high",
       "source": "orquestrador-native",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "incident response",
         "incidente",
@@ -2663,46 +1009,7 @@
       "aliases": [
         "resposta a incidente"
       ],
-      "status": "canonical",
-      "tags": [
-        "operations",
-        "incident",
-        "response"
-      ],
-      "routerSummary": "Resposta a incidentes, contenção, recuperação e postmortem.",
-      "documentation": {
-        "bestFor": [
-          "Resposta a incidentes, contenção, recuperação e postmortem."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio operations; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para incident response.",
-          "Use para incidente.",
-          "Use para postmortem."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-incident-response/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-adr": {
       "description": "Registros de decisões arquiteturais com alternativas e consequências.",
@@ -2718,45 +1025,7 @@
       "aliases": [
         "adr"
       ],
-      "status": "canonical",
-      "tags": [
-        "architecture",
-        "adr"
-      ],
-      "routerSummary": "Registros de decisões arquiteturais com alternativas e consequências.",
-      "documentation": {
-        "bestFor": [
-          "Registros de decisões arquiteturais com alternativas e consequências."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio architecture; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para adr.",
-          "Use para decisão arquitetural.",
-          "Use para architecture decision."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-adr/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-research-and-synthesis": {
       "description": "Pesquisa web rastreável, comparável e baseada em fontes primárias.",
@@ -2772,53 +1041,14 @@
       "aliases": [
         "pesquisa com fontes"
       ],
-      "status": "canonical",
-      "tags": [
-        "research",
-        "and",
-        "synthesis"
-      ],
-      "routerSummary": "Pesquisa web rastreável, comparável e baseada em fontes primárias.",
-      "documentation": {
-        "bestFor": [
-          "Pesquisa web rastreável, comparável e baseada em fontes primárias."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio research; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para research and synthesis.",
-          "Use para pesquisa web.",
-          "Use para pesquisar e sintetizar."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-research-and-synthesis/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-optimize-images": {
       "description": "Otimiza imagens para blogs e sites, incluindo conversão de formato, redimensionamento, compressão, responsividade, acessibilidade e validação visual. Use quando pedirem para otimizar, reduzir, preparar, converter ou melhorar imagens para web.",
       "category": "media",
       "risk": "low",
       "source": "local-media-patterns",
-      "mirrorEverywhere": false,
+      "mirrorEverywhere": true,
       "triggers": [
         "otimizar imagem",
         "otimizar imagens",
@@ -2839,48 +1069,7 @@
         "webp",
         "avif"
       ],
-      "status": "canonical",
-      "tags": [
-        "media",
-        "optimize",
-        "images"
-      ],
-      "routerSummary": "Otimiza imagens para blogs e sites, incluindo conversão de formato, redimensionamento, compressão, responsividade, acessibilidade e validação visual. Use quando pedirem para otimizar, reduzir, preparar, converter ou melhorar imagens para web.",
-      "documentation": {
-        "bestFor": [
-          "Otimiza imagens para blogs e sites, incluindo conversão de formato, redimensionamento, compressão, responsividade, acessibilidade e validação visual. Use quando pedirem para otimizar, reduzir, preparar, converter ou melhorar imagens para web."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para otimizar imagem.",
-          "Use para otimizar imagens.",
-          "Use para imagem para blog.",
-          "Use para imagem para site.",
-          "Use para compressão de imagem."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco low."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-optimize-images/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "local-media-patterns",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-impeccable": {
       "description": "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills.",
@@ -2894,43 +1083,7 @@
       "aliases": [
         "impeccable"
       ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "impeccable"
-      ],
-      "routerSummary": "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills.",
-      "documentation": {
-        "bestFor": [
-          "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para impeccable."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-impeccable/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "https://github.com/pbakaus/impeccable",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-scope-control": {
       "description": "Analisa se alterações, diffs e PRs continuam alinhados ao objetivo declarado, identificando escopo extra e propondo manter, separar ou justificar.",
@@ -2950,48 +1103,7 @@
       "aliases": [
         "escopo"
       ],
-      "status": "canonical",
-      "tags": [
-        "governance",
-        "scope",
-        "control"
-      ],
-      "routerSummary": "Analisa se alterações, diffs e PRs continuam alinhados ao objetivo declarado, identificando escopo extra e propondo manter, separar ou justificar.",
-      "documentation": {
-        "bestFor": [
-          "Analisa se alterações, diffs e PRs continuam alinhados ao objetivo declarado, identificando escopo extra e propondo manter, separar ou justificar."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para escopo da mudança.",
-          "Use para o diff saiu do escopo.",
-          "Use para alteração grande demais.",
-          "Use para essa alteração ficou grande demais.",
-          "Use para o pr está misturado."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-scope-control/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "https://github.com/shubhamsaboo/awesome-llm-apps/tree/main/scope-creep-detector",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-doublecheck": {
       "description": "Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e documentos, com modo pontual ou contínuo.",
@@ -3010,47 +1122,7 @@
       "aliases": [
         "doublecheck"
       ],
-      "status": "canonical",
-      "tags": [
-        "verification",
-        "doublecheck"
-      ],
-      "routerSummary": "Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e documentos, com modo pontual ou contínuo.",
-      "documentation": {
-        "bestFor": [
-          "Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e documentos, com modo pontual ou contínuo."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio verification; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para verificar fontes.",
-          "Use para confira as fontes.",
-          "Use para isso está correto.",
-          "Use para verifique essa resposta.",
-          "Use para checagem factual."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-doublecheck/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "https://www.getclaudeskills.com/skills/doublecheck-github",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-threat-modeling": {
       "description": "Conduz threat modeling estruturado com STRIDE-A, fluxos de dados, fronteiras de confiança, riscos priorizados e comparação incremental.",
@@ -3070,48 +1142,7 @@
       "aliases": [
         "modelo de ameaça"
       ],
-      "status": "canonical",
-      "tags": [
-        "security",
-        "threat",
-        "modeling"
-      ],
-      "routerSummary": "Conduz threat modeling estruturado com STRIDE-A, fluxos de dados, fronteiras de confiança, riscos priorizados e comparação incremental.",
-      "documentation": {
-        "bestFor": [
-          "Conduz threat modeling estruturado com STRIDE-A, fluxos de dados, fronteiras de confiança, riscos priorizados e comparação incremental."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para threat model.",
-          "Use para modelo de ameaça.",
-          "Use para modele as ameaças.",
-          "Use para analisar ameaças.",
-          "Use para stride."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco high."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-threat-modeling/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "https://github.com/awesome-copilot/threat-model-analyst",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     },
     "skill-skill-development": {
       "description": "Cria, revisa e melhora skills do Orquestrador com gatilhos claros, divulgação progressiva, referências focadas, validação e testes de comportamento.",
@@ -3130,121 +1161,7 @@
       "aliases": [
         "desenvolver skill"
       ],
-      "status": "canonical",
-      "tags": [
-        "governance",
-        "skill",
-        "development"
-      ],
-      "routerSummary": "Cria, revisa e melhora skills do Orquestrador com gatilhos claros, divulgação progressiva, referências focadas, validação e testes de comportamento.",
-      "documentation": {
-        "bestFor": [
-          "Cria, revisa e melhora skills do Orquestrador com gatilhos claros, divulgação progressiva, referências focadas, validação e testes de comportamento."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para criar uma skill.",
-          "Use para melhorar uma skill.",
-          "Use para avaliar uma skill.",
-          "Use para organizar skill.",
-          "Use para escrever skill.md."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-skill-development/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-development",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
-    },
-    "skill-frontend-excellence": {
-      "description": "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence.",
-      "category": "frontend",
-      "risk": "medium",
-      "source": "orquestrador-native",
-      "mirrorEverywhere": true,
-      "triggers": [
-        "frontend excellence",
-        "excelência frontend",
-        "excelencia frontend",
-        "frontend-excellence",
-        "modernize esta tela",
-        "modernizar tela",
-        "migre MUI para o design system do projeto",
-        "corrija o mobile",
-        "corrigir mobile frontend",
-        "refatore este frontend",
-        "refactor frontend preserve",
-        "design profile",
-        "design system metadata",
-        "visual qa harness",
-        "frontend definition of done"
-      ],
-      "aliases": [
-        "frontend excellence",
-        "excelência frontend",
-        "excelencia frontend",
-        "frontend-excellence",
-        "design profile",
-        "visual qa harness"
-      ],
-      "status": "canonical",
-      "tags": [
-        "frontend",
-        "excellence"
-      ],
-      "routerSummary": "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence.",
-      "documentation": {
-        "bestFor": [
-          "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence."
-        ],
-        "notFor": [
-          "Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa."
-        ],
-        "examples": [
-          "Use para frontend excellence.",
-          "Use para excelência frontend.",
-          "Use para excelencia frontend.",
-          "Use para frontend-excellence.",
-          "Use para modernize esta tela."
-        ],
-        "prerequisites": [
-          "Contexto do projeto e autorização compatíveis com o risco medium."
-        ],
-        "expectedEvidence": [
-          "Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.",
-          "Handoff com limitações e próximo passo quando aplicável."
-        ]
-      },
-      "provenance": {
-        "evidence": [
-          "orquestrador/skills/skill-frontend-excellence/SKILL.md"
-        ],
-        "steward": "orquestrador-maintainers",
-        "reviewedAt": "2026-09-13",
-        "upstream": "orquestrador-native",
-        "version": "bundled",
-        "license": "repository-license",
-        "legacyCompatible": true,
-        "notes": "Metadados mantidos pelo manifesto canônico."
-      },
-      "priority": 0
+      "status": "canonical"
     }
   }
 }

@@ -16,8 +16,6 @@ class CodexAdapter extends ProviderAdapter {
     return capabilities({ headless: true, structuredEvents: true, streaming: true, sessionResume: true, sandboxControl: true, modelSelection: true });
   }
 
-  supportsReadOnlyReview() { return true; }
-
   async execute(request) {
     const args = [...this.commandPrefixArgs, "exec", "--json", "--color", "never"];
     if (request.model && request.model !== "default") args.push("--model", request.model);

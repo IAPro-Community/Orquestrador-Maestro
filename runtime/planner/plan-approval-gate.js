@@ -26,12 +26,10 @@ class PlanApprovalGate {
   }
 
   static recordHumanApproval({ taskGraphId, userDecision = "approved" } = {}, metadata = {}) {
-    if (!["approved", "rejected"].includes(userDecision)) throw new TypeError("userDecision must be approved or rejected");
     return Object.freeze({
       taskGraphId,
       approvalType: "HUMAN_REVIEW",
       userDecision,
-      approved: userDecision === "approved",
       approvedAt: new Date().toISOString(),
       metadata: Object.freeze(metadata && typeof metadata === "object" ? { ...metadata } : {})
     });

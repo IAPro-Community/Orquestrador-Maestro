@@ -13,7 +13,6 @@ class ProviderAdapter {
 
   async detect() { throw new Error("ProviderAdapter.detect must be implemented"); }
   async capabilities() { throw new Error("ProviderAdapter.capabilities must be implemented"); }
-  supportsReadOnlyReview() { return false; }
   async execute() { throw new Error("ProviderAdapter.execute must be implemented"); }
 }
 

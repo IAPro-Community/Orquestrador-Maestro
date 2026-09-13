@@ -60,26 +60,6 @@ Agents should treat `SKILLS_ROUTER.json` as the automatic invocation layer:
 9. Append a usage log entry when the tool supports it.
 10. Run `doctor.ps1` after global skill or hook changes.
 
-## Frontend Excellence Composition
-
-`skill-frontend-excellence` is the top-level process for product UI (admin, authentication, portals, forms). It does not replace a design system and does not own tokens.
-
-```text
-skill-frontend-excellence
-        |
-        +-- project-configured design-system metadata (source of truth)
-        +-- project-configured Design Profile
-        +-- skill-open-design-ui
-        +-- skill-modern-ui-patterns
-        +-- skill-frontend-ux-guardrails
-        +-- skill-webapp-testing
-        +-- Visual QA smoke harness (scripts/visual-qa.mjs)
-```
-
-Precedence is explicit: `skill-premium-web-experience` owns cinematic marketing sites; `skill-open-design-ui` owns visual direction; `skill-modern-ui-patterns` owns component states; `skill-frontend-ux-guardrails` owns the final usability gate; `skill-webapp-testing` owns critical browser journeys; and `skill-impeccable` owns bounded polish. This skill owns intent, posture, discovery, and the Definition of Done.
-
-The Visual QA harness is a smoke check, not a complete WCAG audit.
-
 ## Premium Web Composition
 
 `skill-premium-web-experience` is the top-level experience strategy and coordination layer for premium web surfaces:

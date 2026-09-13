@@ -44,9 +44,9 @@ The old v1 routes such as `/v1/billing/create` and events such as `billing.paid`
 
 ## Local Pattern
 
-The example-saas project has a useful boundary pattern: frontend client calls a Netlify function, the function uses the server API key and service-role Supabase client, and the webhook updates users/plans after `billing.paid`.
+The Nina project has a useful boundary pattern: frontend client calls a Netlify function, the function uses the server API key and service-role Supabase client, and the webhook updates users/plans after `billing.paid`.
 
-Read `{{USER_HOME}}/Documents\Code\example-saas\src\lib\abacatepay.ts` only when implementing a similar client boundary or validating local conventions.
+Read `{{USER_HOME}}/Documents\Code\Nina\src\lib\abacatepay.ts` only when implementing a similar client boundary or validating local conventions.
 
 ## Validation
 

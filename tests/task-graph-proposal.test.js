@@ -11,7 +11,6 @@ const {
   createSemanticTask,
   createPlanningAssumption,
   createTaskGraphProposal,
-  deriveOutcomeContract,
   toCoreTask,
   toCoreTaskGraph,
   fromCoreTaskGraph
@@ -57,26 +56,6 @@ test("createSemanticTask creates frozen task with pure semantic fields", () => {
   assert.equal(task.complexity, "medium");
   assert.deepEqual(task.requiredCapabilities, ["database", "backend"]);
   assert.ok(Object.isFrozen(task));
-});
-
-test("createSemanticTask preserves optional goal ancestry and derives outcome fields", () => {
-  const task = createSemanticTask({
-    id: "task-child",
-    title: "Implement child",
-    objective: "Implement the child operation",
-    ancestry: { parentTaskId: "task-parent", causedByDecisionId: "decision-1" },
-    expectedOutcome: "Child operation is usable",
-    evidenceRequirements: ["unit test output"]
-  });
-  assert.deepEqual(task.ancestry, { parentTaskId: "task-parent", causedByDecisionId: "decision-1" });
-  assert.equal(task.expectedOutcome, "Child operation is usable");
-  assert.deepEqual(task.evidenceRequirements, ["unit test output"]);
-  assert.deepEqual(deriveOutcomeContract(task), {
-    intent: "Implement the child operation",
-    expectedOutcome: "Child operation is usable",
-    acceptanceConditions: [],
-    evidenceRequirements: ["unit test output"]
-  });
 });
 
 test("createSemanticTask throws on routing fields (provider, model, estimatedCost)", () => {
@@ -179,13 +158,6 @@ test("toCoreTaskGraph preserves planningMode and metadata in Core TaskGraph", ()
   assert.equal(roundTripped.semanticTasks.length, 1);
   assert.deepEqual(roundTripped.semanticTasks[0], sTask);
   assert.equal(roundTripped.metadata.planningMode, "local-ai");
-});
-
-test("toCoreTask links every task to its mission without introducing a Goal entity", () => {
-  const task = createSemanticTask({ id: "task-1", title: "Implement Domain", objective: "Define entities" });
-  const graph = toCoreTaskGraph({ id: "graph-1", missionId: "mission-1", semanticTasks: [task] });
-  assert.deepEqual(graph.tasks[0].metadata.ancestry, { goalId: "mission-1" });
-  assert.deepEqual(fromCoreTaskGraph(graph).semanticTasks[0].ancestry, {});
 });
 
 test("fromCoreTaskGraph reconstructs SemanticTask list without loss", () => {

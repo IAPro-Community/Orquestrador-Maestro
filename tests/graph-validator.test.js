@@ -16,15 +16,6 @@ test("GraphValidator rejects duplicate task IDs", () => {
   assert.ok(res.blockers.some((b) => b.code === "DUPLICATE_TASK_ID"));
 });
 
-test("GraphValidator rejects ancestry parent outside the same task graph", () => {
-  const proposal = createTaskGraphProposal({
-    tasks: [createSemanticTask({ id: "t1", title: "Task 1", objective: "Obj 1", ancestry: { parentTaskId: "missing" } })]
-  });
-  const res = GraphValidator.validate(proposal);
-  assert.equal(res.valid, false);
-  assert.ok(res.blockers.some((b) => b.code === "INVALID_TASK_ANCESTRY"));
-});
-
 test("GraphValidator rejects generic placeholder titles (PLANNING, SCAFFOLD, TEST, VERIFY)", () => {
   const genericTitles = ["PLANNING", "Scaffold", "implement", "TEST", "verify"];
   for (const title of genericTitles) {

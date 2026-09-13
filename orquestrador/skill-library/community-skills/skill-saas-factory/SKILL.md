@@ -102,7 +102,7 @@ A new SaaS base is not complete until these are either implemented or explicitly
 ## Local References
 
 Read only what the task needs:
-- `references/project-patterns.md`: local JobTask, example-saas, and example-product conventions.
+- `references/project-patterns.md`: local JobTask, Nina, and Proposta Ninja conventions.
 - `references/architecture.md`: SaaS module, database, frontend, and backend checklist.
 - `references/payments.md`: provider selection, webhook, payment table, and entitlement checklist.
 - `references/security-infra.md`: secrets, Supabase, API, and verification checklist.

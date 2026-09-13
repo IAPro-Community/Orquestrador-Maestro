@@ -61,63 +61,29 @@ class IntentRouter {
    * @returns {{ primarySkill, chainedSkills, profile, triggers, risk }}
    */
   resolve(description) {
-    const rawDescription = String(description || "").trim();
-    const lowerDesc = rawDescription.toLocaleLowerCase("pt-BR");
-    const matchedSkills = new Map(); // skillId -> evidence
+    const lowerDesc = description.toLowerCase();
+    const matchedSkills = new Map(); // skillId -> { score, source }
     const engineeringCapabilities = [];
     const capabilitySkillIds = new Set();
 
-    const addEvidence = (skillId, evidence) => {
-      const current = matchedSkills.get(skillId) || { evidence: [] };
-      current.evidence.push(evidence);
-      matchedSkills.set(skillId, current);
-    };
-
-    const skillIds = new Set([
-      ...Object.keys(this.router.skills || {}),
-      ...Object.keys(this.router.librarySkills || {})
-    ]);
-
-    // Explicit canonical invocation always wins (for example /skill:skill-x).
-    for (const skillId of skillIds) {
-      const explicit = new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:/)?skill:${skillId}(?:$|[^\\p{L}\\p{N}])`, "iu").test(rawDescription);
-      const bareCanonical = new RegExp(`(?:^|[^\\p{L}\\p{N}])${skillId}(?:$|[^\\p{L}\\p{N}])`, "iu").test(rawDescription);
-      if (explicit || bareCanonical) {
-        addEvidence(skillId, {
-          kind: "canonical",
-          value: skillId,
-          tier: 6,
-          specificity: skillId.length,
-          priority: Number(this.router.skills?.[skillId]?.priority || this.router.librarySkills?.[skillId]?.priority || 0)
-        });
-      }
-    }
-
-    // 1. Alias matching. Exact means the complete user wording is the alias;
-    // contained aliases are intentionally weaker so short words do not win.
+    // 1. Alias matching (exact phrases)
     for (const [alias, skillId] of Object.entries(this.aliases)) {
-      const normalizedAlias = String(alias).trim().toLocaleLowerCase("pt-BR");
-      if (!normalizedAlias) continue;
-      const genericAlias = new Set(["saas", "ia", "ai", "llm", "ux", "admin", "dashboard", "whatsapp"])
-        .has(normalizedAlias);
-      const containedTier = genericAlias ? 1 : 3;
-      if (lowerDesc === normalizedAlias) {
-        addEvidence(skillId, { kind: "alias-exact", value: alias, tier: 5, specificity: normalizedAlias.length, priority: 0 });
-      } else if (this._phraseMatches(lowerDesc, normalizedAlias)) {
-        addEvidence(skillId, { kind: "alias-contained", value: alias, tier: containedTier, specificity: normalizedAlias.length, priority: 0 });
+      if (this._phraseMatches(lowerDesc, alias)) {
+        const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
+        current.score += 3; // Aliases get high weight
+        current.sources.push(`alias:"${alias}"`);
+        matchedSkills.set(skillId, current);
       }
     }
 
-    // 2. Trigger matching. Complete trigger wording outranks contained terms.
+    // 2. Router trigger matching (keyword phrases)
     for (const [skillId, skill] of Object.entries(this.router.skills || {})) {
       for (const trigger of skill.triggers || []) {
-        const normalizedTrigger = String(trigger).trim().toLocaleLowerCase("pt-BR");
-        if (!normalizedTrigger) continue;
-        const priority = Number(skill.priority || 0);
-        if (lowerDesc === normalizedTrigger) {
-          addEvidence(skillId, { kind: "trigger-exact", value: trigger, tier: 4, specificity: normalizedTrigger.length, priority });
-        } else if (this._phraseMatches(lowerDesc, normalizedTrigger)) {
-          addEvidence(skillId, { kind: "trigger-contained", value: trigger, tier: 2, specificity: normalizedTrigger.length, priority });
+        if (this._phraseMatches(lowerDesc, trigger)) {
+          const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
+          current.score += 2;
+          current.sources.push(`trigger:"${trigger}"`);
+          matchedSkills.set(skillId, current);
         }
       }
     }
@@ -129,38 +95,21 @@ class IntentRouter {
       engineeringCapabilities.push(capability);
       for (const skillId of route.skills || []) {
         capabilitySkillIds.add(skillId);
-        addEvidence(skillId, { kind: "capability", value: capability, tier: 1, specificity: capability.length, priority: Number(route.priority || 0) });
+        const current = matchedSkills.get(skillId) || { score: 0, sources: [] };
+        current.score += 1;
+        current.sources.push(`capability:${capability}`);
+        matchedSkills.set(skillId, current);
       }
     }
 
-    // 3. Rank by the strongest evidence, then specificity, declared priority,
-    // and lexical id. This is deterministic and avoids accumulated keyword noise.
-    const summarize = (details) => {
-      const evidence = [...details.evidence].sort((a, b) =>
-        b.tier - a.tier || b.specificity - a.specificity || b.priority - a.priority || a.value.localeCompare(b.value, "pt-BR")
-      );
-      const strongest = evidence[0] || { tier: 0, specificity: 0, priority: 0 };
-      return {
-        score: strongest.tier * 100000 + strongest.specificity * 100 + strongest.priority,
-        tier: strongest.tier,
-        specificity: strongest.specificity,
-        priority: strongest.priority,
-        evidence
-      };
-    };
+    // 3. Sort by score, pick primary
     const ranked = [...matchedSkills.entries()]
-      .map(([skillId, details]) => [skillId, summarize(details)])
-      .sort((a, b) => b[1].tier - a[1].tier || b[1].specificity - a[1].specificity || b[1].priority - a[1].priority || a[0].localeCompare(b[0], "en"));
+      .sort((a, b) => b[1].score - a[1].score);
 
     const primarySkillId = ranked[0]?.[0] || null;
     const primarySkill = primarySkillId
       ? { id: primarySkillId, ...(this.router.skills?.[primarySkillId] || this.router.librarySkills?.[primarySkillId] || {}) }
       : null;
-
-    const top = ranked[0]?.[1] || null;
-    const ambiguities = top
-      ? ranked.filter(([, details]) => details.tier === top.tier && details.specificity === top.specificity && details.priority === top.priority).map(([id]) => id)
-      : [];
 
     // 4. Chain resolution — what secondary skills does the primary allow?
     const chainedSkills = [];
@@ -169,12 +118,10 @@ class IntentRouter {
       for (const allowedSkill of chain.mayInvoke || []) {
         // Only include if user's intent also matches it
         if (matchedSkills.has(allowedSkill)) {
-          const details = summarize(matchedSkills.get(allowedSkill));
           chainedSkills.push({
             id: allowedSkill,
             ...(this.router.skills?.[allowedSkill] || this.router.librarySkills?.[allowedSkill] || {}),
-            matchScore: details.score,
-            matchedEvidence: details.evidence
+            matchScore: matchedSkills.get(allowedSkill).score
           });
         }
       }
@@ -186,8 +133,7 @@ class IntentRouter {
       .map(([skillId, details]) => ({
         id: skillId,
         ...(this.router.skills?.[skillId] || this.router.librarySkills?.[skillId] || {}),
-        matchScore: details.score,
-        matchedEvidence: details.evidence
+        matchScore: details.score
       }));
 
     // 5. Select execution profile based on scope
@@ -211,10 +157,6 @@ class IntentRouter {
       profile,
       risk,
       engineeringCapabilities: Object.freeze(engineeringCapabilities),
-      routingVersion: 2,
-      confidence: primarySkill ? (top.tier >= 4 ? "high" : top.tier >= 2 ? "medium" : "low") : "none",
-      matchedEvidence: Object.freeze(top ? top.evidence : []),
-      ambiguities: Object.freeze(ambiguities.length > 1 ? ambiguities : []),
       matchDetails: Object.fromEntries(ranked)
     });
   }
