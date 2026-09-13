@@ -104,3 +104,44 @@ test("skill-catalog validate fails when a skill file contains mojibake", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /skills\/skill-phase-router\/SKILL\.md: possible mojibake/u);
 });
+
+test("skill-catalog generate is deterministic and check detects stale reference pages", () => {
+  const fixtureRoot = makeCatalogFixture({
+    routerSkills: {
+      "skill-phase-router": {
+        description: "Validate phase router coverage.",
+        triggers: ["phase router"],
+        canonicalPath: "{{USER_HOME}}/.orquestrador/skills/skill-phase-router/SKILL.md",
+        codexPath: "{{USER_HOME}}/.codex/skills/skill-phase-router/SKILL.md",
+        cost: "medium",
+        safety: "task-specific-guardrails"
+      }
+    },
+    skillText: [
+      "---",
+      "name: skill-phase-router",
+      "description: Validate phase router coverage.",
+      "category: workflow",
+      "risk: medium",
+      "source: test",
+      "---",
+      "",
+      "# Skill",
+      "",
+      "Stable content."
+    ].join("\n")
+  });
+  const script = path.join(fixtureRoot, "scripts", "skill-catalog.js");
+  const generated = spawnSync(process.execPath, [script, "generate"], { cwd: fixtureRoot, encoding: "utf8" });
+  assert.equal(generated.status, 0, generated.stderr);
+  const first = fs.readFileSync(path.join(fixtureRoot, "docs", "skills", "reference", "skill-phase-router.md"), "utf8");
+  const regenerated = spawnSync(process.execPath, [script, "generate"], { cwd: fixtureRoot, encoding: "utf8" });
+  assert.equal(regenerated.status, 0, regenerated.stderr);
+  const second = fs.readFileSync(path.join(fixtureRoot, "docs", "skills", "reference", "skill-phase-router.md"), "utf8");
+  assert.equal(first, second);
+
+  fs.appendFileSync(path.join(fixtureRoot, "docs", "skills", "reference", "skill-phase-router.md"), "\nchanged\n", "utf8");
+  const checked = spawnSync(process.execPath, [script, "check"], { cwd: fixtureRoot, encoding: "utf8" });
+  assert.equal(checked.status, 1);
+  assert.match(checked.stderr, /generated:docs\/skills\/reference\/skill-phase-router\.md: stale/u);
+});
