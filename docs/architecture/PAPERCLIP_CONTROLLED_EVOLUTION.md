@@ -115,3 +115,19 @@ Desligar `features.independentReview` remove o reviewer imediatamente. Os commit
 sequenciais e reversíveis: `1b88153`, `810a9d0`, `939a34e`, `77d18b0`, `4be503b` e `d5f6cab`.
 Após cada reversão, rode `npm test`, `git diff --check` e a validação pública. A suíte final
 registrou 983 testes aprovados, 6 skips e 0 falhas.
+
+## TEST EVIDENCE
+
+- `npm test`: 983 aprovados, 6 skips, 0 falhas;
+- `npm run bench:validate`: cenários existentes validados;
+- benchmark cognitivo A–E: aprovado, com reviewer somente em ASSURANCE;
+- `npm pack --dry-run`: pacote gerado com sucesso;
+- verificação de links e `git diff --check`: aprovadas;
+- `scripts/validate-public.ps1`: deve ser executado no CI Windows; `pwsh` não está
+  disponível neste ambiente Linux.
+
+## NEXT RECOMMENDATION
+
+Não implementar ainda as fases B/C. Primeiro coletar execuções pareadas com provider real
+para medir rejeições, reparos, latência e tokens do reviewer de alto risco. Só avançar para
+injeção seletiva em runtime ou learning loop quando essa evidência demonstrar ganho líquido.
