@@ -12,6 +12,14 @@ const usageSchemaPath = path.join(orchestratorRoot, "SKILL_USAGE_SCHEMA.json");
 const routerPath = path.join(orchestratorRoot, "SKILLS_ROUTER.json");
 const aliasesPath = path.join(orchestratorRoot, "SKILL_ALIASES.json");
 const chainsPath = path.join(orchestratorRoot, "SKILL_CHAINS.json");
+const profilesPath = path.join(orchestratorRoot, "SKILL_EXECUTION_PROFILES.json");
+const recipesPath = path.join(orchestratorRoot, "SKILL_RECIPES.json");
+const installPolicyPath = path.join(orchestratorRoot, "SKILL_INSTALL_POLICY.json");
+const syncShellPath = path.join(orchestratorRoot, "sync-skills.sh");
+const syncPowerShellPath = path.join(orchestratorRoot, "sync-skills.ps1");
+const referenceRoot = path.join(repoRoot, "docs", "skills", "reference");
+const compactCatalogPath = path.join(repoRoot, "docs", "skill-catalog.md");
+const GENERATED_MARKER = "<!-- GENERATED FILE: scripts/skill-catalog.js; DO NOT EDIT. -->";
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_STATUSES = new Set(["canonical", "legacy", "experimental", "deprecated"]);
@@ -129,7 +137,7 @@ function validateProvenance(value, label, issues) {
     issues.push(`${label}: must be an object`);
     return;
   }
-  const allowedKeys = new Set(["evidence", "steward", "reviewedAt", "legacyCompatible", "notes"]);
+  const allowedKeys = new Set(["evidence", "steward", "reviewedAt", "legacyCompatible", "notes", "upstream", "version", "license"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) issues.push(`${label}: unknown field ${key}`);
   }
@@ -143,6 +151,27 @@ function validateProvenance(value, label, issues) {
   }
   if (Object.prototype.hasOwnProperty.call(value, "notes")) {
     validateString(value.notes, `${label}.notes`, issues);
+  }
+  for (const field of ["upstream", "version", "license"]) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) validateString(value[field], `${label}.${field}`, issues);
+  }
+}
+
+function validateDocumentation(value, label, issues) {
+  if (!isPlainObject(value)) {
+    issues.push(`${label}: must be an object`);
+    return;
+  }
+  const allowedKeys = new Set(["bestFor", "notFor", "examples", "prerequisites", "expectedEvidence"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) issues.push(`${label}: unknown field ${key}`);
+  }
+  for (const field of ["bestFor", "notFor", "examples", "prerequisites", "expectedEvidence"]) {
+    if (!Object.prototype.hasOwnProperty.call(value, field)) {
+      issues.push(`${label}: missing ${field}`);
+    } else {
+      validateStringArray(value[field], `${label}.${field}`, issues, { minItems: field === "notFor" || field === "prerequisites" ? 0 : 1 });
+    }
   }
 }
 
@@ -335,6 +364,7 @@ function createSkill(args) {
         purpose: "Canonical Orquestrador skill registry.",
         skills: {},
       };
+  const reviewedAt = new Date().toISOString().slice(0, 10);
   manifest.skills[name] = {
     description,
     category,
@@ -344,6 +374,25 @@ function createSkill(args) {
     triggers,
     aliases,
     status: "canonical",
+    tags: unique([category, ...name.replace(/^skill-/, "").split("-")]),
+    routerSummary: description,
+    documentation: {
+      bestFor: [description],
+      notFor: [`Pedidos fora do domínio ${category}; use uma skill mais específica.`],
+      examples: triggers.slice(0, 5).map((trigger) => `Use para ${trigger}.`),
+      prerequisites: [`Contexto do projeto e autorização compatíveis com o risco ${risk}.`],
+      expectedEvidence: ["Resultado solicitado demonstrado por teste, inspeção ou artefato verificável."],
+    },
+    provenance: {
+      evidence: [`orquestrador/skills/${name}/SKILL.md`],
+      steward: "orquestrador-maintainers",
+      reviewedAt,
+      upstream: source,
+      version: "bundled",
+      license: "repository-license",
+      legacyCompatible: true,
+      notes: "Metadados gerados pelo catálogo canônico.",
+    },
   };
   writeJson(manifestPath, manifest);
 
@@ -368,6 +417,372 @@ function createSkill(args) {
   console.log(`Updated ${path.relative(repoRoot, manifestPath)}, SKILLS_ROUTER.json, and SKILL_ALIASES.json`);
 }
 
+function readOptionalJson(file, fallback) {
+  return fs.existsSync(file) ? readJson(file) : fallback;
+}
+
+function list(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim()) : [];
+}
+
+function markdownCell(value) {
+  return String(value || "").replace(/[|\r\n]+/g, " ").trim();
+}
+
+function effectiveDocumentation(entry) {
+  const documentation = isPlainObject(entry.documentation) ? entry.documentation : {};
+  return {
+    bestFor: list(documentation.bestFor).length > 0 ? list(documentation.bestFor) : [entry.description],
+    notFor: list(documentation.notFor),
+    examples: list(documentation.examples).length > 0 ? list(documentation.examples) : list(entry.triggers).slice(0, 5).map((trigger) => `Use para ${trigger}.`),
+    prerequisites: list(documentation.prerequisites),
+    expectedEvidence: list(documentation.expectedEvidence).length > 0
+      ? list(documentation.expectedEvidence)
+      : ["Resultado solicitado demonstrado por teste, inspeção ou artefato verificável."],
+  };
+}
+
+function effectiveProvenance(manifest, entry) {
+  const defaults = isPlainObject(manifest.defaults?.provenance) ? manifest.defaults.provenance : {};
+  const provenance = isPlainObject(entry.provenance) ? entry.provenance : {};
+  return {
+    evidence: list(provenance.evidence).length > 0 ? list(provenance.evidence) : list(defaults.evidence),
+    steward: provenance.steward || defaults.steward || "orquestrador-maintainers",
+    reviewedAt: provenance.reviewedAt || defaults.reviewedAt || "não informado",
+    upstream: provenance.upstream || entry.source || defaults.upstream || "local",
+    version: provenance.version || defaults.version || "bundled",
+    license: provenance.license || defaults.license || "repository-license",
+  };
+}
+
+function effectiveTags(name, entry) {
+  const tags = list(entry.tags);
+  if (tags.length > 0) return tags;
+  const derived = name.replace(/^skill-/, "").split("-").filter(Boolean);
+  return unique([entry.category, ...derived]);
+}
+
+function effectiveWorkflow(manifest, entry) {
+  return isPlainObject(entry.workflow) ? entry.workflow : (isPlainObject(manifest.defaults?.workflow) ? manifest.defaults.workflow : null);
+}
+
+function relatedChains(name, chains) {
+  return Object.entries(chains.chains || {})
+    .filter(([owner, chain]) => owner === name || list(chain?.mayInvoke).includes(name))
+    .map(([owner]) => owner)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function recipeEntries(recipes) {
+  if (Array.isArray(recipes)) return recipes.map((recipe, index) => [recipe.id || `recipe-${index + 1}`, recipe]);
+  if (Array.isArray(recipes.recipes)) return recipes.recipes.map((recipe, index) => [recipe.id || `recipe-${index + 1}`, recipe]);
+  if (isPlainObject(recipes.recipes)) return Object.entries(recipes.recipes);
+  return Object.entries(recipes).filter(([key]) => key !== "version" && key !== "purpose");
+}
+
+function relatedRecipes(name, recipes) {
+  return recipeEntries(recipes)
+    .filter(([, recipe]) => isPlainObject(recipe) && (recipe.primarySkill === name || list(recipe.supportingSkills).includes(name)))
+    .map(([id, recipe]) => ({ id, title: recipe.title || id }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function validateRecipes(recipes, manifestSkills, profiles, chains, issues) {
+  if (!fs.existsSync(recipesPath)) return;
+  if (!isPlainObject(recipes) || !Number.isInteger(recipes.version) || recipes.version < 1) {
+    issues.push("recipes: document must declare an integer version");
+    return;
+  }
+  const entries = recipeEntries(recipes);
+  const ids = new Set();
+  for (const [id, recipe] of entries) {
+    if (ids.has(id)) issues.push(`recipes:${id}: duplicate id`);
+    ids.add(id);
+    if (!isPlainObject(recipe)) {
+      issues.push(`recipes:${id}: must be an object`);
+      continue;
+    }
+    for (const field of ["title", "goal", "primarySkill", "executionProfile", "risk"]) {
+      if (typeof recipe[field] !== "string" || recipe[field].trim().length === 0) issues.push(`recipes:${id}: missing ${field}`);
+    }
+    const referencedSkills = unique([recipe.primarySkill, ...list(recipe.supportingSkills), ...list(recipe.sequence)]);
+    for (const skill of referencedSkills) {
+      if (!manifestSkills[skill]) issues.push(`recipes:${id}: references missing skill ${skill}`);
+    }
+    if (recipe.executionProfile && !profiles.profiles?.[recipe.executionProfile]) {
+      issues.push(`recipes:${id}: references missing execution profile ${recipe.executionProfile}`);
+    }
+    for (const chain of list(recipe.chains)) {
+      if (!chains.chains?.[chain]) issues.push(`recipes:${id}: references missing chain ${chain}`);
+    }
+    if (recipe.risk) validateEnum(recipe.risk, VALID_RISKS, `recipes:${id}.risk`, issues);
+    for (const field of ["supportingSkills", "sequence", "requiredEvidence", "whenToUse", "whenNotToUse"]) {
+      if (Object.prototype.hasOwnProperty.call(recipe, field)) validateStringArray(recipe[field], `recipes:${id}.${field}`, issues);
+    }
+  }
+}
+
+function availabilityFor(entry, policy) {
+  const targets = Object.entries(policy.nativeRoots || {}).sort(([left], [right]) => left.localeCompare(right));
+  return {
+    label: entry.mirrorEverywhere ? "Nativa" : "Sob demanda",
+    targets,
+  };
+}
+
+function renderList(values) {
+  return values.length > 0 ? values.map((value) => `- ${value}`).join("\n") : "- Nenhuma declarada.";
+}
+
+function renderSkillPage(name, entry, context) {
+  const docs = effectiveDocumentation(entry);
+  const provenance = effectiveProvenance(context.manifest, entry);
+  const workflow = effectiveWorkflow(context.manifest, entry);
+  const availability = availabilityFor(entry, context.policy);
+  const tags = effectiveTags(name, entry);
+  const aliases = list(entry.aliases);
+  const chains = relatedChains(name, context.chains);
+  const recipes = relatedRecipes(name, context.recipes);
+  const sourcePath = `../../../orquestrador/skills/${name}/SKILL.md`;
+  const compatibility = availability.targets.length > 0
+    ? availability.targets.map(([target, config]) => `| ${markdownCell(target)} | ${availability.label} | ${markdownCell(config.path)} |`).join("\n")
+    : "| Maestro | Sob demanda | Biblioteca canônica |";
+
+  return `${GENERATED_MARKER}
+# ${name}
+
+${entry.description}
+
+| Campo | Valor |
+| --- | --- |
+| Categoria | ${markdownCell(entry.category)} |
+| Risco | ${markdownCell(entry.risk)} |
+| Disponibilidade | ${availability.label} |
+| Tags | ${tags.map(markdownCell).join(", ")} |
+| Aliases | ${aliases.length > 0 ? aliases.map(markdownCell).join(", ") : "Nenhum"} |
+
+## Melhores casos de uso
+
+${renderList(docs.bestFor)}
+
+## Quando não usar
+
+${renderList(docs.notFor)}
+
+## Exemplos de pedidos reconhecidos
+
+${renderList(docs.examples)}
+
+## Pré-requisitos e ferramentas externas
+
+${renderList(docs.prerequisites)}
+
+## Compatibilidade e instalação
+
+| Client | Disponibilidade | Raiz/política |
+| --- | --- | --- |
+${compatibility}
+
+${entry.mirrorEverywhere ? "A skill é sincronizada para as raízes nativas configuradas pela política de instalação." : "A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela não ocupa uma raiz nativa por padrão."}
+
+## Recipes e chains relacionadas
+
+${recipes.length > 0 ? recipes.map((recipe) => `- Recipe \`${recipe.id}\`: ${recipe.title}`).join("\n") : "- Nenhuma recipe registrada."}
+${chains.length > 0 ? chains.map((chain) => `- Chain \`${chain}\``).join("\n") : "- Nenhuma chain registrada."}
+
+## Evidência mínima de conclusão
+
+${renderList(docs.expectedEvidence)}
+${workflow ? `\nPerfil de workflow: \`${workflow.validation}\` (entrada: \`${workflow.entry}\`).` : ""}
+
+## Proveniência
+
+- Upstream: ${markdownCell(provenance.upstream)}
+- Versão: ${markdownCell(provenance.version)}
+- Licença: ${markdownCell(provenance.license)}
+- Steward: ${markdownCell(provenance.steward)}
+- Revisado em: ${markdownCell(provenance.reviewedAt)}
+- Evidências: ${provenance.evidence.length > 0 ? provenance.evidence.map((item) => `\`${markdownCell(item)}\``).join(", ") : "não informado"}
+
+## Fonte canônica
+
+[\`orquestrador/skills/${name}/SKILL.md\`](${sourcePath})
+`;
+}
+
+function renderReferenceIndex(context) {
+  const entries = Object.entries(context.manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right));
+  const byObjective = new Map();
+  const byCategory = new Map();
+  const byTag = new Map();
+  for (const [name, entry] of entries) {
+    const objective = ["security", "compliance", "governance"].includes(entry.category)
+      ? "Proteger"
+      : ["research", "verification", "engineering", "testing", "database", "quality"].includes(entry.category)
+        ? "Investigar"
+        : ["payments", "integrations", "communication", "ai", "media", "analytics", "observability"].includes(entry.category)
+          ? "Integrar"
+          : ["documentation"].includes(entry.category)
+            ? "Documentar"
+            : ["delivery", "maintenance"].includes(entry.category)
+              ? "Publicar"
+              : "Construir";
+    if (!byObjective.has(objective)) byObjective.set(objective, []);
+    byObjective.get(objective).push(name);
+    if (!byCategory.has(entry.category)) byCategory.set(entry.category, []);
+    byCategory.get(entry.category).push(name);
+    for (const tag of effectiveTags(name, entry)) {
+      if (!byTag.has(tag)) byTag.set(tag, []);
+      byTag.get(tag).push(name);
+    }
+  }
+  const links = (names) => names.sort((left, right) => left.localeCompare(right)).map((name) => `- [${name}](./${name}.md)`).join("\n");
+  const objectiveSections = Array.from(byObjective.keys()).sort((left, right) => left.localeCompare(right)).map((objective) => `### ${objective}\n\n${links(byObjective.get(objective))}`).join("\n\n");
+  const categorySections = Array.from(byCategory.keys()).sort((left, right) => left.localeCompare(right)).map((category) => `### ${category}\n\n${links(byCategory.get(category))}`).join("\n\n");
+  const tagSections = Array.from(byTag.keys()).sort((left, right) => left.localeCompare(right)).map((tag) => `### ${tag}\n\n${links(byTag.get(tag))}`).join("\n\n");
+  return `${GENERATED_MARKER}
+# Referência de skills
+
+Páginas geradas deterministicamente a partir de [\`SKILLS_MANIFEST.json\`](../../../orquestrador/SKILLS_MANIFEST.json). Total: ${entries.length}.
+
+## Por objetivo
+
+${objectiveSections}
+
+## Por categoria
+
+${categorySections}
+
+## Por tags
+
+${tagSections}
+`;
+}
+
+function renderCompactCatalog(context) {
+  const entries = Object.entries(context.manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right));
+  const rows = entries.map(([name, entry]) => {
+    const availability = entry.mirrorEverywhere ? "Nativa" : "Sob demanda";
+    return `| [${name}](skills/reference/${name}.md) | ${markdownCell(entry.category)} | ${markdownCell(entry.risk)} | ${availability} | ${markdownCell(entry.routerSummary || entry.description)} |`;
+  }).join("\n");
+  return `${GENERATED_MARKER}
+# Catálogo de skills
+
+Este catálogo compacto é gerado a partir de [\`orquestrador/SKILLS_MANIFEST.json\`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
+
+Total: ${entries.length}
+
+Atualize e valide este catálogo com \`node scripts/skill-catalog.js generate\`, \`check\` e \`validate\` (ou \`orquestrador-maestro skill-catalog <comando>\`).
+
+| Skill | Categoria | Risco | Disponibilidade | Resumo |
+| --- | --- | --- | --- | --- |
+${rows}
+`;
+}
+
+function generatedRoutingDocuments(manifest) {
+  const router = readJson(routerPath);
+  const routerSkills = isPlainObject(router.skills) ? { ...router.skills } : {};
+  for (const [name, entry] of Object.entries(manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right))) {
+    const current = isPlainObject(routerSkills[name]) ? routerSkills[name] : {};
+    routerSkills[name] = {
+      ...current,
+      description: entry.routerSummary || entry.description,
+      triggers: list(entry.triggers),
+      canonicalPath: `{{USER_HOME}}/.orquestrador/skills/${name}/SKILL.md`,
+      codexPath: `{{USER_HOME}}/.codex/skills/${name}/SKILL.md`,
+      cost: current.cost || (entry.risk === "high" ? "high" : entry.risk === "medium" ? "medium" : "low"),
+      safety: current.safety || "task-specific-guardrails",
+      priority: Number.isInteger(entry.priority) ? entry.priority : 0,
+    };
+  }
+  for (const name of Object.keys(routerSkills)) if (!manifest.skills?.[name]) delete routerSkills[name];
+  router.skills = routerSkills;
+  router.version = 2;
+  router.routingPolicy = ["canonical-explicit", "alias-exact", "trigger-exact", "alias-contained", "trigger-contained", "capability-route"];
+  const aliasMap = {};
+  for (const [name, entry] of Object.entries(manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right))) {
+    for (const alias of list(entry.aliases)) {
+      const current = aliasMap[alias];
+      const currentPriority = current ? Number(manifest.skills[current]?.priority || 0) : -1;
+      if (!current || Number(entry.priority || 0) > currentPriority || (Number(entry.priority || 0) === currentPriority && name.localeCompare(current) < 0)) aliasMap[alias] = name;
+    }
+  }
+  const aliases = {
+    version: 2,
+    purpose: "User-facing aliases for automatic skill selection. Keep this compact and point every alias to one canonical skill.",
+    aliases: Object.fromEntries(Object.entries(aliasMap).sort(([left], [right]) => left.localeCompare(right, "pt-BR"))),
+  };
+  return { router, aliases };
+}
+
+function generatedArtifacts() {
+  const manifest = readJson(manifestPath);
+  const routing = generatedRoutingDocuments(manifest);
+  const context = {
+    manifest,
+    policy: readOptionalJson(installPolicyPath, { nativeRoots: {} }),
+    chains: readOptionalJson(chainsPath, { chains: {} }),
+    recipes: readOptionalJson(recipesPath, { recipes: {} }),
+  };
+  const artifacts = new Map();
+  for (const [name, entry] of Object.entries(manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right))) {
+    artifacts.set(path.join(referenceRoot, `${name}.md`), renderSkillPage(name, entry, context));
+  }
+  artifacts.set(path.join(referenceRoot, "README.md"), renderReferenceIndex(context));
+  artifacts.set(compactCatalogPath, renderCompactCatalog(context));
+  artifacts.set(routerPath, `${JSON.stringify(routing.router, null, 2)}\n`);
+  artifacts.set(aliasesPath, `${JSON.stringify(routing.aliases, null, 2)}\n`);
+  return artifacts;
+}
+
+function checkGeneratedArtifacts(issues, { requireDirectory = false } = {}) {
+  if (!fs.existsSync(referenceRoot)) {
+    if (requireDirectory) issues.push("generated: missing docs/skills/reference directory");
+    return;
+  }
+  const artifacts = generatedArtifacts();
+  for (const [file, expected] of artifacts.entries()) {
+    if (!fs.existsSync(file)) {
+      issues.push(`generated:${path.relative(repoRoot, file)}: missing`);
+    } else if (fs.readFileSync(file, "utf8") !== expected) {
+      issues.push(`generated:${path.relative(repoRoot, file)}: stale; run skill-catalog generate`);
+    }
+  }
+  for (const dirent of fs.readdirSync(referenceRoot, { withFileTypes: true })) {
+    if (!dirent.isFile() || !dirent.name.endsWith(".md")) continue;
+    const file = path.join(referenceRoot, dirent.name);
+    if (!artifacts.has(file) && fs.readFileSync(file, "utf8").startsWith(GENERATED_MARKER)) {
+      issues.push(`generated:${path.relative(repoRoot, file)}: stale page not present in manifest`);
+    }
+  }
+}
+
+function generate() {
+  const artifacts = generatedArtifacts();
+  fs.mkdirSync(referenceRoot, { recursive: true });
+  for (const [file, content] of artifacts.entries()) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content, "utf8");
+  }
+  for (const dirent of fs.readdirSync(referenceRoot, { withFileTypes: true })) {
+    if (!dirent.isFile() || !dirent.name.endsWith(".md") || dirent.name === "README.md") continue;
+    const file = path.join(referenceRoot, dirent.name);
+    if (!artifacts.has(file) && fs.readFileSync(file, "utf8").startsWith(GENERATED_MARKER)) fs.unlinkSync(file);
+  }
+  console.log(`Generated ${artifacts.size} skill catalog artifacts.`);
+}
+
+function check() {
+  const issues = [];
+  checkGeneratedArtifacts(issues, { requireDirectory: true });
+  if (issues.length > 0) {
+    for (const issue of issues.sort()) console.error(`  - ${issue}`);
+    process.exit(1);
+  }
+  console.log("Generated skill catalog is up to date.");
+}
+
 function validate() {
   const issues = [];
   const manifest = readJson(manifestPath);
@@ -376,6 +791,8 @@ function validate() {
   const router = readJson(routerPath);
   const aliases = readJson(aliasesPath);
   const chains = readJson(chainsPath);
+  const profiles = readOptionalJson(profilesPath, { profiles: {} });
+  const recipes = readOptionalJson(recipesPath, { recipes: [] });
   const manifestSkills = manifest.skills || {};
   const routerSkills = router.skills || {};
   let provenanceCount = 0;
@@ -384,6 +801,7 @@ function validate() {
   validateManifestSchemaDocument(manifest, issues);
   if (manifestSchema) validateManifestSchemaFile(manifestSchema, issues);
   if (usageSchema) validateUsageSchemaDocument(usageSchema, issues);
+  validateRecipes(recipes, manifestSkills, profiles, chains, issues);
 
   for (const [name, entry] of Object.entries(manifestSkills)) {
     if (normalizeSkillName(name) !== name) issues.push(`manifest:${name}: name is not normalized`);
@@ -397,6 +815,9 @@ function validate() {
     }
     if (entry.risk) validateEnum(entry.risk, VALID_RISKS, `manifest:${name}.risk`, issues);
     if (entry.status) validateEnum(entry.status, VALID_STATUSES, `manifest:${name}.status`, issues);
+    if (Object.prototype.hasOwnProperty.call(entry, "priority") && (!Number.isInteger(entry.priority) || entry.priority < 0)) {
+      issues.push(`manifest:${name}.priority: must be an integer >= 0`);
+    }
     if (Object.prototype.hasOwnProperty.call(entry, "mirrorEverywhere")) {
       validateBoolean(entry.mirrorEverywhere, `manifest:${name}.mirrorEverywhere`, issues);
     }
@@ -406,9 +827,33 @@ function validate() {
     if (Object.prototype.hasOwnProperty.call(entry, "aliases")) {
       validateStringArray(entry.aliases, `manifest:${name}.aliases`, issues);
     }
+    if (Object.prototype.hasOwnProperty.call(entry, "tags")) {
+      validateStringArray(entry.tags, `manifest:${name}.tags`, issues, { minItems: 1 });
+    } else if (manifest.version >= 2) {
+      issues.push(`manifest:${name}: missing tags`);
+    }
+    if (Object.prototype.hasOwnProperty.call(entry, "routerSummary")) {
+      validateString(entry.routerSummary, `manifest:${name}.routerSummary`, issues);
+    } else if (manifest.version >= 2) {
+      issues.push(`manifest:${name}: missing routerSummary`);
+    }
+    if (Object.prototype.hasOwnProperty.call(entry, "documentation")) {
+      validateDocumentation(entry.documentation, `manifest:${name}.documentation`, issues);
+    } else if (manifest.version >= 2) {
+      issues.push(`manifest:${name}: missing documentation`);
+    }
     if (Object.prototype.hasOwnProperty.call(entry, "provenance")) {
       provenanceCount++;
       validateProvenance(entry.provenance, `manifest:${name}.provenance`, issues);
+      if (manifest.version >= 2 && isPlainObject(entry.provenance)) {
+        for (const field of ["upstream", "version", "license"]) {
+          if (!Object.prototype.hasOwnProperty.call(entry.provenance, field)) {
+            issues.push(`manifest:${name}.provenance: missing ${field}`);
+          }
+        }
+      }
+    } else if (manifest.version >= 2) {
+      issues.push(`manifest:${name}: missing provenance`);
     }
     if (Object.prototype.hasOwnProperty.call(entry, "workflow")) {
       workflowCount++;
@@ -435,6 +880,15 @@ function validate() {
       issues.push(`skills/${name}/SKILL.md: possible mojibake`);
     }
     if (!routerSkills[name]) issues.push(`router:${name}: missing router entry`);
+    else if (manifest.version >= 2) {
+      const routed = routerSkills[name];
+      if (routed.description !== (entry.routerSummary || entry.description)) {
+        issues.push(`router:${name}: description is stale; run skill-catalog generate`);
+      }
+      if (JSON.stringify(list(routed.triggers)) !== JSON.stringify(list(entry.triggers))) {
+        issues.push(`router:${name}: triggers are stale; run skill-catalog generate`);
+      }
+    }
   }
 
   for (const dirent of fs.readdirSync(skillsRoot, { withFileTypes: true })) {
@@ -442,6 +896,52 @@ function validate() {
     const name = dirent.name;
     if (!fs.existsSync(path.join(skillsRoot, name, "SKILL.md"))) continue;
     if (!manifestSkills[name]) issues.push(`manifest:${name}: skill directory is not registered`);
+  }
+
+  const mirroredSkills = Object.entries(manifestSkills)
+    .filter(([, entry]) => entry.mirrorEverywhere === true)
+    .map(([name]) => name);
+  if (mirroredSkills.length > 0) {
+    if (!fs.existsSync(installPolicyPath)) {
+      issues.push("mirrorEverywhere: missing SKILL_INSTALL_POLICY.json");
+    } else {
+      try {
+        const policy = readJson(installPolicyPath);
+        if (!isPlainObject(policy.nativeRoots) || Object.keys(policy.nativeRoots).length === 0) {
+          issues.push("mirrorEverywhere: SKILL_INSTALL_POLICY.json has no nativeRoots");
+        } else {
+          for (const [target, config] of Object.entries(policy.nativeRoots)) {
+            if (!isPlainObject(config) || typeof config.path !== "string" || !config.path.trim()) {
+              issues.push(`mirrorEverywhere: nativeRoots.${target} must declare a path`);
+            }
+            if (!Number.isInteger(config?.maxDirectories) || config.maxDirectories < 1) {
+              issues.push(`mirrorEverywhere: nativeRoots.${target}.maxDirectories must be a positive integer`);
+            }
+            const reserved = mirroredSkills.length + (Array.isArray(config?.allowDirectories) ? config.allowDirectories.length : 0);
+            if (Number.isInteger(config?.maxDirectories) && config.maxDirectories - reserved < 8) {
+              issues.push(`mirrorEverywhere: nativeRoots.${target} must preserve at least eight free directory positions (reserved ${reserved}/${config.maxDirectories})`);
+            }
+          }
+        }
+      } catch (error) {
+        issues.push(`mirrorEverywhere: invalid SKILL_INSTALL_POLICY.json: ${error.message}`);
+      }
+    }
+    for (const file of [syncShellPath, syncPowerShellPath]) {
+      if (!fs.existsSync(file)) {
+        issues.push(`mirrorEverywhere: missing synchronizer ${path.basename(file)}`);
+        continue;
+      }
+      const text = fs.readFileSync(file, "utf8");
+      if (!text.includes("SKILLS_MANIFEST") || !text.includes("mirrorEverywhere")) {
+        issues.push(`mirrorEverywhere: ${path.basename(file)} does not read manifest mirror flags`);
+      }
+    }
+    for (const name of mirroredSkills) {
+      if (!fs.existsSync(path.join(skillsRoot, name, "SKILL.md"))) {
+        issues.push(`mirrorEverywhere:${name}: canonical source is missing`);
+      }
+    }
   }
 
   for (const [name, entry] of Object.entries(routerSkills)) {
@@ -452,10 +952,26 @@ function validate() {
     if (!Array.isArray(entry.triggers) || entry.triggers.length === 0) {
       issues.push(`router:${name}: triggers must be a non-empty array`);
     }
+    if (manifestSkills[name] && JSON.stringify(entry.triggers) !== JSON.stringify(manifestSkills[name].triggers)) {
+      issues.push(`router:${name}: triggers diverge from manifest`);
+    }
   }
 
   for (const [alias, skill] of Object.entries(aliases.aliases || {})) {
     if (!manifestSkills[skill]) issues.push(`aliases:${alias}: points to missing skill ${skill}`);
+    else if (!(manifestSkills[skill].aliases || []).includes(alias)) issues.push(`aliases:${alias}: is not declared by manifest:${skill}`);
+  }
+  for (const [skill, entry] of Object.entries(manifestSkills)) {
+    for (const alias of entry.aliases || []) {
+      if (aliases.aliases?.[alias] !== skill) issues.push(`manifest:${skill}.aliases:${alias}: missing or conflicting alias registry entry`);
+    }
+  }
+  if (manifest.version >= 2) {
+    for (const [name, entry] of Object.entries(manifestSkills)) {
+      for (const alias of list(entry.aliases)) {
+        if (aliases.aliases?.[alias] !== name) issues.push(`aliases:${alias}: stale; expected ${name}`);
+      }
+    }
   }
 
   const triggerOwners = new Map();
@@ -498,6 +1014,8 @@ function validate() {
   }
   for (const skill of Object.keys(chains.chains || {})) visitChain(skill);
 
+  if (manifest.version >= 2 || fs.existsSync(referenceRoot)) checkGeneratedArtifacts(issues, { requireDirectory: manifest.version >= 2 });
+
   if (issues.length > 0) {
     console.error("Skill validation failed:");
     for (const issue of issues.sort()) console.error(`  - ${issue}`);
@@ -520,10 +1038,12 @@ function printMirrorEverywhere() {
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "new") createSkill(parseArgs(rest));
+  else if (command === "generate") generate();
+  else if (command === "check") check();
   else if (command === "validate") validate();
   else if (command === "mirror-everywhere") printMirrorEverywhere();
   else {
-    console.error("Usage: skill-catalog.js <new|validate|mirror-everywhere> [options]");
+    console.error("Usage: skill-catalog.js <new|generate|check|validate|mirror-everywhere> [options]");
     process.exit(2);
   }
 } catch (error) {
