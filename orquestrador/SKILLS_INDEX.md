@@ -42,12 +42,12 @@ Then open only the selected `SKILL.md` files and their directly referenced files
 | Local SaaS repository security scan | `/skill:skill-saas-security-scan` |
 | Authorized staging/preview DAST | `/skill:skill-saas-dast-recon` |
 | Git hooks and CI security gates | `/skill:skill-security-hooks` |
-| Supabase RLS and tenant isolation | `/skill:skill-supabase-rls` |
 | AI provider routing and token budget | `/skill:skill-ai-orchestration` |
 | Multiagent/subagent orchestration | `/skill:skill-multiagent-orchestration` |
 | AionUi cowork/team orchestration | `/skill:skill-aionui-cowork-orchestration` |
 | WhatsApp via Evolution API | `/skill:skill-evolution-api` |
 | Frontend UX guardrails | `/skill:skill-frontend-ux-guardrails` |
+| Product frontend excellence (design system + Visual QA + Design Profile) | `/skill:skill-frontend-excellence` |
 | Modern SaaS UI patterns | `/skill:skill-modern-ui-patterns` |
 | Open-design UI workflow | `/skill:skill-open-design-ui` |
 | Premium web experience strategy and orchestration | `/skill:skill-premium-web-experience` |

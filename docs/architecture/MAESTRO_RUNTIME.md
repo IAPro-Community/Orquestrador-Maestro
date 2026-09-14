@@ -1,6 +1,6 @@
 # Maestro Runtime
 
-The optional local runtime converts a Task into a traceable Run, Step, ExecutionPackage, provider process, artifacts, Git observation, and real Verification. Operational data is stored outside `DEV/` through `RunStore`; the initial portable implementation is an atomic private JSON file for Node 18 compatibility.
+The optional local runtime converts a Task into a traceable Run, Step, ExecutionPackage, provider process, artifacts, Git observation, and real Verification. Operational data is stored outside `DEV/` through `RunStore`; the initial portable implementation is an atomic private JSON file for Node 20 compatibility.
 
 `orquestrador-maestro run --provider codex "task"` and `orquestrador-maestro run --provider claude "task"` are additive commands. Provider completion alone does not complete a Run: the configured or conservatively inferred verification commands must pass.
 

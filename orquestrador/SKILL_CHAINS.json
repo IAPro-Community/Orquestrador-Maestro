@@ -134,6 +134,25 @@
         "skill-verification-before-completion"
       ]
     },
+    "skill-frontend-excellence": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-open-design-ui",
+        "skill-modern-ui-patterns",
+        "skill-frontend-ux-guardrails",
+        "skill-webapp-testing",
+        "skill-impeccable",
+        "skill-verification-before-completion",
+        "skill-browser-agent"
+      ],
+      "rules": [
+        "This skill owns intent classification, Design Profile discovery, the design-system adapter, Visual QA DoD, and preserve-vs-redesign policy.",
+        "Do not copy design-system catalogs into this skill; read configured public metadata.",
+        "Use premium-web-experience only for cinematic marketing sites, not product admin/SSO.",
+        "Use open-design-ui for visual direction, modern-ui-patterns for interaction states, frontend-ux-guardrails for the final UX gate, and webapp-testing for critical browser journeys.",
+        "Load at most two downstream frontend skills for a standard task."
+      ]
+    },
     "skill-open-design-ui": {
       "mayInvoke": [
         "skill-frontend-ux-guardrails",

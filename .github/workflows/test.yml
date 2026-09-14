@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [20, 22]
-        os: [ubuntu-latest]
+        node-version: [22, 24]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
     steps:
       - name: Checkout
@@ -41,12 +41,15 @@ jobs:
         run: npm pack --dry-run
 
       - name: Create tarball
+        if: runner.os == 'Linux'
         run: npm pack
 
       - name: Install from tarball
+        if: runner.os == 'Linux'
         run: npm install -g *.tgz
 
       - name: CLI smoke tests
+        if: runner.os == 'Linux'
         run: |
           orquestrador-maestro version
           orquestrador-maestro memory --help
@@ -66,20 +69,20 @@ jobs:
           rm -rf "$temp_home"
 
       - name: Cleanup
-        if: always()
+        if: always() && runner.os == 'Linux'
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   benchmark-smoke:
-    name: Benchmark smoke — Node 20 on Ubuntu
+    name: Benchmark smoke — Node 24 on Ubuntu
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -101,7 +104,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24]
       fail-fast: false
     steps:
       - name: Checkout
@@ -160,7 +163,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24]
       fail-fast: false
     steps:
       - name: Checkout

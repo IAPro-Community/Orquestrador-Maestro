@@ -15,7 +15,8 @@ const { VerificationEngine, inferCommands } = require("../verification/engine");
 const { WorkspaceManager } = require("../workspaces/manager");
 const { compactContext } = require("../planner/context-compactor");
 const { buildEngineeringContract, detectQualityFindings } = require("../governance/engineering-quality");
-const { isTaskCompletionEligible, isRiskExecutionEligible } = require("../governance/change-governance");
+const { isTaskCompletionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, classifyChange } = require("../governance/change-governance");
+const { reviewRequired, buildReviewPrompt, parseReviewResult } = require("../governance/independent-review");
 const { mergeConfig, loadGovernanceConfig, writeGovernanceConfig, buildGovernance } = require("../governance/compatibility");
 const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
 const { resolveInteractionProfile, interactionContract } = require("../interaction");
@@ -250,9 +251,15 @@ class MaestroApplication {
     const installation = await provider.detect();
     if (!installation.installed) throw new Error(`provider not installed: ${provider.id}`);
     const policy = getPolicy(request.policyId || "standard");
-    const semanticChangeClass = request.semanticTask?.changeClass;
+    const semanticChange = classifyChange({
+      text: request.description,
+      paths: Array.isArray(request.semanticTask?.paths) ? request.semanticTask.paths : [],
+      changeClass: request.semanticTask?.changeClass
+    });
+    const semanticChangeClass = semanticChange.changeClass;
+    const semanticRisk = request.semanticTask?.risk || (semanticChange.highRisk ? "high" : undefined);
     const derivedProfileId = request.profileId || "developer";
-    if (this.governance.mode === "strict" && !isRiskExecutionEligible(semanticChangeClass, { profileId: derivedProfileId, riskOverride: request.riskOverride })) {
+    if (this.governance.mode === "strict" && !isRiskExecutionEligible(semanticChangeClass, { profileId: derivedProfileId, riskOverride: request.riskOverride, risk: semanticRisk })) {
       throw new Error("high-risk execution requires guided-engineering profile or an explicit risk override");
     }
     const profile = getProfile(request.profileId || derivedProfileId);
@@ -262,11 +269,21 @@ class MaestroApplication {
 
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
+    const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
+    const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
+      && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
+      ? "reviewer-capability-unavailable" : null;
+    const approvalGranted = request.approval?.approved === true || request.approval?.userDecision === "approved" || request.planApproval?.approved === true || request.planApproval?.userDecision === "approved";
+    const approvalPreflight = cognitiveBudget.humanApproval && !approvalGranted
+      ? "human-approval-required" : null;
+    const preflightBlock = reviewPreflight || approvalPreflight;
     const taskMetadata = {
       ...(request.missionId ? { missionId: request.missionId } : {}),
       ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
-      ...(request.riskOverride ? { riskOverride: request.riskOverride } : {})
+      ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
+      cognitiveBudget,
+      ...(preflightBlock ? { preflightBlock } : {})
     };
     const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
@@ -274,12 +291,23 @@ class MaestroApplication {
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
-    return { task, run, step, profile, policy, provider, capabilities, workspacePath };
+    if (preflightBlock) {
+      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: 0, skillsResolved: 0, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason: preflightBlock } } };
+      const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
+      await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
+      await this.record(run.id, "run.blocked", { reason: preflightBlock });
+      return { task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock };
+    }
+    return { task, run, step, profile, policy, provider, capabilities, workspacePath, preflightBlock: null };
   }
 
   async executeRun(request) {
     const prepared = await this.createRun(request);
     const { task, run, step, profile, policy, provider, workspacePath } = prepared;
+    if (prepared.preflightBlock) {
+      return { run, verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: prepared.preflightBlock }, execution: null, governanceWarnings: [], governanceBlocking: [prepared.preflightBlock], recommendations: [] };
+    }
+    const cognitiveBudget = run.metadata?.cognitiveBudget || evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget);
     const execution = core.createExecution({ id: id("execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString() });
     await this.store.saveRun({ ...run, status: "running", startedAt: execution.startedAt });
     await this.store.saveStep({ ...step, status: "running", startedAt: execution.startedAt });
@@ -291,19 +319,53 @@ class MaestroApplication {
     const interaction = request.interactionProfile
       ? resolveInteractionProfile({ cwd: workspacePath, cliProfile: request.interactionProfile })
       : this.interaction;
+    const requestedSkills = [];
+    for (const entry of request.skills || []) {
+      const identity = typeof entry === "string" ? entry : entry?.id || entry?.identity;
+      if (!identity || requestedSkills.some((item) => item.identity === identity)) continue;
+      requestedSkills.push({ identity, role: typeof entry === "object" ? entry.role || "supporting" : "explicit" });
+    }
+    for (const identity of request.supportingSkills || []) {
+      if (typeof identity !== "string" || requestedSkills.some((item) => item.identity === identity)) continue;
+      requestedSkills.push({ identity, role: "supporting" });
+    }
+    const resolvedSkills = requestedSkills.map((item) => ({ ...item, skill: this.skills.get(item.identity) })).filter((item) => item.skill);
+    const requiredSkills = resolvedSkills.filter((item) => ["explicit", "primary", "required"].includes(item.role));
+    if (requiredSkills.length > cognitiveBudget.maxSkills) {
+      const completedAt = new Date().toISOString();
+      const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { reason } });
+      await this.store.saveStep({ ...step, status: "failed", completedAt });
+      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict", cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason } } });
+      await this.record(run.id, "run.blocked", { reason });
+      return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
+    }
+    const selectedSkills = [...requiredSkills, ...resolvedSkills.filter((item) => !requiredSkills.includes(item))].slice(0, cognitiveBudget.maxSkills);
     const executionPackage = Object.freeze({
       task, run, step, profile, policy,
       workspace: { path: workspacePath },
       permissions: request.permissions || {},
-      skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean),
+      skills: selectedSkills.map((item) => item.skill),
       previousArtifacts: request.previousArtifacts || [],
       engineeringContract,
       interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
     });
-    const handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
-    this.activeRuns.set(run.id, handle);
-    const result = await handle.result;
+    let handle;
+    let result;
+    try {
+      handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
+      this.activeRuns.set(run.id, handle);
+      result = await handle.result;
+    } catch (error) {
+      this.activeRuns.delete(run.id);
+      const completedAt = new Date().toISOString();
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: error.message, engineeringContract: executionPackage.engineeringContract } });
+      await this.store.saveStep({ ...step, status: "failed", completedAt });
+      await this.store.saveRun({ ...run, status: "failed", completedAt });
+      await this.record(run.id, "run.failed", { reason: error.message });
+      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: error.message }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
+    }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
     await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract } });
@@ -327,18 +389,54 @@ class MaestroApplication {
         return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });
       }).flat()
       : [];
+    let review = Object.freeze({ status: "disabled", verdict: "not-requested", calls: 0 });
+    if (this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
+      review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: request.evidence || result.evidence });
+    }
     const completionTask = request.semanticTask || { id: task.id, acceptanceCriteria: [] };
     const completion = isTaskCompletionEligible(completionTask, { evidence: request.evidence || result.evidence, verification, qualityFindings, deterministic: true });
     const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: request.evidence || result.evidence, sessionWarnings: this.governanceWarnings });
     this.governanceNotices = [...governance.warnings, ...governance.recommendations];
     const strictGate = governance.mode === "strict";
     const hasCriticalFinding = qualityFindings.some((finding) => finding?.blocking || ["BLOCKER", "HIGH"].includes(String(finding?.severity || "").toUpperCase()));
-    const status = executionStatus === "completed" && !hasCriticalFinding && governance.blocking.length === 0 && (!strictGate || (verification.status === "passed" && completion.eligible)) ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
+    const reviewBlocking = review.status === "rejected" || review.status === "inconclusive" || review.status === "unavailable";
+    const status = executionStatus === "completed" && !reviewBlocking && !hasCriticalFinding && governance.blocking.length === 0 && (!strictGate || (verification.status === "passed" && completion.eligible)) ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
     const completedAt = new Date().toISOString();
     await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
     await this.store.saveRun({ ...run, status, startedAt: execution.startedAt, completedAt });
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status });
-    return { run: await this.store.getRun(run.id), verification, qualityFindings, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+    const finalRun = await this.store.getRun(run.id);
+    if (finalRun) {
+      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 1, reviewCalls: review.calls || 0, modelCalls: 1 + (review.calls || 0), automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: executionPackage.skills.length, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: status } } });
+    }
+    return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+  }
+
+  async _runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence }) {
+    if (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview()) {
+      return Object.freeze({ status: "unavailable", verdict: "inconclusive", calls: 0, reason: "provider-read-only-review-unavailable" });
+    }
+    const reviewDiff = typeof changes?.patch === "string" ? changes.patch : "";
+    const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
+    if (!changes?.available || !changes.patchComplete || !prompt.diffIncluded || prompt.truncated) {
+      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", findings: [{ code: "REVIEW_CONTEXT_INCOMPLETE" }], summary: "The reviewer did not receive a complete patch and context.", calls: 0, contextTruncated: prompt.truncated });
+    }
+    const execution = core.createExecution({ id: id("review-execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", sourceRunId: run.id, contextTruncated: prompt.truncated, reviewBudget: prompt.budget } });
+    await this.store.saveExecution(execution); await this.record(run.id, "review.started", { executionId: execution.id });
+    try {
+      const handle = await provider.execute({ prompt: prompt.prompt, workspacePath, model: request.reviewerModel || request.model, sandbox: "read-only", sessionId: `review-${crypto.randomUUID()}`, timeoutMs: getPolicy(request.policyId || "standard")?.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
+      const raw = await handle.result;
+      const parsed = raw.exitCode === 0 ? parseReviewResult(raw.stdout) : { verdict: "inconclusive", findings: [{ code: "REVIEW_PROCESS_FAILED" }], summary: raw.stderr || "reviewer process failed" };
+      const status = parsed.verdict === "approved" ? "approved" : parsed.verdict === "rejected" ? "rejected" : "inconclusive";
+      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: parsed.findings } });
+      await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, executionId: execution.id, contextTruncated: prompt.truncated } }));
+      await this.record(run.id, status === "approved" ? "review.completed" : "review.failed", { executionId: execution.id, verdict: parsed.verdict });
+      return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated });
+    } catch (error) {
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", error: error.message } });
+      await this.record(run.id, "review.failed", { executionId: execution.id, reason: error.message });
+      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", calls: 1, reason: error.message });
+    }
   }
 
   async cancelRun(runId) {

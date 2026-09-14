@@ -33,17 +33,32 @@ test("initialize negotiates the versioned protocol", async () => {
 test("authenticated socket subscribers receive runtime events without polling", async () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-socket-events-"));
   const events = new EventEmitter();
-  const bridge = createBridge({ projectRoot, services: { runtime: { subscribe: (listener) => { events.on("event", listener); return () => events.off("event", listener); } } } });
+  let ready;
+  const subscriptionReady = new Promise((resolve) => { ready = resolve; });
+  const bridge = createBridge({ projectRoot, services: { runtime: { subscribe: (listener) => { events.on("event", listener); ready(); return () => events.off("event", listener); } } } });
   const runtime = startSocketRuntime(bridge, { projectRoot });
   const client = new SocketBridgeClient({ projectRoot });
-  const received = new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("event subscription timed out")), 1_000);
-    const unsubscribe = client.subscribe((event) => { if (event.type === "agentSession.output") { clearTimeout(timeout); unsubscribe(); resolve(event); } });
-  });
-  await new Promise((resolve) => setTimeout(resolve, 25));
-  events.emit("event", { type: "agentSession.output", data: { terminalId: "session-1" } });
-  assert.equal((await received).data.terminalId, "session-1");
-  await runtime.close();
+  await runtime.ready;
+  let unsubscribe = () => {};
+  let resolveReceived;
+  let rejectReceived;
+  let eventTimeout;
+  const received = new Promise((resolve, reject) => { resolveReceived = resolve; rejectReceived = reject; });
+  try {
+    unsubscribe = client.subscribe((event) => {
+      if (event.type === "agentSession.output") { clearTimeout(eventTimeout); unsubscribe(); resolveReceived(event); }
+    });
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("socket subscription was not established")), 5_000);
+      subscriptionReady.then(() => { clearTimeout(timeout); resolve(); });
+    });
+    eventTimeout = setTimeout(() => rejectReceived(new Error("event subscription timed out")), 5_000);
+    events.emit("event", { type: "agentSession.output", data: { terminalId: "session-1" } });
+    assert.equal((await received).data.terminalId, "session-1");
+  } finally {
+    unsubscribe();
+    await runtime.close();
+  }
 });
 
 test("read-only methods return safe empty or not-found results before runtime stores exist", async () => {

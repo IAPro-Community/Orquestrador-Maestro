@@ -2,7 +2,7 @@ $script = Join-Path (Join-Path $PSScriptRoot "..") "orquestrador\bin\dev-context
 $node = Get-Command node -ErrorAction SilentlyContinue
 
 if (-not $node) {
-  throw "Node.js 18+ is required to run compact-worklog."
+  throw "Node.js 20+ is required to run compact-worklog."
 }
 
 & $node.Source $script "compact-worklog" @args

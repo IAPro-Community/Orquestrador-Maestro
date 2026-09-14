@@ -44,7 +44,7 @@ test("CodexAdapter detects, translates supported options, and streams process ou
   assert.deepEqual(received.args.slice(0, 7), ["exec", "--json", "--color", "never", "--model", "gpt-test", "--sandbox"]);
   assert.ok(received.args.includes("workspace-write"));
   assert.ok(received.args.includes("--cd"));
-  assert.equal(received.cwd, root);
+  assert.equal(received.cwd, fs.realpathSync(root));
 });
 
 test("ClaudeAdapter uses print stream-json and lets the spawn cwd carry workspace isolation", async () => {
@@ -57,7 +57,7 @@ test("ClaudeAdapter uses print stream-json and lets the spawn cwd carry workspac
   assert.equal(result.exitCode, 0);
   assert.deepEqual(received.args.slice(0, 6), ["--print", "--output-format", "stream-json", "--include-partial-messages", "--verbose", "--model"]);
   assert.ok(received.args.includes("--permission-mode"));
-  assert.equal(received.cwd, root);
+  assert.equal(received.cwd, fs.realpathSync(root));
   assert.equal((await adapter.capabilities()).mcp, true);
 });
 

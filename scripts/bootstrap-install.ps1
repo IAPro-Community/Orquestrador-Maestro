@@ -19,7 +19,7 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 
 $nodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
 if ($nodeMajor -lt 18) {
-  throw "Node.js 18 ou superior é necessário. Versão atual: $(& node --version)."
+  throw "Node.js 20 ou superior é necessário. Versão atual: $(& node --version)."
 }
 
 $prefix = if ($env:ORQUESTRADOR_NPM_PREFIX) {

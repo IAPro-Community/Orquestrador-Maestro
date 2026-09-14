@@ -13,7 +13,7 @@ function tempStore() {
   return new JsonFileRunStore({ filePath: path.join(dir, "runs.json") });
 }
 
-const task = { id: "t1", title: "Implementar", objective: "Entregar feature", dependsOn: [] };
+const task = { id: "t1", title: "Implementar", objective: "Entregar feature", dependsOn: [], ancestry: { causedByDecisionId: "decision-1" } };
 
 test("F4.1 persiste grafo puro, incrementa revisão e resolve vínculo de task", async () => {
   const store = tempStore();
@@ -27,6 +27,7 @@ test("F4.1 persiste grafo puro, incrementa revisão e resolve vínculo de task",
   assert.equal((await graphs.getGraph("m1")).metadata.status, "approved");
   await graphs.persistTaskLinks(second);
   assert.deepEqual(await graphs.missionForTask("t1"), { missionId: "m1", projectId: "p1", graphId: "g1" });
+  assert.deepEqual(await graphs.ancestryForTask("t1"), { goalId: "m1", causedByDecisionId: "decision-1", missionId: "m1", graphId: "g1" });
 });
 
 test("F4.1 rejeita contaminação de roteamento antes de escrever", async () => {
@@ -37,4 +38,14 @@ test("F4.1 rejeita contaminação de roteamento antes de escrever", async () => 
     /ROUTING_CONTAMINATION/
   );
   assert.equal((await store.listTaskGraphs()).length, 0);
+});
+
+test("F4.1 getGraph ignores a later rejected graph revision", async () => {
+  const graphs = new TaskGraphPersistence({ store: {
+    listTaskGraphs: async () => [
+      { id: "approved", metadata: { revision: 2, status: "approved" } },
+      { id: "rejected", metadata: { revision: 3, status: "rejected" } }
+    ]
+  } });
+  assert.equal((await graphs.getGraph("m1")).id, "approved");
 });
