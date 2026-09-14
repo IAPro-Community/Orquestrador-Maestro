@@ -111,6 +111,39 @@ test("independent review is opt-in, risk based, and uses a fresh read-only execu
   assert.equal(provider.prompts[1].includes(provider.prompts[0]), false);
 });
 
+test("critical tasks block before provider execution without human approval", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-critical-block-"));
+  const adapter = new FakeAdapter();
+  const app = new MaestroApplication({ projectRoot: root, store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }), providers: new ProviderRegistry([adapter]), skills: { get: () => null } });
+  const outcome = await app.executeRun({ providerId: "fake", description: "alterar autenticação", semanticTask: { id: "critical-1", objective: "alterar autenticação", risk: "critical", complexity: "complex" }, verificationCommands: [] });
+  assert.equal(outcome.run.status, "blocked");
+  assert.equal(adapter.prompts.length, 0);
+  assert.match(outcome.review.reason, /human-approval-required/u);
+});
+
+test("unsupported assurance reviewer blocks before primary provider execution", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-review-preflight-"));
+  const adapter = new FakeAdapter();
+  const app = new MaestroApplication({ projectRoot: root, store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }), providers: new ProviderRegistry([adapter]), skills: { get: () => null }, governance: { features: { independentReview: true } } });
+  const outcome = await app.executeRun({ providerId: "fake", description: "migrar autenticação", semanticTask: { id: "assurance-1", objective: "migrar autenticação", risk: "high", complexity: "complex" }, verificationCommands: [] });
+  assert.equal(outcome.run.status, "blocked");
+  assert.equal(adapter.prompts.length, 0);
+  assert.match(outcome.review.reason, /reviewer-capability-unavailable/u);
+});
+
+test("skill budget loads at most maxSkills and reports bounded telemetry", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skill-budget-"));
+  const loaded = new Map([["a", { id: "a" }], ["b", { id: "b" }], ["c", { id: "c" }]]);
+  const adapter = new FakeAdapter();
+  const app = new MaestroApplication({ projectRoot: root, store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }), providers: new ProviderRegistry([adapter]), skills: { get: (id) => loaded.get(id) }, governance: { cognitiveBudget: { standard: { maxSkills: 2 } } } });
+  const outcome = await app.executeRun({ providerId: "fake", description: "adicionar validação", semanticTask: { id: "standard-1", objective: "adicionar validação", risk: "low", complexity: "medium" }, skills: [{ id: "a", role: "explicit" }, { id: "b", role: "supporting" }, { id: "c", role: "supporting" }], verificationCommands: [] });
+  assert.equal(outcome.run.status, "completed");
+  const telemetry = (await app.listRuns({})).find((run) => run.id === outcome.run.id).metadata.cognitiveTelemetry;
+  assert.equal(telemetry.skillsRequested, 3);
+  assert.equal(telemetry.skillsLoaded, 2);
+  assert.equal(telemetry.maxSkills, 2);
+});
+
 test("compatibility mode preserves the native prompt and strict mode opts into governance context", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-prompt-compatibility-"));
   const compatibilityProvider = new FakeAdapter();
