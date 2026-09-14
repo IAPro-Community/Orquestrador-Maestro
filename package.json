@@ -172,5 +172,8 @@
     "node-notifier": {
       "uuid": "11.1.1"
     }
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
   }
 }
