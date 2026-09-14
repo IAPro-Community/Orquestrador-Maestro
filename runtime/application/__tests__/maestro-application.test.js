@@ -119,6 +119,7 @@ test("critical tasks block before provider execution without human approval", as
   assert.equal(outcome.run.status, "blocked");
   assert.equal(adapter.prompts.length, 0);
   assert.match(outcome.review.reason, /human-approval-required/u);
+  assert.equal(outcome.run.metadata.cognitiveTelemetry.primaryCalls, 0);
 });
 
 test("unsupported assurance reviewer blocks before primary provider execution", async () => {
@@ -129,6 +130,7 @@ test("unsupported assurance reviewer blocks before primary provider execution", 
   assert.equal(outcome.run.status, "blocked");
   assert.equal(adapter.prompts.length, 0);
   assert.match(outcome.review.reason, /reviewer-capability-unavailable/u);
+  assert.equal(outcome.run.metadata.cognitiveTelemetry.primaryCalls, 0);
 });
 
 test("skill budget loads at most maxSkills and reports bounded telemetry", async () => {
