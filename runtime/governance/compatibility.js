@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME } = require("../config/maestro-paths");
+const { normalizeCognitiveBudgetConfig } = require("./change-governance");
 
 const DEFAULT_CONFIG = Object.freeze({
   mode: "compatibility",
@@ -25,7 +26,7 @@ function mergeConfig(value = {}) {
   const checks = source.checks && typeof source.checks === "object" ? source.checks : {};
   const hooks = source.hooks && typeof source.hooks === "object" ? source.hooks : {};
   const features = source.features && typeof source.features === "object" ? source.features : {};
-  const cognitiveBudget = source.cognitiveBudget && typeof source.cognitiveBudget === "object" ? source.cognitiveBudget : {};
+  const cognitiveBudget = normalizeCognitiveBudgetConfig(source.cognitiveBudget || {});
   return Object.freeze({
     ...DEFAULT_CONFIG, ...source,
     mode, tone, warningFrequency,
@@ -38,7 +39,7 @@ function mergeConfig(value = {}) {
     }),
     hooks: Object.freeze({ enabled: hooks.enabled === true }),
     features: Object.freeze({ independentReview: features.independentReview === true }),
-    cognitiveBudget: Object.freeze({ ...cognitiveBudget })
+    cognitiveBudget
   });
 }
 

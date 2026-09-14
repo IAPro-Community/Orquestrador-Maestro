@@ -4,6 +4,7 @@ Default posture: `PRESERVE`. Default creativity: `LOW` (enough for a11y/responsi
 
 ## Sequence
 
+0. Resolve the project design system. Stop with `BLOCKED_REQUIRES_USER_DECISION` unless discovery is resolved.
 1. Reproduce with evidence (screenshot, viewport, console, DOM).
 2. Isolate the smallest failing surface.
 3. Prefer token or layout fix over new markup.

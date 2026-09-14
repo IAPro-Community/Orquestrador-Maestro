@@ -6,6 +6,7 @@ Applies to design-system migrations, React upgrades, router changes, TypeScript 
 
 ## Sequence
 
+0. Resolve the project design system. Stop with `BLOCKED_REQUIRES_USER_DECISION` unless discovery is resolved.
 1. Boot the current application.
 2. Capture baseline screenshots at `390`, `768`, `1280`, `1440`.
 3. Record routes, viewports, and known console noise.

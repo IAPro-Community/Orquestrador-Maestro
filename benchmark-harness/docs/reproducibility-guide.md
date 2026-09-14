@@ -11,7 +11,7 @@ Anyone should be able to reproduce any benchmark result using the raw evidence a
 ## Prerequisites
 
 - Docker (for container isolation)
-- Node.js 18+ (for acceptance criteria)
+- Node.js 20+ (for acceptance criteria)
 - The AI Manager repository (this repo)
 - Access to the model provider specified in the scenario (e.g., Anthropic API key for `claude-sonnet-4-20250514`)
 

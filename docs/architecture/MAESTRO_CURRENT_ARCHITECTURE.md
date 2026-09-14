@@ -2,7 +2,7 @@
 
 ## System Shape
 
-Orquestrador Maestro is currently a Node.js CommonJS npm package targeting Node.js 18 or later. Its CLI delegates installation and verification to Bash and PowerShell scripts and exposes project-context helpers implemented in Node.js.
+Orquestrador Maestro is currently a Node.js CommonJS npm package targeting Node.js 20 or later. Its CLI delegates installation and verification to Bash and PowerShell scripts and exposes project-context helpers implemented in Node.js.
 
 The package is a portable, sanitized distribution of rules, skills, tool profiles, project documentation conventions, installers, and an additive local execution runtime. The runtime exposes the Application API, Run Store, provider adapters, verification engine, and bridge; the optional VS Code extension remains outside this package.
 

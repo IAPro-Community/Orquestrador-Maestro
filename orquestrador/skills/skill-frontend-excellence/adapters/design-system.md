@@ -7,9 +7,13 @@ Use this adapter to discover the design system configured by the current project
 1. A path explicitly configured by the project instructions or package metadata.
 2. A public package export resolvable from the current workspace.
 3. A generated component, token, or pattern index named by the project.
-4. Native semantic HTML and the bundled neutral Design Profile schema when no system is available.
+4. Project-local component usage and documentation.
 
-Record the provider name, version, source path, and date inspected. If discovery fails, set `provider: unknown` and document the limitation rather than inventing an API.
+Run `scripts/discover-design-system.mjs` before visual implementation. Record the provider name,
+version, source path, confidence, evidence and date inspected. If discovery is `ambiguous` or
+`unresolved`, set `requiresUserDecision: true` and block new visual implementation. The bundled
+neutral Design Profile remains a process fallback only; it is never a component library or a
+design-system decision.
 
 ## Lookup contract
 

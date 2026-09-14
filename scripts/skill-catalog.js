@@ -396,25 +396,8 @@ function createSkill(args) {
   };
   writeJson(manifestPath, manifest);
 
-  const router = readJson(routerPath);
-  router.skills[name] = {
-    description,
-    triggers,
-    canonicalPath: `{{USER_HOME}}/.orquestrador/skills/${name}/SKILL.md`,
-    codexPath: `{{USER_HOME}}/.codex/skills/${name}/SKILL.md`,
-    cost: risk === "high" ? "high" : risk === "medium" ? "medium" : "low",
-    safety: "task-specific-guardrails",
-  };
-  writeJson(routerPath, router);
-
-  const aliasDoc = readJson(aliasesPath);
-  for (const alias of aliases) {
-    aliasDoc.aliases[alias] = name;
-  }
-  writeJson(aliasesPath, aliasDoc);
-
   console.log(`Created ${path.relative(repoRoot, skillFile)}`);
-  console.log(`Updated ${path.relative(repoRoot, manifestPath)}, SKILLS_ROUTER.json, and SKILL_ALIASES.json`);
+  generate();
 }
 
 function readOptionalJson(file, fallback) {

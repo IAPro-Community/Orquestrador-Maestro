@@ -31,7 +31,7 @@ The runtime will own child-process lifecycle, events, cancellation, timeout, sig
 
 `TerminalSession` is an operational entity distinct from `Run`. The `tmux` adapter provides persistent, project-scoped sessions for the optional TUI and attaches the provider's own native interface directly; Maestro never captures or redraws that interface. The VS Code adapter stores authorization, locks, lifecycle and presentation metadata while the extension creates the terminal through VS Code's native API.
 
-Neither `tmux` nor Bun is installed by Maestro. `@opentui/core` is an optional project dependency obtained by the project package manager, while Bun remains a manual prerequisite for the experimental renderer. The Node 18 textual TUI remains the universal fallback. Multiple shell sessions are valid in one project, while a single writable agent session is allowed per workspace until worktree isolation is delivered.
+Neither `tmux` nor Bun is installed by Maestro. `@opentui/core` is an optional project dependency obtained by the project package manager, while Bun remains a manual prerequisite for the experimental renderer. The Node 20 textual TUI remains the universal fallback. Multiple shell sessions are valid in one project, while a single writable agent session is allowed per workspace until worktree isolation is delivered.
 
 ## Skills and Context
 

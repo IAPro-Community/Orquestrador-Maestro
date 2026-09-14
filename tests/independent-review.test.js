@@ -8,6 +8,9 @@ test("review prompt is bounded and records truncation without transcript", () =>
   const result = buildReviewPrompt({ task: { objective: "Check", acceptanceCriteria: ["pass"] }, diff: "x".repeat(100000), maxTokens: 1000 });
   assert.equal(result.truncated, true);
   assert.ok(result.prompt.length < 50000);
+  assert.equal(result.budget.maxTokens, 1000);
+  assert.ok(result.budget.diffIncludedChars > 0);
+  assert.ok(result.prompt.length <= result.budget.estimatedChars + 500);
   assert.match(result.prompt, /Do not edit files/u);
   assert.equal(result.diffIncluded, true);
 });

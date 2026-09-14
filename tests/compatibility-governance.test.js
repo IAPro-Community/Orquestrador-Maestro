@@ -58,3 +58,8 @@ test("strict mode is explicit and preserves native tone/provider controls", () =
   assert.equal(config.hooks.enabled, false);
   assert.equal(config.providerModel, "informational");
 });
+
+test("invalid cognitive budget configuration fails fast", () => {
+  assert.throws(() => mergeConfig({ cognitiveBudget: { lean: { maxSkills: 0 } } }), /Invalid cognitiveBudget/);
+  assert.throws(() => mergeConfig({ cognitiveBudget: { unknown: {} } }), /unknown cognitive budget tier/);
+});

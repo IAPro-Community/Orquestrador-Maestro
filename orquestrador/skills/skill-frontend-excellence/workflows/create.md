@@ -4,6 +4,7 @@ Default posture: `EVOLVE`. Default creativity: `LOW` unless the surface is new (
 
 ## Sequence
 
+0. Resolve the project design system. Stop with `BLOCKED_REQUIRES_USER_DECISION` unless discovery is resolved.
 1. Classify intent. If the user asked for a new screen on an existing product, keep identity from the Design Profile.
 2. Load active design-system metadata. Search component, primitive, then pattern. Create a local component only after all three miss.
 3. Propose the smallest composition: existing layout primitives plus the project's documented form, feedback, and navigation primitives.

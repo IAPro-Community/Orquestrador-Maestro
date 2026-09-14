@@ -2,6 +2,9 @@
 
 The reviewer may be the same agent, but the role is separate: no more implementation until findings are listed.
 
+Resolve the project design system before reviewing visual changes; ambiguous or unresolved
+discovery requires an explicit user decision.
+
 ## Inputs
 
 - screenshots per viewport

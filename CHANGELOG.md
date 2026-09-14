@@ -18,6 +18,7 @@
 - Rejeições de plano preservam o grafo ativo, revisões pendentes obsoletas são descartadas e a revisão independente recebe o patch completo antes de aprovar.
 - O teste de eventos por socket agora sincroniza com a inscrição confirmada, evitando falso timeout em runners Windows lentos.
 - A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
+- O entrypoint de descoberta de design system converte caminhos locais em URLs `file://` portáveis no Windows.
 
 ## 0.3.5 - 2026-09-11
 

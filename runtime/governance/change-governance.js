@@ -17,6 +17,8 @@ const COGNITIVE_BUDGETS = Object.freeze({
   standard: Object.freeze({ id: "STANDARD", contextTokens: 8000, maxSkills: 3, maxIntelligentRetries: 1, maxReviewers: 0, maxOverheadPercent: 15 }),
   assurance: Object.freeze({ id: "ASSURANCE", contextTokens: 12000, maxSkills: 3, maxIntelligentRetries: 2, maxReviewers: 1, maxOverheadPercent: null })
 });
+const COGNITIVE_BUDGET_TIERS = Object.freeze(["lean", "standard", "assurance"]);
+const COGNITIVE_BUDGET_FIELDS = Object.freeze(["contextTokens", "maxSkills", "maxIntelligentRetries", "maxReviewers", "maxOverheadPercent"]);
 
 const PATTERNS = Object.freeze([
   ["security-compliance", /\b(authentication|authorization|permission|permissions|autentic[a-z]*|autoriz[a-z]*|permiss[a-z]*|secret|secrets|token|credential|credencial[a-z]*|pii|lgpd|security|seguranca|tenant isolation|rls|payment|billing|webhook)\b/i],
@@ -64,6 +66,36 @@ function isRiskExecutionEligible(changeClass, { profileId, riskOverride, risk } 
   return riskOverride?.marker === "proceed with warning"
     && typeof riskOverride.note === "string"
     && riskOverride.note.trim().length > 0;
+}
+
+function validateCognitiveBudgetConfig(value = {}) {
+  const errors = [];
+  if (value === undefined || value === null) return Object.freeze(errors);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return Object.freeze(["cognitiveBudget must be an object"]);
+  for (const tier of Object.keys(value)) {
+    if (!COGNITIVE_BUDGET_TIERS.includes(tier)) { errors.push(`unknown cognitive budget tier: ${tier}`); continue; }
+    const config = value[tier];
+    if (!config || typeof config !== "object" || Array.isArray(config)) { errors.push(`${tier} must be an object`); continue; }
+    for (const field of Object.keys(config)) {
+      if (!COGNITIVE_BUDGET_FIELDS.includes(field)) { errors.push(`unknown cognitive budget field: ${tier}.${field}`); continue; }
+      const item = config[field];
+      if (["contextTokens", "maxSkills", "maxIntelligentRetries", "maxReviewers"].includes(field) && (!Number.isInteger(item))) errors.push(`${tier}.${field} must be an integer`);
+      if (field === "contextTokens" && (item < 1000 || item > 100000)) errors.push(`${tier}.contextTokens must be between 1000 and 100000`);
+      if (field === "maxSkills" && (item < 1 || item > 10)) errors.push(`${tier}.maxSkills must be between 1 and 10`);
+      if (field === "maxIntelligentRetries" && (item < 0 || item > 10)) errors.push(`${tier}.maxIntelligentRetries must be between 0 and 10`);
+      if (field === "maxReviewers" && (item < 0 || item > 1)) errors.push(`${tier}.maxReviewers must be 0 or 1`);
+      if (field === "maxOverheadPercent" && item !== null && (!Number.isInteger(item) || item < 0 || item > 100)) errors.push(`${tier}.maxOverheadPercent must be null or an integer between 0 and 100`);
+    }
+  }
+  return Object.freeze(errors);
+}
+
+function normalizeCognitiveBudgetConfig(value = {}) {
+  const errors = validateCognitiveBudgetConfig(value);
+  if (errors.length > 0) throw new TypeError(`Invalid cognitiveBudget configuration: ${errors.join("; ")}`);
+  const normalized = {};
+  for (const tier of COGNITIVE_BUDGET_TIERS) normalized[tier] = Object.freeze({ ...(value?.[tier] || {}) });
+  return Object.freeze(normalized);
 }
 
 function evaluateCognitiveBudget(task = {}, overrides = {}) {
@@ -120,4 +152,4 @@ function isTaskCompletionEligible(task, { evidence = [], verification = {}, qual
   return Object.freeze({ eligible, missingCriteria: Object.freeze(missingCriteria), missingEvidenceRequirements: Object.freeze(missingEvidenceRequirements), blockingFindings: Object.freeze(blockingFindings), reason: eligible ? "criteria-and-verification-satisfied" : "required-evidence-verification-or-quality-gate-missing" });
 }
 
-module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, COGNITIVE_BUDGETS, classifyChange, classifyDiscovery, isScopeExecutionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, deriveOutcomeContract, isTaskCompletionEligible };
+module.exports = { CHANGE_CLASSES, HIGH_RISK_CHANGE_CLASSES, SCOPE_CLASSIFICATIONS, COGNITIVE_BUDGETS, COGNITIVE_BUDGET_TIERS, validateCognitiveBudgetConfig, normalizeCognitiveBudgetConfig, classifyChange, classifyDiscovery, isScopeExecutionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, deriveOutcomeContract, isTaskCompletionEligible };

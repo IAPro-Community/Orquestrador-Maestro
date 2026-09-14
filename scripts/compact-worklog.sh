@@ -5,7 +5,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Error: Node.js 18+ is required to run compact-worklog." >&2
+  echo "Error: Node.js 20+ is required to run compact-worklog." >&2
   exit 1
 fi
 

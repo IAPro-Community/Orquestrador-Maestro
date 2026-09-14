@@ -5,8 +5,8 @@ const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { diff, snapshot } = require("../monitor");
+const { execFileSync } = require("node:child_process");
+const { snapshot, diff } = require("../monitor");
 
 test("git monitor reports an unavailable non-repository without mutating it", () => {
   const state = snapshot(process.cwd());
@@ -14,27 +14,28 @@ test("git monitor reports an unavailable non-repository without mutating it", ()
   assert.ok(Array.isArray(state.files));
 });
 
-test("git monitor includes staged, unstaged, and untracked patch content", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-monitor-"));
-  const git = (...args) => {
-    const result = spawnSync("git", args, { cwd: root, encoding: "utf8", shell: false });
-    assert.equal(result.status, 0, result.stderr);
-  };
-  git("init", "--quiet");
-  git("config", "user.name", "Monitor Test");
-  git("config", "user.email", "monitor@example.invalid");
-  fs.writeFileSync(path.join(root, "tracked.js"), "const value = 1;\n", "utf8");
-  git("add", "tracked.js");
-  git("commit", "--quiet", "-m", "initial");
-  fs.writeFileSync(path.join(root, "tracked.js"), "const value = 2;\n", "utf8");
-  git("add", "tracked.js");
-  fs.writeFileSync(path.join(root, "tracked.js"), "const value = 3;\n", "utf8");
-  fs.writeFileSync(path.join(root, "new.js"), "const added = true;\n", "utf8");
-  const result = diff(root);
-  assert.equal(result.available, true);
-  assert.equal(result.patchComplete, true);
-  assert.match(result.patch, /const value = 3;/u);
-  assert.match(result.patch, /const value = 1;/u);
-  assert.match(result.patch, /const added = true;/u);
-  assert.ok(result.changedFiles.includes("new.js"));
+test("git monitor exposes working, staged, untracked and bounded changes", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-change-set-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q");
+  git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "one\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "two\n");
+  fs.writeFileSync(path.join(cwd, "staged.txt"), "staged\n"); git("add", "staged.txt");
+  fs.writeFileSync(path.join(cwd, "new.txt"), "untracked\n");
+  fs.writeFileSync(path.join(cwd, "large.txt"), "x".repeat(20000));
+  const changes = diff(cwd);
+  assert.equal(changes.available, true);
+  assert.equal(changes.patchComplete, true);
+  assert.ok(changes.changedFiles.includes("tracked.txt"));
+  assert.ok(changes.changedFiles.includes("staged.txt"));
+  assert.ok(changes.untrackedFiles.includes("new.txt"));
+  assert.ok(changes.untrackedContent.some((item) => item.path === "new.txt"));
+  assert.equal(changes.truncated, true);
+  assert.ok(changes.untrackedContent.find((item) => item.path === "large.txt").content.includes("truncated"));
+  assert.match(changes.workingTreePatch, /tracked\.txt/u);
+  assert.match(changes.stagedPatch, /staged\.txt/u);
+  assert.match(changes.patch, /two/u);
+  assert.match(changes.patch, /staged/u);
+  assert.match(changes.patch, /untracked/u);
 });

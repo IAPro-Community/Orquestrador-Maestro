@@ -42,7 +42,7 @@ Quando uma IA recebe só um prompt, ela pode abrir contexto demais, improvisar o
 
 ## Comece em dois minutos
 
-Requer Node.js 18 ou superior.
+Requer Node.js 20 ou superior.
 
 ```bash
 npm install -g @iapro/orquestrador-maestro-cli@latest
