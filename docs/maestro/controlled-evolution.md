@@ -17,6 +17,10 @@ O runtime classifica cada tarefa de forma determinística:
 Os valores são limites configuráveis, não estimativas de cobrança. Tokens reais só entram
 quando o provider informa a contagem; caso contrário a telemetria usa `UNKNOWN`/`unavailable`.
 
+`contextTokens`, `maxSkills` e `maxReviewers` são limites aplicados pelo runtime. `maxIntelligentRetries`
+é reservado e permanece em zero chamadas automáticas nesta versão; `maxOverheadPercent` é apenas
+um objetivo de telemetria até existirem medições econômicas reais.
+
 Para configurar sem alterar o comportamento nativo:
 
 ```json

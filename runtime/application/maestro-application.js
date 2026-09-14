@@ -319,6 +319,10 @@ class MaestroApplication {
       if (!identity || requestedSkills.some((item) => item.identity === identity)) continue;
       requestedSkills.push({ identity, role: typeof entry === "object" ? entry.role || "supporting" : "explicit" });
     }
+    for (const identity of request.supportingSkills || []) {
+      if (typeof identity !== "string" || requestedSkills.some((item) => item.identity === identity)) continue;
+      requestedSkills.push({ identity, role: "supporting" });
+    }
     const resolvedSkills = requestedSkills.map((item) => ({ ...item, skill: this.skills.get(item.identity) })).filter((item) => item.skill);
     const requiredSkills = resolvedSkills.filter((item) => ["explicit", "primary", "required"].includes(item.role));
     if (requiredSkills.length > cognitiveBudget.maxSkills) {
