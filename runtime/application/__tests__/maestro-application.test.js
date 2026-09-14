@@ -122,6 +122,15 @@ test("critical tasks block before provider execution without human approval", as
   assert.equal(outcome.run.metadata.cognitiveTelemetry.primaryCalls, 0);
 });
 
+test("critical tasks execute once when an existing approval record is granted", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-critical-approved-"));
+  const adapter = new FakeAdapter();
+  const app = new MaestroApplication({ projectRoot: root, store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }), providers: new ProviderRegistry([adapter]), skills: { get: () => null } });
+  const outcome = await app.executeRun({ providerId: "fake", description: "alterar autenticação", semanticTask: { id: "critical-2", objective: "alterar autenticação", risk: "critical", complexity: "complex" }, approval: { userDecision: "approved" }, verificationCommands: [] });
+  assert.equal(outcome.run.status, "completed");
+  assert.equal(adapter.prompts.length, 1);
+});
+
 test("unsupported assurance reviewer blocks before primary provider execution", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-review-preflight-"));
   const adapter = new FakeAdapter();
