@@ -15,7 +15,7 @@ const { VerificationEngine, inferCommands } = require("../verification/engine");
 const { WorkspaceManager } = require("../workspaces/manager");
 const { compactContext } = require("../planner/context-compactor");
 const { buildEngineeringContract, detectQualityFindings } = require("../governance/engineering-quality");
-const { isTaskCompletionEligible, isRiskExecutionEligible, evaluateCognitiveBudget } = require("../governance/change-governance");
+const { isTaskCompletionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, classifyChange } = require("../governance/change-governance");
 const { reviewRequired, buildReviewPrompt, parseReviewResult } = require("../governance/independent-review");
 const { mergeConfig, loadGovernanceConfig, writeGovernanceConfig, buildGovernance } = require("../governance/compatibility");
 const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
@@ -251,9 +251,15 @@ class MaestroApplication {
     const installation = await provider.detect();
     if (!installation.installed) throw new Error(`provider not installed: ${provider.id}`);
     const policy = getPolicy(request.policyId || "standard");
-    const semanticChangeClass = request.semanticTask?.changeClass;
+    const semanticChange = classifyChange({
+      text: request.description,
+      paths: Array.isArray(request.semanticTask?.paths) ? request.semanticTask.paths : [],
+      changeClass: request.semanticTask?.changeClass
+    });
+    const semanticChangeClass = semanticChange.changeClass;
+    const semanticRisk = request.semanticTask?.risk;
     const derivedProfileId = request.profileId || "developer";
-    if (this.governance.mode === "strict" && !isRiskExecutionEligible(semanticChangeClass, { profileId: derivedProfileId, riskOverride: request.riskOverride })) {
+    if (this.governance.mode === "strict" && !isRiskExecutionEligible(semanticChangeClass, { profileId: derivedProfileId, riskOverride: request.riskOverride, risk: semanticRisk })) {
       throw new Error("high-risk execution requires guided-engineering profile or an explicit risk override");
     }
     const profile = getProfile(request.profileId || derivedProfileId);
@@ -268,7 +274,7 @@ class MaestroApplication {
       ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
-      cognitiveBudget: evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget)
+      cognitiveBudget: evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass }, this.governance.cognitiveBudget)
     };
     const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
@@ -369,11 +375,11 @@ class MaestroApplication {
     if (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview()) {
       return Object.freeze({ status: "unavailable", verdict: "inconclusive", calls: 0, reason: "provider-read-only-review-unavailable" });
     }
-    const reviewDiff = JSON.stringify({
-      changedFiles: changes?.changedFiles || [],
-      stats: changes?.stats || [],
-    });
+    const reviewDiff = changes?.patch || "";
     const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
+    if (!changes?.available || !changes.patchComplete || !prompt.diffIncluded || prompt.truncated) {
+      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", findings: [{ code: "REVIEW_CONTEXT_INCOMPLETE" }], summary: "The reviewer did not receive a complete patch and context.", calls: 0, contextTruncated: prompt.truncated });
+    }
     const execution = core.createExecution({ id: id("review-execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", sourceRunId: run.id, contextTruncated: prompt.truncated } });
     await this.store.saveExecution(execution); await this.record(run.id, "review.started", { executionId: execution.id });
     try {

@@ -23,7 +23,8 @@ class PlanPersistenceHooks {
     return graph;
   }
   onApproved(context) { return this._persist("approved", context); }
-  onRejected(context) { return this._persist("rejected", context); }
+  // A rejected proposal must never replace the active task graph or task links.
+  async onRejected() { return undefined; }
 }
 
 module.exports = { PlanPersistenceHooks };

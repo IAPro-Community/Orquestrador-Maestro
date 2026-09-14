@@ -142,11 +142,16 @@ class PlanRevisionService {
         runId: undefined,
         type: approval.approved ? "plan.approved" : "plan.rejected",
         occurredAt: new Date().toISOString(),
-        data: { missionId, taskGraphId, approvalType: approval.approvalType, userDecision }
+        data: {
+          missionId, taskGraphId, approvalType: approval.approvalType, userDecision,
+          ...(metadata.revision ? { revision: { ...metadata.revision, approvalState: approval.approved ? "approved" : "rejected" } } : {})
+        }
       });
     }
 
-    await this._callPersistenceHook(approval.approved ? "onApproved" : "onRejected", { missionId, taskGraphId, approval, revision: metadata.revision, revisedProposal: metadata.revisedProposal });
+    if (approval.approved) {
+      await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval, revision: metadata.revision, revisedProposal: metadata.revisedProposal });
+    }
 
     return approval;
   }
@@ -160,7 +165,7 @@ class PlanRevisionService {
       planningMode: options.planningMode
     }, { autoFallbackAllowed: options.autoFallbackAllowed || false });
 
-    if (evalResult.approved && this.store && typeof this.store.saveApproval === "function") {
+    if (this.store && typeof this.store.saveApproval === "function") {
       await this.store.saveApproval(evalResult);
     }
 
@@ -171,6 +176,19 @@ class PlanRevisionService {
         type: "plan.revised",
         occurredAt: new Date().toISOString(),
         data: { missionId, taskGraphId, revision: { ...options.revision, approvalState: "approved" } }
+      });
+    }
+
+    if (!evalResult.approved && this.store && typeof this.store.appendEvent === "function") {
+      await this.store.appendEvent({
+        id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        runId: undefined,
+        type: "plan.rejected",
+        occurredAt: new Date().toISOString(),
+        data: {
+          missionId, taskGraphId, approvalType: evalResult.approvalType,
+          ...(options.revision ? { revision: { ...options.revision, approvalState: "rejected" } } : {})
+        }
       });
     }
 
@@ -187,7 +205,6 @@ class PlanRevisionService {
     if (evalResult.approved) {
       await this._callPersistenceHook("onApproved", { missionId, taskGraphId, approval: evalResult, revision: options.revision, revisedProposal: options.revisedProposal });
     } else {
-      await this._callPersistenceHook("onRejected", { missionId, taskGraphId, approval: evalResult });
       if (this.producers && typeof this.producers.humanApprovalRequest === "function") {
         await this.producers.humanApprovalRequest({ missionId, taskGraphId, evalResult, projectId: options.projectId });
       }

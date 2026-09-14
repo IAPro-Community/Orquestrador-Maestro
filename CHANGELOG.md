@@ -2,7 +2,22 @@
 
 ## Unreleased
 
-Próximas mudanças serão registradas aqui.
+### Maestro
+
+- Adicionados vínculos de ancestralidade entre objetivos e tarefas, contratos de resultado e revisões estruturadas de plano com trilha de aprovação.
+- Introduzidos orçamentos cognitivos determinísticos e revisão independente somente leitura, opt-in e orientada por risco.
+
+### Skills e documentação
+
+- Evoluídos o manifesto e o roteador de skills, com catálogo pesquisável, receitas e referências geradas.
+- Publicada a skill de excelência frontend com fluxos, validações e fixtures de QA visual.
+
+### Verificação
+
+- A suíte completa passa a rodar em Ubuntu, Windows e macOS com Node 20 e 22; os smoke tests multiplataforma continuam cobrindo empacotamento e CLI.
+- Rejeições de plano preservam o grafo ativo, revisões pendentes obsoletas são descartadas e a revisão independente recebe o patch completo antes de aprovar.
+- O teste de eventos por socket agora sincroniza com a inscrição confirmada, evitando falso timeout em runners Windows lentos.
+- A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
 
 ## 0.3.5 - 2026-09-11
 

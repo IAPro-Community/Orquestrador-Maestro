@@ -39,3 +39,13 @@ test("F4.1 rejeita contaminação de roteamento antes de escrever", async () => 
   );
   assert.equal((await store.listTaskGraphs()).length, 0);
 });
+
+test("F4.1 getGraph ignores a later rejected graph revision", async () => {
+  const graphs = new TaskGraphPersistence({ store: {
+    listTaskGraphs: async () => [
+      { id: "approved", metadata: { revision: 2, status: "approved" } },
+      { id: "rejected", metadata: { revision: 3, status: "rejected" } }
+    ]
+  } });
+  assert.equal((await graphs.getGraph("m1")).id, "approved");
+});

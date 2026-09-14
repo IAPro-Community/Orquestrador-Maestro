@@ -19,7 +19,7 @@ const COGNITIVE_BUDGETS = Object.freeze({
 });
 
 const PATTERNS = Object.freeze([
-  ["security-compliance", /\b(authentication|authorization|permission|permissions|secret|secrets|token|credential|pii|lgpd|security|tenant isolation|rls|payment|billing|webhook)\b/i],
+  ["security-compliance", /\b(authentication|authorization|permission|permissions|autentic[a-z]*|autoriz[a-z]*|permiss[a-z]*|secret|secrets|token|credential|credencial[a-z]*|pii|lgpd|security|seguranca|tenant isolation|rls|payment|billing|webhook)\b/i],
   ["domain-critical", /\b(domain rule|business rule|invariant|financial|medical|compliance|entitlement)\b/i],
   ["integration", /\b(api|adapter|provider|integration|external service|deployment|infra|infrastructure)\b/i],
   ["structural", /\b(architecture|architectural|refactor|boundary|boundaries|coupling|cycle|layering|module split|schema migration|database migration|migration)\b/i]
@@ -32,9 +32,13 @@ function normalizeText(value) {
 function classifyChange({ text = "", paths = [], changeClass } = {}) {
   const explicit = normalizeText(changeClass);
   const combined = [text, ...paths].map(normalizeText).join(" ");
-  const selected = Object.prototype.hasOwnProperty.call(CHANGE_CLASSES, explicit)
-    ? explicit
-    : PATTERNS.find(([, pattern]) => pattern.test(combined))?.[0] || (combined.length < 80 ? "trivial" : "local");
+  const explicitIsHighRisk = HIGH_RISK_CHANGE_CLASSES.includes(explicit);
+  const detected = PATTERNS.find(([, pattern]) => pattern.test(combined))?.[0];
+  const detectedIsHighRisk = HIGH_RISK_CHANGE_CLASSES.includes(detected);
+  const selected = explicitIsHighRisk ? explicit
+    : detectedIsHighRisk ? detected
+      : Object.prototype.hasOwnProperty.call(CHANGE_CLASSES, explicit) ? explicit
+        : detected || (combined.length < 80 ? "trivial" : "local");
   return Object.freeze({ changeClass: selected, highRisk: HIGH_RISK_CHANGE_CLASSES.includes(selected), mandatoryPreCode: CHANGE_CLASSES[selected].mandatoryPreCode });
 }
 
@@ -55,8 +59,8 @@ function isScopeExecutionEligible(item = {}) {
   return false;
 }
 
-function isRiskExecutionEligible(changeClass, { profileId, riskOverride } = {}) {
-  if (!HIGH_RISK_CHANGE_CLASSES.includes(changeClass) || profileId === "guided-engineering") return true;
+function isRiskExecutionEligible(changeClass, { profileId, riskOverride, risk } = {}) {
+  if ((!HIGH_RISK_CHANGE_CLASSES.includes(changeClass) && !["high", "critical"].includes(String(risk || "").toLowerCase())) || profileId === "guided-engineering") return true;
   return riskOverride?.marker === "proceed with warning"
     && typeof riskOverride.note === "string"
     && riskOverride.note.trim().length > 0;

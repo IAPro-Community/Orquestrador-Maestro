@@ -48,7 +48,9 @@ class TaskGraphPersistence {
 
   async getGraph(missionId) {
     const graphs = await this.store.listTaskGraphs({ missionId });
-    return graphs.sort((a, b) => (b.metadata?.revision || 0) - (a.metadata?.revision || 0))[0];
+    return graphs
+      .filter((graph) => graph.metadata?.status !== "rejected")
+      .sort((a, b) => (b.metadata?.revision || 0) - (a.metadata?.revision || 0))[0];
   }
 
   getGraphById(graphId) { return this.store.getTaskGraph(graphId); }

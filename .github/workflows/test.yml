@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         node-version: [20, 22]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
     steps:
       - name: Checkout
@@ -41,12 +41,15 @@ jobs:
         run: npm pack --dry-run
 
       - name: Create tarball
+        if: runner.os == 'Linux'
         run: npm pack
 
       - name: Install from tarball
+        if: runner.os == 'Linux'
         run: npm install -g *.tgz
 
       - name: CLI smoke tests
+        if: runner.os == 'Linux'
         run: |
           orquestrador-maestro version
           orquestrador-maestro memory --help
@@ -66,7 +69,7 @@ jobs:
           rm -rf "$temp_home"
 
       - name: Cleanup
-        if: always()
+        if: always() && runner.os == 'Linux'
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   benchmark-smoke:

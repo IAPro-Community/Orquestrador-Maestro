@@ -143,5 +143,5 @@ test("skill-catalog generate is deterministic and check detects stale reference 
   fs.appendFileSync(path.join(fixtureRoot, "docs", "skills", "reference", "skill-phase-router.md"), "\nchanged\n", "utf8");
   const checked = spawnSync(process.execPath, [script, "check"], { cwd: fixtureRoot, encoding: "utf8" });
   assert.equal(checked.status, 1);
-  assert.match(checked.stderr, /generated:docs\/skills\/reference\/skill-phase-router\.md: stale/u);
+  assert.match(checked.stderr.replace(/\\/gu, "/"), /generated:docs\/skills\/reference\/skill-phase-router\.md: stale/u);
 });

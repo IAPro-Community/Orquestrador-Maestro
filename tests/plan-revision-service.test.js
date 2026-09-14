@@ -226,13 +226,27 @@ test("PlanRevisionService.autoApprove uses USER_AUTO_POLICY", async () => {
 });
 
 test("PlanRevisionService.autoApprove rejects when validation has blockers", async () => {
-  const service = makeService();
+  const events = [];
+  let savedApproval;
+  const service = makeService({
+    _store: {
+      readPlanArtifact: async () => ({ exists: false, content: "" }),
+      planArtifactPath: (missionId) => `/tmp/${missionId}/PLAN.md`,
+      saveApproval: async (approval) => { savedApproval = approval; return approval; },
+      appendEvent: async (event) => { events.push(event); return event; }
+    },
+    persistenceHooks: { onRejected: async () => assert.fail("a rejected plan must not be persisted") }
+  });
   const result = await service.autoApprove("mission-1", "task-graph-1", {
     validationResult: { valid: false, blockers: ["Cycle detected"] },
-    planningMode: "local-ai"
+    planningMode: "local-ai",
+    revision: { planId: "task-graph-1", revisionId: "task-graph-1:r2" }
   });
   assert.equal(result.approved, false);
   assert.equal(result.approvalType, "REJECTED");
+  assert.ok(savedApproval);
+  assert.equal(events[0].type, "plan.rejected");
+  assert.equal(events[0].data.revision.approvalState, "rejected");
 });
 
 test("PlanRevisionService.approveRevision records approval event", async () => {
@@ -285,6 +299,7 @@ test("PlanRevisionService.approveRevision preserves a human rejection", async ()
     revision: { planId: "graph-1", revisionId: "graph-1:r2" }
   });
   assert.equal(approval.approved, false);
-  assert.equal(hook, "rejected");
+  assert.equal(hook, "");
   assert.deepEqual(events.map((event) => event.type), ["plan.rejected"]);
+  assert.equal(events[0].data.revision.approvalState, "rejected");
 });

@@ -9,6 +9,14 @@ test("review prompt is bounded and records truncation without transcript", () =>
   assert.equal(result.truncated, true);
   assert.ok(result.prompt.length < 50000);
   assert.match(result.prompt, /Do not edit files/u);
+  assert.equal(result.diffIncluded, true);
+});
+
+test("review prompt requires the actual diff and treats it as untrusted", () => {
+  const missing = buildReviewPrompt({ diff: "" });
+  assert.equal(missing.diffIncluded, false);
+  assert.match(missing.prompt, /untrusted data/u);
+  assert.match(missing.prompt, /actual changed source files/u);
 });
 
 test("review parser accepts only the structured verdict contract", () => {

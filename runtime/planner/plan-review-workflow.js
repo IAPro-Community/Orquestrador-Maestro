@@ -5,11 +5,12 @@ const { PlanRevisionService } = require("./plan-revision-service");
 const { PlanArtifactRenderer } = require("./plan-artifact-renderer");
 
 class PlanReviewWorkflow {
-  constructor({ revisionService, notifier, aiImproveFn, regenerateFn } = {}) {
+  constructor({ revisionService, notifier, aiImproveFn, regenerateFn, prompts } = {}) {
     this.revisionService = revisionService || null;
     this.notifier = notifier || null;
     this.aiImproveFn = aiImproveFn || null;
     this.regenerateFn = regenerateFn || null;
+    this.prompts = prompts || p;
   }
 
   async conductReview(missionId, originalProposal, options = {}) {
@@ -17,12 +18,13 @@ class PlanReviewWorkflow {
     if (!originalProposal || typeof originalProposal !== "object") throw new TypeError("originalProposal is required");
 
     const revisionService = this.revisionService;
+    const prompts = this.prompts;
     let reviewApproved = false;
     let pendingRevision;
     let pendingProposal;
 
     while (!reviewApproved) {
-      const action = await p.select({
+      const action = await prompts.select({
         message: "Como deseja revisar o plano de engenharia?",
         options: [
           { value: "ver-plano", label: "Ver plano no terminal" },
@@ -35,22 +37,22 @@ class PlanReviewWorkflow {
         ]
       });
 
-      if (p.isCancel(action) || action === "cancelar") {
+      if (prompts.isCancel(action) || action === "cancelar") {
         if (revisionService) await revisionService.cancel(missionId);
-        p.cancel("Operacao cancelada pelo usuario.");
+        prompts.cancel("Operacao cancelada pelo usuario.");
         return { approved: false, cancelled: true };
       }
 
       if (action === "aprovar") {
-        const confirm = await p.confirm({
+        const confirm = await prompts.confirm({
           message: "Tem certeza que deseja aprovar este plano?"
         });
-        if (p.isCancel(confirm)) {
-          p.log.info("Aprovacao cancelada.");
+        if (prompts.isCancel(confirm)) {
+          prompts.log.info("Aprovacao cancelada.");
           continue;
         }
         if (!confirm) {
-          p.log.info("Aprovacao nao confirmada.");
+          prompts.log.info("Aprovacao nao confirmada.");
           continue;
         }
         const approval = await revisionService.approveRevision(
@@ -59,7 +61,7 @@ class PlanReviewWorkflow {
           "approved",
           { ...(options.actor ? { actor: options.actor } : {}), revision: pendingRevision, revisedProposal: pendingProposal }
         );
-        p.log.success(`Plano aprovado (${approval.approvalType}).`);
+        prompts.log.success(`Plano aprovado (${approval.approvalType}).`);
         reviewApproved = true;
         return { approved: true, approval };
       }
@@ -67,102 +69,110 @@ class PlanReviewWorkflow {
       if (action === "ver-plano") {
         const read = await revisionService.store.readPlanArtifact(missionId);
         if (read.exists) {
-          p.note(read.content, "Plano de Engenharia");
+          prompts.note(read.content, "Plano de Engenharia");
         } else {
-          p.log.error("Arquivo de plano nao encontrado.");
+          prompts.log.error("Arquivo de plano nao encontrado.");
         }
       }
 
       if (action === "editar") {
+        pendingRevision = undefined;
+        pendingProposal = undefined;
         const openResult = await revisionService.openForReview(missionId);
         if (openResult.launched) {
-          p.log.info("Editor aberto. Faca suas alteracoes e salve o arquivo.");
+          prompts.log.info("Editor aberto. Faca suas alteracoes e salve o arquivo.");
         } else {
-          p.log.error(`Falha ao abrir editor: ${openResult.reason}`);
+          prompts.log.error(`Falha ao abrir editor: ${openResult.reason}`);
         }
       }
 
       if (action === "melhorar-ia") {
+        pendingRevision = undefined;
+        pendingProposal = undefined;
         if (!this.aiImproveFn) {
-          p.log.warning("Funcao de melhoria por IA nao disponivel.");
+          prompts.log.warning("Funcao de melhoria por IA nao disponivel.");
           continue;
         }
         const read = await revisionService.store.readPlanArtifact(missionId);
         if (!read.exists) {
-          p.log.error("Arquivo de plano nao encontrado.");
+          prompts.log.error("Arquivo de plano nao encontrado.");
           continue;
         }
-        p.log.info("Solicitando melhoria via IA...");
+        prompts.log.info("Solicitando melhoria via IA...");
         try {
           const improved = await this.aiImproveFn(read.content, originalProposal);
           if (improved && improved.content) {
             await revisionService.store.writePlanArtifact(missionId, improved.content);
-            p.log.success("Plano melhorado pela IA. Recompilando...");
+            prompts.log.success("Plano melhorado pela IA. Recompilando...");
             const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "AI improvement", source: "ai-improvement", actor: "ai" });
             if (revision.valid) {
               pendingRevision = revision.revision;
               pendingProposal = revision.revisedProposal;
-              p.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
+              prompts.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
             } else {
-              p.log.error("Plano melhorado contem erros:");
-              for (const err of revision.errors) p.log.error(`  - ${err}`);
+              prompts.log.error("Plano melhorado contem erros:");
+              for (const err of revision.errors) prompts.log.error(`  - ${err}`);
             }
           } else {
-            p.log.info("IA nao sugeriu alteracoes.");
+            prompts.log.info("IA nao sugeriu alteracoes.");
           }
         } catch (err) {
-          p.log.error(`Falha na melhoria IA: ${err.message}`);
+          prompts.log.error(`Falha na melhoria IA: ${err.message}`);
         }
       }
 
       if (action === "regenerar") {
+        pendingRevision = undefined;
+        pendingProposal = undefined;
         if (!this.regenerateFn) {
-          p.log.warning("Funcao de regeneracao nao disponivel.");
+          prompts.log.warning("Funcao de regeneracao nao disponivel.");
           continue;
         }
-        const confirm = await p.confirm({
+        const confirm = await prompts.confirm({
           message: "Regenerar o plano descartara alteracoes atuais. Continuar?"
         });
-        if (p.isCancel(confirm) || !confirm) {
-          p.log.info("Regeneracao cancelada.");
+        if (prompts.isCancel(confirm) || !confirm) {
+          prompts.log.info("Regeneracao cancelada.");
           continue;
         }
-        p.log.info("Regenerando plano...");
+        prompts.log.info("Regenerando plano...");
         try {
           const regenerated = await this.regenerateFn(originalProposal);
           if (regenerated && regenerated.content) {
             await revisionService.store.writePlanArtifact(missionId, regenerated.content);
-            p.log.success("Plano regenerado. Recompilando...");
+            prompts.log.success("Plano regenerado. Recompilando...");
             const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "AI regeneration", source: "ai-regeneration", actor: "ai" });
             if (revision.valid) {
               pendingRevision = revision.revision;
               pendingProposal = revision.revisedProposal;
-              p.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
+              prompts.log.success(`Plano recompilado (${revision.tasks.length} tarefas).`);
             } else {
-              p.log.error("Plano regenerado contem erros:");
-              for (const err of revision.errors) p.log.error(`  - ${err}`);
+              prompts.log.error("Plano regenerado contem erros:");
+              for (const err of revision.errors) prompts.log.error(`  - ${err}`);
             }
           } else {
-            p.log.error("Regeneracao nao retornou conteúdo.");
+            prompts.log.error("Regeneracao nao retornou conteúdo.");
           }
         } catch (err) {
-          p.log.error(`Falha na regeneracao: ${err.message}`);
+          prompts.log.error(`Falha na regeneracao: ${err.message}`);
         }
       }
 
       if (action === "recompilar") {
+        pendingRevision = undefined;
+        pendingProposal = undefined;
         const revision = await revisionService.compileRevision(missionId, originalProposal, { taskGraphId: options.taskGraphId, reason: "human plan edit", source: "human-editor", actor: options.actor || "user" });
         if (!revision.changed) {
-          p.log.info("Nenhuma alteracao detectada no plano.");
+          prompts.log.info("Nenhuma alteracao detectada no plano.");
         } else if (!revision.valid) {
-          p.log.error("Plano revisado contem erros:");
+          prompts.log.error("Plano revisado contem erros:");
           for (const err of revision.errors) {
-            p.log.error(`  - ${err}`);
+            prompts.log.error(`  - ${err}`);
           }
         } else {
           pendingRevision = revision.revision;
           pendingProposal = revision.revisedProposal;
-          p.log.success(`Plano recompilado com sucesso (${revision.tasks.length} tarefas).`);
+          prompts.log.success(`Plano recompilado com sucesso (${revision.tasks.length} tarefas).`);
         }
       }
     }

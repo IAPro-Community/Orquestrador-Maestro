@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 const { capabilities } = require("../../core");
 const { MaestroApplication, ProviderRegistry } = require("../maestro-application");
@@ -25,9 +26,23 @@ class ReviewAdapter extends FakeAdapter {
   supportsReadOnlyReview() { return true; }
   async execute(request) {
     this.prompts.push(request.prompt);
+    if (this.prompts.length === 1) fs.writeFileSync(path.join(request.workspacePath, "auth.js"), "module.exports = 'changed';\n", "utf8");
     const review = this.prompts.length > 1 ? JSON.stringify({ verdict: "approved", findings: [], summary: "criteria verified" }) : "ok";
     return { pid: 1, cancel() {}, result: Promise.resolve({ providerId: this.id, pid: 1, exitCode: 0, stdout: review, stderr: "", durationMs: 1, cancelled: false, timedOut: false }) };
   }
+}
+
+function initializeGitWorkspace(root) {
+  const git = (...args) => {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8", shell: false });
+    assert.equal(result.status, 0, result.stderr);
+  };
+  git("init", "--quiet");
+  git("config", "user.name", "Maestro Test");
+  git("config", "user.email", "maestro@example.invalid");
+  fs.writeFileSync(path.join(root, "auth.js"), "module.exports = 'baseline';\n", "utf8");
+  git("add", "auth.js");
+  git("commit", "--quiet", "-m", "initial");
 }
 
 test("application turns a task into a persisted provider run with real verification", async () => {
@@ -87,11 +102,12 @@ test("a skipped verification warns without breaking a compatibility run", async 
 
 test("independent review is opt-in, risk based, and uses a fresh read-only execution", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-independent-review-"));
+  initializeGitWorkspace(root);
   const provider = new ReviewAdapter();
   const app = new MaestroApplication({
     projectRoot: root,
     governance: { features: { independentReview: true } },
-    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    store: new JsonFileRunStore({ filePath: `${root}-runs.json` }),
     providers: new ProviderRegistry([provider]),
     skills: { get: () => null }
   });
@@ -108,7 +124,54 @@ test("independent review is opt-in, risk based, and uses a fresh read-only execu
   const executions = await app.store.listExecutions({ runId: outcome.run.id });
   assert.equal(executions.filter((item) => item.metadata?.role === "independent-reviewer").length, 1);
   assert.match(provider.prompts[1], /OBJECTIVE/u);
+  assert.match(provider.prompts[1], /module\.exports = 'changed'/u);
   assert.equal(provider.prompts[1].includes(provider.prompts[0]), false);
+});
+
+test("independent review fails closed when its patch is incomplete", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-incomplete-review-"));
+  const provider = new ReviewAdapter();
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: `${root}-runs.json` }),
+    providers: new ProviderRegistry([provider]),
+    skills: { get: () => null }
+  });
+  const review = await app._runIndependentReview({
+    request: {}, task: {}, run: {}, step: {}, provider, workspacePath: root,
+    cognitiveBudget: { contextTokens: 12000 },
+    changes: { available: true, patchComplete: false, patch: "partial patch" },
+    verification: { status: "passed" }, evidence: []
+  });
+  assert.equal(review.status, "inconclusive");
+  assert.equal(review.calls, 0);
+  assert.equal(provider.prompts.length, 0);
+});
+
+test("CLI descriptions derive high-risk review budgets and strict execution gates", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-derived-risk-"));
+  const store = new JsonFileRunStore({ filePath: `${root}-runs.json` });
+  const compatible = new MaestroApplication({
+    projectRoot: root,
+    store,
+    providers: new ProviderRegistry([new FakeAdapter()]),
+    skills: { get: () => null }
+  });
+  const prepared = await compatible.createRun({ providerId: "fake", description: "Alterar autenticação e permissões", semanticTask: { changeClass: "local" } });
+  assert.equal(prepared.run.metadata.cognitiveBudget.tier, "assurance");
+  assert.equal(prepared.run.metadata.cognitiveBudget.reviewRequirement, "independent");
+
+  const strict = new MaestroApplication({
+    projectRoot: root,
+    governance: { mode: "strict" },
+    store: new JsonFileRunStore({ filePath: `${root}-strict-runs.json` }),
+    providers: new ProviderRegistry([new FakeAdapter()]),
+    skills: { get: () => null }
+  });
+  await assert.rejects(
+    strict.createRun({ providerId: "fake", description: "Alterar permissões" }),
+    /high-risk execution requires/u
+  );
 });
 
 test("compatibility mode preserves the native prompt and strict mode opts into governance context", async () => {
