@@ -285,7 +285,7 @@ class MaestroApplication {
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
     if (preflightBlock) {
-      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock } };
+      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: 0, skillsResolved: 0, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason: preflightBlock } } };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
@@ -325,7 +325,7 @@ class MaestroApplication {
       const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
       await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { reason } });
       await this.store.saveStep({ ...step, status: "failed", completedAt });
-      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict" } });
+      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict", cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason } } });
       await this.record(run.id, "run.blocked", { reason });
       return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
     }
