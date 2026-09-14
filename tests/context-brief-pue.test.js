@@ -193,3 +193,36 @@ test("parseArgs: --since rejeita valores com espaço", () => {
   assert.throws(() => parseArgs(["--since", "a b"]), /--since/);
   assert.equal(parseArgs(["--since", "abc123"]).since, "abc123");
 });
+
+test("section: rejeita caminho relativo que escapa da raiz do projeto", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-outside-"));
+  fs.writeFileSync(path.join(outside, "segredo.md"), "# Segredo\n\nconteudo externo\n");
+  const relativeOutside = path.relative(root, path.join(outside, "segredo.md"));
+  assert.match(relativeOutside, /^\.\./);
+  assert.throws(() => buildSection({ projectPath: root, sectionPath: relativeOutside, heading: "Segredo", maxChars: 4000 }), /não encontrado/);
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});
+
+test("section: rejeita caminho absoluto fora da raiz do projeto", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-outside-"));
+  const outsideFile = path.join(outside, "segredo.md");
+  fs.writeFileSync(outsideFile, "# Segredo\n\nconteudo externo\n");
+  assert.ok(path.isAbsolute(outsideFile));
+  assert.throws(() => buildSection({ projectPath: root, sectionPath: outsideFile, heading: "Segredo", maxChars: 4000 }), /não encontrado/);
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});
+
+test("section: rejeita symlink interno que aponta para fora da raiz", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-section-outside-"));
+  const outsideFile = path.join(outside, "segredo.md");
+  fs.writeFileSync(outsideFile, "# Segredo\n\nconteudo externo\n");
+  fs.symlinkSync(outsideFile, path.join(root, "atalho.md"));
+  assert.throws(() => buildSection({ projectPath: root, sectionPath: "atalho.md", heading: "Segredo", maxChars: 4000 }), /não encontrado/);
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});

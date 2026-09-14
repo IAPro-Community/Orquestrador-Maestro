@@ -23,12 +23,19 @@ Integração: `capabilityRoutes.frontend-excellence`, enriquecimento de `fronten
 
 ## Descoberta
 
-A skill resolve Design Profile e metadata do design system na ordem abaixo:
+A descoberta resolve o sistema na ordem de evidência abaixo:
 
-1. configuração do projeto;
-2. export público de pacote instalado;
-3. índice ou metadata gerado pelo projeto;
-4. schema neutro bundled pela própria skill.
+1. instruções explícitas do projeto no escopo da tarefa;
+2. `design-profile.json`, `design-profile.yaml` ou `design-profile.yml`, incluindo caminhos
+   configurados em `frontendExcellence` ou metadados equivalentes;
+3. imports coerentes no código;
+4. dependência instalada somente como evidência insuficiente, nunca como resolução.
+
+`taskScope` é analisado primeiro; evidência global só é consultada quando o escopo não tem
+nenhum resultado. Conflitos ficam `ambiguous` e exigem decisão. Uma implementação nova só é
+permitida quando o status é `resolved` e a confiança é `>= 0.80`; um único import, por
+exemplo, permanece bloqueado com confiança `0.65`. O scanner é provider-neutral e não depende
+de nome de biblioteca, Omnia ou layout de monorepo.
 
 Nenhum caminho absoluto, nome de repositório ou layout de workspace externo é necessário. O Visual QA é um smoke check de overflow, nomes acessíveis, contraste aproximado e erros de runtime; não substitui uma auditoria WCAG.
 

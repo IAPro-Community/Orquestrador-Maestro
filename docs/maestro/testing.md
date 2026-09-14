@@ -2,8 +2,9 @@
 
 ## Pré-requisitos
 
-- Node.js 20 ou superior para desenvolvimento e execução do pacote atual.
-- CI obrigatório: Node.js 22 e 24 (último LTS) em Linux; smoke em Windows e macOS.
+- Node.js 20 ou superior para desenvolvimento e execução do pacote atual (versão mínima suportada).
+- Matriz CI obrigatória: suíte full em Linux com Node.js 20, 22 e 24; smoke em Windows e macOS com Node.js 20 e 24.
+- Node.js 20 é o floor verificável de compatibilidade; Node.js 24 é o LTS mais recente coberto.
 - npm disponível no PATH.
 - PowerShell para executar os validadores `.ps1`.
 - API keys não são necessárias para os testes locais.
@@ -23,8 +24,8 @@ npm pack --dry-run
 
 | Comando | Objetivo |
 | --- | --- |
-| `npm test` | suíte completa de unidades e integração |
-| `npm run test:smoke` | caminhos críticos curtos |
+| `npm test` | suíte completa de unidades e integração (full, Linux) |
+| `npm run test:smoke` | caminhos críticos curtos (smoke, Windows/macOS) |
 | `npm run verify:pr` | higiene pública, referências e arquivos gerados |
 | `npm run bench:validate` | schema e fixtures dos cenários publicados |
 | `npm pack --dry-run` | conteúdo que entrará no pacote npm |

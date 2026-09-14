@@ -2,6 +2,11 @@
 
 O Maestro adiciona governança sem substituir o CLI nativo. O padrão é `compatibility`:
 
+O pacote suporta Node.js `>=20.0.0`. A matriz obrigatória verifica a suíte full em Linux
+com Node 20, 22 e 24, e os caminhos smoke em Windows e macOS com Node 20 e 24. A matriz
+é evidência de compatibilidade, não uma promessa de que todos os providers externos
+tenham o mesmo suporte entre sistemas operacionais.
+
 - tom, prompts, provider, modelo e perfil nativos permanecem sob controle da ferramenta;
 - verificação ausente gera aviso/recomendação, não falha automática;
 - findings críticos podem bloquear; orientações não críticas não interrompem tarefas;
