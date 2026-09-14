@@ -4,6 +4,7 @@ Default posture: `EVOLVE`. Default creativity: `LOW`. Raise to `MEDIUM` only whe
 
 ## Sequence
 
+0. Resolve the project design system. Stop with `BLOCKED_REQUIRES_USER_DECISION` unless discovery is resolved.
 1. Name the user task of the screen (one sentence).
 2. Capture current screenshots.
 3. Fix comprehension and layout stability before aesthetics.

@@ -87,14 +87,22 @@ Run `scripts/classify-intent.mjs` when available. Read only the matching workflo
 - [FIX](workflows/fix.md)
 - [REVIEW](workflows/review.md)
 
-## Step 1 — Load context
+## Step 1 — Resolve the design system (mandatory)
+
+Run `node scripts/discover-design-system.mjs <project-root>` and persist its structured result.
+Only `status: resolved` with confidence `>= 0.80` permits new visual implementation. For
+`ambiguous` or `unresolved`, stop with `BLOCKED_REQUIRES_USER_DECISION`; ask whether to preserve
+local components, use a named project system, or explicitly propose a new visual base. Never
+choose by package popularity or model preference.
+
+## Step 2 — Load context
 
 1. Application Design Profile: use the project's configured file, package export, or the bundled neutral fallback. Do not assume a repository layout.
 2. Design-system metadata via the adapter. Never invent components.
 3. Existing routes, tokens, i18n, tests, and startup commands from the app.
 4. If PRESERVE: capture baseline screenshots **before** editing.
 
-## Step 2 — Implement under the right workflow
+## Step 3 — Implement under the right workflow
 
 - CREATE → `workflows/create.md`
 - REDESIGN + HIGH → `workflows/redesign.md` (directions before code)
@@ -105,7 +113,7 @@ Run `scripts/classify-intent.mjs` when available. Read only the matching workflo
 
 Engineering, visual, accessibility, responsive, and maintainability rules are in [standards](standards/).
 
-## Step 3 — Visual QA is part of the work
+## Step 4 — Visual QA is part of the work
 
 Build passing is not done. Run the checklist in [validation/definition-of-done.md](validation/definition-of-done.md), with smoke details in [validation/visual.md](validation/visual.md) and [validation/accessibility.md](validation/accessibility.md).
 
@@ -127,7 +135,7 @@ Hard failures (any one fails the task):
 
 This is a smoke harness, not a complete WCAG audit. Score (`validation/visual.md`) never overrides a hard failure; use the project's accessibility tooling for certification.
 
-## Step 4 — Independent visual review
+## Step 5 — Independent visual review
 
 Produce structured findings even if the same agent implements:
 

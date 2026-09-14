@@ -4,6 +4,9 @@ Allowed only with explicit user intent (`modernize`, `redesenhe`, `nova identida
 
 Default posture: `EXPLORE`. Creativity: `HIGH` unless the profile caps it lower. The lower cap wins.
 
+Before any visual implementation, resolve the project design system. If discovery is ambiguous
+or unresolved, stop with `BLOCKED_REQUIRES_USER_DECISION`.
+
 ## Do not start in code
 
 ```text

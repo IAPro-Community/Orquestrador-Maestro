@@ -4,6 +4,8 @@ No frontend task is complete because the build is green.
 
 ## Always
 
+- [ ] design-system discovery is `resolved` (or explicit user decision is recorded)
+- [ ] no visual implementation proceeds on `ambiguous`/`unresolved` discovery
 - [ ] build
 - [ ] typecheck (when the project has it)
 - [ ] lint (when the project has it)
