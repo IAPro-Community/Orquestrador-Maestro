@@ -416,6 +416,9 @@ class MaestroApplication {
     if (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview()) {
       return Object.freeze({ status: "unavailable", verdict: "inconclusive", calls: 0, reason: "provider-read-only-review-unavailable" });
     }
+    // The joined `patch` duplicates workingTreePatch + stagedPatch + the
+    // synthetic untracked patches (~2x bytes against the reviewer budget),
+    // so the reviewer context carries only the granular fields.
     const reviewDiff = JSON.stringify({
       changedFiles: changes?.changedFiles || [],
       stats: changes?.stats || [],
@@ -426,12 +429,23 @@ class MaestroApplication {
       untrackedContent: changes?.untrackedContent || [],
       binaryFiles: changes?.binaryFiles || [],
       sensitiveFiles: changes?.sensitiveFiles || [],
+      omitted: changes?.omitted || [],
       limits: changes?.limits || {},
       truncated: changes?.truncated === true,
-      truncationNotice: changes?.truncated === true ? "ChangeSet context was truncated; omitted content is represented by metadata only." : null,
-      patch: changes?.patch || ""
+      truncationNotice: changes?.truncated === true ? "ChangeSet context was truncated; omitted content is represented by metadata only." : null
     });
-    const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
+    // The JSON wrapper above is never an empty string, so detect an empty
+    // ChangeSet explicitly instead of spending a reviewer call on nothing.
+    const hasReviewContent = (changes?.changedFiles || []).length > 0
+      || (changes?.untrackedFiles || []).length > 0
+      || Boolean((changes?.workingTreePatch || "").trim())
+      || Boolean((changes?.stagedPatch || "").trim())
+      || (changes?.untrackedContent || []).length > 0
+      || Boolean((changes?.patch || "").trim());
+    if (!hasReviewContent) {
+      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", findings: [{ code: "REVIEW_NOTHING_TO_REVIEW" }], summary: "No working-tree changes were observed for this review.", calls: 0, contextTruncated: false });
+    }
+    const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], omitted: changes?.omitted || [], maxTokens: cognitiveBudget.contextTokens });
     if (!changes?.available || !changes.patchComplete || !prompt.diffIncluded || prompt.truncated) {
       return Object.freeze({ status: "inconclusive", verdict: "inconclusive", findings: [{ code: "REVIEW_CONTEXT_INCOMPLETE" }], summary: "The reviewer did not receive a complete patch and context.", calls: 0, contextTruncated: prompt.truncated });
     }

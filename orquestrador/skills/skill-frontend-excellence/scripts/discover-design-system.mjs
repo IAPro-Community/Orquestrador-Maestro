@@ -11,8 +11,11 @@ const INSTRUCTION_NAMES = new Set(["AGENTS.md", "CLAUDE.md", "README.md", "front
 function walk(current, files = []) {
   if (files.length >= MAX_FILES) return files;
   let entries = [];
-  try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { return files; }
+  try { entries = fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)); } catch { return files; }
   for (const entry of entries) {
+    // Never follow symlinks: a linked file could pull outside-root content
+    // into the scan, and a linked directory could escape the scope.
+    if (entry.isSymbolicLink()) continue;
     if (files.length >= MAX_FILES || ["node_modules", ".git", "dist", "build", "coverage"].includes(entry.name)) continue;
     const full = path.join(current, entry.name);
     if (entry.isDirectory()) walk(full, files);
@@ -42,7 +45,7 @@ function providerFromText(text) {
     const value = item.replace(/^(?:from\s+["']|require\(\s*["']|@)/iu, "");
     return value.startsWith("@") ? value : `@${value}`;
   });
-  const declared = text.match(/(?:design\s*system|component\s*library|theme)\s*(?:is|:|=|->)\s*["'`]?(@?[A-Za-z0-9][\w./@-]*)/iu);
+  const declared = text.match(/(?:design\s*system|component\s*library|theme)\s*(?:is|:|=|->)\s*["'`]?(@[A-Za-z0-9][\w./@-]*|[A-Za-z0-9][\w.-]*\/[\w./-]+)/iu);
   if (declared?.[1]) imported.push(declared[1]);
   return imported;
 }
@@ -112,11 +115,19 @@ function collectConfiguredProfilePaths(packageFiles, root) {
   return [...new Set(configured)].filter((file) => isWithin(root, file));
 }
 
+function isRealWithin(root, file) {
+  try {
+    return isWithin(fs.realpathSync(root), fs.realpathSync(file));
+  } catch { return false; }
+}
+
 function profileFiles(root, files) {
   const packageFiles = files.filter((file) => path.basename(file).toLowerCase() === "package.json");
   const configured = collectConfiguredProfilePaths(packageFiles, root);
   const discovered = files.filter((file) => PROFILE_NAMES.has(path.basename(file).toLowerCase()));
-  return [...new Set([...configured, ...discovered])].filter((file) => fs.existsSync(file)).sort();
+  // existsSync follows symlinks, so re-resolve: a configured or discovered
+  // profile path must still point inside the root after resolution.
+  return [...new Set([...configured, ...discovered])].filter((file) => isRealWithin(root, file)).sort();
 }
 
 function instructionFiles(files) {
@@ -196,6 +207,10 @@ function importResult(root, files) {
 }
 
 function analyze(root, files) {
+  // Precedence is intentional: explicit project instructions beat a checked-in
+  // Design Profile, which beats import usage, which beats installed
+  // dependencies. Profiles therefore always prevail over imports and
+  // dependency-only evidence.
   return instructionResult(root, files)
     || profileResult(root, files)
     || importResult(root, files)
@@ -211,7 +226,14 @@ function scopedFiles(root, taskScope) {
   if (!scope) return null;
   const candidate = path.resolve(root, scope);
   if (!isWithin(root, candidate) || !fs.existsSync(candidate)) return [];
-  if (fs.statSync(candidate).isDirectory()) return walk(candidate);
+  try {
+    // A scoped symlink must resolve inside the root, otherwise the scope
+    // could pull outside content into the analysis.
+    if (fs.lstatSync(candidate).isSymbolicLink() && !isRealWithin(root, candidate)) return [];
+  } catch { return []; }
+  let stat;
+  try { stat = fs.statSync(candidate); } catch { return []; }
+  if (stat.isDirectory()) return walk(candidate);
   return [candidate];
 }
 

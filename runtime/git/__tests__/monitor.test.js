@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
-const { snapshot, diff, parseNameStatus, MAX_UNTRACKED_CONTENT, MAX_UNTRACKED_TOTAL, MAX_UNTRACKED_FILES } = require("../monitor");
+const { snapshot, diff, parseNameStatus, isSensitivePath, MAX_UNTRACKED_CONTENT, MAX_UNTRACKED_PATCH_FILE, MAX_UNTRACKED_TOTAL, MAX_UNTRACKED_FILES, MAX_UNTRACKED_PATCH_TOTAL } = require("../monitor");
 
 test("git monitor reports an unavailable non-repository without mutating it", () => {
   const state = snapshot(process.cwd());
@@ -26,13 +26,17 @@ test("git monitor exposes working, staged, untracked and bounded changes", () =>
   fs.writeFileSync(path.join(cwd, "large.txt"), "x".repeat(20000));
   const changes = diff(cwd);
   assert.equal(changes.available, true);
-  assert.equal(changes.patchComplete, true);
+  // Bounded ChangeSet contract: any truncated content marks the patch incomplete.
+  assert.equal(changes.patchComplete, false);
   assert.ok(changes.changedFiles.includes("tracked.txt"));
   assert.ok(changes.changedFiles.includes("staged.txt"));
   assert.ok(changes.untrackedFiles.includes("new.txt"));
   assert.ok(changes.untrackedContent.some((item) => item.path === "new.txt"));
   assert.equal(changes.truncated, true);
   assert.ok(changes.untrackedContent.find((item) => item.path === "large.txt").content.includes("truncated"));
+  const largeOmission = changes.omitted.find((item) => item.path === "large.txt");
+  assert.deepEqual(Object.keys(largeOmission).sort(), ["path", "reason", "size", "status"]);
+  assert.equal(largeOmission.reason, "per-file-content-truncated");
   assert.match(changes.workingTreePatch, /tracked\.txt/u);
   assert.match(changes.stagedPatch, /staged\.txt/u);
   assert.match(changes.patch, /two/u);
@@ -86,6 +90,10 @@ test("untracked context enforces per-file, aggregate and file-count limits", () 
   assert.ok(changes.untrackedContent.reduce((total, item) => total + item.content.length, 0) <= MAX_UNTRACKED_TOTAL + MAX_UNTRACKED_FILES * 40);
   assert.equal(changes.limits.untrackedFilesProcessed, MAX_UNTRACKED_FILES);
   assert.equal(changes.truncated, true);
+  assert.equal(changes.patchComplete, false);
+  const countOmissions = changes.omitted.filter((item) => item.reason === "file-count-limit");
+  assert.equal(countOmissions.length, 4);
+  assert.ok(countOmissions.every((item) => typeof item.path === "string" && item.status === "??" && typeof item.size === "number"));
 });
 
 test("sensitive untracked files are visible as metadata but never expose content", () => {
@@ -114,4 +122,92 @@ test("renaming a sensitive tracked file keeps both paths out of reviewer patches
   assert.ok(changes.sensitiveFiles.some((item) => item.path === ".env.local"));
   assert.doesNotMatch(changes.stagedPatch, /RENAMED_SECRET/u);
   assert.doesNotMatch(JSON.stringify(changes), /RENAMED_SECRET/u);
+});
+
+test("sensitive files in subdirectories expose metadata but never content", () => {
+  assert.equal(isSensitivePath("secrets/app.js"), true);
+  assert.equal(isSensitivePath("config/credentials.json"), true);
+  assert.equal(isSensitivePath("deploy/private/keys.txt"), true);
+  assert.equal(isSensitivePath("infra/certs/tls.txt"), true);
+  assert.equal(isSensitivePath("src/app.js"), false);
+  assert.equal(isSensitivePath("src/tokenize.js"), false);
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-sensitive-dir-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.mkdirSync(path.join(cwd, "secrets"));
+  fs.writeFileSync(path.join(cwd, "secrets", "config.js"), "SUBDIR_SECRET=do-not-send\n");
+  fs.writeFileSync(path.join(cwd, "visible.js"), "export const visible = true;\n");
+  const changes = diff(cwd);
+  assert.equal(changes.untrackedContent.some((item) => item.path === "secrets/config.js"), false);
+  // Git collapses a wholly-untracked directory into a single `secrets/` entry;
+  // the sensitive directory itself must be flagged as metadata only.
+  assert.ok(changes.sensitiveFiles.some((item) => item.path === "secrets/"));
+  const dirOmission = changes.omitted.find((item) => item.path === "secrets/");
+  assert.equal(dirOmission.reason, "sensitive");
+  assert.equal(dirOmission.status, "??");
+  assert.ok(changes.untrackedContent.some((item) => item.path === "visible.js"));
+  assert.equal(changes.patchComplete, false);
+  assert.doesNotMatch(JSON.stringify(changes), /SUBDIR_SECRET/u);
+});
+
+test("sensitive untracked files inside tracked directories are flagged per segment", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-sensitive-nested-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.mkdirSync(path.join(cwd, "config"));
+  fs.writeFileSync(path.join(cwd, "config", "tracked.txt"), "initial\n");
+  git("add", "config/tracked.txt"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, "config", "credentials.json"), "{\"NESTED_SECRET\": \"do-not-send\"}\n");
+  const changes = diff(cwd);
+  assert.equal(changes.untrackedContent.some((item) => item.path === "config/credentials.json"), false);
+  assert.ok(changes.sensitiveFiles.some((item) => item.path === "config/credentials.json"));
+  const omission = changes.omitted.find((item) => item.path === "config/credentials.json");
+  assert.equal(omission.reason, "sensitive");
+  assert.equal(changes.patchComplete, false);
+  assert.doesNotMatch(JSON.stringify(changes), /NESTED_SECRET/u);
+});
+
+test("untracked files above the per-file size limit are omitted with metadata", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-too-large-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, "huge.bin.txt"), "x".repeat(MAX_UNTRACKED_PATCH_FILE + 1024));
+  fs.writeFileSync(path.join(cwd, "small.txt"), "visible\n");
+  const changes = diff(cwd);
+  assert.equal(changes.untrackedContent.some((item) => item.path === "huge.bin.txt"), false);
+  const omission = changes.omitted.find((item) => item.path === "huge.bin.txt");
+  assert.equal(omission.reason, "file-too-large");
+  assert.ok(omission.size > MAX_UNTRACKED_PATCH_FILE);
+  assert.ok(changes.untrackedContent.some((item) => item.path === "small.txt"));
+  assert.equal(changes.patchComplete, false);
+});
+
+test("aggregate content limit omits later files with explicit reasons", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-aggregate-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  const perFile = Math.floor(MAX_UNTRACKED_CONTENT / 2);
+  for (let index = 0; index < 9; index += 1) fs.writeFileSync(path.join(cwd, `chunk-${index}.txt`), "y".repeat(perFile));
+  const changes = diff(cwd);
+  assert.equal(changes.truncated, true);
+  assert.equal(changes.patchComplete, false);
+  const reasons = changes.omitted.map((item) => item.reason);
+  assert.ok(reasons.includes("aggregate-content-limit"));
+  assert.ok(changes.omitted.every((item) => typeof item.path === "string" && typeof item.status === "string" && typeof item.size === "number" && typeof item.reason === "string"));
+});
+
+test("aggregate synthetic patch limit keeps the reviewer patch bounded", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-patch-total-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  for (let index = 0; index < MAX_UNTRACKED_FILES; index += 1) fs.writeFileSync(path.join(cwd, `bulk-${index}.txt`), "z".repeat(6000));
+  const changes = diff(cwd);
+  assert.ok(changes.limits.untrackedPatchChars <= MAX_UNTRACKED_PATCH_TOTAL);
+  assert.ok(changes.omitted.some((item) => item.reason === "aggregate-patch-limit"));
+  assert.equal(changes.patchComplete, false);
+  assert.equal(changes.limits.maxUntrackedPatchTotal, MAX_UNTRACKED_PATCH_TOTAL);
 });

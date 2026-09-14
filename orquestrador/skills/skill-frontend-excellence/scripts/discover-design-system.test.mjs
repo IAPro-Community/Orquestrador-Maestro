@@ -115,3 +115,33 @@ test("installed dependencies without imports do not resolve a system", () => {
   assert.equal(result.status, "unresolved");
   assert.equal(result.implementationAllowed, false);
 });
+
+test("symlinked Design Profile pointing outside the root is ignored", () => {
+  const cwd = fixture();
+  const outside = fixture();
+  fs.writeFileSync(path.join(outside, "evil.json"), JSON.stringify({ designSystem: { provider: "@evil/ui" } }));
+  fs.symlinkSync(path.join(outside, "evil.json"), path.join(cwd, "design-profile.json"));
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.status, "unresolved");
+  assert.equal(result.provider, null);
+});
+
+test("bare theme words without package identity do not resolve", () => {
+  const cwd = fixture();
+  fs.writeFileSync(path.join(cwd, "notes.md"), "theme: dark\n");
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.status, "unresolved");
+  assert.equal(result.provider, null);
+});
+
+test("scoped symlink escaping the root falls back to inside-root evidence", () => {
+  const cwd = fixture();
+  const outside = fixture();
+  fs.writeFileSync(path.join(outside, "x.tsx"), "import { B } from '@evil/ui';\n".repeat(4));
+  fs.symlinkSync(path.join(outside, "x.tsx"), path.join(cwd, "link.tsx"));
+  for (const name of ["a.tsx", "b.tsx", "c.tsx", "d.tsx"]) {
+    fs.writeFileSync(path.join(cwd, name), "import { Button } from '@acme/ui';\n");
+  }
+  const result = discoverDesignSystem({ cwd, taskScope: "link.tsx" });
+  assert.equal(result.provider, "@acme/ui");
+});

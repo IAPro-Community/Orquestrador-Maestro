@@ -711,15 +711,43 @@ function buildBrief(options) {
   return result;
 }
 
+function isWithinRoot(root, candidate) {
+  let base = root;
+  let target = candidate;
+  if (process.platform === "win32") {
+    base = base.toLowerCase();
+    target = target.toLowerCase();
+  }
+  return target === base || target.startsWith(base + path.sep);
+}
+
+function resolveSectionPath(projectRoot, sectionPath) {
+  const root = path.resolve(projectRoot);
+  const candidate = path.resolve(root, sectionPath);
+  if (!isWithinRoot(root, candidate)) return null;
+  let realRoot;
+  let realCandidate;
+  try {
+    realRoot = fs.realpathSync(root);
+    realCandidate = fs.realpathSync(candidate);
+  } catch {
+    return null;
+  }
+  if (!isWithinRoot(realRoot, realCandidate)) return null;
+  return { realRoot, realCandidate };
+}
+
 function buildSection(options) {
   if (!options.sectionPath || !options.heading) {
     throw new Error("`section` exige --path ARQUIVO.md e --heading TEXTO.");
   }
   const projectRoot = path.resolve(options.projectPath);
-  const filePath = path.isAbsolute(options.sectionPath) ? options.sectionPath : path.join(projectRoot, options.sectionPath);
-  if (!isSafeRegularFile(filePath)) {
+  const resolved = resolveSectionPath(projectRoot, options.sectionPath);
+  if (!resolved || !isSafeRegularFile(resolved.realCandidate)) {
     throw new Error(`Arquivo não encontrado ou não regular: ${options.sectionPath}`);
   }
+  const filePath = resolved.realCandidate;
+  const displayPath = path.relative(resolved.realRoot, filePath).replace(/\\/g, "/");
   const source = readUtf8(filePath);
   const found = slices.extractSectionByHeading(source, options.heading);
   if (!found) {
@@ -727,7 +755,7 @@ function buildSection(options) {
   }
   const text = truncate(found.text, options.maxChars);
   return {
-    path: options.sectionPath,
+    path: displayPath,
     heading: found.heading,
     level: found.level,
     range: found.range,

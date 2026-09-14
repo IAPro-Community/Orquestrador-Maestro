@@ -140,6 +140,46 @@ test("independent review fails closed when the patch is incomplete", async () =>
   assert.equal(provider.prompts.length, 0);
 });
 
+test("independent review does not call the provider when the prompt budget truncates", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-truncated-review-"));
+  const provider = new ReviewAdapter();
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([provider]),
+    skills: { get: () => null }
+  });
+  const review = await app._runIndependentReview({
+    request: {}, task: {}, run: {}, step: {}, provider, workspacePath: root,
+    cognitiveBudget: { contextTokens: 1000 },
+    changes: { available: true, patchComplete: true, changedFiles: ["big.js"], workingTreePatch: "x".repeat(200000) },
+    verification: { status: "passed" }, evidence: []
+  });
+  assert.equal(review.status, "inconclusive");
+  assert.equal(review.calls, 0);
+  assert.equal(provider.prompts.length, 0);
+});
+
+test("independent review does not call the provider when there is nothing to review", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-empty-review-"));
+  const provider = new ReviewAdapter();
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([provider]),
+    skills: { get: () => null }
+  });
+  const review = await app._runIndependentReview({
+    request: {}, task: {}, run: {}, step: {}, provider, workspacePath: root,
+    cognitiveBudget: { contextTokens: 12000 },
+    changes: { available: true, patchComplete: true, changedFiles: [], untrackedFiles: [] },
+    verification: { status: "passed" }, evidence: []
+  });
+  assert.equal(review.status, "inconclusive");
+  assert.equal(review.calls, 0);
+  assert.equal(provider.prompts.length, 0);
+});
+
 test("LEAN and STANDARD runs do not add independent review calls", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-budget-review-calls-"));
   const provider = new ReviewAdapter();
