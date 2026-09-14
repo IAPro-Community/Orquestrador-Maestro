@@ -395,7 +395,9 @@ function resolveGitDelta(projectRoot, since) {
       ].filter(Boolean).join("\n")
     };
   } catch (error) {
-    return { since, error: error.message.split("\n")[0] };
+    const escapedRoot = path.resolve(projectRoot).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const message = String(error.message || "").replace(new RegExp(escapedRoot, "giu"), "[caminho local redigido]");
+    return { since, error: sanitizeContent(message).split("\n")[0] };
   }
 }
 

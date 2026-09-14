@@ -68,6 +68,31 @@ test("fatias: CONTEXT prefere seções de estado; sem seções, usa a cauda", ()
   assert.match(tail.text, /linhas anteriores omitidas/);
 });
 
+test("fatias incluem subseções consecutivas e registram o intervalo completo", () => {
+  const handoff = slices.sliceHandoff([
+    "# HANDOFF", "", "## Atual", "snapshot atual", "### Detalhes", "evidência da subseção", "#### Nota", "nota mais funda", "## Anterior", "snapshot antigo"
+  ].join("\n"));
+  assert.match(handoff.text, /evidência da subseção/u);
+  assert.match(handoff.text, /nota mais funda/u);
+  assert.doesNotMatch(handoff.text, /snapshot antigo/u);
+  assert.equal(handoff.range.endLine, 8);
+
+  const spec = slices.sliceActiveSpec([
+    "# ACTIVE", "```yaml", "change:", "  id: C-1", "```", "## Objetivo", "Meta", "### Contexto", "Contexto aninhado", "## Histórico", "Antigo"
+  ].join("\n"));
+  assert.match(spec.text, /Contexto aninhado/u);
+  assert.equal(spec.range.endLine, 9);
+  assert.doesNotMatch(spec.text, /Antigo/u);
+
+  const context = slices.sliceContext([
+    "# CONTEXT", "## Estado", "Atual", "### Evidência", "Evidência aninhada", "## Próximas ações", "Próxima ação", "### Responsável", "Responsável atual", "## Histórico", "Antigo"
+  ].join("\n"));
+  assert.match(context.text, /Evidência aninhada/u);
+  assert.match(context.text, /Responsável atual/u);
+  assert.equal(context.range.endLine, 9);
+  assert.doesNotMatch(context.text, /Antigo/u);
+});
+
 test("brief em projeto PUE: estado pue, snapshot atual, contrato e manifesto determinístico", () => {
   const root = copyFixture();
   const first = brief(root);
@@ -138,6 +163,15 @@ test("brief: --since inclui o delta do Git com proveniência", () => {
   assert.equal(result.manifest.since, base);
   const unresolved = brief(root, { since: "nao-existe" });
   assert.match(unresolved.content, /Delta desde nao-existe[\s\S]*indisponível/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("brief redacts absolute paths from Git delta errors", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador private project "));
+  createPueFixture(root);
+  const result = brief(root, { since: "missing-commit" });
+  assert.equal(result.content.includes(path.resolve(root)), false);
+  assert.equal(result.content.includes("private project "), false);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

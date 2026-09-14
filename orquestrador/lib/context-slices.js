@@ -98,16 +98,30 @@ function fullSlice(content, strategy = "full") {
   return makeSlice(content, strategy, { startLine: 1, endLine: lines.length }, content);
 }
 
+function extendSectionWithSubsections(content, sections, sectionIndex) {
+  const section = sections[sectionIndex];
+  let lastIndex = sectionIndex;
+  for (let cursor = sectionIndex + 1; cursor < sections.length; cursor += 1) {
+    if (sections[cursor].level <= section.level) break;
+    lastIndex = cursor;
+  }
+  const endLine = sections[lastIndex].endLine;
+  const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
+  const text = lines.slice(section.startLine - 1, endLine).join("\n").trim();
+  return { ...section, endLine, text, lastIndex };
+}
+
 /**
  * HANDOFF: título do documento + PRIMEIRA seção `##` (snapshot mais recente).
  */
 function sliceHandoff(content) {
-  const sections = splitSections(content).filter((section) => section.level === 2);
+  const allSections = splitSections(content);
+  const sections = allSections.filter((section) => section.level === 2);
   if (sections.length === 0) {
     return fullSlice(content, "full (sem seções ##)");
   }
-  const first = sections[0];
-  const title = splitSections(content).find((section) => section.level === 1);
+  const first = extendSectionWithSubsections(content, allSections, allSections.indexOf(sections[0]));
+  const title = allSections.find((section) => section.level === 1);
   const head = title ? `# ${title.title}\n\n` : "";
   const note = sections.length > 1 ? `\n\n[handoff: ${sections.length - 1} snapshot(s) anteriores omitidos — peça por cabeçalho se precisar]` : "";
   return makeSlice(`${head}${first.text}${note}`, "handoff-first-section", { startLine: first.startLine, endLine: first.endLine }, content);
@@ -135,13 +149,16 @@ function sliceActiveSpec(content) {
     firstLine = firstLine === null ? before : Math.min(firstLine, before);
     lastLine = before + fence[0].split("\n").length - 1;
   }
-  for (const section of sections) {
+  for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
+    const section = sections[sectionIndex];
     if (section.level < 2) continue;
     const heading = normalizeHeading(section.title);
     if (SPEC_HEADING_WORDS.some((word) => heading.includes(normalizeHeading(word)))) {
-      parts.push(section.text);
+      const extended = extendSectionWithSubsections(text, sections, sectionIndex);
+      parts.push(extended.text);
       firstLine = firstLine === null ? section.startLine : Math.min(firstLine, section.startLine);
-      lastLine = lastLine === null ? section.endLine : Math.max(lastLine, section.endLine);
+      lastLine = lastLine === null ? extended.endLine : Math.max(lastLine, extended.endLine);
+      sectionIndex = extended.lastIndex;
     }
   }
   if (parts.length <= (title ? 1 : 0)) {
@@ -159,7 +176,14 @@ function sliceContext(content, tailRatio = 0.4) {
   const text = String(content || "").replace(/\r\n/g, "\n");
   const sections = splitSections(text);
   const title = sections.find((section) => section.level === 1);
-  const stateSections = sections.filter((section) => section.level >= 2 && STATE_HEADING_WORDS.some((word) => normalizeHeading(section.title).includes(normalizeHeading(word))));
+  const stateSections = [];
+  for (let index = 0; index < sections.length; index += 1) {
+    const section = sections[index];
+    if (section.level < 2 || !STATE_HEADING_WORDS.some((word) => normalizeHeading(section.title).includes(normalizeHeading(word)))) continue;
+    const extended = extendSectionWithSubsections(text, sections, index);
+    stateSections.push(extended);
+    index = extended.lastIndex;
+  }
   if (stateSections.length > 0) {
     const head = title ? `# ${title.title}\n\n` : "";
     const body = stateSections.map((section) => section.text).join("\n\n");
@@ -190,11 +214,8 @@ function extractSectionByHeading(content, query) {
   });
   if (index === -1) return null;
   const head = sections[index];
-  let endLine = head.endLine;
-  for (let cursor = index + 1; cursor < sections.length; cursor += 1) {
-    if (sections[cursor].level <= head.level) break;
-    endLine = sections[cursor].endLine;
-  }
+  const extended = extendSectionWithSubsections(content, sections, index);
+  const endLine = extended.endLine;
   const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
   const text = lines.slice(head.startLine - 1, endLine).join("\n").trim();
   return { heading: head.title, level: head.level, range: { startLine: head.startLine, endLine }, text, chars: text.length, digest: sha256(text) };
