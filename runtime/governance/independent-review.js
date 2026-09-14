@@ -23,16 +23,21 @@ function buildReviewPrompt({ task = {}, diff = "", verification = {}, evidence =
     ["DIFF", diff]
   ];
   let remaining = maxChars;
+  let diffIncludedChars = 0;
   let truncated = false;
   const output = ["You are an independent engineering reviewer. Do not edit files. Return only JSON: {\"verdict\":\"approved|rejected|inconclusive\",\"findings\":[],\"summary\":\"...\"}."];
+  const quotas = { OBJECTIVE: 0.10, ACCEPTANCE: 0.15, CONSTRAINTS: 0.10, VERIFICATION: 0.10, EVIDENCE: 0.10, DIFF: 0.55 };
   for (const [name, value] of sections) {
-    const sectionBudget = remaining <= 0 ? 0 : Math.min(remaining, name === "DIFF" ? remaining : Math.max(500, Math.floor(maxChars / 3)));
+    const sectionBudget = remaining <= 0 ? 0 : name === "DIFF"
+      ? remaining
+      : Math.min(remaining, Math.floor(maxChars * quotas[name]));
     const item = bounded(value, sectionBudget);
     output.push(`${name}:\n${item.value}`);
     remaining -= item.value.length;
     truncated ||= item.truncated;
+    if (name === "DIFF") diffIncludedChars = item.value.length;
   }
-  return Object.freeze({ prompt: output.join("\n\n"), truncated });
+  return Object.freeze({ prompt: output.join("\n\n"), truncated, budget: Object.freeze({ maxTokens, estimatedChars: maxChars, diffIncludedChars }) });
 }
 
 function parseReviewResult(stdout) {

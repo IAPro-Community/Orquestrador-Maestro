@@ -408,9 +408,16 @@ class MaestroApplication {
     const reviewDiff = JSON.stringify({
       changedFiles: changes?.changedFiles || [],
       stats: changes?.stats || [],
+      stagedStats: changes?.stagedStats || [],
+      workingTreePatch: changes?.workingTreePatch || "",
+      stagedPatch: changes?.stagedPatch || "",
+      untrackedFiles: changes?.untrackedFiles || [],
+      untrackedContent: changes?.untrackedContent || [],
+      binaryFiles: changes?.binaryFiles || [],
+      truncated: changes?.truncated === true
     });
     const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
-    const execution = core.createExecution({ id: id("review-execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", sourceRunId: run.id, contextTruncated: prompt.truncated } });
+    const execution = core.createExecution({ id: id("review-execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", sourceRunId: run.id, contextTruncated: prompt.truncated, reviewBudget: prompt.budget } });
     await this.store.saveExecution(execution); await this.record(run.id, "review.started", { executionId: execution.id });
     try {
       const handle = await provider.execute({ prompt: prompt.prompt, workspacePath, model: request.reviewerModel || request.model, sandbox: "read-only", sessionId: `review-${crypto.randomUUID()}`, timeoutMs: getPolicy(request.policyId || "standard")?.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
