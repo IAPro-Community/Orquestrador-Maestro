@@ -120,11 +120,11 @@ dependência do Nexus.
 Desligar `features.independentReview` remove o reviewer imediatamente. Os commits são
 sequenciais e reversíveis: `1b88153`, `810a9d0`, `939a34e`, `77d18b0`, `4be503b` e `d5f6cab`.
 Após cada reversão, rode `npm test`, `git diff --check` e a validação pública. A suíte final
-registrou 983 testes aprovados, 6 skips e 0 falhas.
+registrou 998 testes aprovados, 6 skips e 0 falhas no Node.js 22.
 
 ## TEST EVIDENCE
 
-- `npm test`: 983 aprovados, 6 skips, 0 falhas;
+- `npm test`: 998 aprovados, 6 skips, 0 falhas no Node.js 22;
 - `npm run bench:validate`: cenários existentes validados;
 - benchmark cognitivo A–E: aprovado, com reviewer somente em ASSURANCE;
 - `npm pack --dry-run`: pacote gerado com sucesso;
