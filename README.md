@@ -4,7 +4,7 @@
   <img src="assets/orquestrador-maestro-logo.png" alt="Orquestrador Maestro" width="360">
 </p>
 
-<p align="center"><a href="README.en.md">English</a> · <a href="docs/installation.md">Instalar</a> · <a href="docs/benchmark.md">Benchmark</a> · <a href="CONTRIBUTING.md">Contribuir</a></p>
+<p align="center"><a href="README.en.md">English</a> · <a href="docs/skills/README.md">Skills</a> · <a href="docs/installation.md">Instalar</a> · <a href="docs/benchmark.md">Benchmark</a> · <a href="CONTRIBUTING.md">Contribuir</a></p>
 
 > Faça qualquer IA trabalhar com o mesmo processo: entender o pedido, ler o contexto necessário, executar com limites, verificar o resultado e deixar um rastro útil para a próxima sessão.
 
@@ -17,6 +17,7 @@ O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini 
 | Entender a ideia em 1 minuto | [Como funciona](#um-processo-várias-ferramentas) |
 | Instalar agora | [Comece em dois minutos](#comece-em-dois-minutos) |
 | Ver o benchmark | [Veja os números](#benchmark-veja-os-números-na-sua-máquina) |
+| Descobrir qual skill usar | [Escolha por objetivo](docs/skills/choose.md) |
 | Configurar memória e contexto | [Guias técnicos](#guias-técnicos) |
 | Conhecer CLI, workflows e adaptadores | [Referência completa](README-technical-reference.md) |
 
@@ -41,7 +42,7 @@ Quando uma IA recebe só um prompt, ela pode abrir contexto demais, improvisar o
 
 ## Comece em dois minutos
 
-Requer Node.js 18 ou superior.
+Requer Node.js 20 ou superior.
 
 ```bash
 npm install -g @iapro/orquestrador-maestro-cli@latest
@@ -70,6 +71,16 @@ Ele integra fluxos para Codex, Claude Code, OpenCode, Cursor, Gemini CLI, Grok C
 Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orquestrador-reference.md), [economia de contexto](docs/context-economy.md), [memória de projeto com DEV/](docs/project-dev-hierarchy.md) e [perfis de ferramentas](docs/tool-profiles.md).
 
 **Próximo passo:** [aprenda o fluxo que a IA deve seguir](docs/ai-agent-operating-guide.md) ou [configure um workflow declarativo](docs/workflows.md).
+
+### Skills: especialização sob demanda
+
+Skills são capacidades especializadas que o Maestro roteia conforme objetivo, risco e ambiente. Nem toda skill precisa estar instalada em todas as ferramentas: algumas são **nativas**, outras ficam **sob demanda** na biblioteca e algumas são **condicionais**, pois exigem um serviço, navegador ou autorização.
+
+Escolha o caminho mais útil:
+
+- [Escolher por objetivo](docs/skills/choose.md)
+- [Consultar receitas e combinações](docs/skills/recipes.md)
+- [Abrir o catálogo completo](docs/skills/reference/README.md)
 
 ## Benchmark: veja os números na sua máquina
 
@@ -100,7 +111,7 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 | Avaliar privacidade | [Modelo de privacidade](docs/privacy-model.md) |
 | Retomar tarefas longas | [Workflows](docs/workflows.md) · [contratos](docs/task-and-workspace-contracts.md) |
 | Organizar memória | [Hierarquia DEV/](docs/project-dev-hierarchy.md) · [escopos](docs/memory-scopes.md) |
-| Trabalhar com skills | [Catálogo](docs/skill-catalog.md) · [pacotes](docs/skill-packs.md) |
+| Trabalhar com skills | [Portal](docs/skills/README.md) · [escolher](docs/skills/choose.md) · [catálogo](docs/skills/reference/README.md) |
 | Consultar CLI, arquitetura e comandos avançados | [Referência técnica completa](README-technical-reference.md) |
 | Resolver problemas | [Troubleshooting](docs/installation-troubleshooting.md) |
 | Ver tudo | [Índice de documentação](docs/) |

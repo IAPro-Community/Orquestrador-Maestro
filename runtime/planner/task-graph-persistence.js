@@ -48,7 +48,9 @@ class TaskGraphPersistence {
 
   async getGraph(missionId) {
     const graphs = await this.store.listTaskGraphs({ missionId });
-    return graphs.sort((a, b) => (b.metadata?.revision || 0) - (a.metadata?.revision || 0))[0];
+    return graphs
+      .filter((graph) => graph.metadata?.status !== "rejected")
+      .sort((a, b) => (b.metadata?.revision || 0) - (a.metadata?.revision || 0))[0];
   }
 
   getGraphById(graphId) { return this.store.getTaskGraph(graphId); }
@@ -61,7 +63,11 @@ class TaskGraphPersistence {
         metadata: {
           ...(task.metadata || {}),
           missionId: graph.missionId,
-          graphId: graph.id
+          graphId: graph.id,
+          ancestry: {
+            goalId: graph.missionId,
+            ...(task.metadata?.ancestry || {})
+          }
         }
       });
     }
@@ -75,6 +81,20 @@ class TaskGraphPersistence {
       missionId: task.metadata.missionId,
       projectId: task.projectId,
       graphId: task.metadata.graphId
+    };
+  }
+
+  async ancestryForTask(taskId) {
+    const task = await this.store.getTask(taskId);
+    const ancestry = task?.metadata?.ancestry;
+    if (!task?.metadata?.missionId && !ancestry) return undefined;
+    return {
+      goalId: ancestry?.goalId || task?.metadata?.missionId,
+      ...(ancestry?.parentTaskId ? { parentTaskId: ancestry.parentTaskId } : {}),
+      ...(ancestry?.causedByDecisionId ? { causedByDecisionId: ancestry.causedByDecisionId } : {}),
+      ...(ancestry?.outcomeId ? { outcomeId: ancestry.outcomeId } : {}),
+      missionId: task?.metadata?.missionId,
+      graphId: task?.metadata?.graphId
     };
   }
 }

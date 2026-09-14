@@ -2,12 +2,34 @@
 
 ## Unreleased
 
+### Contexto eficiente
+
 - Corrigida a redação de erros do Git para não revelar caminhos locais; briefs agora preservam subseções dos snapshots, specs e seções de estado.
 - `context brief` passou a selecionar fatias por snapshot em vez de concatenar arquivos do início: `DEV/HANDOFF.md` entrega só o snapshot mais recente, `DEV/SPECS/ACTIVE.md` o bloco YAML do contrato + seções de objetivo/estado/aceite, `DEV/CONTEXT.md` as seções de estado (ou a cauda). Prioridade por arquivo e fair share evitam que um documento grande omita os demais.
 - O resultado `--json` traz `manifest` com proveniência (`headCommit`, `contentDigest`, `strategy`, `range`, `digest`, `sourceDigest` por entrada) e reconhece specs com bloco `change:` (`state.mode = "pue"`, `state.workItem`).
 - Novo `context section --path FILE --heading TEXT` para carregar uma única seção/cláusula sob demanda (lazy-loading de autoridade).
 - Novo `context brief --since COMMIT` com o delta do Git (commits, arquivos, `diff --stat`).
 - Novo `scripts/context-brief-benchmark.js` (antes/depois em um projeto real, com verificação de informação obrigatória) e fixture `tests/fixtures/pue-project-fixture.js`. Em um repositório de governança real, o contexto obrigatório de boot caiu de ~43k para ~3k tokens estimados sem perder work item, snapshot, próxima ação ou estado.
+
+### Maestro
+
+- Adicionados vínculos de ancestralidade entre objetivos e tarefas, contratos de resultado e revisões estruturadas de plano com trilha de aprovação.
+- Introduzidos orçamentos cognitivos determinísticos e revisão independente somente leitura, opt-in e orientada por risco.
+
+### Skills e documentação
+
+- Evoluídos o manifesto e o roteador de skills, com catálogo pesquisável, receitas e referências geradas.
+- Publicada a skill de excelência frontend com fluxos, validações e fixtures de QA visual.
+
+### Verificação
+
+- A suíte completa passa a rodar em Ubuntu, Windows e macOS com Node 22 e 24; os smoke tests multiplataforma continuam cobrindo empacotamento e CLI.
+- Rejeições de plano preservam o grafo ativo, revisões pendentes obsoletas são descartadas e a revisão independente recebe o patch completo antes de aprovar.
+- O teste de eventos por socket agora sincroniza com a inscrição confirmada, evitando falso timeout em runners Windows lentos.
+- A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
+- O entrypoint de descoberta de design system converte caminhos locais em URLs `file://` portáveis no Windows.
+- A detecção de executáveis Windows reconhece ferramentas instaladas por arquivos `.cmd`, e o teste de contexto usa uma origem Git determinística entre sistemas.
+- Os testes de ciclo de vida usam `node-pty` no macOS e corrigem a permissão executável do helper nativo empacotado; scripts de instalação são autorizados somente para `node-pty@1.1.0`, e testes de providers comparam caminhos físicos resolvidos.
 
 ## 0.3.5 - 2026-09-11
 

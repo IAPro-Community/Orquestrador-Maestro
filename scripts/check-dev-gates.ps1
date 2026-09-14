@@ -11,7 +11,7 @@ $script = Join-Path (Join-Path $PSScriptRoot "..") "orquestrador\bin\check-dev-g
 $node = Get-Command node -ErrorAction SilentlyContinue
 
 if (-not $node) {
-  throw "Node.js 18+ is required to run check-dev-gates."
+  throw "Node.js 20+ is required to run check-dev-gates."
 }
 
 $nodeArgs = @()

@@ -25,6 +25,7 @@ test("invalid configuration falls back to safe compatibility defaults", () => {
   assert.equal(config.warningFrequency, "once-per-session");
   assert.equal(config.checks.missingVerification, "block");
   assert.equal(config.hooks.enabled, false);
+  assert.equal(config.features.independentReview, false);
 });
 
 test("evidence recommendation is relevant only when acceptance criteria exist", () => {
@@ -56,4 +57,9 @@ test("strict mode is explicit and preserves native tone/provider controls", () =
   assert.equal(config.tone, "preserved");
   assert.equal(config.hooks.enabled, false);
   assert.equal(config.providerModel, "informational");
+});
+
+test("invalid cognitive budget configuration fails fast", () => {
+  assert.throws(() => mergeConfig({ cognitiveBudget: { lean: { maxSkills: 0 } } }), /Invalid cognitiveBudget/);
+  assert.throws(() => mergeConfig({ cognitiveBudget: { unknown: {} } }), /unknown cognitive budget tier/);
 });

@@ -31,7 +31,7 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
 ```
 
-O bootstrap exige Node.js 18 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
+O bootstrap exige Node.js 20 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
 
 ## Disco cheio após uma instalação antiga no macOS
 

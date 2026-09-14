@@ -2,9 +2,9 @@
 
 ## System Shape
 
-Orquestrador Maestro is currently a Node.js CommonJS npm package targeting Node.js 18 or later. Its CLI delegates installation and verification to Bash and PowerShell scripts and exposes project-context helpers implemented in Node.js.
+Orquestrador Maestro is currently a Node.js CommonJS npm package targeting Node.js 20 or later. Its CLI delegates installation and verification to Bash and PowerShell scripts and exposes project-context helpers implemented in Node.js.
 
-The package is primarily a portable, sanitized distribution of rules, skills, tool profiles, project documentation conventions, and installers. It does not currently operate an agent execution runtime, a Run Store, a provider adapter layer, or a VS Code extension.
+The package is a portable, sanitized distribution of rules, skills, tool profiles, project documentation conventions, installers, and an additive local execution runtime. The runtime exposes the Application API, Run Store, provider adapters, verification engine, and bridge; the optional VS Code extension remains outside this package.
 
 ## Current Components
 
@@ -14,6 +14,7 @@ CLI
  ├─ doctor
  ├─ DEV helpers and context brief
  ├─ changelog and telemetry
+ ├─ runtime, bridge, providers, runs, and verification
  └─ packaged Orquestrador content
       ├─ rules and persistence contract
       ├─ skills registry and synchronizer
@@ -26,7 +27,7 @@ CLI
 
 `SKILLS_ROUTER.json`, aliases, chains, and execution profiles guide agents toward a compact set of skills. `SKILLS_MANIFEST.json` is the managed canonical registry, while `sync-skills` mirrors only approved compact content into native roots. Community and Codex catalogs are kept in the Orquestrador library rather than copied wholesale into native scanned directories.
 
-`WORKFLOW_SCHEMAS.json` is declarative and opt-in. It names phases and gates but does not execute providers or persist workflow state.
+`WORKFLOW_SCHEMAS.json` remains declarative and opt-in. The runtime executes approved local runs through provider adapters and persists lifecycle evidence without replacing the human-readable DEV memory.
 
 ## Context and Persistence Today
 
@@ -41,4 +42,4 @@ CLI
 - Installer support spans Windows, Linux, and macOS through existing PowerShell and Bash paths.
 - Publication validation sanitizes the public snapshot.
 - Telemetry is opt-in and intentionally excludes project content, prompts, paths, and secrets.
-- Existing long-running provider execution, cancellation, event streaming, verification evidence, and Git observation are not yet runtime capabilities.
+- Provider execution, cancellation, event streaming, verification evidence, and Git observation are local runtime capabilities; deployment, external migrations, and automatic skill acquisition remain opt-in and outside the default path.

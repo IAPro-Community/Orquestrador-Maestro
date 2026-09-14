@@ -73,6 +73,7 @@ test("recordHumanApproval creates approval record with approvalType: HUMAN_REVIE
   assert.equal(record.taskGraphId, "tg-100");
   assert.equal(record.approvalType, "HUMAN_REVIEW");
   assert.equal(record.userDecision, "approved");
+  assert.equal(record.approved, true);
   assert.ok(record.approvedAt);
   assert.deepEqual(record.metadata, { reviewer: "developer", reason: "manual check ok" });
   assert.ok(Object.isFrozen(record));
