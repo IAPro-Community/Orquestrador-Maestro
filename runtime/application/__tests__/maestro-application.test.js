@@ -140,6 +140,24 @@ test("independent review fails closed when the patch is incomplete", async () =>
   assert.equal(provider.prompts.length, 0);
 });
 
+test("LEAN and STANDARD runs do not add independent review calls", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-budget-review-calls-"));
+  const provider = new ReviewAdapter();
+  const app = new MaestroApplication({
+    projectRoot: root,
+    governance: { features: { independentReview: true } },
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([provider]),
+    skills: { get: () => null }
+  });
+  const verificationCommands = [{ name: "test", command: `${process.execPath} -e "process.exit(0)"` }];
+  await app.executeRun({ providerId: "fake", description: "Tiny change", semanticTask: { id: "lean", objective: "Tiny change", risk: "low", complexity: "simple", changeClass: "trivial", acceptanceCriteria: [] }, verificationCommands });
+  await app.executeRun({ providerId: "fake", description: "Normal change", semanticTask: { id: "standard", objective: "Normal change", risk: "medium", complexity: "medium", changeClass: "local", acceptanceCriteria: [] }, verificationCommands });
+  assert.equal(provider.prompts.length, 2);
+  const executions = await app.store.listExecutions({});
+  assert.equal(executions.filter((item) => item.metadata?.role === "independent-reviewer").length, 0);
+});
+
 test("task descriptions derive risk budgets and strict execution gates", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-derived-risk-"));
   const compatible = new MaestroApplication({

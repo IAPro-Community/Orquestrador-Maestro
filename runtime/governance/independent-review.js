@@ -38,7 +38,9 @@ function buildReviewPrompt({ task = {}, diff = "", verification = {}, evidence =
     truncated ||= item.truncated;
     if (name === "DIFF") diffIncludedChars = item.value.length;
   }
-  return Object.freeze({ prompt: output.join("\n\n"), truncated, diffIncluded: typeof diff === "string" && diff.trim().length > 0, budget: Object.freeze({ maxTokens, estimatedChars: maxChars, diffIncludedChars }) });
+  if (truncated) output.push("CONTEXT_STATUS:\ntruncated: true\nnotice: ChangeSet content was bounded for this review.");
+  const prompt = output.join("\n\n");
+  return Object.freeze({ prompt, truncated, diffIncluded: typeof diff === "string" && diff.trim().length > 0, budget: Object.freeze({ maxTokens, estimatedChars: maxChars, diffIncludedChars }), truncationNotice: truncated ? "ChangeSet context was truncated to the reviewer budget." : null });
 }
 
 function parseReviewResult(stdout) {

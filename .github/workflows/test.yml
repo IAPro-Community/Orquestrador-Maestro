@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [22, 24]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [20, 22, 24]
+        os: [ubuntu-latest]
       fail-fast: false
     steps:
       - name: Checkout
@@ -104,7 +104,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        node-version: [22, 24]
+        node-version: [20, 24]
       fail-fast: false
     steps:
       - name: Checkout
@@ -163,7 +163,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [22, 24]
+        node-version: [20, 24]
       fail-fast: false
     steps:
       - name: Checkout

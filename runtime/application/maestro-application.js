@@ -416,7 +416,21 @@ class MaestroApplication {
     if (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview()) {
       return Object.freeze({ status: "unavailable", verdict: "inconclusive", calls: 0, reason: "provider-read-only-review-unavailable" });
     }
-    const reviewDiff = typeof changes?.patch === "string" ? changes.patch : "";
+    const reviewDiff = JSON.stringify({
+      changedFiles: changes?.changedFiles || [],
+      stats: changes?.stats || [],
+      stagedStats: changes?.stagedStats || [],
+      workingTreePatch: changes?.workingTreePatch || "",
+      stagedPatch: changes?.stagedPatch || "",
+      untrackedFiles: changes?.untrackedFiles || [],
+      untrackedContent: changes?.untrackedContent || [],
+      binaryFiles: changes?.binaryFiles || [],
+      sensitiveFiles: changes?.sensitiveFiles || [],
+      limits: changes?.limits || {},
+      truncated: changes?.truncated === true,
+      truncationNotice: changes?.truncated === true ? "ChangeSet context was truncated; omitted content is represented by metadata only." : null,
+      patch: changes?.patch || ""
+    });
     const prompt = buildReviewPrompt({ task: request.semanticTask || task, diff: reviewDiff, verification, evidence, constraints: request.constraints || [], maxTokens: cognitiveBudget.contextTokens });
     if (!changes?.available || !changes.patchComplete || !prompt.diffIncluded || prompt.truncated) {
       return Object.freeze({ status: "inconclusive", verdict: "inconclusive", findings: [{ code: "REVIEW_CONTEXT_INCOMPLETE" }], summary: "The reviewer did not receive a complete patch and context.", calls: 0, contextTruncated: prompt.truncated });
