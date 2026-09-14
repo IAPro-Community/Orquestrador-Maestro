@@ -20,7 +20,7 @@
 - A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
 - O entrypoint de descoberta de design system converte caminhos locais em URLs `file://` portáveis no Windows.
 - A detecção de executáveis Windows reconhece ferramentas instaladas por arquivos `.cmd`, e o teste de contexto usa uma origem Git determinística entre sistemas.
-- Os testes de ciclo de vida usam `node-pty` no macOS, com scripts de instalação autorizados somente para a versão fixada `node-pty@1.1.0`; os testes de providers comparam caminhos físicos resolvidos.
+- Os testes de ciclo de vida usam `node-pty` no macOS e corrigem a permissão executável do helper nativo empacotado; scripts de instalação são autorizados somente para `node-pty@1.1.0`, e testes de providers comparam caminhos físicos resolvidos.
 
 ## 0.3.5 - 2026-09-11
 

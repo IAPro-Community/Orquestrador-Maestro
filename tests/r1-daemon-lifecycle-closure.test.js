@@ -14,6 +14,18 @@ let nodePty = null;
 if (process.platform === "darwin") {
   try { nodePty = require("node-pty"); } catch {}
 }
+if (process.platform === "darwin" && nodePty) {
+  const nodePtyRoot = path.resolve(path.dirname(require.resolve("node-pty")), "..");
+  const nativeDir = [
+    "build/Release",
+    "build/Debug",
+    `prebuilds/${process.platform}-${process.arch}`
+  ].find((dir) => fs.existsSync(path.join(nodePtyRoot, dir, "pty.node")));
+  assert.ok(nativeDir, "node-pty native module directory is missing");
+  const spawnHelper = path.join(nodePtyRoot, nativeDir, "spawn-helper");
+  assert.ok(fs.existsSync(spawnHelper), "node-pty spawn helper is missing");
+  fs.chmodSync(spawnHelper, 0o755);
+}
 const realPtySkip = process.platform === "win32"
   ? "real PTY daemon lifecycle tests are Unix-only"
   : process.platform === "darwin" && !nodePty
