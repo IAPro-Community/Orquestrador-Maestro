@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Contexto eficiente
+
+- Corrigida a redação de erros do Git para não revelar caminhos locais; briefs agora preservam subseções dos snapshots, specs e seções de estado.
+- `context brief` passou a selecionar fatias por snapshot em vez de concatenar arquivos do início: `DEV/HANDOFF.md` entrega só o snapshot mais recente, `DEV/SPECS/ACTIVE.md` o bloco YAML do contrato + seções de objetivo/estado/aceite, `DEV/CONTEXT.md` as seções de estado (ou a cauda). Prioridade por arquivo e fair share evitam que um documento grande omita os demais.
+- O resultado `--json` traz `manifest` com proveniência (`headCommit`, `contentDigest`, `strategy`, `range`, `digest`, `sourceDigest` por entrada) e reconhece specs com bloco `change:` (`state.mode = "pue"`, `state.workItem`).
+- Novo `context section --path FILE --heading TEXT` para carregar uma única seção/cláusula sob demanda (lazy-loading de autoridade).
+- Novo `context brief --since COMMIT` com o delta do Git (commits, arquivos, `diff --stat`).
+- Novo `scripts/context-brief-benchmark.js` (antes/depois em um projeto real, com verificação de informação obrigatória) e fixture `tests/fixtures/pue-project-fixture.js`. Em um repositório de governança real, o contexto obrigatório de boot caiu de ~43k para ~3k tokens estimados sem perder work item, snapshot, próxima ação ou estado.
+
 ### Maestro
 
 - Adicionados vínculos de ancestralidade entre objetivos e tarefas, contratos de resultado e revisões estruturadas de plano com trilha de aprovação.

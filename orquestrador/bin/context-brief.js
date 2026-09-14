@@ -3,9 +3,11 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 const { classifyTask } = require("../lib/task-classifier.js");
 const { resolveGitContext, shouldUseMemory } = require("../lib/git-context.js");
 const { isObservationVisible, rankObservations } = require("../lib/visibility.js");
+const slices = require("../lib/context-slices.js");
 
 const DEFAULT_MAX_CHARS = 16000;
 const MAX_MAX_CHARS = 64000;
@@ -20,6 +22,28 @@ const COMPACT_FILES = [
 const EXCLUDED_SEGMENTS = new Set([".git", ".omx", "backups", "cache", "caches", "logs", "node_modules", "tmp"]);
 const EXCLUDED_NAMES = new Set([".env", "memoria.md", "memory.md", "WORKLOG.md"]);
 const TASK_DETAIL_ROOTS = ["DEV/SPECS", "DEV/TASKS", "DEV/WORKFLOWS", "DEV/RESEARCH"];
+// Fatia escolhida por arquivo compacto (ver orquestrador/lib/context-slices.js): o
+// briefing entrega o snapshot/estado ATUAL, não o começo do arquivo.
+const SLICERS = {
+  "DEV/HANDOFF.md": slices.sliceHandoff,
+  "DEV/SPECS/ACTIVE.md": slices.sliceActiveSpec,
+  "DEV/CONTEXT.md": slices.sliceContext
+};
+// Ordem de prioridade dos arquivos compactos: o que muda por tarefa (handoff, spec ativa)
+// vem antes do que muda por projeto (contexto, índice). Sem isto, CONTEXT.md consumia o
+// orçamento canônico antes de HANDOFF/ACTIVE entrarem.
+const COMPACT_PRIORITY = {
+  "DEV/HANDOFF.md": 95,
+  "DEV/SPECS/ACTIVE.md": 90,
+  "DEV/CONTEXT.md": 85,
+  "DEV/INDEX.md": 80,
+  "DEV/README.md": 75,
+  "DEV/VERIFY.md": 60
+};
+// Nenhum arquivo canônico sozinho ocupa mais que esta fração do orçamento canônico na
+// primeira passada; a sobra é redistribuída por prioridade (fair share determinístico).
+const CANONICAL_FAIR_SHARE = 0.4;
+const DELTA_MAX_FILES = 60;
 
 function printHelp() {
   console.log(`Briefing de contexto do Orquestrador Maestro
@@ -32,15 +56,22 @@ Opções:
   --task TEXTO          Intenção do Maestro para priorizar documentos
   --task-id ID          ID da tarefa para recuperação de observações scoped
   --max-chars N         Limite total do briefing (padrão: ${DEFAULT_MAX_CHARS})
+  --since COMMIT        Inclui o delta do Git (diff --stat + arquivos) desde COMMIT
   --json                Retorna metadados e conteúdo em JSON
   --help                Exibe esta ajuda
+
+Seção sob demanda (lazy-loading de autoridade/documentação):
+  node context-brief.js section --path ARQUIVO.md --heading "D11" [--project-path PATH] [--json]
 `);
 }
 
 function parseArgs(argv) {
-  const options = { projectPath: process.cwd(), task: "", maxChars: DEFAULT_MAX_CHARS, json: false, taskId: null };
+  const options = { projectPath: process.cwd(), task: "", maxChars: DEFAULT_MAX_CHARS, json: false, taskId: null, since: null, command: "brief", sectionPath: null, heading: null };
   const args = [...argv];
   if (args[0] === "brief") {
+    args.shift();
+  } else if (args[0] === "section") {
+    options.command = "section";
     args.shift();
   }
 
@@ -66,6 +97,15 @@ function parseArgs(argv) {
       options.task = next;
     } else if (arg === "--task-id") {
       options.taskId = next;
+    } else if (arg === "--since") {
+      if (!/^[A-Za-z0-9_./~^-]{1,80}$/.test(next)) {
+        throw new Error("--since aceita um commit/ref do Git (sem espaços).");
+      }
+      options.since = next;
+    } else if (arg === "--path") {
+      options.sectionPath = next;
+    } else if (arg === "--heading") {
+      options.heading = next;
     } else if (arg === "--max-chars") {
       const parsed = Number.parseInt(next, 10);
       if (!Number.isInteger(parsed) || parsed < 1000 || parsed > MAX_MAX_CHARS) {
@@ -240,17 +280,17 @@ function parsePhaseState(specContent) {
 function buildCandidates(projectRoot, task) {
   const candidates = [];
   const seen = new Set();
-  const add = (filePath, priority, reason) => {
+  const add = (filePath, priority, reason, slicer = null) => {
     if (!filePath || seen.has(filePath) || !isSafeRegularFile(filePath)) {
       return;
     }
     seen.add(filePath);
-    candidates.push({ filePath, priority, reason });
+    candidates.push({ filePath, priority, reason, slicer });
   };
 
   add(findNearestFile(projectRoot, "AGENTS.md"), 100, "contrato do projeto");
   for (const relative of COMPACT_FILES) {
-    add(path.join(projectRoot, relative), 80, "memória operacional compacta");
+    add(path.join(projectRoot, relative), COMPACT_PRIORITY[relative] || 80, "memória operacional compacta", SLICERS[relative] || null);
   }
 
   const taskTokens = tokenize(task);
@@ -279,14 +319,20 @@ function buildDevState(projectRoot) {
   const verifyContent = isSafeRegularFile(verifyPath) ? readUtf8(verifyPath) : "";
 
   const phaseState = parsePhaseState(specContent);
+  const pue = slices.parsePueChange(specContent);
+  const handoffSnapshot = handoffContent ? slices.splitSections(handoffContent).find((section) => section.level === 2) : null;
   const risks = summarizeLines(
     meaningfulSectionLines(contextContent, "Constraints And Risks").slice(0, 2),
     220
   ) || summarizeLines(meaningfulSectionLines(verifyContent, "Remaining Risk").slice(0, 2), 220);
 
+  const snapshotNextAction = handoffSnapshot
+    ? (handoffSnapshot.text.match(/(?:Próxima ação|Proxima acao|Next action|Next context)\s*(?:\(.*?\))?\s*[:：]\s*([\s\S]+?)(?:\n\n|$)/iu) || [])[1] || ""
+    : "";
   const nextAction = summarizeText(
     extractBullet(handoffContent, "Next context")
       || summarizeLines(meaningfulSectionLines(handoffContent, "Next Action").slice(0, 2), 180)
+      || snapshotNextAction
       || summarizeLines(meaningfulSectionLines(contextContent, "Next Context").slice(0, 2), 180),
     180
   );
@@ -294,18 +340,65 @@ function buildDevState(projectRoot) {
   const nextGate = phaseState.nextGate
     || summarizeLines(meaningfulSectionLines(specContent, "Verification Plan").slice(0, 2), 180);
 
-  const status = phaseState.status || phaseState.legacyStatus;
-  const phase = phaseState.phase || "legacy (não declarada)";
+  let status = phaseState.status || phaseState.legacyStatus;
+  let phase = phaseState.phase || "legacy (não declarada)";
+  let mode = phaseState.mode;
+  const workItem = pue && pue.id ? pue.id : "";
+  if (pue && pue.id) {
+    mode = "pue";
+    phase = summarizeText(`${pue.id}${pue.declaredClass ? ` (${pue.declaredClass})` : ""}`, 80);
+    status = summarizeText(
+      [
+        handoffSnapshot ? `snapshot: ${handoffSnapshot.title}` : "",
+        pue.architectureStatus ? `architecture=${pue.architectureStatus}` : "",
+        pue.authorizationStatus ? `authorization=${pue.authorizationStatus}` : ""
+      ].filter(Boolean).join(" | "),
+      200
+    ) || status;
+  } else if (mode === "legacy" && handoffSnapshot) {
+    status = status || summarizeText(`snapshot: ${handoffSnapshot.title}`, 140);
+  }
 
   return {
-    mode: phaseState.mode,
+    mode,
     phase,
     status: status || "não declarado",
     nextGate: nextGate || "não declarado",
     startedAt: phaseState.startedAt || "",
     risks: risks || "não declarados",
-    nextAction: nextAction || "não declarada"
+    nextAction: nextAction || "não declarada",
+    workItem
   };
+}
+
+function resolveGitDelta(projectRoot, since) {
+  if (!since) return null;
+  const run = (args) => execFileSync("git", ["-C", projectRoot, ...args], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "ignore"] }).trim();
+  try {
+    const base = run(["rev-parse", "--verify", "--quiet", `${since}^{commit}`]);
+    if (!base) return { since, error: "commit não resolvido" };
+    const head = run(["rev-parse", "HEAD"]);
+    const stat = run(["diff", "--stat=100", `${base}..${head}`]);
+    const names = run(["diff", "--name-status", `${base}..${head}`]).split("\n").filter(Boolean);
+    const commits = run(["log", "--oneline", "--no-decorate", "-n", "30", `${base}..${head}`]).split("\n").filter(Boolean);
+    return {
+      since,
+      base,
+      head,
+      files: names.length,
+      commits: commits.length,
+      text: [
+        `Base: ${base.slice(0, 12)} → HEAD ${head.slice(0, 12)} (${commits.length} commit(s), ${names.length} arquivo(s))`,
+        commits.length ? `\nCommits:\n${commits.slice(0, 30).map((line) => `- ${line}`).join("\n")}` : "",
+        names.length ? `\nArquivos:\n${names.slice(0, DELTA_MAX_FILES).map((line) => `- ${line.replace(/\t/g, " ")}`).join("\n")}${names.length > DELTA_MAX_FILES ? `\n- … +${names.length - DELTA_MAX_FILES}` : ""}` : "\nSem arquivos alterados.",
+        stat ? `\nResumo: ${stat.split("\n").slice(-1)[0].trim()}` : ""
+      ].filter(Boolean).join("\n")
+    };
+  } catch (error) {
+    const escapedRoot = path.resolve(projectRoot).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const message = String(error.message || "").replace(new RegExp(escapedRoot, "giu"), "[caminho local redigido]");
+    return { since, error: sanitizeContent(message).split("\n")[0] };
+  }
 }
 
 function buildStateSection(state) {
@@ -393,6 +486,7 @@ function buildBrief(options) {
 
   const candidates = buildCandidates(projectRoot, options.task);
   const state = buildDevState(projectRoot);
+  const delta = resolveGitDelta(projectRoot, options.since);
   const sections = [];
   const included = [];
   const header = [
@@ -401,12 +495,13 @@ function buildBrief(options) {
     options.task ? `Intenção do Maestro: ${options.task.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 500)}` : "Intenção do Maestro: não informada",
     `Orçamento: ${budget.maxChars} caracteres`,
     `Classificação da tarefa: ${taskClassification.class} (${taskClassification.reason})`,
-    `Distribuição: canonical=${budget.canonicalChars} docs=${budget.docsChars} memory=${budget.memoryChars} metadata=${budget.metadataChars}`
-  ].join("\n");
+    `Distribuição: canonical=${budget.canonicalChars} docs=${budget.docsChars} memory=${budget.memoryChars} metadata=${budget.metadataChars}`,
+    gitCtx.headCommit ? `HEAD: ${String(gitCtx.headCommit).slice(0, 12)}${options.since ? ` · delta desde ${options.since}` : ""}` : ""
+  ].filter(Boolean).join("\n");
 
   let remaining = Math.max(0, budget.maxChars - header.length - 2);
   const actual = { canonical: 0, docs: 0, memory: 0, metadata: header.length, total: 0 };
-  const pushSection = (sectionContent, sectionPath, reason, bucket = "metadata") => {
+  const pushSection = (sectionContent, sectionPath, reason, bucket = "metadata", provenance = {}) => {
     if (!sectionContent || remaining <= 0) {
       return;
     }
@@ -417,35 +512,90 @@ function buildBrief(options) {
     }
     const output = truncate(sectionContent, available);
     sections.push(output);
-    included.push({ path: sectionPath, reason, chars: output.length });
+    included.push({
+      path: sectionPath,
+      reason,
+      chars: output.length,
+      truncated: output.length < sectionContent.length,
+      digest: slices.sha256(output),
+      ...provenance
+    });
     remaining -= separator.length + output.length;
     actual[bucket] += output.length;
     return output.length;
   };
 
-  pushSection(buildStateSection(state), "DEV state summary", "estado DEV atual", "metadata");
+  pushSection(buildStateSection(state), "DEV state summary", "estado DEV atual", "metadata", { strategy: "derived" });
 
-  const canonicalBudget = budget.canonicalChars;
+  // Orçamento canônico efetivo: `metadataChars` já está coberto pelas reservas fixas de
+  // cabeçalho/estado, e o bolsão de memória fica ocioso quando a memória episódica não se
+  // aplica à tarefa — nos dois casos a sobra vai para os arquivos canônicos em vez de ser
+  // desperdiçada (o briefing continua limitado por `maxChars`).
+  const memoryApplies = budget.memoryChars > 0 && shouldUseMemory(taskClassification);
+  const canonicalBudget = budget.canonicalChars + budget.metadataChars + (memoryApplies ? 0 : budget.memoryChars);
   const docsBudget = budget.docsChars;
-  let usedCanonical = 0;
-  let usedDocs = 0;
+  const isCompactCandidate = (candidate) => candidate.reason === "memória operacional compacta" || candidate.reason === "contrato do projeto";
+
+  // Alocação em duas passadas: (1) cada arquivo compacto recebe até a sua fatia, limitado ao
+  // fair share; (2) a sobra do canônico vai, por prioridade, a quem ficou truncado. Documentos
+  // relacionados à intenção usam o bolsão de docs. Só depois o texto é montado.
+  const prepared = [];
   for (const candidate of candidates) {
-    const isCompact = candidate.reason === "memória operacional compacta" || candidate.reason === "contrato do projeto";
-    const budgetLimit = isCompact ? canonicalBudget : docsBudget;
-    const used = isCompact ? usedCanonical : usedDocs;
-    if (used >= budgetLimit) continue;
-    const content = readUtf8(candidate.filePath);
-    if (!content) continue;
-    const heading = relativePath(projectRoot, candidate.filePath);
-    const headingPrefix = `## ${heading}\n\n`;
-    const contentLimit = Math.max(0, Math.min(budgetLimit - used - headingPrefix.length, remaining - headingPrefix.length));
-    const truncated = truncate(content, contentLimit);
-    const renderedLength = pushSection(`${headingPrefix}${truncated}`, heading, candidate.reason, isCompact ? "canonical" : "docs");
-    if (isCompact) {
-      usedCanonical += renderedLength;
+    const source = readUtf8(candidate.filePath);
+    if (!source) continue;
+    const slice = candidate.slicer ? candidate.slicer(source) : slices.fullSlice(source);
+    prepared.push({ candidate, slice, heading: relativePath(projectRoot, candidate.filePath), allowance: 0, compact: isCompactCandidate(candidate) });
+  }
+  const cap = Math.max(1, Math.floor(canonicalBudget * CANONICAL_FAIR_SHARE));
+  let leftover = canonicalBudget;
+  let docsLeftover = docsBudget;
+  for (const item of prepared) {
+    const headingLength = `## ${item.heading}\n\n`.length;
+    if (item.compact) {
+      if (leftover <= headingLength) continue;
+      item.allowance = Math.min(item.slice.chars + headingLength, cap, leftover);
+      leftover -= item.allowance;
     } else {
-      usedDocs += renderedLength;
+      if (docsLeftover <= headingLength) continue;
+      item.allowance = Math.min(item.slice.chars + headingLength, docsLeftover);
+      docsLeftover -= item.allowance;
     }
+  }
+  for (const item of prepared.filter((entry) => entry.compact)) {
+    if (leftover <= 0) break;
+    const want = item.slice.chars + `## ${item.heading}\n\n`.length - item.allowance;
+    if (want > 0) {
+      const extra = Math.min(want, leftover);
+      item.allowance += extra;
+      leftover -= extra;
+    }
+  }
+  for (const item of prepared) {
+    const headingPrefix = `## ${item.heading}\n\n`;
+    if (item.allowance <= headingPrefix.length || remaining <= headingPrefix.length) continue;
+    const contentLimit = Math.min(item.allowance - headingPrefix.length, remaining - headingPrefix.length);
+    const truncated = truncate(item.slice.text, contentLimit);
+    pushSection(`${headingPrefix}${truncated}`, item.heading, item.candidate.reason, item.compact ? "canonical" : "docs", {
+      strategy: item.slice.strategy,
+      range: item.slice.range,
+      sourceChars: item.slice.sourceChars,
+      sourceDigest: item.slice.sourceDigest,
+      sliceChars: item.slice.chars
+    });
+  }
+
+  if (delta) {
+    const deltaText = delta.error
+      ? `## Delta desde ${delta.since}\n\n[indisponível: ${delta.error}]`
+      : `## Delta desde ${delta.since}\n\n${delta.text}`;
+    pushSection(truncate(deltaText, Math.max(200, Math.min(budget.docsChars, remaining))), "git delta", "mudanças desde o baseline", "docs", {
+      strategy: "git-diff-stat",
+      since: delta.since,
+      base: delta.base || null,
+      head: delta.head || null,
+      files: delta.files || 0,
+      commits: delta.commits || 0
+    });
   }
 
   let memoryConsidered = 0;
@@ -532,6 +682,7 @@ function buildBrief(options) {
       memoryChars: budget.memoryChars,
       metadataChars: budget.metadataChars,
       taskClass: taskClassification.class,
+      canonicalEffectiveChars: canonicalBudget,
       allocated: {
         canonical: budget.canonicalChars,
         docs: budget.docsChars,
@@ -546,17 +697,57 @@ function buildBrief(options) {
     used: content.length,
     state,
     files: included,
-    omitted: candidates.length - included.filter((item) => item.path !== "DEV state summary").length,
+    omitted: candidates.length - included.filter((item) => item.path !== "DEV state summary" && item.path !== "git delta" && item.path !== "episodic memory").length,
+    manifest: {
+      version: 1,
+      headCommit: gitCtx.headCommit || null,
+      since: options.since || null,
+      contentDigest: slices.sha256(content),
+      entries: included.map((item) => ({ ...item, strategy: item.strategy || "full", sourceDigest: item.sourceDigest || null, range: item.range || null, sourceChars: item.sourceChars || null }))
+    },
     content
   };
 
   return result;
 }
 
+function buildSection(options) {
+  if (!options.sectionPath || !options.heading) {
+    throw new Error("`section` exige --path ARQUIVO.md e --heading TEXTO.");
+  }
+  const projectRoot = path.resolve(options.projectPath);
+  const filePath = path.isAbsolute(options.sectionPath) ? options.sectionPath : path.join(projectRoot, options.sectionPath);
+  if (!isSafeRegularFile(filePath)) {
+    throw new Error(`Arquivo não encontrado ou não regular: ${options.sectionPath}`);
+  }
+  const source = readUtf8(filePath);
+  const found = slices.extractSectionByHeading(source, options.heading);
+  if (!found) {
+    throw new Error(`Seção não encontrada: "${options.heading}" em ${options.sectionPath}`);
+  }
+  const text = truncate(found.text, options.maxChars);
+  return {
+    path: options.sectionPath,
+    heading: found.heading,
+    level: found.level,
+    range: found.range,
+    chars: text.length,
+    truncated: text.length < found.text.length,
+    digest: slices.sha256(text),
+    sourceDigest: slices.sha256(source),
+    content: text
+  };
+}
+
 function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
   if (options.help) {
     printHelp();
+    return 0;
+  }
+  if (options.command === "section") {
+    const section = buildSection(options);
+    console.log(options.json ? JSON.stringify(section, null, 2) : section.content);
     return 0;
   }
   const brief = buildBrief(options);
@@ -573,4 +764,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, classifyTask, computeBudget, main, parseArgs, parsePhaseState };
+module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, buildSection, classifyTask, computeBudget, main, parseArgs, parsePhaseState, resolveGitDelta };
