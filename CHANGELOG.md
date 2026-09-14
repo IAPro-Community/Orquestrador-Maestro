@@ -14,7 +14,7 @@
 
 ### Verificação
 
-- A suíte completa passa a rodar em Ubuntu, Windows e macOS com Node 20 e 22; os smoke tests multiplataforma continuam cobrindo empacotamento e CLI.
+- A suíte completa passa a rodar em Ubuntu, Windows e macOS com Node 22 e 24; os smoke tests multiplataforma continuam cobrindo empacotamento e CLI.
 - Rejeições de plano preservam o grafo ativo, revisões pendentes obsoletas são descartadas e a revisão independente recebe o patch completo antes de aprovar.
 - O teste de eventos por socket agora sincroniza com a inscrição confirmada, evitando falso timeout em runners Windows lentos.
 - A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
