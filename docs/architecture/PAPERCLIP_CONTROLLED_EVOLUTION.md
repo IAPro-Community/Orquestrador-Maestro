@@ -96,10 +96,16 @@ somente com evidência de valor e reutilização explícita dos stores/events/be
 
 ## TOKEN IMPACT
 
-Os testes determinísticos dos cenários A–E confirmam zero chamadas extras para LEAN,
-STANDARD e reviewer desabilitado. ASSURANCE habilitado adiciona exatamente uma chamada,
-apenas após execução bem-sucedida. A suíte não inventa tokens: contadores de provider ausentes
-permanecem `unavailable`/`UNKNOWN`; percentuais reais dependem de execução pareada do benchmark
+### Garantias de política (determinísticas)
+
+Os cenários A–E garantem zero reviewer extra em LEAN/STANDARD, no máximo um reviewer em
+ASSURANCE, zero retries automáticos e bloqueio pré-execução quando faltam approval ou
+capacidade de review. Isso é um contrato de contagem de chamadas, não uma medição de economia.
+
+### Medição empírica (provider)
+
+A suíte não inventa tokens: contadores ausentes permanecem `unavailable`/`UNKNOWN`. Percentuais
+de custo, latência e economia só podem ser publicados após execuções pareadas do benchmark
 harness com provider configurado.
 
 ## ARCHITECTURE IMPACT

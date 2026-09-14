@@ -72,7 +72,8 @@ troca de conta ou coordenação de provider.
 
 ## Evidência e benchmarks
 
-Os testes determinísticos cobrem os cenários de tarefa trivial, alteração normal,
-arquitetura, segurança e regressão quanto a tier, chamadas, reviewer, retries e outcome.
-O benchmark harness existente deve ser usado para tokens reais em execuções pareadas. Sem
-provider com contadores confiáveis, publique `UNKNOWN` e não alegue percentual de economia.
+Os testes determinísticos cobrem os cenários de tarefa trivial, alteração normal, arquitetura,
+segurança e regressão quanto a tier, chamadas, reviewer, retries e outcome. Isso garante
+política de contagem de chamadas; não prova economia de tokens. O benchmark harness existente
+deve ser usado para tokens reais em execuções pareadas. Sem provider com contadores confiáveis,
+publique `UNKNOWN` e não alegue percentual de economia.

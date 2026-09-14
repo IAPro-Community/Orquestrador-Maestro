@@ -267,7 +267,8 @@ class MaestroApplication {
     const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
       && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
       ? "reviewer-capability-unavailable" : null;
-    const approvalPreflight = cognitiveBudget.humanApproval && request.approval?.approved !== true && request.planApproval?.approved !== true
+    const approvalGranted = request.approval?.approved === true || request.approval?.userDecision === "approved" || request.planApproval?.approved === true || request.planApproval?.userDecision === "approved";
+    const approvalPreflight = cognitiveBudget.humanApproval && !approvalGranted
       ? "human-approval-required" : null;
     const preflightBlock = reviewPreflight || approvalPreflight;
     const taskMetadata = {
