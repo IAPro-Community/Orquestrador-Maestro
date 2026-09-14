@@ -3,6 +3,7 @@
 ## Pré-requisitos
 
 - Node.js 20 ou superior para desenvolvimento e execução do pacote atual.
+- CI obrigatório: Node.js 22 e 24 (último LTS) em Linux; smoke em Windows e macOS.
 - npm disponível no PATH.
 - PowerShell para executar os validadores `.ps1`.
 - API keys não são necessárias para os testes locais.
