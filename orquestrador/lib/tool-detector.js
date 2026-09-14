@@ -14,10 +14,14 @@ const DETECTION_STATES = {
 
 function executableExists(command) {
   if (!command) return false;
+  // Only registry command names may be passed through cmd.exe. Batch files are
+  // not directly spawnable on Windows, so use the system shell for this fixed,
+  // validated set of executable names.
+  if (process.platform === "win32" && !/^[a-zA-Z0-9._-]+$/.test(command)) return false;
   try {
     const result = spawnSync(command, ["--version"], {
       stdio: "ignore",
-      shell: false,
+      shell: process.platform === "win32",
       timeout: 5000
     });
     return !result.error && result.status === 0;

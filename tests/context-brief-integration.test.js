@@ -197,7 +197,7 @@ describe("Context Brief Integration", () => {
       spawnSync("git", ["add", "."], { cwd: projectRoot, stdio: "ignore" });
       spawnSync("git", ["commit", "-m", "init"], { cwd: projectRoot, stdio: "ignore" });
 
-      const projectId = memory.resolveRepositoryId(projectRoot);
+      const projectId = memory.resolveRepositoryId(fs.realpathSync(projectRoot));
 
       memory.record(projectId, {
         type: "decision",
