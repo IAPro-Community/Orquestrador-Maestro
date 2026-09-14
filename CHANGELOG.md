@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-09-14
+
+Esta versão reúne a evolução controlada do Maestro e a geração de briefs de contexto com seleção por relevância e proveniência verificável.
+
 ### Contexto eficiente
 
 - Corrigida a redação de erros do Git para não revelar caminhos locais; briefs agora preservam subseções dos snapshots, specs e seções de estado.
