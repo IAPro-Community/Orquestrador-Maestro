@@ -24,7 +24,7 @@ function assertKnownCollection(collection) {
 
 /**
  * Portable operational persistence for the initial runtime. This intentionally
- * uses no native SQLite dependency: it is Node 18-compatible on Windows,
+ * uses no native SQLite dependency: it is Node 20-compatible on Windows,
  * Linux, and macOS. Each mutation atomically replaces one private JSON file.
  */
 class JsonFileRunStore extends RunStore {

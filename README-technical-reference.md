@@ -163,7 +163,7 @@ npm run benchmark -- pair --runs 10
 
 ### Instalação recomendada por npm
 
-Requer Node.js 18 ou superior.
+Requer Node.js 20 ou superior.
 
 ~~~bash
 npm install -g @iapro/orquestrador-maestro-cli@latest
@@ -596,7 +596,7 @@ O repositório público é sanitizado. Não devem entrar no snapshot:
 
 - Windows 10/11 com PowerShell 4 ou superior.
 - Linux ou macOS com Bash 3.2 ou superior.
-- Node.js 18 ou superior para a CLI npm.
+- Node.js 20 ou superior para a CLI npm.
 - Git apenas quando a instalação for feita por clone.
 - A ferramenta de IA desejada, instalada e autenticada separadamente.
 - Em Linux/macOS, doctor requer pwsh ou powershell disponível no PATH; verify não possui essa dependência.
