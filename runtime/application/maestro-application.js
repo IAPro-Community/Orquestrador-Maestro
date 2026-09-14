@@ -263,12 +263,20 @@ class MaestroApplication {
 
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
+    const cognitiveBudget = evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget);
+    const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
+      && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
+      ? "reviewer-capability-unavailable" : null;
+    const approvalPreflight = cognitiveBudget.humanApproval && request.approval?.approved !== true && request.planApproval?.approved !== true
+      ? "human-approval-required" : null;
+    const preflightBlock = reviewPreflight || approvalPreflight;
     const taskMetadata = {
       ...(request.missionId ? { missionId: request.missionId } : {}),
       ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
-      cognitiveBudget: evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget)
+      cognitiveBudget,
+      ...(preflightBlock ? { preflightBlock } : {})
     };
     const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
@@ -276,12 +284,22 @@ class MaestroApplication {
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
-    return { task, run, step, profile, policy, provider, capabilities, workspacePath };
+    if (preflightBlock) {
+      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock } };
+      const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
+      await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
+      await this.record(run.id, "run.blocked", { reason: preflightBlock });
+      return { task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock };
+    }
+    return { task, run, step, profile, policy, provider, capabilities, workspacePath, preflightBlock: null };
   }
 
   async executeRun(request) {
     const prepared = await this.createRun(request);
     const { task, run, step, profile, policy, provider, workspacePath } = prepared;
+    if (prepared.preflightBlock) {
+      return { run, verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: prepared.preflightBlock }, execution: null, governanceWarnings: [], governanceBlocking: [prepared.preflightBlock], recommendations: [] };
+    }
     const cognitiveBudget = run.metadata?.cognitiveBudget || evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget);
     const execution = core.createExecution({ id: id("execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString() });
     await this.store.saveRun({ ...run, status: "running", startedAt: execution.startedAt });
@@ -294,11 +312,29 @@ class MaestroApplication {
     const interaction = request.interactionProfile
       ? resolveInteractionProfile({ cwd: workspacePath, cliProfile: request.interactionProfile })
       : this.interaction;
+    const requestedSkills = [];
+    for (const entry of request.skills || []) {
+      const identity = typeof entry === "string" ? entry : entry?.id || entry?.identity;
+      if (!identity || requestedSkills.some((item) => item.identity === identity)) continue;
+      requestedSkills.push({ identity, role: typeof entry === "object" ? entry.role || "supporting" : "explicit" });
+    }
+    const resolvedSkills = requestedSkills.map((item) => ({ ...item, skill: this.skills.get(item.identity) })).filter((item) => item.skill);
+    const requiredSkills = resolvedSkills.filter((item) => ["explicit", "primary", "required"].includes(item.role));
+    if (requiredSkills.length > cognitiveBudget.maxSkills) {
+      const completedAt = new Date().toISOString();
+      const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { reason } });
+      await this.store.saveStep({ ...step, status: "failed", completedAt });
+      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict" } });
+      await this.record(run.id, "run.blocked", { reason });
+      return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
+    }
+    const selectedSkills = [...requiredSkills, ...resolvedSkills.filter((item) => !requiredSkills.includes(item))].slice(0, cognitiveBudget.maxSkills);
     const executionPackage = Object.freeze({
       task, run, step, profile, policy,
       workspace: { path: workspacePath },
       permissions: request.permissions || {},
-      skills: (request.skills || []).map((identity) => this.skills.get(identity)).filter(Boolean),
+      skills: selectedSkills.map((item) => item.skill),
       previousArtifacts: request.previousArtifacts || [],
       engineeringContract,
       interaction,
@@ -360,7 +396,7 @@ class MaestroApplication {
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status });
     const finalRun = await this.store.getRun(run.id);
     if (finalRun) {
-      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: { modelCalls: 1 + (review.calls || 0), reviewers: review.calls || 0, retries: 0, skillsInjected: executionPackage.skills.length, tokenSource: "unavailable", outcome: status } } });
+      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 1, reviewCalls: review.calls || 0, modelCalls: 1 + (review.calls || 0), automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: executionPackage.skills.length, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: status } } });
     }
     return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
   }

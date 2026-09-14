@@ -3,7 +3,7 @@
 const { extractAssistantText } = require("../providers/provider-output");
 
 function reviewRequired(policy) {
-  return policy?.reviewRequirement === "independent";
+  return policy?.reviewRequirement === "independent" && Number(policy?.maxReviewers ?? 1) > 0;
 }
 
 function bounded(value, maxChars) {
