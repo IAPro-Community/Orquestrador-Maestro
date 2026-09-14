@@ -12,8 +12,10 @@ const { SocketMaestroClient } = require("../runtime/client/socket-maestro-client
 function fixtureRoot() { return fs.mkdtempSync(path.join(os.tmpdir(), "maestro-daemon-closure-")); }
 function runImmediateTui(projectRoot) {
   const cli = path.resolve(__dirname, "../bin/orquestrador-maestro.js");
-  const command = `${process.execPath} ${JSON.stringify(cli)} tui --project-path ${JSON.stringify(projectRoot)}`;
-  return spawnSync("script", ["-qefc", command, "/dev/null"], {
+  const args = process.platform === "darwin"
+    ? ["-qe", "/dev/null", process.execPath, cli, "tui", "--project-path", projectRoot]
+    : ["-qefc", `${process.execPath} ${JSON.stringify(cli)} tui --project-path ${JSON.stringify(projectRoot)}`, "/dev/null"];
+  return spawnSync("script", args, {
     input: "q\n", encoding: "utf8", timeout: 10_000,
     env: { ...process.env, TERM: "xterm-256color" }
   });

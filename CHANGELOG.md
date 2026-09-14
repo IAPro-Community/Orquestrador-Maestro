@@ -19,6 +19,7 @@
 - O teste de eventos por socket agora sincroniza com a inscrição confirmada, evitando falso timeout em runners Windows lentos.
 - A checagem de catálogo normaliza separadores de caminho no teste para manter a suíte portátil no Windows.
 - O entrypoint de descoberta de design system converte caminhos locais em URLs `file://` portáveis no Windows.
+- O harness de PTY usa a sintaxe BSD do macOS e os testes de providers comparam caminhos físicos resolvidos.
 
 ## 0.3.5 - 2026-09-11
 
