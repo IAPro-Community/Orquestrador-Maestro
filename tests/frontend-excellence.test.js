@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { spawnSync } = require("node:child_process");
+const { spawnSync, execFileSync } = require("node:child_process");
 const test = require("node:test");
 const { IntentRouter } = require("../runtime/planner/intent-router.js");
 
@@ -130,4 +130,19 @@ test("mirror-everywhere skill has canonical and synchronizer coverage", () => {
     assert.match(body, /SKILLS_MANIFEST/u);
     assert.match(body, /mirrorEverywhere/u);
   }
+});
+
+test("frontend excellence design-system discovery is provider-neutral and gated", () => {
+  const script = path.join(process.cwd(), "orquestrador/skills/skill-frontend-excellence/scripts/discover-design-system.mjs");
+  const output = execFileSync(process.execPath, [script, fs.mkdtempSync(path.join(os.tmpdir(), "maestro-frontend-empty-"))], { encoding: "utf8" });
+  const result = JSON.parse(output);
+  assert.equal(result.status, "unresolved");
+  assert.equal(result.requiresUserDecision, true);
+  assert.equal(result.implementationAllowed, false);
+  const skillRoot = path.join(process.cwd(), "orquestrador/skills/skill-frontend-excellence");
+  const files = [];
+  const visit = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) visit(full); else files.push(full); } };
+  visit(skillRoot);
+  const source = files.map((file) => fs.readFileSync(file, "utf8")).join("\n").toLowerCase();
+  assert.equal(/omnia|@omnia|omega sistemas/u.test(source), false);
 });
