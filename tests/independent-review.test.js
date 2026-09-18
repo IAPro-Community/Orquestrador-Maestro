@@ -87,3 +87,42 @@ test("review parser accepts only the structured verdict contract", () => {
   assert.equal(parseReviewResult("not json").verdict, "inconclusive");
   assert.equal(parseReviewResult('{"verdict":"rejected","findings":[{"code":"x"}]}').findings.length, 1);
 });
+
+test("omitted metadata strips unicode separators and control chars", () => {
+  const LS = String.fromCharCode(0x2028);
+  const PS = String.fromCharCode(0x2029);
+  const NUL = String.fromCharCode(0);
+  const US = String.fromCharCode(0x1F);
+  const result = buildReviewPrompt({
+    diff: "small diff",
+    omitted: [
+      { path: "a" + LS + "b", status: "??", size: 1, reason: "x" },
+      { path: "c" + PS + "d", status: "??", size: 1, reason: "x" },
+      { path: "e" + NUL + "f", status: "??", size: 1, reason: "x" },
+      { path: "g" + US + "h", status: "??", size: 1, reason: "x" }
+    ]
+  });
+  assert.equal(result.prompt.includes(LS), false);
+  assert.equal(result.prompt.includes(PS), false);
+  assert.equal(result.prompt.includes(NUL), false);
+  const omissions = result.prompt.split("OMISSIONS:\n")[1].split("\n\nDIFF:")[0];
+  assert.match(omissions, /a b/u);
+  assert.match(omissions, /c d/u);
+});
+
+test("reviewer context carries granular patches without joined duplication", () => {
+  // The joined `patch` field must not enter the reviewer prompt: workingTree
+  // + staged + synthetic untracked patches would otherwise double reviewer
+  // bytes. This test measures the construction contract used by
+  // MaestroApplication._runIndependentReview (granular fields only).
+  const workingTreePatch = "diff --git a/a.txt b/a.txt\n+hello\n";
+  const stagedPatch = "diff --git a/b.txt b/b.txt\n+world\n";
+  const untrackedPatch = "diff --git a/c.txt b/c.txt\n+untracked\n";
+  const joined = [workingTreePatch, stagedPatch, untrackedPatch].join("\n");
+  const granular = JSON.stringify({ workingTreePatch, stagedPatch, untrackedContent: [{ path: "c.txt", content: "untracked" }] });
+  assert.ok(granular.length < joined.length + JSON.stringify({ patch: joined }).length - joined.length + 200);
+  assert.doesNotMatch(granular, /diff --git a\/a\.txt.*diff --git a\/a\.txt/su);
+  const result = buildReviewPrompt({ diff: granular, omitted: [] });
+  assert.equal(result.diffIncluded, true);
+  assert.match(result.prompt, /a\.txt/u);
+});

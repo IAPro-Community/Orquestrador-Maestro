@@ -140,10 +140,10 @@ test("sensitive files in subdirectories expose metadata but never content", () =
   fs.writeFileSync(path.join(cwd, "visible.js"), "export const visible = true;\n");
   const changes = diff(cwd);
   assert.equal(changes.untrackedContent.some((item) => item.path === "secrets/config.js"), false);
-  // Git collapses a wholly-untracked directory into a single `secrets/` entry;
-  // the sensitive directory itself must be flagged as metadata only.
-  assert.ok(changes.sensitiveFiles.some((item) => item.path === "secrets/"));
-  const dirOmission = changes.omitted.find((item) => item.path === "secrets/");
+  // With --untracked-files=all git enumerates inner files individually; the
+  // sensitive file itself must be flagged as metadata only (no collapsed dir/).
+  assert.ok(changes.sensitiveFiles.some((item) => item.path === "secrets/config.js"));
+  const dirOmission = changes.omitted.find((item) => item.path === "secrets/config.js");
   assert.equal(dirOmission.reason, "sensitive");
   assert.equal(dirOmission.status, "??");
   assert.ok(changes.untrackedContent.some((item) => item.path === "visible.js"));
@@ -210,4 +210,80 @@ test("aggregate synthetic patch limit keeps the reviewer patch bounded", () => {
   assert.ok(changes.omitted.some((item) => item.reason === "aggregate-patch-limit"));
   assert.equal(changes.patchComplete, false);
   assert.equal(changes.limits.maxUntrackedPatchTotal, MAX_UNTRACKED_PATCH_TOTAL);
+});
+
+test("wholly untracked directories enumerate inner files individually", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-untracked-dir-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.mkdirSync(path.join(cwd, "newdir", "sub"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "newdir", "file1.txt"), "hello\n");
+  fs.writeFileSync(path.join(cwd, "newdir", "sub", "file2.txt"), "world\n");
+  const changes = diff(cwd);
+  assert.ok(changes.untrackedFiles.includes("newdir/file1.txt"));
+  assert.ok(changes.untrackedFiles.includes("newdir/sub/file2.txt"));
+  assert.ok(changes.untrackedContent.some((item) => item.path === "newdir/file1.txt"));
+  assert.ok(changes.untrackedContent.some((item) => item.path === "newdir/sub/file2.txt"));
+  assert.match(changes.patch, /newdir\/file1\.txt/u);
+  assert.match(changes.patch, /newdir\/sub\/file2\.txt/u);
+  assert.equal(changes.patchComplete, true);
+});
+
+test(".env.example handling respects parent sensitive segments", () => {
+  assert.equal(isSensitivePath(".env.example"), false);
+  assert.equal(isSensitivePath("config/.env.example"), false);
+  assert.equal(isSensitivePath("secrets/.env.example"), true);
+  assert.equal(isSensitivePath("credentials/.env.example"), true);
+  assert.equal(isSensitivePath("private/.env.example"), true);
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-envexample-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, ".env.example"), "PLACEHOLDER=example\n");
+  fs.mkdirSync(path.join(cwd, "secrets"));
+  fs.writeFileSync(path.join(cwd, "secrets", ".env.example"), "REAL_SECRET=do-not-send\n");
+  const changes = diff(cwd);
+  assert.ok(changes.untrackedContent.some((item) => item.path === ".env.example"));
+  assert.equal(changes.untrackedContent.some((item) => item.path === "secrets/.env.example"), false);
+  assert.ok(changes.sensitiveFiles.some((item) => item.path === "secrets/.env.example"));
+  assert.doesNotMatch(JSON.stringify(changes), /REAL_SECRET/u);
+});
+
+test("untracked binary files expose metadata without content", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-untracked-binary-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "tracked.txt"), "initial\n"); git("add", "tracked.txt"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, "blob.bin"), Buffer.from([0, 1, 2, 3, 4]));
+  const changes = diff(cwd);
+  assert.ok(changes.binaryFiles.some((item) => item.path === "blob.bin"));
+  const omission = changes.omitted.find((item) => item.path === "blob.bin");
+  assert.equal(omission.reason, "binary");
+  assert.equal(changes.patchComplete, false);
+});
+
+test("deleted tracked files appear in the ChangeSet", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-deleted-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, "gone.txt"), "bye\n"); git("add", "gone.txt"); git("commit", "-qm", "initial");
+  fs.rmSync(path.join(cwd, "gone.txt"));
+  const changes = diff(cwd);
+  assert.ok(changes.changedFiles.includes("gone.txt"));
+  assert.equal(changes.patchComplete, true);
+});
+
+test("sensitive staged and working-tree patches never leak bytes", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-git-sensitive-patches-"));
+  const git = (...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid"); git("config", "user.name", "test");
+  fs.writeFileSync(path.join(cwd, ".env"), "STAGED_SECRET=do-not-send\n"); git("add", ".env"); git("commit", "-qm", "initial");
+  fs.writeFileSync(path.join(cwd, ".env"), "STAGED_SECRET=changed-do-not-send\n");
+  fs.writeFileSync(path.join(cwd, "notes.txt"), "visible\n");
+  const changes = diff(cwd);
+  assert.ok(changes.sensitiveFiles.some((item) => item.path === ".env"));
+  assert.doesNotMatch(changes.workingTreePatch || "", /STAGED_SECRET/u);
+  assert.doesNotMatch(changes.patch || "", /STAGED_SECRET/u);
+  assert.equal(changes.patchComplete, false);
 });
