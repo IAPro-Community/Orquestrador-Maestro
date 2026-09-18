@@ -22,7 +22,7 @@ function runGit(args, cwd) {
 }
 
 function snapshot(cwd) {
-  const status = runGit(["status", "--porcelain=v1", "-z"], cwd);
+  const status = runGit(["status", "--porcelain=v1", "--untracked-files=all", "-z"], cwd);
   if (status === null) return { available: false, files: [] };
   return { available: true, files: parseStatusPorcelain(status) };
 }
@@ -61,8 +61,17 @@ function isSensitivePath(filePath) {
   const segments = normalized.split("/").filter(Boolean);
   const basename = path.posix.basename(normalized);
   const stem = basename.replace(/\.[^.]+$/u, "");
+  // Parent segments win over the `.env.example` template exception: a template
+  // inside a sensitive directory (secrets/, credentials/, private/) is still
+  // sensitive and must never reach the reviewer.
+  const parentSegments = segments.slice(0, -1);
+  const parentSensitive = parentSegments.some((segment) => /^\.env(?:\..*)?$/u.test(segment)
+    || /(?:^|[-_.])(?:credentials?|secrets?|passwords?|tokens?)(?:[-_.]|$)/u.test(segment)
+    || /^(?:private|certs?|certificates?)$/u.test(segment));
+  if (parentSensitive) return true;
   // `.env.example` is a checked-in placeholder template, not a secret: it must
   // stay reviewable instead of fail-closing every ChangeSet that touches it.
+  // Only the root-level or non-sensitive-directory template is allowed.
   if (basename === ".env.example") return false;
   if (/^\.env(?:\..*)?$/u.test(basename)) return true;
   if (/(?:^|[-_.])(?:credentials?|secrets?|passwords?|tokens?)(?:[-_.]|$)/u.test(basename)) return true;
@@ -233,7 +242,10 @@ function sanitizePatch(patch, sensitivePaths) {
 function diff(cwd) {
   const names = runGit(["diff", "--name-status", "-z"], cwd);
   const stagedNames = runGit(["diff", "--cached", "--name-status", "-z"], cwd);
-  const statusOutput = runGit(["status", "--porcelain=v1", "-z"], cwd);
+  // Enumerate untracked files individually: without --untracked-files=all git
+  // collapses a wholly-untracked directory into a single `dir/` entry and the
+  // reviewer would lose the inner files. Limits below still bound the result.
+  const statusOutput = runGit(["status", "--porcelain=v1", "--untracked-files=all", "-z"], cwd);
   const statsOutput = runGit(["diff", "--numstat"], cwd);
   const stagedStatsOutput = runGit(["diff", "--cached", "--numstat"], cwd);
   const rawWorkingTreePatch = runGit(["diff", "--no-ext-diff", "--no-textconv", "--no-color"], cwd);

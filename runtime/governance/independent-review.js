@@ -13,9 +13,11 @@ function bounded(value, maxChars) {
 }
 
 function omissionLine(item) {
-  // Paths come from the working tree (attacker-controlled): strip newlines so
-  // a crafted filename cannot inject fake prompt sections.
-  const clean = (value) => String(value).replace(/[\r\n]+/gu, " ").trim();
+  // Paths come from the working tree (attacker-controlled): strip newlines,
+  // control chars and Unicode line/paragraph separators so a crafted filename
+  // cannot inject fake prompt sections. Identification is preserved by
+  // collapsing them to a single space.
+  const clean = (value) => String(value).replace(/[\r\n\u0000-\u001F\u007F\u2028\u2029]+/gu, " ").trim();
   const filePath = clean(item?.path || "unknown");
   const status = clean(item?.status || "?");
   const size = Number.isFinite(Number(item?.size)) ? Number(item?.size) : 0;
