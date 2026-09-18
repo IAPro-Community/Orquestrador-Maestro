@@ -84,3 +84,51 @@ segurança e regressão quanto a tier, chamadas, reviewer, retries e outcome. Is
 política de contagem de chamadas; não prova economia de tokens. O benchmark harness existente
 deve ser usado para tokens reais em execuções pareadas. Sem provider com contadores confiáveis,
 publique `UNKNOWN` e não alegue percentual de economia.
+
+## Observabilidade econômica (telemetria mínima)
+
+Evolução do `cognitiveTelemetry` existente, sem sistema paralelo, sem SQLite novo e sem
+governor paralelo. Quando o provider expõe dados, o run registra:
+
+- `tool` (CLI: `codex`, `claude`, `opencode`, `agy`), `provider` (quando declarado
+  pelo evento; senão `unknown`), `model` (quando exposto; senão `unknown`);
+- `sessionId`, `runId`, `taskId`, `executionId`, `projectId`, `repositoryId`,
+  `branch`, `headCommit`, `startedAt`, `completedAt`, `durationMs`, `status`;
+- `tokenInput`, `tokenOutput`, `cachedInputTokens`, `cachedOutputTokens` (quando
+  aplicável), `reasoningTokens` (se exposto), `modelCalls`, `toolCalls` (quando
+  confiável), `reviewCalls`, `automaticRetries` (sempre `0` nesta versão: não há
+  loop automático de retry idêntico no caminho `executeRun`);
+- `childAgentsObserved` + `childAgents[]` (`agentId`, `parentAgentId`, `role`,
+  `depth`, `providerNative`, `tokens`, `outcome`) somente quando o provider
+  expõe sessões/agents filhos; caso contrário `[]`;
+- `tokenSource`: `provider-reported` | `derived` | `estimated` | `unavailable`.
+  Ausente é `null`/`unknown`, nunca `0`.
+
+`tool != provider != model`. Nenhuma heurística frágil por nome: sem declaração
+explícita do provider, `provider` permanece `unknown`.
+
+Parsers vivem atrás do contrato de adapter (`runtime/telemetry/provider-usage.js`
++ `agent-topology.js`); o restante do Maestro não conhece formatos NDJSON de cada
+CLI. Evento desconhecido é ignorado com metadados seguros; execução nunca quebra
+por telemetria. Fixtures sanitizadas cobrem codex/claude/opencode/agy sem API paga.
+
+Amplificação observada (`observedInputAmplification = childInput / primaryInput`)
+só existe quando ambos são `provider-reported` e `> 0`; caso contrário `null`.
+Limitação documentada no próprio objeto: o contexto útil único é desconhecido,
+portanto o fator mede volume observado, não desperdício provado.
+
+Duplicação futura usa hashes (`promptHash`, digests do manifesto do context brief),
+nunca prompt completo. Mapeamento OpenTelemetry conceitual: Run → trace
+(`traceId`), Execution → span (`spanId`), provider call → child span, agent →
+span/attributes. Sem collector/backend nesta entrega.
+
+Privacidade: telemetria padrão não persiste prompt, completion, source integral,
+secrets, `.env`, credenciais, home paths absolutos ou PII — apenas hashes, IDs,
+counts, sizes e metadados sanitizados com paths relativos.
+
+RunStore JSON permanece o contrato; arquivos `runs.json` antigos continuam legíveis
+(campos novos são opcionais). Se JSON se mostrar insuficiente para consultas futuras,
+o requisito será documentado para um futuro `SQLiteRunStore` — sem migração agora.
+
+Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--json]`
+ou `run inspect <id>`. Tokens indisponíveis aparecem como `unavailable`, nunca `0`.
