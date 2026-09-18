@@ -145,3 +145,55 @@ test("scoped symlink escaping the root falls back to inside-root evidence", () =
   const result = discoverDesignSystem({ cwd, taskScope: "link.tsx" });
   assert.equal(result.provider, "@acme/ui");
 });
+
+test("root instruction wins over nested conflicting instruction globally", () => {
+  const cwd = fixture();
+  fs.writeFileSync(path.join(cwd, "AGENTS.md"), "Use @root/ui as the project design system.\n");
+  fs.mkdirSync(path.join(cwd, "examples", "demo"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "examples", "demo", "AGENTS.md"), "Use @nested/ui as the project design system.\n");
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.status, "resolved");
+  assert.equal(result.provider, "@root/ui");
+});
+
+test("root profile beats nested README globally", () => {
+  const cwd = fixture();
+  fs.writeFileSync(path.join(cwd, "design-profile.json"), JSON.stringify({ designSystem: { provider: "@root/profile" } }));
+  fs.mkdirSync(path.join(cwd, "examples", "app"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "examples", "app", "README.md"), "Use @nested/ui as the project design system.\n");
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.provider, "@root/profile");
+});
+
+test("example-only instructions do not resolve globally", () => {
+  const cwd = fixture();
+  fs.mkdirSync(path.join(cwd, "examples", "demo"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "examples", "demo", "AGENTS.md"), "Use @example/ui as the project design system.\n");
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.status, "unresolved");
+  assert.equal(result.provider, null);
+});
+
+test("monorepo nested package resolves only inside task scope", () => {
+  const cwd = fixture();
+  fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({ name: "root" }));
+  fs.mkdirSync(path.join(cwd, "packages", "app"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "packages", "app", "package.json"), JSON.stringify({ name: "app" }));
+  for (const name of ["a.tsx", "b.tsx", "c.tsx", "d.tsx"]) {
+    fs.writeFileSync(path.join(cwd, "packages", "app", name), "import { X } from '@nested/ui';\n");
+  }
+  assert.equal(discoverDesignSystem({ cwd }).status, "unresolved");
+  const scoped = discoverDesignSystem({ cwd, taskScope: "packages/app" });
+  assert.equal(scoped.provider, "@nested/ui");
+  assert.equal(scoped.status, "resolved");
+});
+
+test("explicit root profile takes precedence over imports", () => {
+  const cwd = fixture();
+  fs.writeFileSync(path.join(cwd, "design-profile.json"), JSON.stringify({ designSystem: { provider: "@explicit/ui" } }));
+  for (const name of ["a.tsx", "b.tsx", "c.tsx", "d.tsx"]) {
+    fs.writeFileSync(path.join(cwd, name), "import { X } from '@imported/ui';\n");
+  }
+  const result = discoverDesignSystem({ cwd });
+  assert.equal(result.provider, "@explicit/ui");
+});

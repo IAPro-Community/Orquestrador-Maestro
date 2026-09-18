@@ -121,10 +121,72 @@ function isRealWithin(root, file) {
   } catch { return false; }
 }
 
-function profileFiles(root, files) {
+// Global authority: nested README/AGENTS/docs must not become project-wide
+// instructions. Only root-level instruction files (plus root docs/) carry
+// global authority; nested files count only inside the active task scope.
+const NON_AUTHORITATIVE_SEGMENTS = new Set([
+  "examples", "example", "fixtures", "fixture", "__fixtures__",
+  "samples", "sample", "demos", "demo", "playground", "sandbox"
+]);
+
+function relativePosix(root, file) {
+  return path.relative(root, file).split(path.sep).join("/");
+}
+
+function isRootInstructionFile(root, file) {
+  const relative = relativePosix(root, file);
+  const basename = path.basename(file);
+  const lower = relative.toLowerCase();
+  if (lower === "docs/frontend.md" || lower === "docs/design.md") return true;
+  if (!INSTRUCTION_NAMES.has(basename)) {
+    // docs/frontend|design nested elsewhere (e.g. examples/docs/...) is not global.
+    return false;
+  }
+  const dirname = path.posix.dirname(relative);
+  return dirname === ".";
+}
+
+function isRootDiscoveredProfile(root, file) {
+  const relative = relativePosix(root, file);
+  if (!PROFILE_NAMES.has(path.basename(file).toLowerCase())) return false;
+  return path.posix.dirname(relative) === ".";
+}
+
+function isInNestedPackage(root, file) {
+  let current = path.dirname(path.resolve(file));
+  const stop = path.resolve(root);
+  while (current.startsWith(stop) && current !== stop) {
+    try {
+      const candidate = path.join(current, "package.json");
+      const stat = fs.statSync(candidate);
+      if (stat.isFile()) return true;
+    } catch { /* no package boundary here */ }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return false;
+}
+
+function isGloballyExcludedImport(root, file) {
+  const relative = relativePosix(root, file);
+  const segments = relative.split("/").filter(Boolean).map((s) => s.toLowerCase());
+  if (segments.some((segment) => NON_AUTHORITATIVE_SEGMENTS.has(segment))) return true;
+  return isInNestedPackage(root, file);
+}
+
+function profileFiles(root, files, { globalScope = false } = {}) {
   const packageFiles = files.filter((file) => path.basename(file).toLowerCase() === "package.json");
-  const configured = collectConfiguredProfilePaths(packageFiles, root);
-  const discovered = files.filter((file) => PROFILE_NAMES.has(path.basename(file).toLowerCase()));
+  // Globally only the root package.json may configure a profile path;
+  // a nested package configuring its own profile must not leak project-wide.
+  const relevantPackages = globalScope
+    ? packageFiles.filter((file) => path.resolve(file) === path.join(path.resolve(root), "package.json"))
+    : packageFiles;
+  const configured = collectConfiguredProfilePaths(relevantPackages, root);
+  const discoveredCandidates = files.filter((file) => PROFILE_NAMES.has(path.basename(file).toLowerCase()));
+  const discovered = globalScope
+    ? discoveredCandidates.filter((file) => isRootDiscoveredProfile(root, file))
+    : discoveredCandidates;
   // existsSync follows symlinks, so re-resolve: a configured or discovered
   // profile path must still point inside the root after resolution.
   return [...new Set([...configured, ...discovered])].filter((file) => isRealWithin(root, file)).sort();
@@ -132,6 +194,10 @@ function profileFiles(root, files) {
 
 function instructionFiles(files) {
   return files.filter((file) => INSTRUCTION_NAMES.has(path.basename(file)) || /(?:^|[\\/])docs[\\/](?:frontend|design)\.md$/iu.test(file));
+}
+
+function globalInstructionFiles(root, files) {
+  return instructionFiles(files).filter((file) => isRootInstructionFile(root, file));
 }
 
 function result(status, provider, confidence, evidence, alternatives = []) {
@@ -147,9 +213,10 @@ function result(status, provider, confidence, evidence, alternatives = []) {
   });
 }
 
-function instructionResult(root, files) {
+function instructionResult(root, files, { globalScope = false } = {}) {
   const candidates = new Map();
-  for (const file of instructionFiles(files)) {
+  const relevant = globalScope ? globalInstructionFiles(root, files) : instructionFiles(files);
+  for (const file of relevant) {
     const providers = [...new Set(providerFromText(readText(file)))];
     for (const provider of providers) {
       if (!candidates.has(provider)) candidates.set(provider, []);
@@ -163,9 +230,9 @@ function instructionResult(root, files) {
   return result("resolved", provider, 1, evidence);
 }
 
-function profileResult(root, files) {
+function profileResult(root, files, { globalScope = false } = {}) {
   const candidates = new Map();
-  for (const file of profileFiles(root, files)) {
+  for (const file of profileFiles(root, files, { globalScope })) {
     const provider = profileProvider(file);
     if (!provider) continue;
     if (!candidates.has(provider)) candidates.set(provider, []);
@@ -178,9 +245,17 @@ function profileResult(root, files) {
   return result("resolved", provider, 0.95, evidence);
 }
 
-function dependencyNames(files) {
+function dependencyNames(files, { globalScope = false, root = null } = {}) {
   const dependencies = new Set();
-  for (const file of files.filter((item) => path.basename(item).toLowerCase() === "package.json")) {
+  let relevant = files.filter((item) => path.basename(item).toLowerCase() === "package.json");
+  if (globalScope && root) {
+    // Globally only the root manifest counts; nested packages/subprojects
+    // must not inject project-wide authority. Scoped analysis keeps its own.
+    relevant = relevant.filter((file) => path.resolve(file) === path.join(path.resolve(root), "package.json"));
+    // Even the root manifest ignores non-authoritative segments (defensive).
+    relevant = relevant.filter((file) => !isGloballyExcludedImport(root, file));
+  }
+  for (const file of relevant) {
     try {
       const pkg = JSON.parse(readText(file));
       for (const key of ["dependencies", "devDependencies", "peerDependencies"]) {
@@ -191,9 +266,15 @@ function dependencyNames(files) {
   return [...dependencies].sort();
 }
 
-function importResult(root, files) {
+function importResult(root, files, { globalScope = false } = {}) {
   const counts = new Map();
-  for (const file of files.filter((item) => !PROFILE_NAMES.has(path.basename(item).toLowerCase()) && path.basename(item).toLowerCase() !== "package.json")) {
+  let relevant = files.filter((item) => !PROFILE_NAMES.has(path.basename(item).toLowerCase()) && path.basename(item).toLowerCase() !== "package.json");
+  if (globalScope) {
+    // Example/fixture/nested-package imports are real code, but they must not
+    // decide the project-wide system. They still count inside taskScope.
+    relevant = relevant.filter((file) => !isGloballyExcludedImport(root, file));
+  }
+  for (const file of relevant) {
     for (const provider of providerFromText(readText(file))) counts.set(provider, (counts.get(provider) || 0) + 1);
   }
   const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -221,6 +302,20 @@ function analyze(root, files) {
     || result("unresolved", null, 0, []);
 }
 
+function analyzeGlobal(root, files) {
+  // Project-wide authority comes only from root-allowed locations. Nested
+  // examples/fixtures/subprojects/nested-packages never decide globally;
+  // they influence only when inside the active taskScope (analyze()).
+  return instructionResult(root, files, { globalScope: true })
+    || profileResult(root, files, { globalScope: true })
+    || importResult(root, files, { globalScope: true })
+    || (() => {
+      const dependencies = dependencyNames(files, { globalScope: true, root });
+      return dependencies.length > 0 ? result("unresolved", null, 0.3, [{ type: "dependency-only", providers: dependencies, confidence: 0.3 }], dependencies) : null;
+    })()
+    || result("unresolved", null, 0, []);
+}
+
 function scopedFiles(root, taskScope) {
   const scope = String(taskScope || "").trim();
   if (!scope) return null;
@@ -243,7 +338,7 @@ export function discoverDesignSystem({ cwd = process.cwd(), taskScope = "" } = {
   const localFiles = scopedFiles(root, taskScope);
   const localResult = localFiles === null ? null : analyze(root, localFiles);
   if (localResult && (localResult.status !== "unresolved" || localResult.evidence.length > 0)) return localResult;
-  return analyze(root, allFiles);
+  return analyzeGlobal(root, allFiles);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
