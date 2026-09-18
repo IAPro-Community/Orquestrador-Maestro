@@ -97,6 +97,7 @@ Uso:
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
+  orquestrador-maestro usage [--project-path PATH] [--limit N] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
   orquestrador-maestro run inspect <id> [--project-path PATH]
   orquestrador-maestro run cancel <id> [--project-path PATH]
@@ -849,6 +850,71 @@ async function handleRunsCommand(args) {
   const options = parseRuntimeArgs(args, ["--project-path"]);
   if (options.values.length > 0) throw new Error("Uso: maestro runs [--project-path PATH]");
   console.log(JSON.stringify(await (await createRuntimeApplication(options.projectPath)).listRuns({ projectPath: options.projectPath }), null, 2));
+  return 0;
+}
+
+function formatTokens(value) {
+  return value === null || value === undefined ? "unavailable" : String(value);
+}
+
+async function handleUsageCommand(args) {
+  const options = parseRuntimeArgs(args, ["--project-path", "--limit"], ["--json"]);
+  if (options.values.length > 0) throw new Error("Uso: maestro usage [--project-path PATH] [--limit N] [--json]");
+  const limit = options.limit !== undefined ? Number.parseInt(options.limit, 10) : 20;
+  if (options.limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
+    throw new Error("--limit deve ser um inteiro entre 1 e 200.");
+  }
+  const app = await createRuntimeApplication(options.projectPath);
+  const runs = (await app.listRuns({ projectPath: options.projectPath })).slice(-limit);
+  const rows = [];
+  for (const run of runs) {
+    const telemetry = run.metadata?.cognitiveTelemetry || {};
+    const task = run.taskId ? await app.getTask(run.taskId).catch(() => null) : null;
+    rows.push({
+      run: run.id,
+      project: task?.projectId || telemetry.projectId || "unknown",
+      branch: telemetry.branch || "unknown",
+      tool: telemetry.tool || run.providerId || "unknown",
+      provider: telemetry.provider || "unknown",
+      model: telemetry.model || "unknown",
+      status: run.status,
+      primaryCalls: telemetry.primaryCalls ?? "unavailable",
+      reviewCalls: telemetry.reviewCalls ?? "unavailable",
+      modelCalls: telemetry.modelCalls ?? "unavailable",
+      inputTokens: telemetry.tokenInput ?? null,
+      outputTokens: telemetry.tokenOutput ?? null,
+      cachedInputTokens: telemetry.cachedInputTokens ?? null,
+      tokenSource: telemetry.tokenSource || "unavailable",
+      childAgentsObserved: telemetry.childAgentsObserved ?? 0,
+      durationMs: telemetry.durationMs ?? null
+    });
+  }
+  if (options.json) {
+    console.log(JSON.stringify(rows, null, 2));
+    return 0;
+  }
+  if (rows.length === 0) {
+    console.log("No runs recorded for this project.");
+    return 0;
+  }
+  for (const row of rows) {
+    console.log([
+      `Run: ${row.run}`,
+      `Project: ${row.project}`,
+      `Branch: ${row.branch}`,
+      `Tool: ${row.tool}`,
+      `Provider: ${row.provider}`,
+      `Model: ${row.model}`,
+      `Primary calls: ${row.primaryCalls}`,
+      `Review calls: ${row.reviewCalls}`,
+      `Child agents observed: ${row.childAgentsObserved}`,
+      `Input tokens: ${formatTokens(row.inputTokens)}`,
+      `Cached: ${formatTokens(row.cachedInputTokens)}`,
+      `Output: ${formatTokens(row.outputTokens)}`,
+      `Token source: ${row.tokenSource}`,
+      ""
+    ].join("\n"));
+  }
   return 0;
 }
 
@@ -2384,6 +2450,7 @@ async function dispatch(command, args) {
 
   if (command === "run") return handleRunCommand(args);
   if (command === "runs") return handleRunsCommand(args);
+  if (command === "usage") return handleUsageCommand(args);
   if (command === "projects") return handleProjectsCommand(args);
   if (command === "project") return handleProjectCommand(args);
   if (command === "missions") return handleMissionsCommand(args);
@@ -2448,7 +2515,7 @@ async function main() {
   const telemetryCommands = new Set([
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
-    "runs", "projects", "project", "missions", "mission", "terminal", "terminals",
+    "runs", "usage", "projects", "project", "missions", "mission", "terminal", "terminals",
     "tui", "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
   ]);

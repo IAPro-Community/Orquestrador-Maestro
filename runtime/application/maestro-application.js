@@ -20,9 +20,41 @@ const { reviewRequired, buildReviewPrompt, parseReviewResult } = require("../gov
 const { mergeConfig, loadGovernanceConfig, writeGovernanceConfig, buildGovernance } = require("../governance/compatibility");
 const { resolveProjectMaestroRoot } = require("../config/maestro-paths");
 const { resolveInteractionProfile, interactionContract } = require("../interaction");
+const { parseProviderUsage } = require("../telemetry/provider-usage");
+const { extractChildAgents } = require("../telemetry/agent-topology");
+const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
+const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
+
+function gitIdentityForTelemetry(workspacePath) {
+  try {
+    const ctx = resolveGitContext(workspacePath);
+    return { repositoryId: ctx.repositoryId || "unknown", branch: ctx.branch || "unknown", headCommit: ctx.headCommit || "unknown" };
+  } catch {
+    return { repositoryId: "unknown", branch: "unknown", headCommit: "unknown" };
+  }
+}
+
+function blockedTelemetry({ budget, projectId, workspacePath, reason, skillsRequested = 0, skillsResolved = 0 }) {
+  const identity = gitIdentityForTelemetry(workspacePath || process.cwd());
+  return buildCognitiveTelemetry({
+    budget,
+    primaryUsage: null,
+    reviewUsage: null,
+    skillsRequested,
+    skillsResolved,
+    skillsLoaded: 0,
+    outcome: "blocked",
+    reason,
+    projectId,
+    repositoryId: identity.repositoryId,
+    branch: identity.branch,
+    headCommit: identity.headCommit,
+    status: "blocked"
+  });
+}
 
 function listSourceFiles(workspacePath, relativePath = "") {
   const directory = path.join(workspacePath, relativePath);
@@ -292,7 +324,8 @@ class MaestroApplication {
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
     if (preflightBlock) {
-      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: 0, skillsResolved: 0, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason: preflightBlock } } };
+      const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason: preflightBlock });
+      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: blockedTelemetryValue } };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
@@ -336,7 +369,7 @@ class MaestroApplication {
       const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
       await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { reason } });
       await this.store.saveStep({ ...step, status: "failed", completedAt });
-      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict", cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 0, reviewCalls: 0, modelCalls: 0, automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: 0, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: "blocked", reason } } });
+      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict", cognitiveTelemetry: blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length }) } });
       await this.record(run.id, "run.blocked", { reason });
       return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
     }
@@ -368,7 +401,15 @@ class MaestroApplication {
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
-    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract } });
+    // Privacy-safe usage summary alongside the operational result (which keeps
+    // stdout for local debugging). Telemetry consumers must use `usage`, never
+    // parse prompts/completions out of the stored result.
+    let primaryUsageSummary = null;
+    try {
+      const parsed = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
+      primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, tokenSource: parsed.tokenSource };
+    } catch { primaryUsageSummary = null; }
+    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
     const changes = diff(workspacePath);
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: { before, changes } });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
@@ -407,7 +448,52 @@ class MaestroApplication {
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status });
     const finalRun = await this.store.getRun(run.id);
     if (finalRun) {
-      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: { budgetTier: cognitiveBudget.id, primaryCalls: 1, reviewCalls: review.calls || 0, modelCalls: 1 + (review.calls || 0), automaticRetries: 0, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length, skillsLoaded: executionPackage.skills.length, maxSkills: cognitiveBudget.maxSkills, tokenInput: null, tokenOutput: null, tokenSource: "unavailable", outcome: status } } });
+      // Economic telemetry: provider-reported when the CLI exposes usage,
+      // otherwise explicit unavailable (never 0-as-unknown). Extends the
+      // existing cognitiveTelemetry object; no parallel store.
+      let primaryUsage = null;
+      let childAgents = [];
+      try {
+        primaryUsage = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
+      } catch { primaryUsage = null; }
+      try {
+        childAgents = [...extractChildAgents({ providerId: provider.id, stdout: result?.stdout })];
+      } catch { childAgents = []; }
+      let reviewUsage = null;
+      try {
+        if (review && review.usage) reviewUsage = review.usage;
+      } catch { reviewUsage = null; }
+      try {
+        const reviewAgents = Array.isArray(review?.childAgents) ? review.childAgents : [];
+        if (reviewAgents.length > 0) childAgents = [...childAgents, ...reviewAgents];
+      } catch { /* keep primary agents only */ }
+      const identity = gitIdentityForTelemetry(workspacePath);
+      const startedMs = Date.parse(execution.startedAt) || null;
+      const completedMs = Date.parse(completedAt) || null;
+      const telemetry = buildCognitiveTelemetry({
+        budget: cognitiveBudget,
+        primaryUsage,
+        reviewUsage,
+        skillsRequested: requestedSkills.length,
+        skillsResolved: resolvedSkills.length,
+        skillsLoaded: executionPackage.skills.length,
+        outcome: status,
+        runId: run.id,
+        taskId: task.id,
+        executionId: execution.id,
+        reviewExecutionId: review?.executionId || null,
+        projectId: task.projectId || null,
+        repositoryId: identity.repositoryId,
+        branch: identity.branch,
+        headCommit: identity.headCommit,
+        startedAt: execution.startedAt,
+        completedAt,
+        durationMs: startedMs !== null && completedMs !== null ? Math.max(0, completedMs - startedMs) : null,
+        status,
+        childAgents,
+        prompt: null
+      });
+      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: telemetry } });
     }
     return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
   }
@@ -456,10 +542,21 @@ class MaestroApplication {
       const raw = await handle.result;
       const parsed = raw.exitCode === 0 ? parseReviewResult(raw.stdout) : { verdict: "inconclusive", findings: [{ code: "REVIEW_PROCESS_FAILED" }], summary: raw.stderr || "reviewer process failed" };
       const status = parsed.verdict === "approved" ? "approved" : parsed.verdict === "rejected" ? "rejected" : "inconclusive";
-      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: parsed.findings } });
+      // Reviewer usage is provider-reported when the CLI exposes it; never
+      // invented. Child agents observed on the review call are carried for
+      // the run-level topology.
+      let reviewUsage = null;
+      let reviewAgents = [];
+      try {
+        reviewUsage = parseProviderUsage({ providerId: provider.id, stdout: raw.stdout, stderr: raw.stderr, model: request.reviewerModel || request.model });
+      } catch { reviewUsage = null; }
+      try {
+        reviewAgents = [...extractChildAgents({ providerId: provider.id, stdout: raw.stdout })];
+      } catch { reviewAgents = []; }
+      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: parsed.findings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, tokenSource: reviewUsage.tokenSource } : null } });
       await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, executionId: execution.id, contextTruncated: prompt.truncated } }));
       await this.record(run.id, status === "approved" ? "review.completed" : "review.failed", { executionId: execution.id, verdict: parsed.verdict });
-      return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated });
+      return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated, executionId: execution.id, usage: reviewUsage, childAgents: reviewAgents });
     } catch (error) {
       await this.store.saveExecution({ ...execution, status: "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", error: error.message } });
       await this.record(run.id, "review.failed", { executionId: execution.id, reason: error.message });
