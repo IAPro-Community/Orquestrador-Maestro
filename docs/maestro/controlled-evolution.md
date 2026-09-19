@@ -130,40 +130,5 @@ RunStore JSON permanece o contrato; arquivos `runs.json` antigos continuam legí
 (campos novos são opcionais). Se JSON se mostrar insuficiente para consultas futuras,
 o requisito será documentado para um futuro `SQLiteRunStore` — sem migração agora.
 
-Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]`
+Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--json]`
 ou `run inspect <id>`. Tokens indisponíveis aparecem como `unavailable`, nunca `0`.
-`usageScope` (`self`/`aggregate`/`unknown`) indica se o total já inclui filhos;
-`topologyExposed` distingue `0 observado` de `provider não expõe topologia`.
-
-## Ephemeral vs durable provider data
-
-- Ephemeral (memória + subscribers ao vivo, nunca no `runs.json`): `provider.started`,
-  `provider.output` chunks, `provider.completed` raw, `run.output` per-chunk, stdout/stderr
-  brutos, NDJSON bruto, prompts/args com prompt.
-- Durable (lifecycle points): `run.created/started/completed/failed/blocked`,
-  execution summary sanitizado (`providerId`, `exitCode`, `duration`, `usage`,
-  erro sanitizado), `review.*`, `artifact.created`, `verification.*`, usage
-  normalizado, `childAgents[]` metadata, `run.output.snapshot` removido nesta fase
-  (replay ao vivo é in-memory; restart usa lifecycle/usage, não output bruto).
-- `saveExecution` nunca persiste `args/stdout/stderr`; `record()` roteia
-  `provider.*`/`run.output` para emit-only. Teste `durable-privacy` prova com
-  sentinelas que nada bruto chega ao disco; teste de amplificação prova eventos
-  duráveis bounded mesmo com 500 chunks.
-
-## Execution policy (sem autoridade dupla)
-
-`runtime/governance/execution-policy.js` valida workflows contra o Cognitive Budget
-e os `SKILL_EXECUTION_PROFILES` existentes: `ok`, `narrowed` (legítimo),
-`override-required` (nota explícita), `conflict` (ex.: 3 reviewers com
-`maxReviewers=1`), `unsupported`. `resolveEffectivePolicy` responde mode, skills,
-agents, parallelism, review, retry, context e verification mantendo risk e
-complexity separados. Minimum Sufficient Workflow: `executor → test → verify`
-para single-workstream low/medium risk; pipeline completa só com breadth/risco.
-
-Autopilot `quick` (1 lane, sem architect/critic, review só por risco) é
-comportamentalmente distinto de `standard` e `deep` (testes em
-`execution-policy.test.js`). Ralph: deslop só com sinal real
-(`skipReason = no-simplification-signal` caso contrário); DoD, security review e
-final verification preservados. Workers recebem `buildWorkerContextPack`
-(objetivo, critérios, evidência relevante, arquivos, decisões, constraints,
-output esperado) e retornam evidence; só o leader atualiza memória compartilhada.

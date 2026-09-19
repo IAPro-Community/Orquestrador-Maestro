@@ -78,16 +78,15 @@ Complex tasks often fail silently: partial implementations get declared "done", 
    - Standard changes: STANDARD tier (architect role)
    - >20 files or security/architectural changes: THOROUGH tier (architect role)
    - Ralph floor: always at least STANDARD, even for small changes
-7.5 **Deslop Pass (risk-proportional, not ritualistic)**:
-   - After Step 7 passes, run `oh-my-codex:ai-slop-cleaner` on **changed files only** when at least one simplification signal exists: reviewer finding (duplicated code, unnecessary abstraction), explicit user request, complexity/slop heuristic, or `--deslop` flag.
+7.5 **Mandatory Deslop Pass**:
+   - After Step 7 passes, run `oh-my-codex:ai-slop-cleaner` on **all files changed during the Ralph session**.
    - Scope the cleaner to **changed files only**; do not widen the pass beyond Ralph-owned edits.
    - Run the cleaner in **standard mode** (not `--review`).
    - If the prompt contains `--no-deslop`, skip Step 7.5 entirely and proceed with the most recent successful verification evidence.
-   - If no signal exists (trivial diff, no reviewer finding, no explicit request), record `skipReason = no-simplification-signal` and skip the model call; do not spend a model pass to confirm a trivial diff is already clean.
-7.6 **Regression Re-verification (only after a real deslop pass)**:
-   - After a real deslop pass, re-run all tests/build/lint and read the output to confirm they still pass.
+7.6 **Regression Re-verification**:
+   - After the deslop pass, re-run all tests/build/lint and read the output to confirm they still pass.
    - If post-deslop regression fails, roll back cleaner changes or fix and retry. Then rerun Step 7.5 and Step 7.6 until the regression is green.
-   - Do not proceed to completion until post-deslop regression is green (unless the deslop pass was skipped with `skipReason = no-simplification-signal` or `--no-deslop`).
+   - Do not proceed to completion until post-deslop regression is green (unless `--no-deslop` explicitly skipped the deslop pass).
 8. **On approval**: Run `/cancel` to cleanly exit and clean up all state files
 9. **On rejection**: Fix the issues raised, then re-verify at the same tier
 </Steps>
