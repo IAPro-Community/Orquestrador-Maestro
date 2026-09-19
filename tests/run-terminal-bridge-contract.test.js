@@ -94,3 +94,16 @@ test("reconnect replays from memory and raw output stays out of the store", asyn
     e.type === "run.output" || e.type === "provider.output" || e.type === "run.output.snapshot");
   assert.equal(rawish.length, 0, "raw output must stay ephemeral");
 });
+
+test("terminal stream events never reach the durable store", async () => {
+  const { app, store } = await fixture();
+  const received = [];
+  const off = app.subscribe((event) => received.push(event));
+  await app.record(null, "terminal.output", { terminalId: "t-1", chunk: "TERMINAL_SECRET_XYZ" });
+  await app.record(null, "agentSession.output", { terminalId: "t-1", bytes: 18 });
+  off();
+  // Live subscribers still see the stream (ephemeral fan-out preserved).
+  assert.ok(received.some((e) => e.type === "terminal.output"));
+  const content = JSON.stringify(await store.listEvents({}));
+  assert.equal(content.includes("TERMINAL_SECRET_XYZ"), false, "terminal chunks must stay ephemeral");
+});

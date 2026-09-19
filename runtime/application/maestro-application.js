@@ -41,7 +41,7 @@ function projectIdForPath(workspacePath) { return `project-${crypto.createHash("
 //   verification.*, usage summaries, agent topology.
 // FOLLOW-UP (not this PR): if post-restart replay becomes a requirement, it
 // needs a privacy-reviewed design first — never raw ANSI in the RunStore.
-const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output"]);
+const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output", "terminal.output", "agentSession.output"]);
 
 function sanitizeProviderError(message) {
   // Durable error strings flow into execution metadata and run events, so
