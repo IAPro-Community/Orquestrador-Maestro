@@ -117,6 +117,9 @@ class RunTerminalBridge {
     if (event.type === "provider.output" && event.runId && typeof event.data?.chunk === "string") {
       this._queue(event.runId, () => this._publish(event.runId, event.data.chunk));
     }
+    // Durable output snapshot is persisted daemon-side by MaestroApplication
+    // at execution completion (single bounded write). The bridge stays
+    // ephemeral for live fan-out; replay reads the snapshot via _stream.
   }
 
   _queue(runId, operation) {
@@ -147,7 +150,13 @@ class RunTerminalBridge {
     }
     const context = await this._context(runId);
     const output = { runId, chunk, sequence: stream.sequence, ...(context?.missionId ? { missionId: context.missionId } : {}) };
-    await this.app.record(runId, "run.output", output);
+    // Ephemeral fan-out: live listeners get every chunk; durable store gets
+    // a single bounded snapshot at completion (see _persistSnapshot).
+    if (typeof this.app.publishEphemeral === "function") {
+      this.app.publishEphemeral(runId, "run.output", output);
+    } else {
+      this.app.events.emit("event", { id: `ephemeral-${Date.now()}-${Math.random()}`, runId, type: "run.output", occurredAt: new Date().toISOString(), data: output });
+    }
     for (const listener of this.listeners.get(runId) || []) {
       try { listener(output); } catch { /* An observer cannot break the daemon stream. */ }
     }
@@ -174,7 +183,17 @@ class RunTerminalBridge {
   async _stream(runId) {
     let stream = this.streams.get(runId);
     if (stream) return stream;
+    // Live-process memory only: raw provider/terminal chunks are ephemeral by
+    // design (privacy + write amplification). Legacy runs persisted before
+    // the ephemeral contract still replay from per-chunk events below.
     const events = typeof this.store.listEvents === "function" ? await this.store.listEvents({ runId }) : [];
+    const snapshot = events.filter((event) => event.type === "run.output.snapshot").at(-1);
+    if (snapshot && typeof snapshot.data?.ansi === "string") {
+      const ansi = snapshot.data.ansi;
+      stream = { sequence: snapshot.data.sequence || 1, chunks: [{ sequence: snapshot.data.sequence || 1, chunk: ansi }], characters: snapshot.data.characters || ansi.length, ptySequence: 0 };
+      this.streams.set(runId, stream);
+      return stream;
+    }
     const providerChunks = events.filter((event) => event.type === "provider.output" && typeof event.data?.chunk === "string")
       .map((event, index) => ({ sequence: index + 1, chunk: event.data.chunk }));
     const chunks = providerChunks.length > 0 ? providerChunks : events

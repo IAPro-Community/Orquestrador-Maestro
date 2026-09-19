@@ -28,6 +28,36 @@ const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
 
+// Ephemeral provider stream vs durable telemetry contract:
+// - provider.started / provider.output / provider.completed carry raw chunks
+//   and live in memory for UI/subscribers only; they are NEVER persisted.
+// - run.output per-chunk is likewise ephemeral; RunTerminalBridge persists a
+//   single bounded run.output.snapshot at completion for replay.
+// - Durable points: run.created/started/completed/failed/blocked,
+//   execution lifecycle (sanitized), review.*, artifact.created,
+//   verification.*, usage summaries, agent topology.
+const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output"]);
+
+function sanitizeProviderError(message) {
+  // Error strings may embed absolute paths; keep the message but redact home
+  // directories. Never include prompt/output content here (callers must not
+  // pass it in).
+  return String(message || "").replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]").slice(0, 2000);
+}
+
+function durableExecutionSummary(result, { providerId } = {}) {
+  return Object.freeze({
+    providerId: providerId || result?.providerId || "unknown",
+    pid: typeof result?.pid === "number" ? result.pid : null,
+    exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null,
+    signal: typeof result?.signal === "string" ? result.signal : null,
+    cancelled: result?.cancelled === true,
+    timedOut: result?.timedOut === true,
+    durationMs: Number.isFinite(result?.durationMs) ? result.durationMs : null,
+    ...(result?.error ? { error: sanitizeProviderError(result.error) } : {})
+  });
+}
+
 function gitIdentityForTelemetry(workspacePath) {
   try {
     const ctx = resolveGitContext(workspacePath);
@@ -230,7 +260,17 @@ class MaestroApplication {
       catch (error) { const wrapped = new Error(`Não foi possível criar o worktree do agente: ${error.message}`); wrapped.code = "AGENT_WORKTREE_FAILED"; throw wrapped; }
       workspacePath = workspace.path; workspaceId = workspace.id;
     }
-    return this.terminalSessions.create({ ...request, sessionId, projectId, workspacePath, sourceWorkspacePath, workspaceId, isolation });
+    return this.terminalSessions.create({ ...request, sessionId, projectId, workspacePath, sourceWorkspacePath, workspaceId, isolation,
+      // Maestro-spawned agent lineage (optional, backwards compatible).
+      // Legitimate reasons: independent-workstream, focused-investigation,
+      // specialized-review, blocked-primary, conflicting-evidence,
+      // specialized-verification. Provider-native agents are observed
+      // separately via telemetry and never blocked here.
+      ...(request?.spawnReason ? { spawnReason: request.spawnReason } : {}),
+      ...(request?.workItem ? { workItem: request.workItem } : {}),
+      ...(request?.expectedOutput ? { expectedOutput: request.expectedOutput } : {}),
+      ...(request?.relevantScope ? { relevantScope: request.relevantScope } : {})
+    });
   }
   async attachTerminalSession(terminalId) { return this.terminalSessions.attach(terminalId); }
   async closeTerminalSession(terminalId) { return this.terminalSessions.close(terminalId); }
@@ -401,15 +441,14 @@ class MaestroApplication {
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
-    // Privacy-safe usage summary alongside the operational result (which keeps
-    // stdout for local debugging). Telemetry consumers must use `usage`, never
-    // parse prompts/completions out of the stored result.
+    // Durable execution record carries a sanitized summary only. Full result
+    // (args with prompt, stdout/stderr) stays ephemeral in memory for parsers.
     let primaryUsageSummary = null;
     try {
       const parsed = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
       primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, tokenSource: parsed.tokenSource };
     } catch { primaryUsageSummary = null; }
-    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { ...result, engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
+    await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { summary: durableExecutionSummary(result, { providerId: provider.id }), engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
     const changes = diff(workspacePath);
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: { before, changes } });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
@@ -627,7 +666,19 @@ class MaestroApplication {
 
   async record(runId, type, data) {
     const event = { id: id("event"), runId: runId || undefined, type, occurredAt: new Date().toISOString(), data };
+    // Ephemeral stream: live subscribers still receive chunks for UI, but
+    // nothing hits the RunStore file (no per-chunk rewrite, no raw output).
+    if (EPHEMERAL_EVENT_TYPES.has(type)) {
+      this.events.emit("event", event);
+      return event;
+    }
     await this.store.appendEvent(event); this.events.emit("event", event); return event;
+  }
+
+  publishEphemeral(runId, type, data) {
+    const event = { id: id("event"), runId: runId || undefined, type, occurredAt: new Date().toISOString(), data };
+    this.events.emit("event", event);
+    return event;
   }
 }
 
