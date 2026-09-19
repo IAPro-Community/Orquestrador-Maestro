@@ -870,7 +870,10 @@ async function handleUsageCommand(args) {
     throw new Error("--limit deve ser um inteiro entre 1 e 200.");
   }
   const app = await createRuntimeApplication(options.projectPath);
-  const runs = (await app.listRuns({ projectPath: options.projectPath })).slice(-200);
+  // Filters run over the full available collection (RunStore contract
+  // unchanged: listRuns returns everything, no query engine); the limit
+  // applies LAST so old matching runs are never hidden by recency.
+  const runs = await app.listRuns({ projectPath: options.projectPath });
   const rows = [];
   for (const run of runs) {
     const telemetry = run.metadata?.cognitiveTelemetry || {};
@@ -880,10 +883,11 @@ async function handleUsageCommand(args) {
     const model = telemetry.model || "unknown";
     const branch = telemetry.branch || "unknown";
     const project = task?.projectId || telemetry.projectId || "unknown";
-    // Coherent filters: provider matches tool OR provider; model substring;
-    // branch/project exact. Unknown values never match a concrete filter.
+    // Coherent filters: provider matches tool OR provider; model is a
+    // case-insensitive substring (contract); branch/project exact. Unknown
+    // values never match a concrete filter.
     if (options.provider && !(tool === options.provider || provider === options.provider)) continue;
-    if (options.model && model !== options.model) continue;
+    if (options.model && !String(model).toLowerCase().includes(String(options.model).toLowerCase())) continue;
     if (options.branch && branch !== options.branch) continue;
     if (options.project && project !== options.project) continue;
     rows.push({
@@ -903,7 +907,11 @@ async function handleUsageCommand(args) {
       tokenSource: telemetry.tokenSource || "unavailable",
       usageScope: telemetry.usageScope || "unknown",
       childAgentsObserved: telemetry.childAgentsObserved ?? 0,
+      anonymousAgentEventsObserved: telemetry.anonymousAgentEventsObserved ?? 0,
       topologyExposed: telemetry.topologyExposed ?? "unknown",
+      // topologyVisibility is the contract ("partially-observed" |
+      // "unavailable"); topologyExposed stays for backward compatibility.
+      topologyVisibility: telemetry.topologyVisibility || "unavailable",
       durationMs: telemetry.durationMs ?? null
     });
   }
@@ -927,7 +935,7 @@ async function handleUsageCommand(args) {
       `Primary calls: ${row.primaryCalls}`,
       `Review calls: ${row.reviewCalls}`,
       `Child agents observed: ${row.childAgentsObserved}`,
-      `Topology: ${typeof row.topologyExposed === "boolean" ? (row.topologyExposed ? "exposed" : "not-exposed") : row.topologyExposed}`,
+      `Topology: ${row.topologyVisibility}${row.topologyVisibility === "unavailable" ? " (0 observed does not mean no subagents)" : ""}`,
       `Input tokens: ${formatTokens(row.inputTokens)}`,
       `Cached: ${formatTokens(row.cachedInputTokens)}`,
       `Output: ${formatTokens(row.outputTokens)}`,
