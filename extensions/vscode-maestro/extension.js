@@ -56,7 +56,8 @@ class MaestroTreeProvider {
 }
 
 function commandLine(session) {
-  return [session.command, ...(session.args || [])].map((part) => /[\s"']/u.test(part) ? JSON.stringify(part) : part).join(" ");
+  const argv = session.redactedArgs || session.args || [];
+  return [session.command, ...argv].map((part) => /[\s"']/u.test(part) ? JSON.stringify(part) : part).join(" ");
 }
 
 async function createNativeTerminal({ client, workspacePath, terminals, provider, kind, command, args = [] }) {

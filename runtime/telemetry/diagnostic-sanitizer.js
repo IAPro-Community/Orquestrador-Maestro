@@ -32,6 +32,9 @@ const PATTERNS = [
   [/([a-z][a-z0-9+.-]*:\/\/)([^/\s@]+@)/giu, "$1[credentials-redacted]@"],
   // Generic secret assignments (password/passwd/secret/token/api_key keys).
   [/((?:["']?(?:password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)["']?)\s*[:=]\s*["']?)[^"'\s,}]+/giu, "$1[redacted]"],
+  // CLI flags with secret values (--token SECRET, --api-key=ABC). Names only:
+  // innocuous flags (--color, --model) never match.
+  [/(--?[a-z0-9-]*(?:token|secret|passwd|password|api[_-]?key|auth[_-]?token|access[_-]?token|client[_-]?secret)\s*[=\s]\s*["']?)[^"'\s;,}]+/giu, "$1[redacted]"],
   // Emails / identifiers.
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email redacted]"],
   // Absolute home/root paths (POSIX + Windows). The drive-letter branch

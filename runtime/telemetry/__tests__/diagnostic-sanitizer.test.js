@@ -55,6 +55,13 @@ test("cookies and authorization headers are redacted", () => {
   assert.equal(out.includes("deadbeef"), false);
 });
 
+test("cli secret flags are redacted, innocuous flags survive", () => {
+  assert.equal(sanitizeDiagnostic("tool --token SECRET_XYZ failed").includes("SECRET_XYZ"), false);
+  assert.equal(sanitizeDiagnostic("tool --api-key=ABC123 failed").includes("ABC123"), false);
+  assert.match(sanitizeDiagnostic("tool --token SECRET_XYZ failed"), /--token \[redacted\]/);
+  assert.equal(sanitizeDiagnostic("tool --color never --model fast ok"), "tool --color never --model fast ok");
+});
+
 test("non-strings and oversized values are safe", () => {
   assert.equal(sanitizeDiagnostic(null), "");
   assert.equal(sanitizeDiagnostic(undefined), "");

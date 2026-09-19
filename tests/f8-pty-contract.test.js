@@ -76,7 +76,7 @@ test("F8.1 PTY observation stays separate from input and persists metadata only"
   assert.doesNotMatch(JSON.stringify(persisted), /secret prompt/u);
 });
 
-test("F8.1 managed terminals emit chunks and cap durable output", async () => {
+test("F8.1 managed terminals emit chunks, buffer output in memory, persist metadata only", async () => {
   const { root, store } = temporaryStore("maestro-f8-terminal-");
   await store.initialize();
   const events = [];
@@ -87,6 +87,13 @@ test("F8.1 managed terminals emit chunks and cap durable output", async () => {
   });
   const completed = await terminals.wait(terminal.id);
 
+  // Bounded in-memory buffer (same 100k cap), served to live waiters.
   assert.equal(completed.output.length, 100_000);
   assert.ok(events.some((event) => event.type === "terminal.output" && event.data.terminalId === terminal.id && event.data.chunk.length > 0));
+  // Durable record never carries raw output/stderr/raw argv.
+  const persisted = await store.getTerminal(terminal.id);
+  assert.equal(Object.hasOwn(persisted, "output"), false);
+  assert.equal(Object.hasOwn(persisted, "stderr"), false);
+  assert.equal(Object.hasOwn(persisted, "args"), false);
+  assert.equal(persisted.argCount, 2);
 });
