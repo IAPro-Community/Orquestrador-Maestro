@@ -145,6 +145,11 @@ function buildCognitiveTelemetry({
   // Context duplication groundwork: hashes only, never content.
   const promptHash = typeof prompt === "string" && prompt.length > 0 ? sha256Hex(prompt).slice(0, 32) : null;
   const agents = Array.isArray(childAgents) ? [...childAgents] : [];
+  // childAgentsObserved counts only ID-correlated agents: anonymous
+  // observations (no provider identifier) are recorded but never inflate the
+  // count — we cannot deduce how many distinct anonymous agents existed.
+  const identifiedAgents = agents.filter((agent) => agent && agent.anonymous !== true && agent.agentId !== null && agent.agentId !== undefined);
+  const anonymousAgentEvents = agents.filter((agent) => agent && (agent.anonymous === true || agent.agentId === null || agent.agentId === undefined));
   return Object.freeze({
     budgetTier: budget?.id || budget?.tier || "unknown",
     // Identity correlation.
@@ -173,16 +178,19 @@ function buildCognitiveTelemetry({
     // Skills economy (existing fields preserved).
     skillsRequested, skillsResolved, skillsLoaded,
     maxSkills: budget?.maxSkills ?? null,
-    // Subagent observability: observed count is honest, exposure flag tells
-    // whether the provider even exposes topology (0 != "definitely no agents").
-    childAgentsObserved: agents.length,
+    // Subagent observability: observed count is honest (identified agents
+    // only), exposure flag tells whether the provider even exposes topology
+    // (0 != "definitely no agents"). Anonymous event volume is reported
+    // separately and never merged into the count.
+    childAgentsObserved: identifiedAgents.length,
+    anonymousAgentEventsObserved: anonymousAgentEvents.length,
     childAgents: Object.freeze(agents),
-    topologyExposed: agents.length > 0 ? true : (primary.tokenSource === "provider-reported" ? "unknown" : "unknown"),
+    topologyExposed: identifiedAgents.length > 0 ? true : (primary.tokenSource === "provider-reported" ? "unknown" : "unknown"),
     // topologyVisibility: "partially-observed" when children were seen (we
     // cannot prove completeness, so never claim full provider-reported);
     // "unavailable" when nothing exposes topology. childAgentsObserved = 0
     // with "unavailable" must NOT be read as "no subagents happened".
-    topologyVisibility: agents.length > 0 ? "partially-observed" : "unavailable",
+    topologyVisibility: identifiedAgents.length > 0 ? "partially-observed" : "unavailable",
     // Amplification + duplication base.
     ...amplification,
     promptBytes: typeof prompt === "string" ? Buffer.byteLength(prompt, "utf8") : null,

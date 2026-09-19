@@ -17,6 +17,11 @@ function nonEmptyString(value, name) {
 class RunTerminalBridge {
   constructor({ app, store, terminals, terminalSessions, graphs } = {}) {
     if (!app || typeof app.subscribe !== "function" || typeof app.record !== "function") throw new TypeError("app is required");
+    // Publisher contract: _publish needs publishEphemeral OR events.emit.
+    // Reject at construction instead of failing later on first output.
+    const canPublishEphemeral = typeof app.publishEphemeral === "function";
+    const canEmitEvents = Boolean(app.events) && typeof app.events.emit === "function";
+    if (!canPublishEphemeral && !canEmitEvents) throw new TypeError("app must provide publishEphemeral or events.emit");
     if (!store) throw new TypeError("store is required");
     if (!terminals) throw new TypeError("terminals is required");
     if (!terminalSessions) throw new TypeError("terminalSessions is required");
@@ -117,9 +122,10 @@ class RunTerminalBridge {
     if (event.type === "provider.output" && event.runId && typeof event.data?.chunk === "string") {
       this._queue(event.runId, () => this._publish(event.runId, event.data.chunk));
     }
-    // Durable output snapshot is persisted daemon-side by MaestroApplication
-    // at execution completion (single bounded write). The bridge stays
-    // ephemeral for live fan-out; replay reads the snapshot via _stream.
+    // No durable snapshot is written anywhere: raw output is ephemeral by
+    // design (privacy contract). The bridge replays live memory for
+    // connected subscribers; _stream only reads LEGACY durable events for
+    // backward compatibility with runs persisted before the contract.
   }
 
   _queue(runId, operation) {
@@ -150,8 +156,8 @@ class RunTerminalBridge {
     }
     const context = await this._context(runId);
     const output = { runId, chunk, sequence: stream.sequence, ...(context?.missionId ? { missionId: context.missionId } : {}) };
-    // Ephemeral fan-out: live listeners get every chunk; durable store gets
-    // a single bounded snapshot at completion (see _persistSnapshot).
+    // Ephemeral fan-out only: live listeners get every chunk; nothing durable
+    // is written here or anywhere else for raw output (privacy contract).
     if (typeof this.app.publishEphemeral === "function") {
       this.app.publishEphemeral(runId, "run.output", output);
     } else {

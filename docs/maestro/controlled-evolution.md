@@ -137,7 +137,12 @@ Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--pr
 ou `run inspect <id>`. Tokens indisponíveis aparecem como `unavailable`, nunca `0`.
 `usageScope` (`self`/`aggregate`/`unknown`) indica se o total já inclui filhos;
 totais agregados nunca são somados com filhos. `topologyVisibility` distingue
-`0 observado` de `provider não expõe topologia`.
+`0 observado` de `provider não expõe topologia`: `usage --json` expõe
+`topologyVisibility` (`partially-observed` | `unavailable`) e preserva
+`topologyExposed` apenas por compatibilidade. `childAgentsObserved` conta
+somente agents correlacionáveis por ID real; eventos anônimos (sem ID do
+provider) vão para `anonymousAgentEventsObserved` e nunca inflam a contagem —
+`0` com `unavailable` NÃO significa "não houve subagents".
 
 ## Ephemeral vs durable provider data
 

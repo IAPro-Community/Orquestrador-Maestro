@@ -134,20 +134,26 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
       const output = pickFirst(asNonNegativeInt(active.output_tokens), asNonNegativeInt(active.outputTokens), asNonNegativeInt(active.completion_tokens));
       const cached = pickFirst(asNonNegativeInt(active.cached_input_tokens), asNonNegativeInt(active.cachedInputTokens), asNonNegativeInt(active.cache_read_input_tokens));
       const reasoning = pickFirst(asNonNegativeInt(active.reasoning_tokens), asNonNegativeInt(active.reasoningTokens), asNonNegativeInt(active.reasoning_output_tokens));
-      // Last usage wins when the stream reports cumulative totals; when it
-      // reports per-turn deltas we sum. Heuristic: if the new input is >= the
-      // accumulated input, treat as cumulative (replace); else sum.
-      if (input !== null) {
-        tokenInput = tokenInput === null ? input : (input >= tokenInput ? input : tokenInput + input);
-      }
-      if (output !== null) {
-        tokenOutput = tokenOutput === null ? output : (output >= tokenOutput ? output : tokenOutput + output);
-      }
-      if (cached !== null) {
-        cachedInputTokens = cachedInputTokens === null ? cached : (cached >= cachedInputTokens ? cached : cachedInputTokens + cached);
-      }
-      if (reasoning !== null) {
-        reasoningTokens = reasoningTokens === null ? reasoning : Math.max(reasoningTokens, reasoning);
+      // Event-type accounting (no numeric guessing): a thread.completed usage
+      // is the provider's session summary, so it REPLACES as the aggregate
+      // total. Per-turn readings are last-wins: we cannot prove whether the
+      // provider reports cumulative or delta turns, so we keep the latest
+      // observed reading with scope "unknown" instead of fabricating a total
+      // by comparison. thread.completed without usage still sets scope only
+      // when it carries usage (see below).
+      const isThreadSummary = typeof event.type === "string" && /^thread\.completed$/iu.test(event.type);
+      if (isThreadSummary) {
+        if (input !== null) tokenInput = input;
+        if (output !== null) tokenOutput = output;
+        if (cached !== null) cachedInputTokens = cached;
+        if (reasoning !== null) reasoningTokens = reasoning;
+        sawAggregate = true;
+        sawThreadUsage = true;
+      } else {
+        if (input !== null) tokenInput = input;
+        if (output !== null) tokenOutput = output;
+        if (cached !== null) cachedInputTokens = cached;
+        if (reasoning !== null) reasoningTokens = reasoning;
       }
     }
     if (typeof event.type === "string") {
@@ -158,7 +164,11 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
         if (active) { sawAggregate = true; sawThreadUsage = true; }
         continue;
       }
-      if (/^(turn\.completed|response\.completed)$/iu.test(event.type)) {
+      // Only turn.completed counts as a model generation. response.completed
+      // is a lifecycle event of the SAME generation (validated against current
+      // Codex exec --json shapes): counting both would double-count one call
+      // without evidence of an independent generation.
+      if (/^turn\.completed$/iu.test(event.type)) {
         turnCalls += 1;
         modelCalls = turnCalls;
       }
