@@ -113,9 +113,69 @@ test("amplification is null without provider numbers and honest when present", (
   assert.match(missing.limitation, /Unique useful context/u);
   const present = buildCognitiveTelemetry({
     budget: { id: "STANDARD", maxSkills: 3 },
-    primaryUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: 100, tokenOutput: 10, tokenSource: "provider-reported", modelCalls: 1 },
+    primaryUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: 100, tokenOutput: 10, tokenSource: "provider-reported", usageScope: "unknown", modelCalls: 1 },
     childAgents: [{ agentId: "c1", tokenInput: 100, tokenOutput: 10 }],
     outcome: "completed"
   });
   assert.equal(present.observedInputAmplification, 1);
+});
+
+test("aggregate parent totals are never summed with children (no double count)", () => {
+  const codexAggregate = parseProviderUsage({
+    providerId: "codex",
+    stdout: [
+      JSON.stringify({ type: "turn.completed", usage: { input_tokens: 400, output_tokens: 100 } }),
+      JSON.stringify({ type: "thread.completed", usage: { input_tokens: 1000, output_tokens: 300 } })
+    ].join("\n")
+  });
+  assert.equal(codexAggregate.usageScope, "aggregate");
+  const telemetry = buildCognitiveTelemetry({
+    budget: { id: "STANDARD", maxSkills: 3 },
+    primaryUsage: codexAggregate,
+    childAgents: [{ agentId: "c1", tokenInput: 400, tokenOutput: 100 }],
+    outcome: "completed"
+  });
+  assert.equal(telemetry.usageScope, "aggregate");
+  assert.equal(telemetry.totalInputTokens, null);
+  assert.equal(telemetry.observedInputAmplification, null);
+  assert.equal(telemetry.tokenInput, 1000);
+});
+
+test("unknown scope sums conservatively but stays marked unknown", () => {
+  const telemetry = buildCognitiveTelemetry({
+    budget: { id: "STANDARD", maxSkills: 3 },
+    primaryUsage: { tool: "opencode", provider: "anthropic", model: "m", tokenInput: 200, tokenOutput: 50, tokenSource: "provider-reported", usageScope: "unknown", modelCalls: 1 },
+    childAgents: [{ agentId: "c1", tokenInput: 100, tokenOutput: 10 }],
+    outcome: "completed"
+  });
+  assert.equal(telemetry.usageScope, "unknown");
+  assert.equal(telemetry.tokenInput, 200);
+  assert.equal(telemetry.totalInputTokens, 300);
+});
+
+test("session resume does not re-count history as new spend without evidence", () => {
+  // Resumed sessions report cumulative totals; without per-execution deltas
+  // the conservative scope stays aggregate/unknown, never a fresh sum.
+  const resumed = parseProviderUsage({
+    providerId: "claude",
+    stdout: [
+      JSON.stringify({ type: "system", subtype: "init", session_id: "sess-resume" }),
+      JSON.stringify({ type: "result", session_id: "sess-resume", usage: { input_tokens: 5000, output_tokens: 200 } })
+    ].join("\n")
+  });
+  assert.equal(resumed.usageScope, "aggregate");
+  assert.equal(resumed.sessionId, "sess-resume");
+});
+
+test("cache tokens preserve provider semantics without financial claims", () => {
+  const claude = parseProviderUsage({
+    providerId: "claude",
+    stdout: [
+      JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 100, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 50 } } })
+    ].join("\n")
+  });
+  assert.equal(claude.cachedInputTokens, 50);
+  assert.equal(claude.tokenInput, 100);
+  // Cached is a subset signal, not additive spend: total stays input-based.
+  assert.ok(claude.cachedInputTokens <= claude.tokenInput + 50);
 });

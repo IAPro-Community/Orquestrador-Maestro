@@ -49,7 +49,7 @@ function safeJsonLines(text) {
   return events;
 }
 
-function normalizeAgentEvent(event, index) {
+function normalizeAgentEvent(event, index, { runId, executionId } = {}) {
   if (!event || typeof event !== "object") return null;
   // Candidate child-agent shapes across providers (all optional):
   // - { type:"agent.started"|"task.started"|"subagent.started", agent_id, parent_id, role }
@@ -85,19 +85,24 @@ function normalizeAgentEvent(event, index) {
     : /fail|error/iu.test(String(event.status || event.outcome || "")) ? "failed"
       : /cancel/iu.test(String(event.status || event.outcome || "")) ? "cancelled" : "unknown";
   return Object.freeze({
+    runId: runId || null,
+    executionId: executionId || null,
     agentId,
     parentAgentId,
+    rootAgentId: parentAgentId || agentId,
     role,
     depth: parentAgentId ? null : 1,
     providerNative: true,
     spawnReason: asNonEmptyString(event.reason) || null,
+    startedAt: asNonEmptyString(event.startedAt) || null,
+    completedAt: asNonEmptyString(event.completedAt) || null,
     tokenInput,
     tokenOutput,
     outcome
   });
 }
 
-function extractChildAgents({ providerId, stdout } = {}) {
+function extractChildAgents({ providerId, stdout, runId, executionId } = {}) {
   void providerId;
   try {
     const events = safeJsonLines(stdout);
@@ -105,7 +110,7 @@ function extractChildAgents({ providerId, stdout } = {}) {
     const agents = [];
     const seen = new Set();
     events.forEach((event, index) => {
-      const normalized = normalizeAgentEvent(event, index);
+      const normalized = normalizeAgentEvent(event, index, { runId, executionId });
       if (!normalized) return;
       if (seen.has(normalized.agentId)) return;
       seen.add(normalized.agentId);

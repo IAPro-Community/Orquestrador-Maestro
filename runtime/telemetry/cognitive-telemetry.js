@@ -40,7 +40,7 @@ function spanId() {
 
 function normalizeUsage(usage) {
   if (!usage || typeof usage !== "object") {
-    return { tokenInput: null, tokenOutput: null, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, tokenSource: "unavailable", provider: "unknown", model: "unknown", sessionId: null, tool: "unknown" };
+    return { tokenInput: null, tokenOutput: null, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, tokenSource: "unavailable", usageScope: "unknown", provider: "unknown", model: "unknown", sessionId: null, tool: "unknown" };
   }
   return {
     tokenInput: usage.tokenInput ?? null,
@@ -51,6 +51,7 @@ function normalizeUsage(usage) {
     modelCalls: Number.isInteger(usage.modelCalls) ? usage.modelCalls : 0,
     toolCalls: usage.toolCalls ?? null,
     tokenSource: usage.tokenSource || "unavailable",
+    usageScope: usage.usageScope || "unknown",
     provider: usage.provider || "unknown",
     model: usage.model || "unknown",
     sessionId: usage.sessionId || null,
@@ -68,13 +69,16 @@ function normalizeUsage(usage) {
  * unique useful context, so these factors measure observed input volume,
  * not waste.
  */
-function amplificationMetrics({ primaryInput, childAgents }) {
+function amplificationMetrics({ primaryInput, primaryScope, childAgents }) {
   const childInputs = (childAgents || []).map((agent) => agent.tokenInput).filter((value) => Number.isFinite(value) && value > 0);
   const childInputTokens = childInputs.length > 0 ? childInputs.reduce((sum, value) => sum + value, 0) : null;
-  const totalInputTokens = primaryInput !== null && childInputTokens !== null ? primaryInput + childInputTokens
-    : primaryInput !== null ? primaryInput : childInputTokens;
+  // When the primary scope is aggregate, the parent total may already include
+  // children: summing would double-count, so total stays null (unknown).
+  const totalInputTokens = primaryScope === "aggregate" && childInputTokens !== null ? null
+    : primaryInput !== null && childInputTokens !== null ? primaryInput + childInputTokens
+      : primaryInput !== null ? primaryInput : childInputTokens;
   let observedInputAmplification = null;
-  if (Number.isFinite(primaryInput) && primaryInput > 0 && Number.isFinite(childInputTokens) && childInputTokens !== null) {
+  if (primaryScope !== "aggregate" && Number.isFinite(primaryInput) && primaryInput > 0 && Number.isFinite(childInputTokens) && childInputTokens !== null) {
     observedInputAmplification = childInputTokens / primaryInput;
   }
   return Object.freeze({
@@ -83,7 +87,7 @@ function amplificationMetrics({ primaryInput, childAgents }) {
     totalInputTokens: totalInputTokens ?? null,
     observedInputAmplification,
     childAmplificationFactor: observedInputAmplification,
-    limitation: "Unique useful context is unknown; this ratio measures observed input volume across the run tree, not proven waste."
+    limitation: "Unique useful context is unknown; this ratio measures observed input volume across the run tree, not proven waste. Aggregate parent totals are never summed with children."
   });
 }
 
@@ -110,11 +114,16 @@ function buildCognitiveTelemetry({
   status = null,
   childAgents = [],
   prompt = null,
+  contextDigests = null,
+  sessionResumed = null,
   traceId: existingTraceId = null,
   spanId: existingSpanId = null
 } = {}) {
   const primary = normalizeUsage(primaryUsage);
   const review = reviewUsage ? normalizeUsage(reviewUsage) : null;
+  // Primary + review are separate provider calls (different sessions), so
+  // summing is safe. Child-agent inputs are NOT summed into the run total
+  // when the primary scope is aggregate (parent already includes children).
   const tokenInput = primary.tokenInput !== null || (review && review.tokenInput !== null)
     ? (primary.tokenInput || 0) + ((review && review.tokenInput) || 0) : null;
   const tokenOutput = primary.tokenOutput !== null || (review && review.tokenOutput !== null)
@@ -123,12 +132,15 @@ function buildCognitiveTelemetry({
     ? (primary.cachedInputTokens || 0) + ((review && review.cachedInputTokens) || 0) : null;
   const tokenSource = primary.tokenSource === "provider-reported" || (review && review.tokenSource === "provider-reported")
     ? "provider-reported" : "unavailable";
+  const usageScope = primary.usageScope === "aggregate" || (review && review.usageScope === "aggregate")
+    ? "aggregate" : primary.tokenSource === "provider-reported" ? primary.usageScope : "unknown";
   const modelCalls = (primary.modelCalls || 0) + ((review && review.modelCalls) || 0);
   const primaryCalls = primary.modelCalls > 0 ? 1 : (outcome === "blocked" ? 0 : 1);
   const reviewCalls = review ? review.modelCalls > 0 ? 1 : 0 : 0;
-  const amplification = amplificationMetrics({ primaryInput: primary.tokenInput, childAgents });
+  const amplification = amplificationMetrics({ primaryInput: primary.tokenInput, primaryScope: primary.usageScope, childAgents });
   // Context duplication groundwork: hashes only, never content.
   const promptHash = typeof prompt === "string" && prompt.length > 0 ? sha256Hex(prompt).slice(0, 32) : null;
+  const agents = Array.isArray(childAgents) ? [...childAgents] : [];
   return Object.freeze({
     budgetTier: budget?.id || budget?.tier || "unknown",
     // Identity correlation.
@@ -148,6 +160,7 @@ function buildCognitiveTelemetry({
     cachedOutputTokens: primary.cachedOutputTokens ?? null,
     reasoningTokens: primary.reasoningTokens ?? null,
     tokenSource,
+    usageScope,
     modelCalls,
     primaryCalls,
     reviewCalls,
@@ -156,13 +169,19 @@ function buildCognitiveTelemetry({
     // Skills economy (existing fields preserved).
     skillsRequested, skillsResolved, skillsLoaded,
     maxSkills: budget?.maxSkills ?? null,
-    // Subagent observability.
-    childAgentsObserved: Array.isArray(childAgents) ? childAgents.length : 0,
-    childAgents: Object.freeze([...(childAgents || [])]),
+    // Subagent observability: observed count is honest, exposure flag tells
+    // whether the provider even exposes topology (0 != "definitely no agents").
+    childAgentsObserved: agents.length,
+    childAgents: Object.freeze(agents),
+    topologyExposed: agents.length > 0 ? true : (primary.tokenSource === "provider-reported" ? "unknown" : "unknown"),
     // Amplification + duplication base.
     ...amplification,
     promptBytes: typeof prompt === "string" ? Buffer.byteLength(prompt, "utf8") : null,
     promptHash,
+    // Context digests (hashes only): brief manifest, base/worker digests when
+    // callers supply them. Enables future duplicate-context detection.
+    contextDigests: contextDigests && typeof contextDigests === "object" ? Object.freeze({ ...contextDigests }) : null,
+    sessionResumed: sessionResumed === null || sessionResumed === undefined ? null : Boolean(sessionResumed),
     // Tracing (OTel-compatible mapping, local only).
     traceId: existingTraceId || traceId(),
     spanId: existingSpanId || spanId(),

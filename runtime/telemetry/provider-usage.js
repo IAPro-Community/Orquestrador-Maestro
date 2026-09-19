@@ -71,11 +71,12 @@ function emptyUsage(tool) {
     modelCalls: 0,
     toolCalls: null,
     tokenSource: "unavailable",
+    usageScope: "unknown",
     source: "unavailable"
   });
 }
 
-function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, source }) {
+function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, source }) {
   const hasTokens = tokenInput !== null || tokenOutput !== null || cachedInputTokens !== null;
   return Object.freeze({
     tool: tool || "unknown",
@@ -90,6 +91,10 @@ function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, c
     modelCalls: Number.isInteger(modelCalls) ? modelCalls : 0,
     toolCalls: toolCalls ?? null,
     tokenSource: hasTokens ? "provider-reported" : "unavailable",
+    // usageScope guards against double counting: "aggregate" means the
+    // provider total already includes children/history; "self" means only
+    // this execution; "unknown" means conservative (never sum blindly).
+    usageScope: usageScope || (hasTokens ? "unknown" : "unknown"),
     source: source || (hasTokens ? "stdout-events" : "unavailable")
   });
 }
@@ -109,6 +114,7 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
   let sessionId = null;
   let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
   let modelCalls = 0;
+  let sawAggregate = false;
   for (const event of events) {
     const threadId = asNonEmptyString(event.thread_id) || asNonEmptyString(event.threadId) || asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (threadId && !sessionId) sessionId = threadId;
@@ -144,6 +150,9 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
     }
     if (typeof event.type === "string" && /^(turn\.completed|thread\.completed|response\.completed)$/iu.test(event.type)) {
       modelCalls += 1;
+      // thread.completed carries the cumulative thread total (may include
+      // child/history tokens); never sum it with per-turn deltas blindly.
+      if (/^thread\.completed$/iu.test(event.type) && active) sawAggregate = true;
     }
   }
   // Fallback: a single JSON object (non-NDJSON) carrying usage directly.
@@ -155,7 +164,7 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
     if (input !== null) tokenInput = input;
     if (output !== null) tokenOutput = output;
   }
-  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, source: "stdout-events" });
+  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", source: "stdout-events" });
 }
 
 // Claude `--print --output-format stream-json --verbose` (+ agy variant):
@@ -176,6 +185,7 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
   let modelCalls = 0;
   let toolCalls = 0;
   let sawToolUse = false;
+  let sawAggregate = false;
   for (const event of events) {
     const sid = asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (sid && !sessionId) sessionId = sid;
@@ -195,6 +205,7 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
       // A result event carries the cumulative totals for the turn.
       if (event.type === "result") {
         modelCalls += 1;
+        if (usage) sawAggregate = true;
       }
     }
     // Tool-use counting is best-effort: assistant content blocks with
@@ -217,6 +228,7 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
     tool, provider: "unknown", model: model || "unknown", sessionId,
     tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null,
     reasoningTokens: null, modelCalls, toolCalls: sawToolUse ? toolCalls : null,
+    usageScope: sawAggregate ? "aggregate" : "unknown",
     source: "stdout-events"
   });
 }
