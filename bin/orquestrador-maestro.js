@@ -886,10 +886,20 @@ async function handleUsageCommand(args) {
     // Coherent filters: provider matches tool OR provider; model is a
     // case-insensitive substring (contract); branch/project exact. Unknown
     // values never match a concrete filter.
-    if (options.provider && !(tool === options.provider || provider === options.provider)) continue;
-    if (options.model && !String(model).toLowerCase().includes(String(options.model).toLowerCase())) continue;
-    if (options.branch && branch !== options.branch) continue;
-    if (options.project && project !== options.project) continue;
+    const known = (value) => {
+      if (value === undefined || value === null) return null;
+      const text = String(value);
+      return text.toLowerCase() === "unknown" ? null : text;
+    };
+    const knownTool = known(tool);
+    const knownProvider = known(provider);
+    const knownModel = known(model);
+    const knownBranch = known(branch);
+    const knownProject = known(project);
+    if (options.provider && !(knownTool === options.provider || knownProvider === options.provider)) continue;
+    if (options.model && !(knownModel && knownModel.toLowerCase().includes(String(options.model).toLowerCase()))) continue;
+    if (options.branch && knownBranch !== options.branch) continue;
+    if (options.project && knownProject !== options.project) continue;
     rows.push({
       run: run.id,
       project,

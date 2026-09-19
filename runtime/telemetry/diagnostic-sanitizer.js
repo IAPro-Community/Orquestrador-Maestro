@@ -26,8 +26,12 @@ const PATTERNS = [
   [/\b(ghp_[A-Za-z0-9]+|gho_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9-_]+|xox[baprs]-[A-Za-z0-9-]+|AKIA[A-Z0-9]{16})\b/g, "[token redacted]"],
   // JWT (full header.payload.signature or truncated eyJ... fragments).
   [/\beyJ[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]+){0,2}/g, "[jwt redacted]"],
-  // Authorization / cookie header values (whole value, any scheme leftovers).
-  [/((?:authorization|proxy-authorization|cookie|set-cookie)\s*[:=]\s*["']?)[^"'`\s;,}]+/giu, "$1[redacted]"],
+  // Authorization header values are single tokens (scheme leftovers kept).
+  [/((?:authorization|proxy-authorization)\s*[:=]\s*["']?)[^"'`\s;,}]+/giu, "$1[redacted]"],
+  // Cookie / Set-Cookie headers are multi-value (pairs separated by ";").
+  // Stopping at the first ";" would leak every later secret, so the whole
+  // header value is redacted up to the end of the line (bounded).
+  [/((?:cookie|set-cookie)\s*[:=]\s*["']?)[^"'`\n}]{1,1024}/giu, "$1[redacted]"],
   // Connection strings: redact credentials, keep host for debuggability.
   [/([a-z][a-z0-9+.-]*:\/\/)([^/\s@]+@)/giu, "$1[credentials-redacted]@"],
   // Generic secret assignments (password/passwd/secret/token/api_key keys).

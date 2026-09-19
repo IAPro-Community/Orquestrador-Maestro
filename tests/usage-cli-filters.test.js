@@ -76,15 +76,51 @@ test("filter-before-limit finds an old match past the newest 200", async () => {
 test("--model is a case-insensitive substring", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-usage-sub-"));
   await seedRuns(root, 5);
+  // A failed/unreported run carries sentinel "unknown" everywhere (the same
+  // shape MaestroApplication persists when the model was never reported).
+  const dir = path.join(root, ".orquestrador-maestro", "runtime");
+  const store = new JsonFileRunStore({ filePath: path.join(dir, "runs.json") });
+  await store.initialize();
+  const projectId = projectIdForPath(root);
+  await store.saveTask({ id: "task-unknown", projectId, description: "unknown sentinel" });
+  await store.saveRun({
+    id: "run-unknown",
+    taskId: "task-unknown",
+    providerId: "codex",
+    status: "failed",
+    startedAt: new Date().toISOString(),
+    metadata: {
+      cognitiveTelemetry: {
+        tool: "unknown",
+        provider: "unknown",
+        model: "unknown",
+        branch: "unknown",
+        projectId: "unknown",
+        tokenSource: "unavailable",
+        usageScope: "unknown",
+        modelCalls: 0,
+        primaryCalls: 1,
+        reviewCalls: 0,
+        childAgentsObserved: 0,
+        topologyVisibility: "unavailable"
+      }
+    }
+  });
   const upper = usageJson(root, ["--model", "GPT-5"]);
   assert.equal(upper.length, 1);
   const partial = usageJson(root, ["--model", "gpt"]);
   assert.equal(partial.length, 1);
   const misses = usageJson(root, ["--model", "claude-zzz"]);
   assert.equal(misses.length, 0);
-  // Unknown model never matches a concrete filter.
+  // Sentinel "unknown" never satisfies a concrete filter...
   const unknown = usageJson(root, ["--model", "unknown"]);
-  assert.ok(unknown.length >= 0);
+  assert.equal(unknown.length, 0);
+  const unknownProvider = usageJson(root, ["--provider", "unknown"]);
+  assert.equal(unknownProvider.length, 0);
+  // ...but the run is still listed without filters.
+  const all = usageJson(root, []);
+  assert.equal(all.length, 6);
+  assert.ok(all.some((row) => row.run === "run-unknown" && row.model === "unknown"));
 }, { timeout: 120000 });
 
 test("limit still bounds the final result", async () => {

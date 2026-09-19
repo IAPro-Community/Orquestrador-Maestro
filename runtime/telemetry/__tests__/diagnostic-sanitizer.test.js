@@ -55,6 +55,20 @@ test("cookies and authorization headers are redacted", () => {
   assert.equal(out.includes("deadbeef"), false);
 });
 
+test("multi-value cookies redact every pair, quoted or not", () => {
+  const multi = sanitizeDiagnostic("fetch failed cookie: session=abc123; refresh=secret456; theme=dark");
+  for (const secret of ["abc123", "secret456"]) assert.equal(multi.includes(secret), false);
+  assert.match(multi, /cookie: \[redacted\]/i);
+  const quoted = sanitizeDiagnostic('fetch failed cookie: "session=abc123; refresh=secret456"');
+  assert.equal(quoted.includes("abc123"), false);
+  assert.equal(quoted.includes("secret456"), false);
+  const setCookie = sanitizeDiagnostic("upstream Set-Cookie: id=1; Path=/; HttpOnly end");
+  assert.equal(setCookie.includes("id=1"), false);
+  assert.match(setCookie, /set-cookie: \[redacted\]/i);
+  // Prose mentioning cookies without a header separator is untouched.
+  assert.equal(sanitizeDiagnostic("cookie must not persist").includes("cookie must not persist"), true);
+});
+
 test("cli secret flags are redacted, innocuous flags survive", () => {
   assert.equal(sanitizeDiagnostic("tool --token SECRET_XYZ failed").includes("SECRET_XYZ"), false);
   assert.equal(sanitizeDiagnostic("tool --api-key=ABC123 failed").includes("ABC123"), false);
