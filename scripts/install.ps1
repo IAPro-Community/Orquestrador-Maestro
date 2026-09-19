@@ -51,6 +51,7 @@ $AllowedComponents = @(
   "community-skills",
   "codex",
   "agents",
+  "freebuff",
   "claude",
   "opencode",
   "cursor",
@@ -371,7 +372,7 @@ $extraTargets = New-Object System.Collections.Generic.List[object]
 $extraFileTargets = New-Object System.Collections.Generic.List[object]
 if (-not $SkipExtraSkills) {
   if (-not $SkipCommunitySkills) {
-    if (Test-SelectedComponent -Names @("skills", "community-skills", "codex", "agents", "claude", "opencode", "cursor", "gemini", "windsurf", "antigravity", "mimo", "kimi", "grok")) {
+    if (Test-SelectedComponent -Names @("skills", "community-skills", "codex", "agents", "freebuff", "claude", "opencode", "cursor", "gemini", "windsurf", "antigravity", "mimo", "kimi", "grok")) {
       Add-InstallTarget `
         -Targets $extraTargets `
         -Source $SourceCommunitySkills `

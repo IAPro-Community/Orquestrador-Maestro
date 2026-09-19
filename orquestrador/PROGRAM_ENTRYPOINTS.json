@@ -73,6 +73,26 @@
       ],
       "notes": "OpenCode keeps its own .opencode entrypoints; legacy .agents/skills remains populated for compatibility."
     },
+    "freebuff": {
+      "component": "freebuff",
+      "capabilities": {
+        "autoActivates": true,
+        "hookSupport": "AGENTS.md, knowledge.md, .agents/skills, optional .agents/mcp.json",
+        "commandRewrite": false,
+        "statusline": false,
+        "settingsMerge": "none; Freebuff-owned configuration remains untouched",
+        "verify": ".agents/skills/orquestrador-maestro/SKILL.md exists"
+      },
+      "primary": [
+        "{{PROJECT_ROOT}}/AGENTS.md",
+        "{{PROJECT_ROOT}}/knowledge.md",
+        "{{PROJECT_ROOT}}/.freebuffrc"
+      ],
+      "skillsRoot": "{{PROJECT_ROOT}}/.agents/skills",
+      "agentsRoot": "{{PROJECT_ROOT}}/.agents/agents",
+      "mcpConfig": "{{PROJECT_ROOT}}/.agents/mcp.json",
+      "notes": "Freebuff is prepared through the shared project contract. Its CLI remains interactive until an official stable headless mode is available."
+    },
     "antigravity": {
       "component": "antigravity",
       "capabilities": {

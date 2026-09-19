@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Registrado o Freebuff como ferramenta compatível, com catálogo de entrypoint/adaptador, instalação `--only freebuff`, alias de sincronização para `.agents/skills`, verificação persistente e documentação de uso após reinício/publicação.
+- Adicionado `FreebuffAdapter` para eventos estruturados de ferramentas e subagentes, sem assumir um modo headless que o CLI oficial ainda não estabilizou.
+
 ## 0.4.1 - 2026-09-19
 
 Esta versão endurece a publicação pública e a verificação multiplataforma para ambientes Windows com estado local do runtime.

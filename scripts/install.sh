@@ -183,7 +183,7 @@ selected_component() {
 
 validate_only_components() {
   local component
-  local allowed=" all core orquestrador global-agents skills community-skills codex agents claude opencode cursor gemini windsurf antigravity mimo kimi grok tool-profiles codex-skills codex-agents codex-prompts prompts "
+  local allowed=" all core orquestrador global-agents skills community-skills codex agents freebuff claude opencode cursor gemini windsurf antigravity mimo kimi grok tool-profiles codex-skills codex-agents codex-prompts prompts "
   for component in "${ONLY_COMPONENTS[@]}"; do
     case "$allowed" in
       *" $component "*) ;;
@@ -457,7 +457,7 @@ fi
 
 if [ "$SKIP_EXTRA_SKILLS" = false ]; then
   if [ "$SKIP_COMMUNITY_SKILLS" = false ]; then
-    if selected_component skills community-skills codex agents claude opencode cursor gemini windsurf antigravity mimo kimi grok; then
+    if selected_component skills community-skills codex agents freebuff claude opencode cursor gemini windsurf antigravity mimo kimi grok; then
       add_target "$SOURCE_COMMUNITY_SKILLS" "$TARGET_SKILL_LIBRARY/community-skills" ".orquestrador__skill-library__community-skills" "community-skills"
     fi
   fi

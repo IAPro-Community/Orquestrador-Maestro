@@ -84,6 +84,7 @@ skills
 community-skills
 codex
 agents
+freebuff
 claude
 opencode
 cursor
@@ -105,6 +106,7 @@ Exemplos:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only codex -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only antigravity
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only freebuff -Force
 orquestrador-maestro install --only codex,cursor,claude --dry-run
 ```
 

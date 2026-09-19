@@ -6,7 +6,7 @@ const os = require("node:os");
 const { execSync } = require("node:child_process");
 
 const { Memory } = require("../orquestrador/bin/memory.js");
-const { ClaudeAdapter, CodexAdapter, OpenCodeAdapter, GenericAdapter, createAdapter } = require("../orquestrador/adapters/index.js");
+const { ClaudeAdapter, CodexAdapter, OpenCodeAdapter, FreebuffAdapter, GenericAdapter, createAdapter } = require("../orquestrador/adapters/index.js");
 
 describe("Adapters", () => {
   let tmpDir;
@@ -40,6 +40,12 @@ describe("Adapters", () => {
       const adapter = createAdapter("opencode", { memory, projectId });
       assert.ok(adapter instanceof OpenCodeAdapter);
       assert.equal(adapter.name, "opencode");
+    });
+
+    it("should create Freebuff adapter", () => {
+      const adapter = createAdapter("freebuff", { memory, projectId });
+      assert.ok(adapter instanceof FreebuffAdapter);
+      assert.equal(adapter.name, "freebuff");
     });
 
     it("should create generic adapter for unknown tool", () => {
@@ -147,6 +153,32 @@ describe("Adapters", () => {
       assert.equal(normalized.type, "attempt");
       assert.ok(normalized.summary.includes("Ran tests"));
       assert.equal(normalized.source.tool, "opencode");
+    });
+  });
+
+  describe("FreebuffAdapter", () => {
+    it("should normalize structured Freebuff tool events", () => {
+      const adapter = new FreebuffAdapter({ memory, projectId });
+
+      const normalized = adapter.normalizeEvent({
+        type: "tool_call",
+        tool_name: "edit_file",
+        input: { path: "src/app.ts", patch: "..." },
+        session_id: "session-freebuff"
+      });
+
+      assert.equal(normalized.type, "implementation");
+      assert.match(normalized.summary, /edit_file/u);
+      assert.deepEqual(normalized.files, ["src/app.ts"]);
+      assert.equal(normalized.source.tool, "freebuff");
+      assert.equal(normalized.source.session, "session-freebuff");
+    });
+
+    it("should ignore conversational and progress events", () => {
+      const adapter = new FreebuffAdapter({ memory, projectId });
+
+      assert.equal(adapter.processEvent({ type: "text", content: "working" }), null);
+      assert.equal(adapter.processEvent({ type: "reasoning_delta", content: "..." }), null);
     });
   });
 

@@ -14,6 +14,10 @@ test("adapter manifest protects private state categories", () => {
   assert.equal(manifest.schemaVersion, 1);
   assert.ok(manifest.policy.neverManage.includes("auth"));
   assert.ok(manifest.policy.neverManage.includes("sessions"));
+  assert.ok(manifest.adapters.freebuff);
+  assert.equal(manifest.adapters.freebuff.command, "freebuff");
+  assert.ok(manifest.adapters.freebuff.config.project.includes(".agents/skills"));
+  assert.ok(manifest.adapters.freebuff.capabilities.includes("mcp"));
   for (const [id, adapter] of Object.entries(manifest.adapters)) {
     assert.ok(adapter.command, id);
     assert.ok(Array.isArray(adapter.config.global), id);

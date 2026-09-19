@@ -11,6 +11,12 @@ The Grok CLI reads the Orquestrador through the same portable `AGENTS.md` and sk
 
 The installer writes `~/.grok/config.toml` and points Grok at `~/.orquestrador/skills` and `~/.agents/skills`. Verify discovery with `grok inspect`.
 
+## Freebuff
+
+Freebuff usa `AGENTS.md`, `knowledge.md` e `.agents/skills` como contrato de contexto. O Maestro registra o componente `freebuff` e deixa a skill compartilhada disponível sem instalar, alterar ou copiar autenticação, sessões, cache, logs ou histórico.
+
+Use `orquestrador-maestro install --only freebuff --force` e, depois de uma atualização do catálogo, `sync-skills.ps1 -Apply -Only freebuff` ou o equivalente Bash. A execução continua no CLI/desktop interativo do Freebuff; o runtime do Maestro ainda não anuncia um provider headless para ele.
+
 ## MiMo Code e Kimi Code
 
 O instalador também prepara os pontos de entrada globais de MiMo Code e Kimi Code:
@@ -54,6 +60,7 @@ Os hooks e entrypoints estão detalhados em [orquestrador-reference.md](orquestr
 - `tool-profiles/mimo/`: `AGENTS.md` global para MiMo Code.
 - `tool-profiles/kimi/`: `AGENTS.md` e `config.toml` globais para Kimi Code.
 - `tool-profiles/grok/`: `config.toml` global para Grok Build.
+- `tool-profiles/freebuff/`: documentação do contrato compartilhado; o Freebuff usa diretamente `AGENTS.md` e `.agents/skills`.
 - `tool-profiles/ai-standards/`: standards portáteis instalados em `~/.ai-standards`.
 - `orquestrador/blueprints/project/`: bootstrap de workspace para VS Code, GitHub Copilot, Continue, JetBrains AI Assistant, Aider, Cline e Windsurf.
 
@@ -125,6 +132,7 @@ O pacote instala arquivos nos locais que as ferramentas costumam ler como regra,
 | MiMo Code | `%USERPROFILE%\.mimo\AGENTS.md` |
 | Kimi Code | `%USERPROFILE%\.kimi-code\AGENTS.md` e `%USERPROFILE%\.kimi-code\config.toml` |
 | Grok Build | `%USERPROFILE%\.grok\config.toml` |
+| Freebuff | `%USERPROFILE%\AGENTS.md` e `%USERPROFILE%\.agents\skills` |
 | VS Code + GitHub Copilot | projeto aberto: `.github\copilot-instructions.md` e `.vscode\extensions.json` |
 | Continue | projeto aberto: `.continue\rules\00-orquestrador-maestro.md` |
 | JetBrains AI Assistant | projeto aberto: `.aiassistant\rules\orquestrador-maestro.md` |

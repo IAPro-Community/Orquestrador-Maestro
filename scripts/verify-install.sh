@@ -190,6 +190,7 @@ EOF
       add_issue "Native skill root $program is oversized for low-token operation ($dir_count directories > $max_dirs): $root_path"
     fi
   done
+  assert_path "$HOME_PATH/.agents/skills/orquestrador-maestro/SKILL.md" "Freebuff shared Maestro skill"
 fi
 
 if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then

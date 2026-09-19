@@ -22,7 +22,9 @@ $OnlyPrograms = @(
 function Test-ShouldSyncTarget {
   param([string]$Program)
   if ($OnlyPrograms.Count -eq 0) { return $true }
-  return $OnlyPrograms -contains $Program.ToLowerInvariant()
+  $normalized = $Program.ToLowerInvariant()
+  if ($normalized -eq "agents" -and $OnlyPrograms -contains "freebuff") { return $true }
+  return $OnlyPrograms -contains $normalized
 }
 
 function Get-DefaultInstallPolicy {

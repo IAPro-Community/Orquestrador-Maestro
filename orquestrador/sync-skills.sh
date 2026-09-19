@@ -59,6 +59,9 @@ should_sync_target() {
     return 0
   fi
   for wanted in "${ONLY_PROGRAMS[@]}"; do
+    if [ "$program" = "agents" ] && [ "$wanted" = "freebuff" ]; then
+      return 0
+    fi
     if [ "$wanted" = "$program" ]; then
       return 0
     fi

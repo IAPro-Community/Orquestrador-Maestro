@@ -66,7 +66,9 @@ e registre o estado útil para a próxima sessão.
 
 O Maestro começa com instruções globais e locais, encontra a skill adequada e usa `DEV/` para manter objetivo, decisões, verificação e próximo passo no próprio projeto. Assim, você não depende de a conversa anterior ainda estar disponível — nem de trocar de ferramenta sem perder o método.
 
-Ele integra fluxos para Codex, Claude Code, OpenCode, Cursor, Gemini CLI, Grok CLI, MiMo Code, Kimi Code, Windsurf e Antigravity. Cada ferramenta continua responsável pelo próprio runtime, login, modelo e credenciais.
+Ele integra fluxos para Codex, Claude Code, OpenCode, Freebuff, Cursor, Gemini CLI, Grok CLI, MiMo Code, Kimi Code, Windsurf e Antigravity. Cada ferramenta continua responsável pelo próprio runtime, login, modelo e credenciais.
+
+O Freebuff usa o mesmo contrato de `AGENTS.md` e `.agents/skills` que o Maestro já sincroniza. Veja o [guia de integração do Freebuff](docs/freebuff-integration.md) para instalação persistente, MCP, agentes locais e publicação para outros usuários.
 
 Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orquestrador-reference.md), [economia de contexto](docs/context-economy.md), [memória de projeto com DEV/](docs/project-dev-hierarchy.md) e [perfis de ferramentas](docs/tool-profiles.md).
 

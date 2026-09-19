@@ -136,6 +136,7 @@ if (-not $CoreOnly) {
       Add-Issue "Native skill root $($root.Program) is oversized for low-token operation ($dirCount directories > $($root.MaxDirectories)): $($root.Path)"
     }
   }
+  Assert-Path -Path (Join-Path $HomePath ".agents\skills\orquestrador-maestro\SKILL.md") -Label "Freebuff shared Maestro skill"
 }
 
 if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {

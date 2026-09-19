@@ -129,6 +129,48 @@ class OpenCodeAdapter extends Adapter {
   }
 }
 
+class FreebuffAdapter extends Adapter {
+  constructor(options = {}) {
+    super("freebuff", options);
+  }
+
+  shouldRecord(event) {
+    if (!event || !event.type) return false;
+    return new Set(["tool_call", "tool_result", "subagent_start", "subagent_finish", "error"]).has(event.type);
+  }
+
+  normalizeEvent(rawEvent) {
+    const input = rawEvent.input || rawEvent.args || null;
+    const output = rawEvent.output || rawEvent.result || null;
+    const toolName = rawEvent.tool_name || rawEvent.toolName || rawEvent.name || "tool";
+    const summary = rawEvent.summary || rawEvent.description ||
+      (rawEvent.type === "subagent_start" ? `Started subagent ${toolName}` :
+        rawEvent.type === "subagent_finish" ? `Finished subagent ${toolName}` :
+          `${toolName} ${rawEvent.type.replace(/_/g, " ")}`);
+    const detailsValue = rawEvent.details || rawEvent.content || rawEvent.error || output || input;
+    const details = detailsValue && typeof detailsValue === "object" ? JSON.stringify(detailsValue) : detailsValue || null;
+    const files = rawEvent.files || [
+      rawEvent.file_path,
+      rawEvent.filePath,
+      rawEvent.path,
+      input && (input.file_path || input.filePath || input.path)
+    ].filter(Boolean);
+
+    return {
+      type: rawEvent.type === "error" ? "problem" : rawEvent.type.startsWith("subagent_") ? "discovery" : "implementation",
+      summary,
+      details,
+      files,
+      tags: rawEvent.tags || [this.name, rawEvent.type, toolName],
+      source: {
+        tool: this.name,
+        session: rawEvent.session_id || rawEvent.sessionId,
+        commit: rawEvent.commit
+      }
+    };
+  }
+}
+
 class GenericAdapter extends Adapter {
   constructor(options = {}) {
     super(options.name || "generic", options);
@@ -158,6 +200,8 @@ function createAdapter(toolName, options = {}) {
       return new CodexAdapter(options);
     case "opencode":
       return new OpenCodeAdapter(options);
+    case "freebuff":
+      return new FreebuffAdapter(options);
     default:
       return new GenericAdapter({ ...options, name: toolName });
   }
@@ -168,6 +212,7 @@ module.exports = {
   ClaudeAdapter,
   CodexAdapter,
   OpenCodeAdapter,
+  FreebuffAdapter,
   GenericAdapter,
   createAdapter,
   DEFAULT_OBSERVATION_TYPE_MAP

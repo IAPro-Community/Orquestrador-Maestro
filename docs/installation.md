@@ -69,6 +69,7 @@ Em uma máquina de exemplo, se o usuário for `maria`, os destinos ficam abaixo 
 | `%USERPROFILE%\.codex\agents` | Agentes nativos do Codex |
 | `%USERPROFILE%\.codex\prompts` | Prompts dos agentes do Codex |
 | `%USERPROFILE%\.agents\skills` | Espelho compatível mínimo com skills canônicas |
+| `%USERPROFILE%\.agents\skills\orquestrador-maestro` | Skill compartilhada lida pelo Freebuff e por clientes compatíveis |
 | `%USERPROFILE%\.claude\skills` | Raiz nativa mínima para Claude/Claude Code |
 | `%USERPROFILE%\.opencode\skills` | Raiz nativa mínima para OpenCode |
 | `%USERPROFILE%\.cursor\skills` | Raiz nativa mínima para Cursor |
@@ -97,6 +98,8 @@ Em uma máquina de exemplo, se o usuário for `maria`, os destinos ficam abaixo 
 No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador`, `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
 
 O ponto central dessa arquitetura é economia de contexto: as bibliotecas grandes continuam instaladas, mas fora das pastas que Claude Code, Codex, OpenCode, Cursor, Gemini, Windsurf e outros clientes tendem a enumerar automaticamente em toda sessão.
+
+Para usar o Freebuff, consulte o [guia de integração específico](freebuff-integration.md). O instalador mantém a integração após reinícios porque não depende de um processo residente: o contrato global e as skills ficam no home do usuário e são relidos quando o Freebuff é aberto.
 
 ## Backups
 
