@@ -116,6 +116,7 @@ function buildCognitiveTelemetry({
   prompt = null,
   contextDigests = null,
   sessionResumed = null,
+  reviewCalls: reviewCallsOverride = null,
   traceId: existingTraceId = null,
   spanId: existingSpanId = null
 } = {}) {
@@ -136,7 +137,10 @@ function buildCognitiveTelemetry({
     ? "aggregate" : primary.tokenSource === "provider-reported" ? primary.usageScope : "unknown";
   const modelCalls = (primary.modelCalls || 0) + ((review && review.modelCalls) || 0);
   const primaryCalls = primary.modelCalls > 0 ? 1 : (outcome === "blocked" ? 0 : 1);
-  const reviewCalls = review ? review.modelCalls > 0 ? 1 : 0 : 0;
+  // reviewCalls counts real independent-review invocations, never usage
+  // availability: a review that ran but exposed no token usage still counts 1.
+  const reviewCalls = Number.isInteger(reviewCallsOverride) ? reviewCallsOverride
+    : review ? (review.modelCalls > 0 ? 1 : 0) : 0;
   const amplification = amplificationMetrics({ primaryInput: primary.tokenInput, primaryScope: primary.usageScope, childAgents });
   // Context duplication groundwork: hashes only, never content.
   const promptHash = typeof prompt === "string" && prompt.length > 0 ? sha256Hex(prompt).slice(0, 32) : null;
@@ -174,6 +178,11 @@ function buildCognitiveTelemetry({
     childAgentsObserved: agents.length,
     childAgents: Object.freeze(agents),
     topologyExposed: agents.length > 0 ? true : (primary.tokenSource === "provider-reported" ? "unknown" : "unknown"),
+    // topologyVisibility: "partially-observed" when children were seen (we
+    // cannot prove completeness, so never claim full provider-reported);
+    // "unavailable" when nothing exposes topology. childAgentsObserved = 0
+    // with "unavailable" must NOT be read as "no subagents happened".
+    topologyVisibility: agents.length > 0 ? "partially-observed" : "unavailable",
     // Amplification + duplication base.
     ...amplification,
     promptBytes: typeof prompt === "string" ? Buffer.byteLength(prompt, "utf8") : null,

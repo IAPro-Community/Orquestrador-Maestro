@@ -77,7 +77,7 @@ function emptyUsage(tool) {
 }
 
 function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, source }) {
-  const hasTokens = tokenInput !== null || tokenOutput !== null || cachedInputTokens !== null;
+  const hasTokens = tokenInput !== null || tokenOutput !== null || cachedInputTokens !== null || reasoningTokens !== null;
   return Object.freeze({
     tool: tool || "unknown",
     provider: provider || "unknown",
@@ -114,7 +114,9 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
   let sessionId = null;
   let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
   let modelCalls = 0;
+  let turnCalls = 0;
   let sawAggregate = false;
+  let sawThreadUsage = false;
   for (const event of events) {
     const threadId = asNonEmptyString(event.thread_id) || asNonEmptyString(event.threadId) || asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (threadId && !sessionId) sessionId = threadId;
@@ -149,10 +151,15 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
       }
     }
     if (typeof event.type === "string" && /^(turn\.completed|thread\.completed|response\.completed)$/iu.test(event.type)) {
-      modelCalls += 1;
-      // thread.completed carries the cumulative thread total (may include
-      // child/history tokens); never sum it with per-turn deltas blindly.
-      if (/^thread\.completed$/iu.test(event.type) && active) sawAggregate = true;
+      // thread.completed is the cumulative session summary, not a new model
+      // generation: it sets the aggregate scope but never adds a call on top
+      // of per-turn counts (avoids double-counting one generation twice).
+      if (/^thread\.completed$/iu.test(event.type)) {
+        if (active) { sawAggregate = true; sawThreadUsage = true; }
+        continue;
+      }
+      turnCalls += 1;
+      modelCalls = turnCalls;
     }
   }
   // Fallback: a single JSON object (non-NDJSON) carrying usage directly.
@@ -164,6 +171,9 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
     if (input !== null) tokenInput = input;
     if (output !== null) tokenOutput = output;
   }
+  // Usage without any per-turn event (thread summary only) still implies one
+  // observed generation; report it as such instead of zero.
+  if (modelCalls === 0 && sawThreadUsage) modelCalls = 1;
   return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", source: "stdout-events" });
 }
 
@@ -196,12 +206,14 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
     if (usage) {
       const input = pickFirst(asNonNegativeInt(usage.input_tokens), asNonNegativeInt(usage.inputTokens));
       const output = pickFirst(asNonNegativeInt(usage.output_tokens), asNonNegativeInt(usage.outputTokens));
-      const cacheRead = pickFirst(asNonNegativeInt(usage.cache_read_input_tokens), asNonNegativeInt(usage.cached_input_tokens), 0) || 0;
-      const cacheCreate = pickFirst(asNonNegativeInt(usage.cache_creation_input_tokens), 0) || 0;
-      const cached = cacheRead + cacheCreate;
+      // Explicit zero is preserved: cache fields present (even as 0) yield a
+      // numeric cached total; absent fields leave cached unknown (null).
+      const readRaw = pickFirst(asNonNegativeInt(usage.cache_read_input_tokens), asNonNegativeInt(usage.cached_input_tokens));
+      const createRaw = asNonNegativeInt(usage.cache_creation_input_tokens);
+      const cached = readRaw !== null || createRaw !== null ? (readRaw || 0) + (createRaw || 0) : null;
       if (input !== null) tokenInput = tokenInput === null ? input : Math.max(tokenInput, input);
       if (output !== null) tokenOutput = tokenOutput === null ? output : Math.max(tokenOutput, output);
-      if (cached > 0) cachedInputTokens = cachedInputTokens === null ? cached : Math.max(cachedInputTokens, cached);
+      if (cached !== null) cachedInputTokens = cachedInputTokens === null ? cached : Math.max(cachedInputTokens, cached);
       // A result event carries the cumulative totals for the turn.
       if (event.type === "result") {
         modelCalls += 1;

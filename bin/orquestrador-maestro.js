@@ -860,8 +860,13 @@ function formatTokens(value) {
 async function handleUsageCommand(args) {
   const options = parseRuntimeArgs(args, ["--project-path", "--limit", "--provider", "--model", "--branch", "--project"], ["--json"]);
   if (options.values.length > 0) throw new Error("Uso: maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]");
-  const limit = options.limit !== undefined ? Number.parseInt(options.limit, 10) : 20;
-  if (options.limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
+  const limitRaw = options.limit !== undefined ? String(options.limit) : undefined;
+  // Strict whole-string validation: parseInt would silently accept "10x" or
+  // truncate "1.5", so only plain decimal digits in range are allowed.
+  const limit = limitRaw !== undefined
+    ? (/^\d+$/.test(limitRaw) ? Number.parseInt(limitRaw, 10) : NaN)
+    : 20;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new Error("--limit deve ser um inteiro entre 1 e 200.");
   }
   const app = await createRuntimeApplication(options.projectPath);

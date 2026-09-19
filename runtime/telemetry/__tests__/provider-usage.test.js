@@ -179,3 +179,103 @@ test("cache tokens preserve provider semantics without financial claims", () => 
   // Cached is a subset signal, not additive spend: total stays input-based.
   assert.ok(claude.cachedInputTokens <= claude.tokenInput + 50);
 });
+
+test("agent lifecycle merges started/usage/completed without inventing ids", () => {
+  const { extractChildAgents } = require("../agent-topology");
+  const stdout = [
+    JSON.stringify({ type: "agent.started", agent_id: "a1", role: "explore" }),
+    JSON.stringify({ type: "agent.usage", agent_id: "a1", usage: { input_tokens: 300, output_tokens: 60 } }),
+    JSON.stringify({ type: "agent.completed", agent_id: "a1", status: "completed" }),
+    JSON.stringify({ type: "agent.started", role: "explore" })
+  ].join("\n");
+  const agents = extractChildAgents({ providerId: "codex", stdout, runId: "r1", executionId: "e1" });
+  const real = agents.filter((a) => !a.anonymous);
+  const anon = agents.filter((a) => a.anonymous);
+  assert.equal(real.length, 1);
+  assert.equal(real[0].agentId, "a1");
+  assert.equal(real[0].tokenInput, 300);
+  assert.equal(real[0].tokenOutput, 60);
+  assert.equal(real[0].outcome, "completed");
+  assert.equal(real[0].runId, "r1");
+  assert.equal(anon.length, 1);
+  assert.equal(anon[0].agentId, null);
+  assert.ok(!agents.some((a) => typeof a.agentId === "string" && a.agentId.startsWith("observed-")));
+});
+
+test("repeated and out-of-order agent events merge deterministically", () => {
+  const { extractChildAgents } = require("../agent-topology");
+  const stdout = [
+    JSON.stringify({ type: "agent.completed", agent_id: "b1", status: "failed" }),
+    JSON.stringify({ type: "agent.started", agent_id: "b1", role: "executor" }),
+    JSON.stringify({ type: "agent.completed", agent_id: "b1", status: "failed" }),
+    JSON.stringify({ type: "agent.started", agent_id: "c1" }),
+    JSON.stringify({ type: "agent.started", agent_id: "d1" })
+  ].join("\n");
+  const agents = extractChildAgents({ providerId: "codex", stdout });
+  assert.equal(agents.length, 3);
+  const b1 = agents.find((a) => a.agentId === "b1");
+  assert.equal(b1.outcome, "failed");
+  assert.equal(b1.role, "executor");
+});
+
+test("reviewCalls counts invocations even when usage is unavailable", () => {
+  const { buildCognitiveTelemetry } = require("../cognitive-telemetry");
+  const withCall = buildCognitiveTelemetry({
+    budget: { id: "ASSURANCE", maxSkills: 3 },
+    primaryUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: 100, tokenOutput: 10, tokenSource: "provider-reported", usageScope: "unknown", modelCalls: 1 },
+    reviewUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: null, tokenOutput: null, tokenSource: "unavailable", usageScope: "unknown", modelCalls: 0 },
+    reviewCalls: 1,
+    outcome: "completed"
+  });
+  assert.equal(withCall.reviewCalls, 1);
+  const withoutCall = buildCognitiveTelemetry({
+    budget: { id: "ASSURANCE", maxSkills: 3 },
+    primaryUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: 100, tokenOutput: 10, tokenSource: "provider-reported", usageScope: "unknown", modelCalls: 1 },
+    reviewUsage: null,
+    reviewCalls: 0,
+    outcome: "completed"
+  });
+  assert.equal(withoutCall.reviewCalls, 0);
+});
+
+test("codex turn plus thread summary counts one model call", () => {
+  const usage = parseProviderUsage({
+    providerId: "codex",
+    stdout: [
+      JSON.stringify({ type: "turn.completed", usage: { input_tokens: 400, output_tokens: 100 } }),
+      JSON.stringify({ type: "thread.completed", thread_id: "t1", usage: { input_tokens: 400, output_tokens: 100 } })
+    ].join("\n")
+  });
+  assert.equal(usage.modelCalls, 1);
+  assert.equal(usage.usageScope, "aggregate");
+  assert.equal(usage.tokenInput, 400);
+});
+
+test("explicit zero cache stays zero instead of unknown", () => {
+  const usage = parseProviderUsage({
+    providerId: "claude",
+    stdout: [
+      JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 50 } } })
+    ].join("\n")
+  });
+  assert.equal(usage.cachedInputTokens, 0);
+  assert.equal(usage.tokenSource, "provider-reported");
+  const missing = parseProviderUsage({ providerId: "codex", stdout: "plain text" });
+  assert.equal(missing.cachedInputTokens, null);
+  assert.equal(missing.tokenSource, "unavailable");
+});
+
+test("topologyVisibility separates zero observed from unavailable", () => {
+  const { buildCognitiveTelemetry } = require("../cognitive-telemetry");
+  const none = buildCognitiveTelemetry({ budget: { id: "STANDARD", maxSkills: 3 }, primaryUsage: null, outcome: "completed" });
+  assert.equal(none.childAgentsObserved, 0);
+  assert.equal(none.topologyVisibility, "unavailable");
+  const some = buildCognitiveTelemetry({
+    budget: { id: "STANDARD", maxSkills: 3 },
+    primaryUsage: { tool: "codex", provider: "unknown", model: "m", tokenInput: 100, tokenOutput: 10, tokenSource: "provider-reported", usageScope: "unknown", modelCalls: 1 },
+    childAgents: [{ agentId: "c1", tokenInput: 50, tokenOutput: 5 }],
+    outcome: "completed"
+  });
+  assert.equal(some.childAgentsObserved, 1);
+  assert.equal(some.topologyVisibility, "partially-observed");
+});

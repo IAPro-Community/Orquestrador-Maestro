@@ -130,5 +130,29 @@ RunStore JSON permanece o contrato; arquivos `runs.json` antigos continuam legí
 (campos novos são opcionais). Se JSON se mostrar insuficiente para consultas futuras,
 o requisito será documentado para um futuro `SQLiteRunStore` — sem migração agora.
 
-Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--json]`
+Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]`
 ou `run inspect <id>`. Tokens indisponíveis aparecem como `unavailable`, nunca `0`.
+`usageScope` (`self`/`aggregate`/`unknown`) indica se o total já inclui filhos;
+totais agregados nunca são somados com filhos. `topologyVisibility` distingue
+`0 observado` de `provider não expõe topologia`.
+
+## Ephemeral vs durable provider data
+
+- Ephemeral (memória + subscribers ao vivo, nunca no `runs.json`): `provider.started`,
+  `provider.output` chunks, `provider.completed` raw, `run.output` per-chunk, stdout/stderr
+  brutos, NDJSON bruto, prompts/args com prompt.
+- Durable (lifecycle points): `run.created/started/completed/failed/blocked`,
+  execution summary sanitizado (`providerId`, `exitCode`, `duration`, `usage`,
+  erro sanitizado), `review.*`, `artifact.created`, `verification.*`, usage
+  normalizado, `childAgents[]` metadata.
+- `saveExecution` nunca persiste `args/stdout/stderr`; `record()` roteia
+  `provider.*`/`run.output` para emit-only. O teste `durable-privacy` prova com
+  sentinelas que nada bruto chega ao disco; o teste de amplificação prova eventos
+  duráveis bounded mesmo com 500 chunks.
+
+## Sentinel contract
+
+- Medição numérica indisponível: `null` (nunca `0` para "não sabemos"; `0` só quando
+  o provider informou zero explicitamente).
+- Identidade/valor textual desconhecido: `"unknown"`.
+- Fonte de medição indisponível: `"unavailable"`.

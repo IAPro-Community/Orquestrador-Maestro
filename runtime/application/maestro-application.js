@@ -260,17 +260,7 @@ class MaestroApplication {
       catch (error) { const wrapped = new Error(`Não foi possível criar o worktree do agente: ${error.message}`); wrapped.code = "AGENT_WORKTREE_FAILED"; throw wrapped; }
       workspacePath = workspace.path; workspaceId = workspace.id;
     }
-    return this.terminalSessions.create({ ...request, sessionId, projectId, workspacePath, sourceWorkspacePath, workspaceId, isolation,
-      // Maestro-spawned agent lineage (optional, backwards compatible).
-      // Legitimate reasons: independent-workstream, focused-investigation,
-      // specialized-review, blocked-primary, conflicting-evidence,
-      // specialized-verification. Provider-native agents are observed
-      // separately via telemetry and never blocked here.
-      ...(request?.spawnReason ? { spawnReason: request.spawnReason } : {}),
-      ...(request?.workItem ? { workItem: request.workItem } : {}),
-      ...(request?.expectedOutput ? { expectedOutput: request.expectedOutput } : {}),
-      ...(request?.relevantScope ? { relevantScope: request.relevantScope } : {})
-    });
+    return this.terminalSessions.create({ ...request, sessionId, projectId, workspacePath, sourceWorkspacePath, workspaceId, isolation });
   }
   async attachTerminalSession(terminalId) { return this.terminalSessions.attach(terminalId); }
   async closeTerminalSession(terminalId) { return this.terminalSessions.close(terminalId); }
@@ -513,6 +503,7 @@ class MaestroApplication {
         budget: cognitiveBudget,
         primaryUsage,
         reviewUsage,
+        reviewCalls: Number.isInteger(review?.calls) ? review.calls : null,
         skillsRequested: requestedSkills.length,
         skillsResolved: resolvedSkills.length,
         skillsLoaded: executionPackage.skills.length,

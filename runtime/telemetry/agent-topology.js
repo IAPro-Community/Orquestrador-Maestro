@@ -4,21 +4,17 @@
  * Observed subagent topology.
  *
  * The Maestro does NOT limit provider-native subagents in this phase; it
- * OBSERVES them when the provider exposes child sessions/agents. Each entry
- * describes one observed child execution/agent invocation:
+ * OBSERVES them when the provider exposes child sessions/agents.
  *
- * - agentId: provider-reported child identifier (never invented).
- * - parentAgentId: parent identifier when exposed, else null.
- * - role/lane: Maestro lane when the spawn reason is known, else "unknown".
- * - depth: observed nesting depth (1 = direct child of the primary
- *   execution) when computable, else null.
- * - providerNative: true when the child was spawned by the provider itself
- *   (as opposed to a Maestro lane); false when the Maestro spawned it.
- * - tokens: provider-reported input/output when exposed, else null.
- * - outcome: completed/failed/cancelled/unknown.
+ * Identity rule: NEVER invent an agentId. Events without a provider-reported
+ * identifier are recorded as explicit anonymous observations
+ * ({ agentId: null, anonymous: true }) so counts never inflate and tokens
+ * never misattribute. Anonymous observations never merge with each other.
  *
- * Unknown provider event shapes are ignored (forwards compatibility).
- * No prompt/completion content is collected here.
+ * Lifecycle rule: events keyed by real agentId merge across started/usage/
+ * completed (first-seen order preserved). Later non-null data fills earlier
+ * gaps; known values are never overwritten by unknown/null. Out-of-order
+ * events merge the same way.
  */
 
 function asNonEmptyString(value) {
@@ -49,56 +45,40 @@ function safeJsonLines(text) {
   return events;
 }
 
-function normalizeAgentEvent(event, index, { runId, executionId } = {}) {
-  if (!event || typeof event !== "object") return null;
-  // Candidate child-agent shapes across providers (all optional):
-  // - { type:"agent.started"|"task.started"|"subagent.started", agent_id, parent_id, role }
-  // - { agentId, parentAgentId } camelCase variants
-  // - { session_id + parent_session_id } session nesting
-  // - OpenCode: { type:"agent", sessionID, parentID }
-  const type = typeof event.type === "string" ? event.type : "";
-  const isAgentType = /^(agent|task|subagent|child)[._-](started|spawned|created|invoked)$/iu.test(type)
-    || /^(agent|subagent|child)$/iu.test(type)
-    || asNonEmptyString(event.agent_id) !== null
-    || asNonEmptyString(event.agentId) !== null;
-  if (!isAgentType) return null;
-  const agentId = asNonEmptyString(event.agent_id)
-    || asNonEmptyString(event.agentId)
-    || asNonEmptyString(event.child_session_id)
-    || asNonEmptyString(event.childSessionId)
-    || asNonEmptyString(event.sessionID)
-    || `observed-${index}`;
-  // Only keep the fallback id when the event really looks like an agent
-  // invocation (explicit type); otherwise drop to avoid inventing agents.
-  if (agentId.startsWith("observed-") && !/^(agent|task|subagent|child)/iu.test(type)) return null;
-  const parentAgentId = asNonEmptyString(event.parent_id)
-    || asNonEmptyString(event.parentId)
-    || asNonEmptyString(event.parent_session_id)
-    || asNonEmptyString(event.parentSessionId)
-    || asNonEmptyString(event.parentID)
-    || null;
-  const role = asNonEmptyString(event.role) || asNonEmptyString(event.lane) || asNonEmptyString(event.agent) || "unknown";
+function outcomeFrom(event) {
+  const raw = String(event.status || event.outcome || "");
+  if (/complet|success|done/iu.test(raw)) return "completed";
+  if (/fail|error/iu.test(raw)) return "failed";
+  if (/cancel/iu.test(raw)) return "cancelled";
+  return "unknown";
+}
+
+function usageFrom(event) {
   const usage = event.usage && typeof event.usage === "object" ? event.usage : null;
-  const tokenInput = usage ? (asNonNegativeInt(usage.input_tokens) ?? asNonNegativeInt(usage.inputTokens) ?? asNonNegativeInt(usage.input)) : null;
-  const tokenOutput = usage ? (asNonNegativeInt(usage.output_tokens) ?? asNonNegativeInt(usage.outputTokens) ?? asNonNegativeInt(usage.output)) : null;
-  const outcome = /complet|success|done/iu.test(String(event.status || event.outcome || "")) ? "completed"
-    : /fail|error/iu.test(String(event.status || event.outcome || "")) ? "failed"
-      : /cancel/iu.test(String(event.status || event.outcome || "")) ? "cancelled" : "unknown";
+  if (!usage) return { tokenInput: null, tokenOutput: null };
+  return {
+    tokenInput: asNonNegativeInt(usage.input_tokens) ?? asNonNegativeInt(usage.inputTokens) ?? asNonNegativeInt(usage.input),
+    tokenOutput: asNonNegativeInt(usage.output_tokens) ?? asNonNegativeInt(usage.outputTokens) ?? asNonNegativeInt(usage.output)
+  };
+}
+
+function toRecord(state) {
   return Object.freeze({
-    runId: runId || null,
-    executionId: executionId || null,
-    agentId,
-    parentAgentId,
-    rootAgentId: parentAgentId || agentId,
-    role,
-    depth: parentAgentId ? null : 1,
+    runId: state.runId || null,
+    executionId: state.executionId || null,
+    agentId: state.agentId,
+    anonymous: state.agentId === null,
+    parentAgentId: state.parentAgentId || null,
+    rootAgentId: state.parentAgentId || state.agentId,
+    role: state.role || "unknown",
+    depth: state.parentAgentId ? null : 1,
     providerNative: true,
-    spawnReason: asNonEmptyString(event.reason) || null,
-    startedAt: asNonEmptyString(event.startedAt) || null,
-    completedAt: asNonEmptyString(event.completedAt) || null,
-    tokenInput,
-    tokenOutput,
-    outcome
+    spawnReason: state.spawnReason || null,
+    startedAt: state.startedAt || null,
+    completedAt: state.completedAt || null,
+    tokenInput: state.tokenInput ?? null,
+    tokenOutput: state.tokenOutput ?? null,
+    outcome: state.outcome || "unknown"
   });
 }
 
@@ -107,18 +87,70 @@ function extractChildAgents({ providerId, stdout, runId, executionId } = {}) {
   try {
     const events = safeJsonLines(stdout);
     if (events.length === 0) return Object.freeze([]);
-    const agents = [];
-    const seen = new Set();
-    events.forEach((event, index) => {
-      const normalized = normalizeAgentEvent(event, index, { runId, executionId });
-      if (!normalized) return;
-      if (seen.has(normalized.agentId)) return;
-      seen.add(normalized.agentId);
-      agents.push(normalized);
-    });
-    // Resolve depth 1 for roots; deeper nesting stays null unless the parent
-    // chain is fully observed (honest: we do not guess depth).
-    return Object.freeze(agents);
+    const byId = new Map();
+    const order = [];
+    const anonymous = [];
+    for (const event of events) {
+      if (!event || typeof event !== "object") continue;
+      const type = typeof event.type === "string" ? event.type : "";
+      const hasId = asNonEmptyString(event.agent_id)
+        || asNonEmptyString(event.agentId)
+        || asNonEmptyString(event.child_session_id)
+        || asNonEmptyString(event.childSessionId);
+      const isAgentType = /^(agent|task|subagent|child)[._-](started|spawned|created|invoked|completed|finished|usage|update)$/iu.test(type)
+        || /^(agent|subagent|child)$/iu.test(type)
+        || hasId !== null;
+      if (!isAgentType) continue;
+      const agentId = asNonEmptyString(event.agent_id)
+        || asNonEmptyString(event.agentId)
+        || asNonEmptyString(event.child_session_id)
+        || asNonEmptyString(event.childSessionId);
+      // sessionID-only shapes (OpenCode): only treat as agent identity when
+      // the event type is agent-scoped; a bare step/session id is not a child.
+      const scopedSession = /^(agent|task|subagent|child)/iu.test(type)
+        ? (asNonEmptyString(event.sessionID) || null)
+        : null;
+      const id = agentId || scopedSession;
+      const { tokenInput, tokenOutput } = usageFrom(event);
+      const outcome = outcomeFrom(event);
+      const parentAgentId = asNonEmptyString(event.parent_id)
+        || asNonEmptyString(event.parentId)
+        || asNonEmptyString(event.parent_session_id)
+        || asNonEmptyString(event.parentSessionId)
+        || asNonEmptyString(event.parentID)
+        || null;
+      const role = asNonEmptyString(event.role) || asNonEmptyString(event.lane) || asNonEmptyString(event.agent) || null;
+      if (id === null) {
+        anonymous.push(toRecord({
+          runId, executionId, agentId: null, parentAgentId: null,
+          role: role || "unknown",
+          spawnReason: asNonEmptyString(event.reason),
+          startedAt: asNonEmptyString(event.startedAt),
+          completedAt: asNonEmptyString(event.completedAt),
+          tokenInput, tokenOutput,
+          outcome: outcome === "unknown" ? "unknown" : outcome
+        }));
+        continue;
+      }
+      let state = byId.get(id);
+      if (!state) {
+        state = { runId: runId || null, executionId: executionId || null, agentId: id, parentAgentId: null, role: null, spawnReason: null, startedAt: null, completedAt: null, tokenInput: null, tokenOutput: null, outcome: "unknown" };
+        byId.set(id, state);
+        order.push(id);
+      }
+      if (parentAgentId && !state.parentAgentId) state.parentAgentId = parentAgentId;
+      if (role && (!state.role || state.role === "unknown")) state.role = role;
+      const reason = asNonEmptyString(event.reason);
+      if (reason && !state.spawnReason) state.spawnReason = reason;
+      const started = asNonEmptyString(event.startedAt);
+      if (started && !state.startedAt) state.startedAt = started;
+      const completed = asNonEmptyString(event.completedAt);
+      if (completed && !state.completedAt) state.completedAt = completed;
+      if (tokenInput !== null && tokenInput !== undefined && state.tokenInput === null) state.tokenInput = tokenInput;
+      if (tokenOutput !== null && tokenOutput !== undefined && state.tokenOutput === null) state.tokenOutput = tokenOutput;
+      if (outcome !== "unknown" && state.outcome === "unknown") state.outcome = outcome;
+    }
+    return Object.freeze([...order.map((id) => toRecord(byId.get(id))), ...anonymous]);
   } catch {
     return Object.freeze([]);
   }
