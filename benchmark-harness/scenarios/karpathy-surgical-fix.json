@@ -1,0 +1,24 @@
+{
+  "id": "karpathy-surgical-fix",
+  "name": "Karpathy: surgical fix without scope creep",
+  "description": "One-line boundary fix. Metrics: unexpectedFilesChanged, outOfScopeChanges, dependenciesAdded, acceptance, verification, tokens, agents, retries. Less LOC is not automatically better; correct scoping is.",
+  "task": "Fix the off-by-one in range.ts so range(0,3) returns [0,1,2]. Change only range.ts. Do not refactor, add deps, or touch configs.",
+  "fixture": {
+    "path": "../fixtures/econ-stub"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "hidden_tests",
+        "name": "range-correct",
+        "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('./range.ts','utf8'); if(!/range/.test(s))process.exit(1)\"",
+        "timeout": 10
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 60000,
+    "maxRetries": 1
+  },
+  "tags": ["karpathy", "surgical", "scope-discipline"]
+}
