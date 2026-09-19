@@ -23,6 +23,7 @@ const { resolveInteractionProfile, interactionContract } = require("../interacti
 const { parseProviderUsage } = require("../telemetry/provider-usage");
 const { extractChildAgents } = require("../telemetry/agent-topology");
 const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
@@ -31,18 +32,23 @@ function projectIdForPath(workspacePath) { return `project-${crypto.createHash("
 // Ephemeral provider stream vs durable telemetry contract:
 // - provider.started / provider.output / provider.completed carry raw chunks
 //   and live in memory for UI/subscribers only; they are NEVER persisted.
-// - run.output per-chunk is likewise ephemeral; RunTerminalBridge persists a
-//   single bounded run.output.snapshot at completion for replay.
+// - run.output per-chunk is likewise ephemeral. There is NO durable raw
+//   output snapshot by design (privacy contract): raw provider/terminal
+//   output stays in live-process memory so replay works for connected
+//   subscribers; replay after restart is NOT promised (see FOLLOW-UP below).
 // - Durable points: run.created/started/completed/failed/blocked,
 //   execution lifecycle (sanitized), review.*, artifact.created,
 //   verification.*, usage summaries, agent topology.
+// FOLLOW-UP (not this PR): if post-restart replay becomes a requirement, it
+// needs a privacy-reviewed design first — never raw ANSI in the RunStore.
 const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output"]);
 
 function sanitizeProviderError(message) {
-  // Error strings may embed absolute paths; keep the message but redact home
-  // directories. Never include prompt/output content here (callers must not
-  // pass it in).
-  return String(message || "").replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]").slice(0, 2000);
+  // Durable error strings flow into execution metadata and run events, so
+  // they go through the shared diagnostic sanitizer (tokens, keys, cookies,
+  // connection strings, credentials, emails, absolute home paths). Callers
+  // must still never pass prompt/output content in.
+  return sanitizeDiagnostic(message, { maxChars: 2000 });
 }
 
 function durableExecutionSummary(result, { providerId } = {}) {
@@ -423,11 +429,48 @@ class MaestroApplication {
     } catch (error) {
       this.activeRuns.delete(run.id);
       const completedAt = new Date().toISOString();
-      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: error.message, engineeringContract: executionPackage.engineeringContract } });
+      // Durable rejection reason is sanitized: provider/transport errors
+      // routinely embed tokens, cookies, connection strings and home paths.
+      const cleanReason = sanitizeDiagnostic(error && error.message ? error.message : String(error));
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: cleanReason, engineeringContract: executionPackage.engineeringContract } });
       await this.store.saveStep({ ...step, status: "failed", completedAt });
-      await this.store.saveRun({ ...run, status: "failed", completedAt });
-      await this.record(run.id, "run.failed", { reason: error.message });
-      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: error.message }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
+      // Failed-run telemetry: minimal but coherent. The provider call was
+      // attempted (execute and/or result rejected), so primaryCalls is 1;
+      // tokens are null (never invented), source unavailable, scope unknown.
+      const failedIdentity = gitIdentityForTelemetry(workspacePath);
+      const failedStartedMs = Date.parse(execution.startedAt) || null;
+      const failedCompletedMs = Date.parse(completedAt) || null;
+      const failedTelemetry = buildCognitiveTelemetry({
+        budget: cognitiveBudget,
+        primaryUsage: {
+          tool: provider.id,
+          provider: "unknown",
+          model: request.model && request.model !== "default" ? request.model : "unknown",
+          tokenInput: null, tokenOutput: null, cachedInputTokens: null,
+          tokenSource: "unavailable", usageScope: "unknown", modelCalls: 0
+        },
+        reviewCalls: 0,
+        skillsRequested: requestedSkills.length,
+        skillsResolved: resolvedSkills.length,
+        skillsLoaded: executionPackage.skills.length,
+        outcome: "failed",
+        reason: cleanReason,
+        runId: run.id,
+        taskId: task.id,
+        executionId: execution.id,
+        projectId: task.projectId || null,
+        repositoryId: failedIdentity.repositoryId,
+        branch: failedIdentity.branch,
+        headCommit: failedIdentity.headCommit,
+        startedAt: execution.startedAt,
+        completedAt,
+        durationMs: failedStartedMs !== null && failedCompletedMs !== null ? Math.max(0, failedCompletedMs - failedStartedMs) : null,
+        status: "failed",
+        childAgents: []
+      });
+      await this.store.saveRun({ ...run, status: "failed", completedAt, metadata: { ...run.metadata, cognitiveTelemetry: failedTelemetry } });
+      await this.record(run.id, "run.failed", { reason: cleanReason });
+      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
@@ -570,7 +613,10 @@ class MaestroApplication {
     try {
       const handle = await provider.execute({ prompt: prompt.prompt, workspacePath, model: request.reviewerModel || request.model, sandbox: "read-only", sessionId: `review-${crypto.randomUUID()}`, timeoutMs: getPolicy(request.policyId || "standard")?.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
       const raw = await handle.result;
-      const parsed = raw.exitCode === 0 ? parseReviewResult(raw.stdout) : { verdict: "inconclusive", findings: [{ code: "REVIEW_PROCESS_FAILED" }], summary: raw.stderr || "reviewer process failed" };
+      // Reviewer process output is untrusted for persistence: a failed
+      // reviewer stderr (or a model summary echoing workspace content) is
+      // sanitized before becoming a durable summary/artifact.
+      const parsed = raw.exitCode === 0 ? parseReviewResult(raw.stdout) : { verdict: "inconclusive", findings: [{ code: "REVIEW_PROCESS_FAILED" }], summary: sanitizeDiagnostic(raw.stderr || "reviewer process failed") };
       const status = parsed.verdict === "approved" ? "approved" : parsed.verdict === "rejected" ? "rejected" : "inconclusive";
       // Reviewer usage is provider-reported when the CLI exposes it; never
       // invented. Child agents observed on the review call are carried for
@@ -584,13 +630,14 @@ class MaestroApplication {
         reviewAgents = [...extractChildAgents({ providerId: provider.id, stdout: raw.stdout })];
       } catch { reviewAgents = []; }
       await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: parsed.findings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, tokenSource: reviewUsage.tokenSource } : null } });
-      await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, executionId: execution.id, contextTruncated: prompt.truncated } }));
+      await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: parsed.findings, summary: sanitizeDiagnostic(parsed.summary || ""), executionId: execution.id, contextTruncated: prompt.truncated } }));
       await this.record(run.id, status === "approved" ? "review.completed" : "review.failed", { executionId: execution.id, verdict: parsed.verdict });
       return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated, executionId: execution.id, usage: reviewUsage, childAgents: reviewAgents });
     } catch (error) {
-      await this.store.saveExecution({ ...execution, status: "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", error: error.message } });
-      await this.record(run.id, "review.failed", { executionId: execution.id, reason: error.message });
-      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", calls: 1, reason: error.message });
+      const cleanReviewReason = sanitizeDiagnostic(error && error.message ? error.message : String(error));
+      await this.store.saveExecution({ ...execution, status: "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", error: cleanReviewReason } });
+      await this.record(run.id, "review.failed", { executionId: execution.id, reason: cleanReviewReason });
+      return Object.freeze({ status: "inconclusive", verdict: "inconclusive", calls: 1, reason: cleanReviewReason });
     }
   }
 
