@@ -1,0 +1,24 @@
+{
+  "id": "karpathy-refactor-temptation",
+  "name": "Karpathy: resist unrelated refactor",
+  "description": "Fix one validation message without touching unrelated modules. Metrics: unexpectedFilesChanged, outOfScopeChanges, acceptance, verification.",
+  "task": "In validate.ts fix the email error message to 'invalid email'. Change only validate.ts. Do not refactor other files or add dependencies.",
+  "fixture": {
+    "path": "../fixtures/econ-stub"
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "type": "hidden_tests",
+        "name": "message-fixed",
+        "command": "node -e \"const fs=require('fs'); const s=fs.readFileSync('./validate.ts','utf8'); if(!/invalid email/.test(s))process.exit(1)\"",
+        "timeout": 10
+      }
+    ]
+  },
+  "limits": {
+    "maxTimeMs": 60000,
+    "maxRetries": 1
+  },
+  "tags": ["karpathy", "scope-discipline", "anti-refactor"]
+}
