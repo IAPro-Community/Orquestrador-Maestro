@@ -97,7 +97,7 @@ Uso:
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
-  orquestrador-maestro usage [--project-path PATH] [--limit N] [--json]
+  orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
   orquestrador-maestro run inspect <id> [--project-path PATH]
   orquestrador-maestro run cancel <id> [--project-path PATH]
@@ -858,25 +858,36 @@ function formatTokens(value) {
 }
 
 async function handleUsageCommand(args) {
-  const options = parseRuntimeArgs(args, ["--project-path", "--limit"], ["--json"]);
-  if (options.values.length > 0) throw new Error("Uso: maestro usage [--project-path PATH] [--limit N] [--json]");
+  const options = parseRuntimeArgs(args, ["--project-path", "--limit", "--provider", "--model", "--branch", "--project"], ["--json"]);
+  if (options.values.length > 0) throw new Error("Uso: maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]");
   const limit = options.limit !== undefined ? Number.parseInt(options.limit, 10) : 20;
   if (options.limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 200)) {
     throw new Error("--limit deve ser um inteiro entre 1 e 200.");
   }
   const app = await createRuntimeApplication(options.projectPath);
-  const runs = (await app.listRuns({ projectPath: options.projectPath })).slice(-limit);
+  const runs = (await app.listRuns({ projectPath: options.projectPath })).slice(-200);
   const rows = [];
   for (const run of runs) {
     const telemetry = run.metadata?.cognitiveTelemetry || {};
     const task = run.taskId ? await app.getTask(run.taskId).catch(() => null) : null;
+    const tool = telemetry.tool || run.providerId || "unknown";
+    const provider = telemetry.provider || "unknown";
+    const model = telemetry.model || "unknown";
+    const branch = telemetry.branch || "unknown";
+    const project = task?.projectId || telemetry.projectId || "unknown";
+    // Coherent filters: provider matches tool OR provider; model substring;
+    // branch/project exact. Unknown values never match a concrete filter.
+    if (options.provider && !(tool === options.provider || provider === options.provider)) continue;
+    if (options.model && model !== options.model) continue;
+    if (options.branch && branch !== options.branch) continue;
+    if (options.project && project !== options.project) continue;
     rows.push({
       run: run.id,
-      project: task?.projectId || telemetry.projectId || "unknown",
-      branch: telemetry.branch || "unknown",
-      tool: telemetry.tool || run.providerId || "unknown",
-      provider: telemetry.provider || "unknown",
-      model: telemetry.model || "unknown",
+      project,
+      branch,
+      tool,
+      provider,
+      model,
       status: run.status,
       primaryCalls: telemetry.primaryCalls ?? "unavailable",
       reviewCalls: telemetry.reviewCalls ?? "unavailable",
@@ -885,19 +896,22 @@ async function handleUsageCommand(args) {
       outputTokens: telemetry.tokenOutput ?? null,
       cachedInputTokens: telemetry.cachedInputTokens ?? null,
       tokenSource: telemetry.tokenSource || "unavailable",
+      usageScope: telemetry.usageScope || "unknown",
       childAgentsObserved: telemetry.childAgentsObserved ?? 0,
+      topologyExposed: telemetry.topologyExposed ?? "unknown",
       durationMs: telemetry.durationMs ?? null
     });
   }
+  const limited = rows.slice(-limit);
   if (options.json) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(JSON.stringify(limited, null, 2));
     return 0;
   }
-  if (rows.length === 0) {
+  if (limited.length === 0) {
     console.log("No runs recorded for this project.");
     return 0;
   }
-  for (const row of rows) {
+  for (const row of limited) {
     console.log([
       `Run: ${row.run}`,
       `Project: ${row.project}`,
@@ -908,10 +922,11 @@ async function handleUsageCommand(args) {
       `Primary calls: ${row.primaryCalls}`,
       `Review calls: ${row.reviewCalls}`,
       `Child agents observed: ${row.childAgentsObserved}`,
+      `Topology: ${typeof row.topologyExposed === "boolean" ? (row.topologyExposed ? "exposed" : "not-exposed") : row.topologyExposed}`,
       `Input tokens: ${formatTokens(row.inputTokens)}`,
       `Cached: ${formatTokens(row.cachedInputTokens)}`,
       `Output: ${formatTokens(row.outputTokens)}`,
-      `Token source: ${row.tokenSource}`,
+      `Token source: ${row.tokenSource} (${row.usageScope})`,
       ""
     ].join("\n"));
   }
