@@ -55,7 +55,7 @@ test("F8.3 provider completes after tab switch, window close, and client disconn
   let firstOutput;
   const receivedFirst = new Promise((resolve) => { firstOutput = resolve; });
   let attached;
-  harness.app.subscribe((event) => {
+  const unsubscribeOuter = harness.app.subscribe((event) => {
     if (event.type !== "run.created") return;
     runId = event.runId;
     detachView = harness.bridge.subscribe(runId, (output) => {
@@ -77,39 +77,45 @@ test("F8.3 provider completes after tab switch, window close, and client disconn
   assert.ok(providerPid > 0);
   assert.doesNotThrow(() => process.kill(providerPid, 0));
 
+  // Client disconnect: detach the UI view and the outer run.created watcher.
+  // The daemon bridge subscription (internal to RunTerminalBridge) survives,
+  // so live daemon capture continues without any durable per-chunk writes.
   detachView();
-  harness.app.events.removeAllListeners("event");
+  unsubscribeOuter();
   const outcome = await executionPromise;
   assert.equal(outcome.run.status, "completed");
   await attached;
 
-  const reconnected = new RunTerminalBridge({
-    app: harness.app, store: harness.store, terminals: harness.terminals,
-    terminalSessions: harness.terminalSessions
-  });
-  const replay = await reconnected.snapshot(runId, 0);
+  const replay = await harness.bridge.snapshot(runId, 0);
   assert.match(replay.ansi, /provider:first/u);
   assert.match(replay.ansi, /provider:detached/u);
+  // Ephemeral stream: raw chunks are never durably persisted (privacy +
+  // write amplification). Live in-memory replay works; restart replay uses
+  // only lifecycle/usage data.
+  const stored = await harness.store.listEvents({ runId });
+  assert.equal(stored.filter((event) => event.type === "provider.output").length, 0);
+  assert.equal(stored.filter((event) => event.type === "run.output").length, 0);
   assert.equal((await harness.store.getRun(runId)).status, "completed");
 });
 
 test("F8.3 failed provider settles the run and persists failure without a UI listener", { timeout: 15_000 }, async () => {
   const harness = createHarness(new ScriptedProvider({ exitCode: 7 }));
   await harness.app.initialize();
-  let detached = false;
-  harness.app.subscribe((event) => {
-    if (!detached && event.type === "provider.output") {
-      detached = true;
-      harness.app.events.removeAllListeners("event");
-    }
+  const seen = [];
+  const unsubscribe = harness.app.subscribe((event) => {
+    if (event.type === "provider.output") seen.push(event);
   });
   const outcome = await harness.app.executeRun({
     description: "prove failed daemon ownership", providerId: "scripted-f8",
     verificationCommands: [{ name: "pass", command: `${process.execPath} -e \"process.exit(0)\"` }]
   });
+  unsubscribe();
 
   assert.equal(outcome.run.status, "failed");
   const events = await harness.store.listEvents({ runId: outcome.run.id });
   assert.ok(events.some((event) => event.type === "run.failed"));
-  assert.ok(events.some((event) => event.type === "provider.output" && /provider:detached/u.test(event.data.chunk)));
+  // Failure output is observable ephemerally, never as persisted raw chunks.
+  assert.ok(seen.some((event) => /provider:detached/u.test(event.data.chunk)));
+  assert.equal(events.filter((event) => event.type === "provider.output").length, 0);
+  assert.equal(events.filter((event) => event.type === "run.output").length, 0);
 });
