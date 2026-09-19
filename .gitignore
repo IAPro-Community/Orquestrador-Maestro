@@ -1,5 +1,6 @@
 .local/
 .orquestrador-maestro/
+.orquestrador/
 tests/.orquestrador-maestro/
 .playwright-mcp/
 .omx/
@@ -16,6 +17,7 @@ DEV/
 
 orquestrador/logs/
 orquestrador/backups/
+orquestrador/runtime/
 orquestrador/doctor-last-report.json
 orquestrador/memoria.md
 

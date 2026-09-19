@@ -122,6 +122,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run full tests
+        run: npm test
+
       - name: Run smoke tests
         run: npm run test:smoke
 
@@ -180,6 +183,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run full tests
+        run: npm test
 
       - name: Run smoke tests
         run: npm run test:smoke

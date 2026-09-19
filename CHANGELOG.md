@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.4.1 - 2026-09-19
+
+Esta versão endurece a publicação pública e a verificação multiplataforma para ambientes Windows com estado local do runtime.
+
+### Windows e publicação pública
+
+- O estado local em `.orquestrador/` e `orquestrador/runtime/` passa a ser ignorado e excluído das varreduras públicas do espelho sanitizado.
+- A validação pública agora percorre a árvore sem seguir reparse points/symlinks e poda diretórios locais antes de escanear texto e JSON, evitando lentidão e falsos positivos causados por worktrees do Windows.
+- A fixture de telemetria usa um sentinel sintético que não é confundido com segredo pelo scanner público, mantendo a cobertura de que prompt e completion nunca são persistidos.
+
+### Verificação multiplataforma
+
+- A suíte completa passa a rodar também nos jobs oficiais de Windows e macOS, em Node 20 e 24, além da cobertura Linux existente.
+- Mantidos os gates de smoke, benchmark, privacidade pública, skills, empacotamento, auditoria de dependências e `verify:pr`.
+
 ## 0.4.0 - 2026-09-14
 
 Esta versão reúne a evolução controlada do Maestro e a geração de briefs de contexto com seleção por relevância e proveniência verificável.

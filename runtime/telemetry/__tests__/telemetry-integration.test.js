@@ -81,16 +81,16 @@ test("old RunStore files without telemetry stay readable", async () => {
 
 test("telemetry never persists prompt or completion content", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-telemetry-privacy-"));
-  const secret = "SUPER_SECRET_VALUE_12345";
+  const sentinel = "SYNTHETIC_VALUE_12345";
   const app = new MaestroApplication({
     projectRoot: root,
     store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
     providers: new ProviderRegistry([new UsageAdapter("plain")]),
     skills: { get: () => null }
   });
-  const outcome = await app.executeRun({ description: `Handle ${secret}`, providerId: "codex", verificationCommands: [] });
+  const outcome = await app.executeRun({ description: `Handle ${sentinel}`, providerId: "codex", verificationCommands: [] });
   const serialized = JSON.stringify(outcome.run.metadata.cognitiveTelemetry);
-  assert.doesNotMatch(serialized, /SUPER_SECRET_VALUE_12345/u);
+  assert.doesNotMatch(serialized, /SYNTHETIC_VALUE_12345/u);
   assert.equal(outcome.run.metadata.cognitiveTelemetry.promptHash === null || typeof outcome.run.metadata.cognitiveTelemetry.promptHash === "string", true);
 });
 

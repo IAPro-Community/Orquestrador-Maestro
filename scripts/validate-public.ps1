@@ -46,8 +46,30 @@ function Test-ExcludedScanPath {
   param([string]$RelativePath)
   $rel = $RelativePath.Replace("\", "/")
   if ($rel -match "(^|/)(\.git|\.local|\.omx|DEV|node_modules|dist|build)(/|$)") { return $true }
-  if ($rel -match "^orquestrador/runtime/worktrees(/|$)") { return $true }
+  if ($rel -match "^orquestrador/runtime(/|$)") { return $true }
+  if ($rel -match "^\.orquestrador(/|$)") { return $true }
   return $false
+}
+
+function Get-ScannableFiles {
+  param(
+    [string]$CurrentPath,
+    [string]$BasePath
+  )
+
+  foreach ($entry in @(Get-ChildItem -LiteralPath $CurrentPath -Force -ErrorAction SilentlyContinue)) {
+    $relative = Get-RelativePath -BasePath $BasePath -Path $entry.FullName
+    if (Test-ExcludedScanPath -RelativePath $relative) { continue }
+
+    # Do not follow junctions/symlinks. Besides avoiding loops, this keeps a
+    # local runtime mount from escaping the public repository boundary.
+    if ($entry.PSIsContainer) {
+      if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+      Get-ScannableFiles -CurrentPath $entry.FullName -BasePath $BasePath
+    } else {
+      $entry
+    }
+  }
 }
 
 function Test-TextFile {
@@ -144,7 +166,7 @@ $operationalLeakPatterns = [ordered]@{
   "password-cli-arg" = '(?i)(^|\s)(-pw|--password|/password)\s+[''"][^''"]+[''"]'
 }
 
-foreach ($file in Get-ChildItem -LiteralPath $repoRootFull -Recurse -File -Force) {
+foreach ($file in Get-ScannableFiles -CurrentPath $repoRootFull -BasePath $repoRootFull) {
   $relative = Get-RelativePath -BasePath $repoRootFull -Path $file.FullName
   if (Test-ExcludedScanPath -RelativePath $relative) { continue }
 
@@ -228,7 +250,7 @@ foreach ($file in Get-ChildItem -LiteralPath $repoRootFull -Recurse -File -Force
 
 if (-not $SkipJsonValidation) {
   $node = Get-Command node -ErrorAction SilentlyContinue
-  foreach ($json in Get-ChildItem -LiteralPath (Join-Path $repoRootFull "orquestrador") -Recurse -Filter "*.json" -File -ErrorAction SilentlyContinue) {
+  foreach ($json in Get-ScannableFiles -CurrentPath (Join-Path $repoRootFull "orquestrador") -BasePath $repoRootFull | Where-Object { $_.Extension -eq ".json" }) {
     $relative = Get-RelativePath -BasePath $repoRootFull -Path $json.FullName
     if (Test-ExcludedScanPath -RelativePath $relative) { continue }
     if ($node) {
