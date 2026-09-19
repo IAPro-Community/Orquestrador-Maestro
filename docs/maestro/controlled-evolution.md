@@ -16,6 +16,9 @@ O runtime classifica cada tarefa de forma determinística:
 
 Os valores são limites configuráveis, não estimativas de cobrança. Tokens reais só entram
 quando o provider informa a contagem; caso contrário a telemetria usa `UNKNOWN`/`unavailable`.
+As garantias de tier, quantidade de chamadas, retries e reviewer são determinísticas; custo,
+latência e economia de tokens são medições econômicas dependentes do provider e não são
+inferidas pela política.
 
 `contextTokens`, `maxSkills` e `maxReviewers` são limites aplicados pelo runtime. `maxIntelligentRetries`
 é reservado e permanece em zero chamadas automáticas nesta versão; `maxOverheadPercent` é apenas
@@ -77,7 +80,87 @@ troca de conta ou coordenação de provider.
 ## Evidência e benchmarks
 
 Os testes determinísticos cobrem os cenários de tarefa trivial, alteração normal, arquitetura,
-segurança e regressão quanto a tier, chamadas, reviewer, retries e outcome. Isso garante
+segurança e regressão quanto a tier, chamadas, reviewer, retries e outcome. Isso garante a
 política de contagem de chamadas; não prova economia de tokens. O benchmark harness existente
 deve ser usado para tokens reais em execuções pareadas. Sem provider com contadores confiáveis,
 publique `UNKNOWN` e não alegue percentual de economia.
+
+## Observabilidade econômica (telemetria mínima)
+
+Evolução do `cognitiveTelemetry` existente, sem sistema paralelo, sem SQLite novo e sem
+governor paralelo. Quando o provider expõe dados, o run registra:
+
+- `tool` (CLI: `codex`, `claude`, `opencode`, `agy`), `provider` (quando declarado
+  pelo evento; senão `unknown`), `model` (quando exposto; senão `unknown`);
+- `sessionId`, `runId`, `taskId`, `executionId`, `projectId`, `repositoryId`,
+  `branch`, `headCommit`, `startedAt`, `completedAt`, `durationMs`, `status`;
+- `tokenInput`, `tokenOutput`, `cachedInputTokens`, `cachedOutputTokens` (quando
+  aplicável), `reasoningTokens` (se exposto), `modelCalls`, `toolCalls` (quando
+  confiável), `reviewCalls`, `automaticRetries` (sempre `0` nesta versão: não há
+  loop automático de retry idêntico no caminho `executeRun`);
+- `childAgentsObserved` + `childAgents[]` (`agentId`, `parentAgentId`, `role`,
+  `depth`, `providerNative`, `tokens`, `outcome`) somente quando o provider
+  expõe sessões/agents filhos; caso contrário `[]`;
+- `tokenSource`: `provider-reported` | `derived` | `estimated` | `unavailable`.
+  Quando não há contagem disponível, `tokenSource` é `unavailable`.
+  Campos numéricos de tokens ausentes são `null`, nunca `0` (zero representa valor
+  explicitamente reportado pelo provider); campos textuais de identidade ou valor
+  desconhecidos usam `"unknown"`; fontes de mensuração ausentes usam `"unavailable"`.
+
+`tool != provider != model`. Nenhuma heurística frágil por nome: sem declaração
+explícita do provider, `provider` permanece `unknown`.
+
+Parsers vivem atrás do contrato de adapter (`runtime/telemetry/provider-usage.js`
++ `agent-topology.js`); o restante do Maestro não conhece formatos NDJSON de cada
+CLI. Evento desconhecido é ignorado com metadados seguros; execução nunca quebra
+por telemetria. Fixtures sanitizadas cobrem codex/claude/opencode/agy sem API paga.
+
+Amplificação observada (`observedInputAmplification = childInput / primaryInput`)
+só existe quando ambos são `provider-reported` e `> 0`; caso contrário `null`.
+Limitação documentada no próprio objeto: o contexto útil único é desconhecido,
+portanto o fator mede volume observado, não desperdício provado.
+
+Duplicação futura usa hashes (`promptHash`, digests do manifesto do context brief),
+nunca prompt completo. Mapeamento OpenTelemetry conceitual: Run → trace
+(`traceId`), Execution → span (`spanId`), provider call → child span, agent →
+span/attributes. Sem collector/backend nesta entrega.
+
+Privacidade: telemetria padrão não persiste prompt, completion, source integral,
+secrets, `.env`, credenciais, home paths absolutos ou PII — apenas hashes, IDs,
+counts, sizes e metadados sanitizados com paths relativos.
+
+RunStore JSON permanece o contrato; arquivos `runs.json` antigos continuam legíveis
+(campos novos são opcionais). Se JSON se mostrar insuficiente para consultas futuras,
+o requisito será documentado para um futuro `SQLiteRunStore` — sem migração agora.
+
+Consulte com `orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]`
+ou `run inspect <id>`. Tokens indisponíveis aparecem como `unavailable`, nunca `0`.
+`usageScope` (`self`/`aggregate`/`unknown`) indica se o total já inclui filhos;
+totais agregados nunca são somados com filhos. `topologyVisibility` distingue
+`0 observado` de `provider não expõe topologia`: `usage --json` expõe
+`topologyVisibility` (`partially-observed` | `unavailable`) e preserva
+`topologyExposed` apenas por compatibilidade. `childAgentsObserved` conta
+somente agents correlacionáveis por ID real; eventos anônimos (sem ID do
+provider) vão para `anonymousAgentEventsObserved` e nunca inflam a contagem —
+`0` com `unavailable` NÃO significa "não houve subagents".
+
+## Ephemeral vs durable provider data
+
+- Ephemeral (memória + subscribers ao vivo, nunca no `runs.json`): `provider.started`,
+  `provider.output` chunks, `provider.completed` raw, `run.output` per-chunk, stdout/stderr
+  brutos, NDJSON bruto, prompts/args com prompt.
+- Durable (lifecycle points): `run.created/started/completed/failed/blocked`,
+  execution summary sanitizado (`providerId`, `exitCode`, `duration`, `usage`,
+  erro sanitizado), `review.*`, `artifact.created`, `verification.*`, usage
+  normalizado, `childAgents[]` metadata.
+- `saveExecution` nunca persiste `args/stdout/stderr`; `record()` roteia
+  `provider.*`/`run.output` para emit-only. O teste `durable-privacy` prova com
+  sentinelas que nada bruto chega ao disco; o teste de amplificação prova eventos
+  duráveis bounded mesmo com 500 chunks.
+
+## Sentinel contract
+
+- Medição numérica indisponível: `null` (nunca `0` para "não sabemos"; `0` só quando
+  o provider informou zero explicitamente).
+- Identidade/valor textual desconhecido: `"unknown"`.
+- Fonte de medição indisponível: `"unavailable"`.

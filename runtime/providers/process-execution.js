@@ -78,7 +78,21 @@ function startProcess({ executable, args, request, providerId }) {
       durationMs: Date.now() - startedAt,
       ...partial
     });
-    emit(request.onEvent, "provider.completed", { providerId, result: completed });
+    // Durable vs ephemeral split: the full result (stdout/stderr/args with
+    // prompt) stays in memory for parsers/UI subscribers. The persisted
+    // lifecycle event carries only a sanitized summary (no prompt, no raw
+    // output). See MaestroApplication.record() ephemeral routing.
+    emit(request.onEvent, "provider.completed", {
+      providerId,
+      pid: child.pid,
+      command: executable,
+      exitCode: completed.exitCode ?? null,
+      signal: completed.signal ?? null,
+      cancelled,
+      timedOut,
+      durationMs: completed.durationMs,
+      ...(completed.error ? { error: completed.error } : {})
+    });
     resolveResult(completed);
   };
 
@@ -102,7 +116,7 @@ function startProcess({ executable, args, request, providerId }) {
     }, timeoutMs);
   }
 
-  emit(request.onEvent, "provider.started", { providerId, pid: child.pid, command: executable, args: Object.freeze([...commandArgs]) });
+  emit(request.onEvent, "provider.started", { providerId, pid: child.pid, command: executable });
   return Object.freeze({
     providerId,
     pid: child.pid,

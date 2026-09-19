@@ -2,13 +2,22 @@
 
 const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
+const { sanitizeTerminalError, toPersistedTerminalIdentity } = require("./terminal-persistence");
 
 function terminalId() { return `terminal-${crypto.randomUUID()}`; }
+
+const MAX_BUFFERED_OUTPUT_CHARS = 100_000;
+const MAX_RETAINED_BUFFERS = 50;
 
 /**
  * A deliberately small managed-command facility. It is not a terminal emulator
  * and it never invokes a shell: callers provide an executable and its arguments.
  * Live input/output exist only for the lifetime of the hosting Maestro process.
+ *
+ * Privacy contract: raw stdout/stderr live in bounded in-memory buffers and
+ * are fanned out as ephemeral `terminal.output` events only. The durable
+ * RunStore receives terminal metadata (status, exit code, sanitized command
+ * identity) but never raw output, never raw argv, and never per-chunk writes.
  */
 class TerminalManager {
   constructor({ store, emitEvent } = {}) {
@@ -18,20 +27,45 @@ class TerminalManager {
     this.active = new Map();
     this.writeQueues = new Map();
     this.completionPromises = new Map();
+    this.buffers = new Map();
+  }
+
+  _bufferFor(id) {
+    let buffer = this.buffers.get(id);
+    if (!buffer) {
+      buffer = { output: "", stderr: "" };
+      this.buffers.set(id, buffer);
+      while (this.buffers.size > MAX_RETAINED_BUFFERS) {
+        const oldest = this.buffers.keys().next().value;
+        if (oldest === id) break;
+        this.buffers.delete(oldest);
+      }
+    }
+    return buffer;
+  }
+
+  _withBufferedOutput(record, id) {
+    const buffer = this.buffers.get(id);
+    return {
+      ...record,
+      output: buffer ? buffer.output : "",
+      stderr: buffer ? buffer.stderr : ""
+    };
   }
 
   async finalizeTerminalCompletion({ id, settle, completionResolve, fallbackRecord, error }) {
     try {
       const final = await this.store.getTerminal(id);
-      settle(final);
-      completionResolve(final);
+      const completed = this._withBufferedOutput(final || fallbackRecord, id);
+      settle(completed);
+      completionResolve(completed);
     } catch {
-      const fallback = {
+      const fallback = this._withBufferedOutput({
         ...fallbackRecord,
         status: "failed",
         completedAt: new Date().toISOString(),
-        error: error ? error.message : "terminal-finalization-failed"
-      };
+        error: error ? sanitizeTerminalError(error) : "terminal-finalization-failed"
+      }, id);
       settle(fallback);
       completionResolve(fallback);
     } finally {
@@ -53,24 +87,25 @@ class TerminalManager {
     if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) throw new TypeError("args must be an array of strings");
     const id = terminalId();
     const startedAt = new Date().toISOString();
-    const record = { kind: "terminal", id, projectId, cwd, command, args, status: "starting", startedAt, pid: null, output: "", stderr: "" };
+    const persistedIdentity = toPersistedTerminalIdentity(command, args);
+    const record = { kind: "terminal", id, projectId, cwd, ...persistedIdentity, status: "starting", startedAt, pid: null };
     await this.store.saveTerminal(record);
+    this._bufferFor(id);
     let child;
     try {
       child = spawn(command, args, { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
     } catch (error) {
-      await this.store.saveTerminal({ ...record, status: "failed", completedAt: new Date().toISOString(), error: error.message });
+      await this.store.saveTerminal({ ...record, status: "failed", completedAt: new Date().toISOString(), error: sanitizeTerminalError(error) });
       throw error;
     }
-    const persistOutput = (stream, chunk) => this.queueWrite(id, async () => {
-      const current = await this.store.getTerminal(id);
-      if (!current) return;
-      const text = `${current[stream] || ""}${chunk.toString("utf8")}`.slice(-100000);
-      await this.store.saveTerminal({ ...current, [stream]: text });
-      await this.emitEvent(null, "terminal.output", { terminalId: id, projectId: record.projectId, stream, chunk: chunk.toString("utf8") });
-    });
-    child.stdout.on("data", (chunk) => { persistOutput("output", chunk).catch(() => {}); });
-    child.stderr.on("data", (chunk) => { persistOutput("stderr", chunk).catch(() => {}); });
+    const appendOutput = (stream, chunk) => {
+      const buffer = this._bufferFor(id);
+      const text = chunk.toString("utf8");
+      buffer[stream] = `${buffer[stream] || ""}${text}`.slice(-MAX_BUFFERED_OUTPUT_CHARS);
+      return this.emitEvent(null, "terminal.output", { terminalId: id, projectId: record.projectId, stream, chunk: text }).catch(() => {});
+    };
+    child.stdout.on("data", (chunk) => { appendOutput("output", chunk); });
+    child.stderr.on("data", (chunk) => { appendOutput("stderr", chunk); });
     let settle;
     const finished = new Promise((resolve) => { settle = resolve; });
     let completionResolve;
@@ -80,7 +115,7 @@ class TerminalManager {
       try {
         await this.queueWrite(id, async () => {
           const current = await this.store.getTerminal(id);
-          if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: error.message });
+          if (current) await this.store.saveTerminal({ ...current, status: "failed", completedAt: new Date().toISOString(), error: sanitizeTerminalError(error) });
         });
       } catch {}
       await this.finalizeTerminalCompletion({ id, settle, completionResolve, fallbackRecord: record, error });
@@ -116,6 +151,10 @@ class TerminalManager {
     if (active) return active.finished;
     const pending = this.completionPromises.get(id);
     if (pending) return pending;
+    if (this.buffers.has(id)) {
+      const stored = await this.store.getTerminal(id);
+      if (stored) return this._withBufferedOutput(stored, id);
+    }
     return this.store.getTerminal(id);
   }
 

@@ -6,10 +6,8 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 ## Phase 0: Discovery ✅
 **Status:** Completed
 **Output:**
-- ARCHITECTURE_ASSESSMENT.md
 - INSPIRATION_MATRIX.md
 - ADR-001 (Episodic Memory)
-- BASELINE.md
 
 ## Phase 1: Benchmark Protocol
 **Status:** Not started

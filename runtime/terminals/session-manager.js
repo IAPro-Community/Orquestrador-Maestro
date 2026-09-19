@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const { spawn, spawnSync } = require("node:child_process");
 const { PtySessionManager } = require("./pty-session-manager");
+const { sanitizeTerminalError, toPersistedTerminalIdentity } = require("./terminal-persistence");
 
 const SESSION_STATUSES = Object.freeze(["created", "starting", "running", "active", "completed", "exited", "failed", "closed", "detached", "disconnected"]);
 const SESSION_KINDS = Object.freeze(["agent", "shell"]);
@@ -168,20 +169,20 @@ class TerminalSessionManager {
     const record = {
       id, projectId: request.projectId, label: request.label || (request.providerId || command), kind,
       providerId: request.providerId || undefined, backend: backendId, workspacePath: request.workspacePath,
-      command, args, status: "created", createdAt: now(), startedAt: null, completedAt: null,
+      ...toPersistedTerminalIdentity(command, args), status: "created", createdAt: now(), startedAt: null, completedAt: null,
       backendSessionId: backendId === "tmux" ? tmuxSessionName(request.projectId, id) : undefined,
       presentation: request.presentation && typeof request.presentation === "object" ? request.presentation : {}
     };
     await this.store.saveTerminal(record);
     await this.emitEvent(null, "terminal.session_created", { terminalId: id, projectId: record.projectId, backend: backendId, kind });
     try {
-      backend.create(record);
+      backend.create({ ...record, command, args });
       const started = { ...record, status: "running", startedAt: now() };
       await this.store.saveTerminal(started);
       await this.emitEvent(null, "terminal.session_started", { terminalId: id, backend: backendId });
       return started;
     } catch (error) {
-      await this.store.saveTerminal({ ...record, status: "failed", completedAt: now(), error: error.message });
+      await this.store.saveTerminal({ ...record, status: "failed", completedAt: now(), error: sanitizeTerminalError(error) });
       await this.emitEvent(null, "terminal.session_failed", { terminalId: id, backend: backendId, reason: error.code || "create_failed" });
       throw error;
     }

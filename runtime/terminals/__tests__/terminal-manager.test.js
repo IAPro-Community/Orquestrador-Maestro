@@ -10,15 +10,32 @@ const { TerminalManager } = require("../terminal-manager");
 const { BackendUnavailableError, TerminalSessionManager } = require("../session-manager");
 const { EventEmitter } = require("node:events");
 
-test("managed commands persist project-scoped output and real completion", async () => {
+test("managed commands keep raw output in memory and persist metadata only", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-terminal-"));
-  const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") }); await store.initialize();
+  const filePath = path.join(root, "runs.json");
+  const store = new JsonFileRunStore({ filePath }); await store.initialize();
   const manager = new TerminalManager({ store });
   const terminal = await manager.start({ projectId: "project-1", cwd: root, command: process.execPath, args: ["-e", "console.log('ok')"] });
   const completed = await manager.wait(terminal.id);
   assert.equal(completed.status, "completed");
+  // Live-process memory still serves output for waiters/CLI in the same run.
   assert.match(completed.output, /ok/u);
   assert.equal((await store.listTerminals({ projectId: "project-1" })).length, 1);
+  // Durable record carries metadata only: no raw output/stderr, no raw argv.
+  const persisted = await store.getTerminal(terminal.id);
+  assert.equal(Object.hasOwn(persisted, "output"), false);
+  assert.equal(Object.hasOwn(persisted, "stderr"), false);
+  assert.equal(Object.hasOwn(persisted, "args"), false);
+  assert.equal(persisted.argCount, 2);
+  assert.ok(Array.isArray(persisted.redactedArgs));
+  // The physical file holds the same metadata-only record (inline -e source
+  // is argv, not a secret; true secrets are covered by the durable-privacy
+  // suite with --token argv).
+  const physical = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  assert.equal(physical.terminals.length, 1);
+  assert.equal(Object.hasOwn(physical.terminals[0], "output"), false);
+  assert.equal(Object.hasOwn(physical.terminals[0], "stderr"), false);
+  assert.equal(Object.hasOwn(physical.terminals[0], "args"), false);
 });
 
 test("native sessions persist without screen contents and lock writable agents per workspace", async () => {

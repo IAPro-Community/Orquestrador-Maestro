@@ -52,6 +52,27 @@ test("JsonFileRunStore rejects malformed records and invalid on-disk state", asy
   await assert.rejects(new JsonFileRunStore({ filePath: path.join(root, "invalid.json") }).initialize(), /invalid JSON/u);
 });
 
+test("JsonFileRunStore lifecycle-event volume stays bounded (no per-chunk growth)", async () => {
+  const filePath = path.join(makeTempDir("maestro-store-perf-"), "runs.json");
+  const store = new JsonFileRunStore({ filePath });
+  await store.initialize();
+  const started = Date.now();
+  // Lifecycle-only volume: one run with a handful of durable events, not
+  // thousands of streaming chunks (chunks are ephemeral by contract).
+  await store.saveRun({ id: "run-perf", taskId: "task-perf", status: "running" });
+  for (let i = 0; i < 12; i += 1) {
+    await store.appendEvent({ id: `event-perf-${i}`, runId: "run-perf", type: i % 3 === 0 ? "run.started" : "review.completed" });
+  }
+  const durationMs = Date.now() - started;
+  const stat = await fs.stat(filePath);
+  const events = await store.listEvents({ runId: "run-perf" });
+  assert.equal(events.length, 12);
+  // Quantitative gate: small file, fast enough, no SQLite needed at this
+  // volume. If this grows 100x, revisit SQLiteRunStore with measurements.
+  assert.ok(stat.size < 100_000, `runs.json small at lifecycle volume, got ${stat.size}B`);
+  assert.ok(durationMs < 5000, `12 lifecycle writes fast, took ${durationMs}ms`);
+});
+
 test("JsonFileRunStore persists intent sessions and mission briefs", async () => {
   const filePath = path.join(makeTempDir("maestro-store-"), "runtime", "runs.json");
   const store = new JsonFileRunStore({ filePath });

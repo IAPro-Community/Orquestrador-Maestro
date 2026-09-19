@@ -60,7 +60,9 @@ test("F8.2 attaches a run to fallback terminal output with ordered snapshots", a
   const persistedRun = await store.getRun("run-f8");
   assert.equal(persistedRun.metadata.terminalId, attached.terminalId);
   assert.equal(persistedRun.metadata.interactive, false);
-  assert.equal((await store.listEvents({ runId: "run-f8" })).filter((event) => event.type === "run.output").length, 2);
+  // Ephemeral stream: terminal chunks fan out live + in-memory replay, never
+  // as per-chunk durable writes (privacy + write amplification).
+  assert.equal((await store.listEvents({ runId: "run-f8" })).filter((event) => event.type === "run.output").length, 0);
   assert.ok((await store.listEvents({})).some((event) => event.type === "run.attachPty" && event.data.runId === "run-f8"));
   assert.deepEqual(await bridge.input("run-f8", "blocked\n"), { granted: false });
   unsubscribe();

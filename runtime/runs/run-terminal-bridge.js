@@ -17,6 +17,11 @@ function nonEmptyString(value, name) {
 class RunTerminalBridge {
   constructor({ app, store, terminals, terminalSessions, graphs } = {}) {
     if (!app || typeof app.subscribe !== "function" || typeof app.record !== "function") throw new TypeError("app is required");
+    // Publisher contract: _publish needs publishEphemeral OR events.emit.
+    // Reject at construction instead of failing later on first output.
+    const canPublishEphemeral = typeof app.publishEphemeral === "function";
+    const canEmitEvents = Boolean(app.events) && typeof app.events.emit === "function";
+    if (!canPublishEphemeral && !canEmitEvents) throw new TypeError("app must provide publishEphemeral or events.emit");
     if (!store) throw new TypeError("store is required");
     if (!terminals) throw new TypeError("terminals is required");
     if (!terminalSessions) throw new TypeError("terminalSessions is required");
@@ -117,6 +122,10 @@ class RunTerminalBridge {
     if (event.type === "provider.output" && event.runId && typeof event.data?.chunk === "string") {
       this._queue(event.runId, () => this._publish(event.runId, event.data.chunk));
     }
+    // No durable snapshot is written anywhere: raw output is ephemeral by
+    // design (privacy contract). The bridge replays live memory for
+    // connected subscribers; _stream only reads LEGACY durable events for
+    // backward compatibility with runs persisted before the contract.
   }
 
   _queue(runId, operation) {
@@ -147,7 +156,13 @@ class RunTerminalBridge {
     }
     const context = await this._context(runId);
     const output = { runId, chunk, sequence: stream.sequence, ...(context?.missionId ? { missionId: context.missionId } : {}) };
-    await this.app.record(runId, "run.output", output);
+    // Ephemeral fan-out only: live listeners get every chunk; nothing durable
+    // is written here or anywhere else for raw output (privacy contract).
+    if (typeof this.app.publishEphemeral === "function") {
+      this.app.publishEphemeral(runId, "run.output", output);
+    } else {
+      this.app.events.emit("event", { id: `ephemeral-${Date.now()}-${Math.random()}`, runId, type: "run.output", occurredAt: new Date().toISOString(), data: output });
+    }
     for (const listener of this.listeners.get(runId) || []) {
       try { listener(output); } catch { /* An observer cannot break the daemon stream. */ }
     }
@@ -174,7 +189,17 @@ class RunTerminalBridge {
   async _stream(runId) {
     let stream = this.streams.get(runId);
     if (stream) return stream;
+    // Live-process memory only: raw provider/terminal chunks are ephemeral by
+    // design (privacy + write amplification). Legacy runs persisted before
+    // the ephemeral contract still replay from per-chunk events below.
     const events = typeof this.store.listEvents === "function" ? await this.store.listEvents({ runId }) : [];
+    const snapshot = events.filter((event) => event.type === "run.output.snapshot").at(-1);
+    if (snapshot && typeof snapshot.data?.ansi === "string") {
+      const ansi = snapshot.data.ansi;
+      stream = { sequence: snapshot.data.sequence || 1, chunks: [{ sequence: snapshot.data.sequence || 1, chunk: ansi }], characters: snapshot.data.characters || ansi.length, ptySequence: 0 };
+      this.streams.set(runId, stream);
+      return stream;
+    }
     const providerChunks = events.filter((event) => event.type === "provider.output" && typeof event.data?.chunk === "string")
       .map((event, index) => ({ sequence: index + 1, chunk: event.data.chunk }));
     const chunks = providerChunks.length > 0 ? providerChunks : events

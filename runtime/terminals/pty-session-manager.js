@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { sanitizeTerminalError, toPersistedTerminalIdentity } = require("./terminal-persistence");
 
 const MAX_SCROLLBACK = 2_000;
 const DEFAULT_COLUMNS = 100;
@@ -86,13 +87,13 @@ class PtySessionManager {
       id: sessionId, projectId: request.projectId, missionId: request.missionId, label: request.label || request.providerId || request.command,
       kind: request.kind || "shell", providerId: request.providerId, backend: "pty", workspacePath: request.workspacePath,
       sourceWorkspacePath: request.sourceWorkspacePath, workspaceId: request.workspaceId, isolation: request.isolation || "shared", role: request.role,
-      command: request.command, args, status: "starting", createdAt: now(), startedAt: null, completedAt: null,
+      ...toPersistedTerminalIdentity(request.command, args), status: "starting", createdAt: now(), startedAt: null, completedAt: null,
       presentation: request.presentation && typeof request.presentation === "object" ? request.presentation : {}
     };
     await this.store.saveTerminal(record);
     await this.emitEvent(null, "agentSession.created", { terminalId: sessionId, projectId: record.projectId, backend: "pty" });
     try {
-      const child = pty.spawn(record.command, args, { name: "xterm-256color", cols: columns, rows, cwd: record.workspacePath, env: { ...process.env, TERM: "xterm-256color" } });
+      const child = pty.spawn(request.command, args, { name: "xterm-256color", cols: columns, rows, cwd: record.workspacePath, env: { ...process.env, TERM: "xterm-256color" } });
       const buffer = createBuffer(columns, rows);
       const active = { child, buffer, columns, rows, focused: false, page: 0 };
       this.sessions.set(sessionId, active);
@@ -107,7 +108,7 @@ class PtySessionManager {
       await this.emitEvent(null, "agentSession.active", { terminalId: sessionId, projectId: record.projectId, missionId: record.missionId, pid: child.pid });
       return started;
     } catch (error) {
-      await this.store.saveTerminal({ ...record, status: "failed", completedAt: now(), error: error.message });
+      await this.store.saveTerminal({ ...record, status: "failed", completedAt: now(), error: sanitizeTerminalError(error) });
       throw error;
     }
   }

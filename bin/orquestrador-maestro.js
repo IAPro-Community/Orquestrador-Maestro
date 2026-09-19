@@ -97,6 +97,7 @@ Uso:
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
+  orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
   orquestrador-maestro run inspect <id> [--project-path PATH]
   orquestrador-maestro run cancel <id> [--project-path PATH]
@@ -849,6 +850,109 @@ async function handleRunsCommand(args) {
   const options = parseRuntimeArgs(args, ["--project-path"]);
   if (options.values.length > 0) throw new Error("Uso: maestro runs [--project-path PATH]");
   console.log(JSON.stringify(await (await createRuntimeApplication(options.projectPath)).listRuns({ projectPath: options.projectPath }), null, 2));
+  return 0;
+}
+
+function formatTokens(value) {
+  return value === null || value === undefined ? "unavailable" : String(value);
+}
+
+async function handleUsageCommand(args) {
+  const options = parseRuntimeArgs(args, ["--project-path", "--limit", "--provider", "--model", "--branch", "--project"], ["--json"]);
+  if (options.values.length > 0) throw new Error("Uso: maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]");
+  const limitRaw = options.limit !== undefined ? String(options.limit) : undefined;
+  // Strict whole-string validation: parseInt would silently accept "10x" or
+  // truncate "1.5", so only plain decimal digits in range are allowed.
+  const limit = limitRaw !== undefined
+    ? (/^\d+$/.test(limitRaw) ? Number.parseInt(limitRaw, 10) : NaN)
+    : 20;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw new Error("--limit deve ser um inteiro entre 1 e 200.");
+  }
+  const app = await createRuntimeApplication(options.projectPath);
+  // Filters run over the full available collection (RunStore contract
+  // unchanged: listRuns returns everything, no query engine); the limit
+  // applies LAST so old matching runs are never hidden by recency.
+  const runs = await app.listRuns({ projectPath: options.projectPath });
+  const rows = [];
+  for (const run of runs) {
+    const telemetry = run.metadata?.cognitiveTelemetry || {};
+    const task = run.taskId ? await app.getTask(run.taskId).catch(() => null) : null;
+    const tool = telemetry.tool || run.providerId || "unknown";
+    const provider = telemetry.provider || "unknown";
+    const model = telemetry.model || "unknown";
+    const branch = telemetry.branch || "unknown";
+    const project = task?.projectId || telemetry.projectId || "unknown";
+    // Coherent filters: provider matches tool OR provider; model is a
+    // case-insensitive substring (contract); branch/project exact. Unknown
+    // values never match a concrete filter.
+    const known = (value) => {
+      if (value === undefined || value === null) return null;
+      const text = String(value);
+      return text.toLowerCase() === "unknown" ? null : text;
+    };
+    const knownTool = known(tool);
+    const knownProvider = known(provider);
+    const knownModel = known(model);
+    const knownBranch = known(branch);
+    const knownProject = known(project);
+    if (options.provider && !(knownTool === options.provider || knownProvider === options.provider)) continue;
+    if (options.model && !(knownModel && knownModel.toLowerCase().includes(String(options.model).toLowerCase()))) continue;
+    if (options.branch && knownBranch !== options.branch) continue;
+    if (options.project && knownProject !== options.project) continue;
+    rows.push({
+      run: run.id,
+      project,
+      branch,
+      tool,
+      provider,
+      model,
+      status: run.status,
+      primaryCalls: telemetry.primaryCalls ?? "unavailable",
+      reviewCalls: telemetry.reviewCalls ?? "unavailable",
+      modelCalls: telemetry.modelCalls ?? "unavailable",
+      inputTokens: telemetry.tokenInput ?? null,
+      outputTokens: telemetry.tokenOutput ?? null,
+      cachedInputTokens: telemetry.cachedInputTokens ?? null,
+      tokenSource: telemetry.tokenSource || "unavailable",
+      usageScope: telemetry.usageScope || "unknown",
+      childAgentsObserved: telemetry.childAgentsObserved ?? 0,
+      anonymousAgentEventsObserved: telemetry.anonymousAgentEventsObserved ?? 0,
+      topologyExposed: telemetry.topologyExposed ?? "unknown",
+      // topologyVisibility is the contract ("partially-observed" |
+      // "unavailable"); topologyExposed stays for backward compatibility.
+      topologyVisibility: telemetry.topologyVisibility || "unavailable",
+      durationMs: telemetry.durationMs ?? null
+    });
+  }
+  const limited = rows.slice(-limit);
+  if (options.json) {
+    console.log(JSON.stringify(limited, null, 2));
+    return 0;
+  }
+  if (limited.length === 0) {
+    console.log("No runs recorded for this project.");
+    return 0;
+  }
+  for (const row of limited) {
+    console.log([
+      `Run: ${row.run}`,
+      `Project: ${row.project}`,
+      `Branch: ${row.branch}`,
+      `Tool: ${row.tool}`,
+      `Provider: ${row.provider}`,
+      `Model: ${row.model}`,
+      `Primary calls: ${row.primaryCalls}`,
+      `Review calls: ${row.reviewCalls}`,
+      `Child agents observed: ${row.childAgentsObserved}`,
+      `Topology: ${row.topologyVisibility}${row.topologyVisibility === "unavailable" ? " (0 observed does not mean no subagents)" : ""}`,
+      `Input tokens: ${formatTokens(row.inputTokens)}`,
+      `Cached: ${formatTokens(row.cachedInputTokens)}`,
+      `Output: ${formatTokens(row.outputTokens)}`,
+      `Token source: ${row.tokenSource} (${row.usageScope})`,
+      ""
+    ].join("\n"));
+  }
   return 0;
 }
 
@@ -2384,6 +2488,7 @@ async function dispatch(command, args) {
 
   if (command === "run") return handleRunCommand(args);
   if (command === "runs") return handleRunsCommand(args);
+  if (command === "usage") return handleUsageCommand(args);
   if (command === "projects") return handleProjectsCommand(args);
   if (command === "project") return handleProjectCommand(args);
   if (command === "missions") return handleMissionsCommand(args);
@@ -2448,7 +2553,7 @@ async function main() {
   const telemetryCommands = new Set([
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
-    "runs", "projects", "project", "missions", "mission", "terminal", "terminals",
+    "runs", "usage", "projects", "project", "missions", "mission", "terminal", "terminals",
     "tui", "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
   ]);
