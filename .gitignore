@@ -1,4 +1,6 @@
 .local/
+.orquestrador-maestro/
+tests/.orquestrador-maestro/
 .playwright-mcp/
 .omx/
 DEV/
