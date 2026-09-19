@@ -146,9 +146,13 @@ function extractChildAgents({ providerId, stdout, runId, executionId } = {}) {
       if (started && !state.startedAt) state.startedAt = started;
       const completed = asNonEmptyString(event.completedAt);
       if (completed && !state.completedAt) state.completedAt = completed;
-      if (tokenInput !== null && tokenInput !== undefined && state.tokenInput === null) state.tokenInput = tokenInput;
-      if (tokenOutput !== null && tokenOutput !== undefined && state.tokenOutput === null) state.tokenOutput = tokenOutput;
-      if (outcome !== "unknown" && state.outcome === "unknown") state.outcome = outcome;
+      if (tokenInput !== null && tokenInput !== undefined) {
+        state.tokenInput = state.tokenInput === null ? tokenInput : Math.max(state.tokenInput, tokenInput);
+      }
+      if (tokenOutput !== null && tokenOutput !== undefined) {
+        state.tokenOutput = state.tokenOutput === null ? tokenOutput : Math.max(state.tokenOutput, tokenOutput);
+      }
+      if (outcome !== "unknown") state.outcome = outcome;
     }
     return Object.freeze([...order.map((id) => toRecord(byId.get(id))), ...anonymous]);
   } catch {

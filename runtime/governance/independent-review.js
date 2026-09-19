@@ -17,17 +17,24 @@ function omissionLine(item) {
   // (\p{Cc}: C0, DEL, C1 incl. U+0085 NEL) and ALL line/paragraph separators
   // (\p{Zl}: U+2028; \p{Zp}: U+2029) so a crafted filename can neither break
   // the line nor smuggle a fake prompt section (DIFF:/SYSTEM:/OMISSIONS:).
+  // Escape structural delimiters ([ ] ( )) to prevent premature delimiter closing.
   // Inline lookalike text stays inline on the same `- ` bullet line, which the
   // reviewer instruction already frames as data, never instructions.
   // Identification is preserved by collapsing runs to one space + per-field cap.
-  const clean = (value, cap = 200) => String(value)
-    .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ")
-    .trim()
-    .slice(0, cap);
-  const filePath = clean(item?.path || "unknown");
-  const status = clean(item?.status || "?", 20);
-  const size = Number.isFinite(Number(item?.size)) ? Number(item?.size) : 0;
-  const reason = clean(item?.reason || "omitted", 60);
+  const clean = (value, cap = 200, escapePattern = null) => {
+    let text = String(value)
+      .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (escapePattern) {
+      text = text.replace(escapePattern, "\\$&");
+    }
+    return text.slice(0, cap);
+  };
+  const filePath = clean(item?.path || "unknown", 200, /[\[\]()]/g);
+  const status = clean(item?.status || "?", 20, /[\[\]]/g);
+  const size = Number.isFinite(Number(item?.size)) ? Math.max(0, Math.floor(Number(item?.size))) : 0;
+  const reason = clean(item?.reason || "omitted", 60, /[()]/g);
   return `- ${filePath} [${status}] ${size}B (${reason})`;
 }
 

@@ -102,7 +102,10 @@ governor paralelo. Quando o provider expõe dados, o run registra:
   `depth`, `providerNative`, `tokens`, `outcome`) somente quando o provider
   expõe sessões/agents filhos; caso contrário `[]`;
 - `tokenSource`: `provider-reported` | `derived` | `estimated` | `unavailable`.
-  Ausente é `null`/`unknown`, nunca `0`.
+  Quando não há contagem disponível, `tokenSource` é `unavailable`.
+  Campos numéricos de tokens ausentes são `null`, nunca `0` (zero representa valor
+  explicitamente reportado pelo provider); campos textuais de identidade ou valor
+  desconhecidos usam `"unknown"`; fontes de mensuração ausentes usam `"unavailable"`.
 
 `tool != provider != model`. Nenhuma heurística frágil por nome: sem declaração
 explícita do provider, `provider` permanece `unknown`.

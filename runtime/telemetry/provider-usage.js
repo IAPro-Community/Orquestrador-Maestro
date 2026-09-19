@@ -150,7 +150,7 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
         reasoningTokens = reasoningTokens === null ? reasoning : Math.max(reasoningTokens, reasoning);
       }
     }
-    if (typeof event.type === "string" && /^(turn\.completed|thread\.completed|response\.completed)$/iu.test(event.type)) {
+    if (typeof event.type === "string") {
       // thread.completed is the cumulative session summary, not a new model
       // generation: it sets the aggregate scope but never adds a call on top
       // of per-turn counts (avoids double-counting one generation twice).
@@ -158,8 +158,10 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
         if (active) { sawAggregate = true; sawThreadUsage = true; }
         continue;
       }
-      turnCalls += 1;
-      modelCalls = turnCalls;
+      if (/^(turn\.completed|response\.completed)$/iu.test(event.type)) {
+        turnCalls += 1;
+        modelCalls = turnCalls;
+      }
     }
   }
   // Fallback: a single JSON object (non-NDJSON) carrying usage directly.
