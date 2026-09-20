@@ -8,13 +8,13 @@
     "surfaces": ["protocol", "runtime", "cockpit"]
   },
   "sources": {
-    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json (version 2, 51 skills)",
-    "skillsRouter": "orquestrador/SKILLS_ROUTER.json (version 2, 51 skills, 10 capabilityRoutes)",
-    "skillExecutionProfiles": "orquestrador/SKILL_EXECUTION_PROFILES.json (version 1, 8 profiles)",
-    "interactionProfiles": "orquestrador/INTERACTION_PROFILES.json (version 1, 2 profiles)",
-    "workflowSchemas": "orquestrador/WORKFLOW_SCHEMAS.json (version 2, 4 workflows)",
-    "programEntrypoints": "orquestrador/PROGRAM_ENTRYPOINTS.json (version 1, 11 programs)",
-    "toolAdapters": "orquestrador/TOOL_ADAPTERS.json (schemaVersion 1, 9 adapters)",
+    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json",
+    "skillsRouter": "orquestrador/SKILLS_ROUTER.json",
+    "skillExecutionProfiles": "orquestrador/SKILL_EXECUTION_PROFILES.json",
+    "interactionProfiles": "orquestrador/INTERACTION_PROFILES.json",
+    "workflowSchemas": "orquestrador/WORKFLOW_SCHEMAS.json",
+    "programEntrypoints": "orquestrador/PROGRAM_ENTRYPOINTS.json",
+    "toolAdapters": "orquestrador/TOOL_ADAPTERS.json",
     "note": "Contagens derivadas dos manifests canônicos. Não duplicar listas de skills/tools aqui; esta matriz referencia, não copia."
   },
   "capabilities": [
@@ -28,7 +28,7 @@
       "testEvidence": ["tests/installer-contract.test.js"],
       "documentation": ["docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
-      "notes": "11 programs leem AGENTS.md/regras/maestro via entrypoints nativos."
+      "notes": "Programs leem AGENTS.md/regras/maestro via entrypoints nativos (ver PROGRAM_ENTRYPOINTS.json)."
     },
     {
       "id": "progressive-context",
@@ -84,7 +84,7 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["orquestrador/SKILL_EXECUTION_PROFILES.json (8 profiles)", "orquestrador/INTERACTION_PROFILES.json (2 profiles)"],
+      "implementationEvidence": ["orquestrador/SKILL_EXECUTION_PROFILES.json", "orquestrador/INTERACTION_PROFILES.json"],
       "testEvidence": ["tests/orchestration-contracts.test.js"],
       "documentation": ["docs/product/GLOSSARY.md"],
       "publicClaimAllowed": true,
@@ -204,11 +204,11 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["benchmark-harness/src/cli/index.ts", "benchmark-harness/src/orchestrator/index.ts", "benchmark-harness/src/verifier/index.ts", "benchmark-harness/src/evidence/index.ts", "benchmark-harness/scenarios/ (13 cenários)"],
+      "implementationEvidence": ["benchmark-harness/src/cli/index.ts", "benchmark-harness/src/orchestrator/index.ts", "benchmark-harness/src/verifier/index.ts", "benchmark-harness/src/evidence/index.ts", "benchmark-harness/scenarios/"],
       "testEvidence": ["benchmark-harness/tests/"],
       "documentation": ["docs/benchmark.md", "benchmark-harness/docs/"],
       "publicClaimAllowed": true,
-      "notes": "2 drivers (maestro, opencode). Claim público exige N>=20 pareados, execução real, tokenSource provider-reported, isolamento e reprodutibilidade. Sem números de marketing no repo."
+      "notes": "Drivers maestro e opencode. Claim público exige N>=20 pareados, execução real, tokenSource provider-reported, isolamento e reprodutibilidade. Sem números de marketing no repo."
     },
     {
       "id": "bridge-api",
@@ -525,6 +525,7 @@
   "surfaces": ["protocol", "runtime", "cockpit"],
   "enums": {
     "capabilityStatus": ["stable", "experimental", "planned"],
+    "taxonomyInvariant": "runtimeProvider => integrated => compatible",
     "claimRule": "publicClaimAllowed=false significa: não vender como capability atual em README, landing ou SPEC."
   }
 }

@@ -232,7 +232,7 @@ INSTALL_STEPS = [
         "body": "Codex, Claude, Cursor, OpenCode, Gemini, Windsurf e Antigravity passam a ler o mesmo contrato.",
         "chips": [("AGENTS.md", BLUE), ("tool profiles", VIOLET), ("hooks", GREEN)],
         "command": "orquestrador-maestro list-targets",
-        "result": "todas as IAs encontram o Orquestrador por padrão",
+        "result": "diferentes ferramentas de IA encontram o Orquestrador por padrão",
     },
     {
         "short": "verify",

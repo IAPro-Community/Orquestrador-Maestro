@@ -20,7 +20,7 @@ No Orquestrador, isso virou uma regra pratica: contexto minimo suficiente, com r
 
 ## Camadas De Leitura
 
-Ordem recomendada para qualquer IA instalada:
+Ordem recomendada para uma ferramenta de IA compatível instalada:
 
 1. `AGENTS.md` global do usuario.
 2. `.orquestrador/rules.md`.

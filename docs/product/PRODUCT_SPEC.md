@@ -60,7 +60,7 @@ ORQUESTRADOR MAESTRO
 | Run / Step / Execution | Execução rastreável de Task via provider | RunStore JSON v1 |
 | Provider | Adapter real de execução (`detect/capabilities/execute`) | `runtime/providers/` |
 | Agent | Processo de ferramenta executado pelo provider | efêmero |
-| Skill | Capacidade empacotada (`SKILL.md` + manifesto) | `orquestrador/skills` (51) |
+| Skill | Capacidade empacotada (`SKILL.md` + manifesto) | `orquestrador/skills` (catálogo canônico; contagem derivada do manifesto) |
 | Workspace / Worktree | Isolamento (`shared` ou git worktree sob `.maestro/`) | `runtime/workspaces/` |
 | Artifact | Saída registrada do run | RunStore |
 | Verification | Checagens `lint/typecheck/test/build` (safe-list) | `runtime/verification/` |
@@ -91,7 +91,7 @@ bridge, Cockpit TUI, cliente VS Code.
 
 ## 6. Limitações explícitas
 
-- Só 4 runtime providers; demais ferramentas são contrato/integração, não execução.
+- Apenas os providers Runtime listados em `CAPABILITY_MATRIX.json`; demais ferramentas são contrato/integração, não execução.
 - `agy` ≠ Antigravity IDE. Freebuff sem headless estável (uso interativo).
 - Sem merge automático de worktree; limpeza manual.
 - `node-pty` opcional (`PTY_UNAVAILABLE` sem ele); tmux exige binário.

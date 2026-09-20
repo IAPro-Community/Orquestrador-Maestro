@@ -13,7 +13,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - ADR-001 (Episodic Memory)
 
 ## Phase 1: Benchmark Protocol
-**Status:** Complete (superseded by shipped `benchmark-harness/` with 13 scenarios in 0.2.0–0.4.0)
+**Status:** Complete (superseded by shipped `benchmark-harness/` with scenarios in 0.2.0–0.4.0)
 **Goal:** Define benchmark schema, scenarios, isolation, acceptance
 **Output:**
 - BENCHMARK_SCHEMA.json
@@ -62,13 +62,13 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Consolidation rules
 
 ## Phase 7: Automatic Capture Adapters
-**Status:** Partial (4 runtime adapters shipped: codex, claude, opencode, agy; 8 declarative adapters in TOOL_ADAPTERS: junie, goose, openhands, continue, cline, copilot, ollama, lm-studio; Freebuff event-adapter for memory)
+**Status:** Partial (runtime adapters shipped for codex/claude/opencode/agy; declarative adapters in TOOL_ADAPTERS for junie/goose/openhands/continue/cline/copilot/ollama/lm-studio/freebuff; Freebuff event-adapter for memory)
 **Goal:** Implement adapters for different tools progressively
 **Output:**
 - Tool-specific adapters (Claude, Codex, OpenCode, etc.)
 
 ## Phase 8: Benchmark V1
-**Status:** Planned (harness infrastructure complete: 13 scenarios, evidence gate, paired comparison; awaiting official execution with N>=20)
+**Status:** Planned (harness infrastructure complete: scenarios, evidence gate, paired comparison; awaiting official execution with N>=20)
 **Goal:** Execute Vanilla vs Maestro Core vs Maestro Memory
 **Output:**
 - Complete benchmark data
