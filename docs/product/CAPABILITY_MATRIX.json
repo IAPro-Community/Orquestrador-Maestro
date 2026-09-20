@@ -3,13 +3,14 @@
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
+    "packageVersion": "0.4.4",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": ["protocol", "runtime", "cockpit"]
   },
   "sources": {
-    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json",
-    "skillsRouter": "orquestrador/SKILLS_ROUTER.json",
+    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json (version 2, 52 skills canônicas)",
+    "skillsRouter": "orquestrador/SKILLS_ROUTER.json (version 2, 75 skills públicas, 10 capabilityRoutes)",
     "skillExecutionProfiles": "orquestrador/SKILL_EXECUTION_PROFILES.json",
     "interactionProfiles": "orquestrador/INTERACTION_PROFILES.json",
     "workflowSchemas": "orquestrador/WORKFLOW_SCHEMAS.json",
@@ -76,7 +77,7 @@
       "testEvidence": ["tests/frontend-excellence.test.js", "scripts/skill-catalog.js validate"],
       "documentation": ["docs/skills/README.md", "docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
-      "notes": "Skills canônicas derivadas do manifesto; núcleo nativo limitado a 14 curadas; contagem sempre derivada do manifesto."
+      "notes": "52 skills canônicas e 75 skills públicas únicas no catálogo versionado; o pacote não conta caches nem cópias de outras raízes."
     },
     {
       "id": "execution-profiles",

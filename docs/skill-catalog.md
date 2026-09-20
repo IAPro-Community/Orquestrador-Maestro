@@ -3,7 +3,8 @@
 
 Este catálogo compacto é gerado a partir de [`orquestrador/SKILLS_MANIFEST.json`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
 
-Total: 52
+Total canônico: 52
+Catálogo público deduplicado: 75 skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).
 
 Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `check` e `validate` (ou `orquestrador-maestro skill-catalog <comando>`).
 

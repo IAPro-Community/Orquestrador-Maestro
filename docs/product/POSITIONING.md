@@ -8,7 +8,7 @@
 - **Proposta de valor:** Mesmo padrão entre ferramentas; memória que sobrevive à
   troca; verificação e evidência em vez de promessa.
 - **Diferenciais:** evidence gate; telemetria opt-in desligada por padrão;
-  roteamento de skills por evidência; providers com lifecycle real.
+  roteamento das 75 skills públicas deduplicadas; 4 providers com lifecycle real.
 
 ## Anti-positioning
 

@@ -166,6 +166,7 @@ assert_path "$ORQUESTRADOR/sync-skills.ps1" "Windows skill synchronizer"
 assert_path "$ORQUESTRADOR/SKILLS_INDEX.md" "Orquestrador skills index"
 assert_path "$ORQUESTRADOR/SKILLS_ROUTER.json" "Orquestrador skills router"
 assert_path "$ORQUESTRADOR/SKILL_INSTALL_POLICY.json" "Orquestrador skill install policy"
+assert_path "$ORQUESTRADOR/SKILLS_DISCOVERY.json" "Orquestrador local skills inventory"
 assert_path "$ORQUESTRADOR/skills" "Orquestrador canonical skills"
 assert_path "$HOME_PATH/AGENTS.md" "Global AGENTS.md"
 

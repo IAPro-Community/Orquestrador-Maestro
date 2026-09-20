@@ -1,0 +1,627 @@
+{
+  "schemaVersion": 1,
+  "source": "repository-public-sources",
+  "identity": "frontmatter.name normalized to skill id",
+  "precedence": [
+    "maestro",
+    "codex",
+    "community"
+  ],
+  "counts": {
+    "sourceSkillFiles": 174,
+    "uniqueSkills": 75,
+    "shadowedDuplicates": 99,
+    "conflictingIds": 7
+  },
+  "skills": [
+    {
+      "id": "ask-claude",
+      "name": "ask-claude",
+      "description": "Ask Claude via local CLI and capture a reusable artifact",
+      "source": "codex",
+      "relativePath": "codex/skills/ask-claude",
+      "contentHash": "4cc3e276000894788b4a125ba01a56a1131d14c26c574b50db8224a88c90751b"
+    },
+    {
+      "id": "ask-gemini",
+      "name": "ask-gemini",
+      "description": "Ask Gemini via local CLI and capture a reusable artifact",
+      "source": "codex",
+      "relativePath": "codex/skills/ask-gemini",
+      "contentHash": "9ac89d5c7bdd0fc4482c39da240b391178c3e204dd1b85f921f3a11fb30f5bf4"
+    },
+    {
+      "id": "autopilot",
+      "name": "autopilot",
+      "description": "Use when the user explicitly wants an autonomous, end-to-end software delivery workflow from an idea or brief to verified working code.",
+      "source": "codex",
+      "relativePath": "codex/skills/autopilot",
+      "contentHash": "d5f00a2034c0f3c5f1c1be724e7411170a8a3593d65f9632f1cdb36469dddffc"
+    },
+    {
+      "id": "cancel",
+      "name": "cancel",
+      "description": "Cancel any active OMX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, swarm, ultrapilot, pipeline, team)",
+      "source": "codex",
+      "relativePath": "codex/skills/cancel",
+      "contentHash": "a8dea77274d033c518380d8a71f91bb3c65014a43a44a2641a20219f8946c942"
+    },
+    {
+      "id": "code-review",
+      "name": "code-review",
+      "description": "Run a comprehensive code review",
+      "source": "codex",
+      "relativePath": "codex/skills/code-review",
+      "contentHash": "eeb809a868bb63b34a3e7cc428195372b5af857aa6e848ba85b84e1539828c0f"
+    },
+    {
+      "id": "deep-interview",
+      "name": "deep-interview",
+      "description": "Socratic deep interview with mathematical ambiguity gating before execution",
+      "source": "codex",
+      "relativePath": "codex/skills/deep-interview",
+      "contentHash": "13368d979e558a3402adc032778710954d3a1c1bdacff5a2510113ade7e1e0c8"
+    },
+    {
+      "id": "doctor",
+      "name": "doctor",
+      "description": "Diagnose and fix oh-my-codex installation issues",
+      "source": "codex",
+      "relativePath": "codex/skills/doctor",
+      "contentHash": "285b171522f57112b35c1cd50b0778457ac0ae0a16cef94c120d8e04c91d46ae"
+    },
+    {
+      "id": "imagegen",
+      "name": "imagegen",
+      "description": "Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas.",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/imagegen",
+      "contentHash": "681ddb4ad6d06a2acc78a3535b583f8d0c1ea800ecda3d56370d3310fd2cd4ba"
+    },
+    {
+      "id": "improve-codebase-architecture",
+      "name": "improve-codebase-architecture",
+      "description": "Avaliar a arquitetura de um codigo existente, encontrar friccoes comprovaveis, gerar obrigatoriamente um relatorio HTML e propor refatoracoes incrementais com impacto tecnico e de produto. Usar quando o usuario pedir melhoria arquitetural, crescimento sustentavel, reducao de acoplamento, modulos mais testaveis ou um mapa para decidir onde investir. Em projetos pt-BR, responder integralmente em portugues.",
+      "source": "community",
+      "relativePath": "skill-library/community-skills/improve-codebase-architecture",
+      "contentHash": "0ecc184f2116249d58248ca8e1c339166e5c435605e220c1a7f483d5ef75cf60"
+    },
+    {
+      "id": "openai-docs",
+      "name": "openai-docs",
+      "description": "Use for Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, customization, automations, and self-knowledge—including 'you,' 'your,' 'this app,' or 'this coding agent' when they refer to Codex—and for OpenAI APIs/products and ChatGPT Work. Also use for model choice/migration, prompting, SDKs, Responses, Realtime, agents, evals, and Chat/Work/Codex comparisons. Do not use for generic app/software tasks that merely mention Codex.",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/openai-docs",
+      "contentHash": "7cb8fa1b2a0c635b5c61ffe1da7b8594a7ea0fce5b71e8d523e2025d88b2a05e"
+    },
+    {
+      "id": "orquestrador-maestro",
+      "name": "orquestrador-maestro",
+      "description": "Aplica o contrato compartilhado do Orquestrador Maestro ao trabalho de código e projeto.",
+      "source": "codex",
+      "relativePath": "codex/skills/orquestrador-maestro",
+      "contentHash": "4186b108ec870f0a01de810309516c34fee81d001ace973e4e5baadf0fea3ea1"
+    },
+    {
+      "id": "plan",
+      "name": "plan",
+      "description": "Strategic planning with optional interview workflow",
+      "source": "codex",
+      "relativePath": "codex/skills/plan",
+      "contentHash": "e60e6d0e6ac895cefc5c0a58f3bb7d103fad78d4608c9a0d59b4f46a3299cf94"
+    },
+    {
+      "id": "plugin-creator",
+      "name": "plugin-creator",
+      "description": "Create and scaffold plugin directories for Codex with a required `.codex-plugin/plugin.json`, optional plugin folders/files, valid manifest defaults, and personal-marketplace entries by default. Use when Codex needs to create a new personal plugin, add optional plugin structure, generate or update marketplace entries for plugin ordering and availability metadata, or update an existing local plugin during development with the CLI-driven cachebuster and reinstall flow.",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/plugin-creator",
+      "contentHash": "8fd56316b2c49cbdc657a5d197967a233018e1fada65b00a5dd030dce6499a6e"
+    },
+    {
+      "id": "ralph",
+      "name": "ralph",
+      "description": "Self-referential loop until task completion with architect verification",
+      "source": "codex",
+      "relativePath": "codex/skills/ralph",
+      "contentHash": "470124f3e2842ceec775b5dcee04abfcf0e43bcadb63df34b8fc67ac1f261bbd"
+    },
+    {
+      "id": "ralplan",
+      "name": "ralplan",
+      "description": "Alias for $plan --consensus",
+      "source": "codex",
+      "relativePath": "codex/skills/ralplan",
+      "contentHash": "0a77135b51040bc92812eaf838335fd6d776edda885c04cb550477e85edb2814"
+    },
+    {
+      "id": "review-agent",
+      "name": "review-agent",
+      "description": "Perform a read-only, defect-first review of a specified code change and return every actionable finding. Use when another agent delegates review of uncommitted changes, a base-branch diff, a commit, or custom review instructions.",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/review-agent",
+      "contentHash": "07079efd0dc76f05fade424e5dfb048dce1de2df7626e1a4f56292a4f3f92228"
+    },
+    {
+      "id": "security-review",
+      "name": "security-review",
+      "description": "Run a comprehensive security review on code",
+      "source": "codex",
+      "relativePath": "codex/skills/security-review",
+      "contentHash": "163e27edf0a42bfceb469701f9101d910f13d7236c58a6b5f459dded72838fa4"
+    },
+    {
+      "id": "skill-abacatepay-integration",
+      "name": "skill-abacatepay-integration",
+      "description": "Integrate AbacatePay PIX/card billing, customers, QRCode PIX, billing webhooks, CPF/CNPJ validation, BRL SaaS checkout, payment receipts, refunds, cancellations, and entitlement sync for Brazilian SaaS products.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-abacatepay-integration",
+      "contentHash": "025b401b5754c05e22d13ececc6ff239eb5bc25bbc54e15009d3b7f20ba0da42"
+    },
+    {
+      "id": "skill-adr",
+      "name": "skill-adr",
+      "description": "Registra decisões arquiteturais com contexto, alternativas, drivers, consequências, evidência e plano de revisão.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-adr",
+      "contentHash": "9750da724fef7b8735fe809b84d5a3cc17579a21e4f5b4f56f904d48338374aa"
+    },
+    {
+      "id": "skill-agent-observability",
+      "name": "skill-agent-observability",
+      "description": "Define observabilidade para agentes e aplicações de IA com eventos, tracing, custos, latência, qualidade, regressões e privacidade.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-agent-observability",
+      "contentHash": "e14a0fc87eba3f5cd77b3a0ad184ef8a7bb668245e81066fe85a040ea6ba3a9b"
+    },
+    {
+      "id": "skill-ai-orchestration",
+      "name": "skill-ai-orchestration",
+      "description": "Use for server-side AI orchestration in SaaS products, including OpenAI, Gemini, Claude, ElevenLabs, streaming, transcription, structured extraction, prompt contracts, token budgets, model routing, queues, retries, observability, consent, validation, and safe API key handling.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-ai-orchestration",
+      "contentHash": "2a8a1aeca55d689900c561b36a2ecf8f4dfd4db6fffbc047f74352ef1fbdc309"
+    },
+    {
+      "id": "skill-aionui-cowork-orchestration",
+      "name": "skill-aionui-cowork-orchestration",
+      "description": "Use when integrating AionUi into the {{USER_NAME}} orchestrator workflow, coordinating Codex, Claude, Gemini, OpenCode, or other CLI agents through AionUi without breaking local skills, hooks, MCPs, permissions, or existing Codex workflows.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-aionui-cowork-orchestration",
+      "contentHash": "84fab605f41a552e23f27bfbe9f93964121b6ecb90b6cd899c25c851e00a4565"
+    },
+    {
+      "id": "skill-browser-agent",
+      "name": "skill-browser-agent",
+      "description": "Use for reliable web-browser agents, semantic page inspection, Playwright automation, accessibility-tree navigation, structured browser actions, post-action validation, replay, and visual fallbacks for canvas or highly visual interfaces.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-browser-agent",
+      "contentHash": "28064506a495a4888f55585c5c3adc8635c3493bc4b1e9b615e35b06252e3ac1"
+    },
+    {
+      "id": "skill-cobranca-automatizada-saas-abacatepay",
+      "name": "skill-cobranca-automatizada-saas-abacatepay",
+      "description": "Automatic SaaS billing engine with AbacatePay (PIX + credit card), configurable dunning (regua de cobranca), trial management, invoice portal, email (Resend) and WhatsApp (Evolution API) notifications, admin CRUD, and billing metrics. Covers the full billing lifecycle from provisioning to collection.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-cobranca-automatizada-saas-abacatepay",
+      "contentHash": "f5cbee9fc63b2b91332572b39ef7702b155589a0e3f6c04e790690dc42f85eea"
+    },
+    {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations.",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/skill-creator",
+      "contentHash": "da44c88f6b3845a8fa8c60792ec9a722110a55a9793c279757b48fefb11f819c"
+    },
+    {
+      "id": "skill-database-migrations",
+      "name": "skill-database-migrations",
+      "description": "Planeja e verifica migrações de banco com compatibilidade, idempotência, RLS, seeds, índices, backfill e rollback seguro.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-database-migrations",
+      "contentHash": "dde51dfa4b580f163e499bb2bc2b94fd967b3e38f80a76214afe97f14cd2de75"
+    },
+    {
+      "id": "skill-deep-wiki",
+      "name": "skill-deep-wiki",
+      "description": "Gera documentação técnica navegável de um repositório, com arquitetura, Mermaid, onboarding, AGENTS.md, llms.txt e páginas por domínio.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-deep-wiki",
+      "contentHash": "079239c31277ef5064471e222261d6d50a08dd2c3d79f0d3d927c12ab4188b03"
+    },
+    {
+      "id": "skill-dependency-upgrade",
+      "name": "skill-dependency-upgrade",
+      "description": "Atualiza dependências com changelog, compatibilidade, vulnerabilidades, lockfile, testes e plano de rollback.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-dependency-upgrade",
+      "contentHash": "af5bea943d5c5e424eae775a797fa44871de69298113f7e8c101b434ab9d64c6"
+    },
+    {
+      "id": "skill-doublecheck",
+      "name": "skill-doublecheck",
+      "description": "Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e documentos, com modo pontual ou contínuo.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-doublecheck",
+      "contentHash": "9902049aecfc92f1b0479206cd34ea9fa5ab252e5741f24940673d31de156468"
+    },
+    {
+      "id": "skill-elevenlabs-voice-cloning",
+      "name": "skill-elevenlabs-voice-cloning",
+      "description": "Use for ElevenLabs voice generation and voice cloning integrations, including Brazilian Portuguese TTS, explicit voice consent, server-side API keys, secure audio uploads, asynchronous jobs, validation, retryable synthesis, and safe handling of biometric voice data.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-elevenlabs-voice-cloning",
+      "contentHash": "550d4c952286a02a0c65a61db19c479e4e4ffa6eff4d30cad456ab64bda09582"
+    },
+    {
+      "id": "skill-evolution-api",
+      "name": "skill-evolution-api",
+      "description": "Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-evolution-api",
+      "contentHash": "605e3de839455718a1f9b503d3b618e6e9124228c16e2bf73310bfd93f70d4c8"
+    },
+    {
+      "id": "skill-frontend-excellence",
+      "name": "skill-frontend-excellence",
+      "description": "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-frontend-excellence",
+      "contentHash": "dd9d400bf667e72996a8401414477ae47777c653f5b806dd17db02adf9a78bb5"
+    },
+    {
+      "id": "skill-frontend-ux-guardrails",
+      "name": "skill-frontend-ux-guardrails",
+      "description": "Use as a frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-frontend-ux-guardrails",
+      "contentHash": "1312a77c7c6c598ed42333099d49b9df046391fa13b47c38f285edc065ec3664"
+    },
+    {
+      "id": "skill-google-workspace-sync",
+      "name": "skill-google-workspace-sync",
+      "description": "Use for Google Workspace integrations with OAuth, Calendar, Meet, FreeBusy, Drive, Sheets, webhooks, least-privilege scopes, encrypted refresh tokens, idempotent writes, reconciliation jobs, consent revocation, validation, and sync audit trails.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-google-workspace-sync",
+      "contentHash": "d80e38e83856d924b978a9d5b1fe2c2539033a47fd2407c446a10947378e51cc"
+    },
+    {
+      "id": "skill-impeccable",
+      "name": "skill-impeccable",
+      "description": "Orquestra melhorias de frontend inspiradas no Impeccable a partir de pedidos conversacionais de design, UX, acessibilidade, responsividade, tipografia, layout, cor, motion, clareza, hardening e polish.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-impeccable",
+      "contentHash": "c442dc99f61bc4e0bc1c4c79bc12686cf72b871eaf81f2a00619b840abea430c"
+    },
+    {
+      "id": "skill-incident-response",
+      "name": "skill-incident-response",
+      "description": "Organiza resposta a incidentes técnicos com contenção, evidência, comunicação, recuperação, timeline e postmortem sem culpa.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-incident-response",
+      "contentHash": "ddbdee243264ece0e886335ae2cd2c50d4a337b4be597695e5096ba59dec72a2"
+    },
+    {
+      "id": "skill-installer",
+      "name": "skill-installer",
+      "description": "Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos).",
+      "source": "codex",
+      "relativePath": "codex/skills/.system/skill-installer",
+      "contentHash": "d68b77e5bbb34dedab89d134da52855f140fc4b4299b80104f534e3b9e98f8ee"
+    },
+    {
+      "id": "skill-lgpd-brasil",
+      "name": "skill-lgpd-brasil",
+      "description": "LGPD-focused privacy and data-governance skill for Brazilian software products. Use for data mapping, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfer review.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-lgpd-brasil",
+      "contentHash": "1fb7eb790e0fc8b2f2f39b1c4b68dd6dec5cdad51e42b2e25a02b1f73b192e43"
+    },
+    {
+      "id": "skill-live-processing",
+      "name": "skill-live-processing",
+      "description": "Use for live stream and VOD ingestion pipelines, including YouTube, Twitch, uploads, capture jobs, queues, transcription, clip generation, media storage, retries, idempotent workers, consent, validation, observability, and safe server-side provider credentials.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-live-processing",
+      "contentHash": "4c0ec9678249b2ec36d641a20f15382a20b3ffb5c6098394a4f9e4d901a067e0"
+    },
+    {
+      "id": "skill-manual-video-processing",
+      "name": "skill-manual-video-processing",
+      "description": "Use for manual video or audio uploads in SaaS apps, including upload UX, direct storage, validation, malware checks, quota enforcement, asynchronous processing jobs, transcription, clip extraction, review flows, signed URLs, consent, and secure media access.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-manual-video-processing",
+      "contentHash": "c688e067bff832644d3a226eeb5b9f7eedacb899ab8daf13b945e935c607e736"
+    },
+    {
+      "id": "skill-mcp-builder",
+      "name": "skill-mcp-builder",
+      "description": "Projeta e implementa MCP servers seguros, com schemas claros, autenticação mínima, tratamento de erros, testes e documentação operacional.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-mcp-builder",
+      "contentHash": "8af50b33c9f5e3749247b4745bf22856c29c084d482bfc0deb277dcd239d9dbc"
+    },
+    {
+      "id": "skill-melhorar-ux-ui-por-referencia",
+      "name": "skill-melhorar-ux-ui-por-referencia",
+      "description": "Converter screenshots, prints, mockups e imagens de interfaces web/mobile em melhorias precisas de UX/UI, prompts de programação ou implementação solicitada. Usar automaticamente, sem menção à skill, quando houver referência visual de interface no pedido ou contexto acessível e intenção de melhorar a tela, deixar igual à referência, modernizar layout, comparar telas ou gerar prompt para Codex/Claude. Não usar só pela presença de imagem, para retocar fotos, criar artes promocionais, transcrever texto ou diagnosticar erros de terminal.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-melhorar-ux-ui-por-referencia",
+      "contentHash": "e8f0b7f489c77d550f8d456a1de90bebde10474c490759dddbf8b7a35a206e26"
+    },
+    {
+      "id": "skill-modern-ui-patterns",
+      "name": "skill-modern-ui-patterns",
+      "description": "Use for professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-modern-ui-patterns",
+      "contentHash": "d5e1ec006cc3326a3df92e562dea46e12f631e514488b9366e79784d944800ba"
+    },
+    {
+      "id": "skill-multiagent-orchestration",
+      "name": "skill-multiagent-orchestration",
+      "description": "Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-multiagent-orchestration",
+      "contentHash": "5777a3af46bec82418394f75a1d23bc634f837ce41d57f9109b2dc7c4c22da6d"
+    },
+    {
+      "id": "skill-open-design-ui",
+      "name": "skill-open-design-ui",
+      "description": "Use for defining and implementing a distinctive frontend visual system with design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after the experience strategy is clear.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-open-design-ui",
+      "contentHash": "5b4ef2136758a74e8cd1c4d40ae246f7c7aa53f07c784f469f75150a89328736"
+    },
+    {
+      "id": "skill-optimize-images",
+      "name": "skill-optimize-images",
+      "description": "Optimizes images for blogs and websites, including format conversion, resizing, compression, responsive delivery, accessibility, and visual validation. Use when asked to optimize, reduce, prepare, convert, or improve images for the web.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-optimize-images",
+      "contentHash": "cd04af7d087c7f500c39734c3f567748bbf30e27332cc9e7f55e213962eec0ed"
+    },
+    {
+      "id": "skill-preflight",
+      "name": "skill-preflight",
+      "description": "Define constraints, failure modes, ownership, baseline verification, and minimal test plan before implementation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-preflight",
+      "contentHash": "f6fc3240b99e41872e0648084ec8bd20491cadc2a82c77e157d08a2448181e1a"
+    },
+    {
+      "id": "skill-premium-web-experience",
+      "name": "skill-premium-web-experience",
+      "description": "Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-premium-web-experience",
+      "contentHash": "99e84d1e3ee18e6f479037c02d78197f3611de9f910948b0777b342aa5afe475"
+    },
+    {
+      "id": "skill-quality-gate",
+      "name": "skill-quality-gate",
+      "description": "Avalia skills, plugins e MCPs antes da adoção, verificando formato, dependências, permissões, riscos de supply chain e critérios de validação.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-quality-gate",
+      "contentHash": "3c5ec87044b5101c55ebecaacaf94b3f0568820e4a9d07cea6c8f474e3778189"
+    },
+    {
+      "id": "skill-release-engineering",
+      "name": "skill-release-engineering",
+      "description": "Prepara releases seguros com changelog, migrações, smoke tests, rollback, feature flags, CI e checklist operacional.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-release-engineering",
+      "contentHash": "a75d49d68a4f91d8ef2c956e028afec20475054fcb3235edcf47a99429ef693c"
+    },
+    {
+      "id": "skill-repo-health",
+      "name": "skill-repo-health",
+      "description": "Inspeciona um repositório e produz diagnóstico de stack, comandos de verificação, instruções, CI, riscos, documentação e próximos passos.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-repo-health",
+      "contentHash": "be39e1878202c9e88415aef7d509b55f1f6b216b30f0adbfd7c41a88438034dc"
+    },
+    {
+      "id": "skill-research-and-synthesis",
+      "name": "skill-research-and-synthesis",
+      "description": "Pesquisa temas atuais na web e produz síntese comparável, rastreável, com fontes primárias, datas, incerteza e recomendação.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-research-and-synthesis",
+      "contentHash": "c45e964497c75a7ee223997b6c969ebe26ce91727de57880d4414538ac9fd2ed"
+    },
+    {
+      "id": "skill-saas-admin-dashboard",
+      "name": "skill-saas-admin-dashboard",
+      "description": "Build or improve SaaS admin dashboards, internal admin panels, user/customer screens, tenant/workspace screens, plan/payment/log views, sidebar layouts, metrics, filters, tables, support tools, and onboarding administration.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-saas-admin-dashboard",
+      "contentHash": "9777ec1a98e16298302a3bcee6ea2839bf77072037ba9385a761aeae036f6b41"
+    },
+    {
+      "id": "skill-saas-core-limits",
+      "name": "skill-saas-core-limits",
+      "description": "Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-saas-core-limits",
+      "contentHash": "bc6fe8b2d6bf22f04bd19ec5b806f82fa26020e4816f3cdda2555cdb21aeb768"
+    },
+    {
+      "id": "skill-saas-dast-recon",
+      "name": "skill-saas-dast-recon",
+      "description": "Run defensive, explicitly authorized SaaS DAST and recon with scope controls. Use when asked to scan an owned local, staging, preview, or approved production URL, API endpoint, SaaS app, tenant boundary, public web surface, auth flow, exposed files, headers, TLS, or OWASP Top 10 behavior using tools such as ZAP, Nuclei, Katana, httpx, and Subfinder.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-saas-dast-recon",
+      "contentHash": "74d7f5d3c46a652fba6d0eb41b914f339715b035e0384970d1623e0f5e20d070"
+    },
+    {
+      "id": "skill-saas-factory",
+      "name": "skill-saas-factory",
+      "description": "Build, refactor, review, or plan SaaS products with React/Vite, dashboards, admin panels, Supabase, payments, subscriptions, tenant limits, webhooks, security, infrastructure, and production readiness. Use as the top-level SaaS construction skill when work may need routing to payment, RLS, dashboard, limits, security scan, or deployment skills.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-saas-factory",
+      "contentHash": "33e432c838a38b4bc6ea91144a955a9214611835d0d0f20afaa233b4abe4550c"
+    },
+    {
+      "id": "skill-saas-security-scan",
+      "name": "skill-saas-security-scan",
+      "description": "Run defensive, authorized local security scans for owned SaaS repositories. Use when asked to scan local code, dependencies, secrets, containers, IaC, API handlers, Supabase projects, multi-tenant SaaS isolation, or release/security gates with maintained OSS tools such as Semgrep, Gitleaks, Trivy, OSV-Scanner, and OWASP Dependency-Check.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-saas-security-scan",
+      "contentHash": "71cf32c0e8d381f83a6ccd1819834f094e293fd1d688faea38cd5d49005dff3a"
+    },
+    {
+      "id": "skill-scope-control",
+      "name": "skill-scope-control",
+      "description": "Analisa se alterações, diffs e PRs continuam alinhados ao objetivo declarado, identificando escopo extra e propondo manter, separar ou justificar.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-scope-control",
+      "contentHash": "595cec66e8f19a2117ee0b834dee99d293311995e155cb8ac9e0a20ea0729156"
+    },
+    {
+      "id": "skill-security-hooks",
+      "name": "skill-security-hooks",
+      "description": "Install and maintain defensive security hooks and CI gates for authorized SaaS projects. Use when asked to add pre-commit hooks, pre-push hooks, CI security scans, GitHub Actions hardening, secret scanning, dependency scanning, SAST, DAST gates, or security automation around existing repositories.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-security-hooks",
+      "contentHash": "072f1060b6d927962f478f100afd1b2d06c771f009c146525d4313981320e489"
+    },
+    {
+      "id": "skill-skill-development",
+      "name": "skill-skill-development",
+      "description": "Cria, revisa e melhora skills do Orquestrador com gatilhos claros, divulgação progressiva, referências focadas, validação e testes de comportamento.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-skill-development",
+      "contentHash": "48107e11b5cf9fe8c6e33efddfbd4f12aea4aee2dd01a38d26d4add33c44c1e4"
+    },
+    {
+      "id": "skill-smart-clip-detection",
+      "name": "skill-smart-clip-detection",
+      "description": "Use for AI-assisted clip detection from transcripts, livestreams, videos, podcasts, calls, or long-form content, including scored candidates, timestamps, batching, validation, prompt versioning, review queues, idempotent reprocessing, consent, and publishing-ready metadata.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-smart-clip-detection",
+      "contentHash": "694c6a731758da162e7a160944ad4f94eebf7c547c0eed7fcbc4c1002acdeb46"
+    },
+    {
+      "id": "skill-stripe-integration",
+      "name": "skill-stripe-integration",
+      "description": "Integrate Stripe Checkout, Billing, subscriptions, Customer Portal, invoices, trials, coupons, webhook handling, entitlement sync, and SaaS payment state management.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-stripe-integration",
+      "contentHash": "4070dad1c303a6af485f56d58b2e508edd12df3a42dcb683c0fd123ab88776b5"
+    },
+    {
+      "id": "skill-supabase-rls",
+      "name": "skill-supabase-rls",
+      "description": "Design and review defensive Supabase/Postgres Row Level Security for SaaS systems. Use for RLS policies, auth-aware tenant isolation, storage policies, service-role boundaries, migrations, indexes, positive/negative access tests, and data-isolation security reviews.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-supabase-rls",
+      "contentHash": "be10ce3c3cb9d62b8ddd542c9f7af3f0d8869c63a14bf46b3c5fc6563ab0832e"
+    },
+    {
+      "id": "skill-systematic-debugging",
+      "name": "skill-systematic-debugging",
+      "description": "Investiga bugs por evidência, reproduz o problema, rastreia a causa raiz e verifica a correção sem mascarar sintomas.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-systematic-debugging",
+      "contentHash": "2da89bb431df918c830b2e0bff7f6b1325bdb5ce0d6327416a7c0d705d7f6459"
+    },
+    {
+      "id": "skill-threat-modeling",
+      "name": "skill-threat-modeling",
+      "description": "Conduz threat modeling estruturado com STRIDE-A, fluxos de dados, fronteiras de confiança, riscos priorizados e comparação incremental.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-threat-modeling",
+      "contentHash": "2ca17f1cdc4f8908bebe6dc6a3d5c5dd4e6b9fa2583c2cb10d3e5816919f3153"
+    },
+    {
+      "id": "skill-unified-analytics",
+      "name": "skill-unified-analytics",
+      "description": "Use for SaaS/product analytics architecture, event taxonomy, telemetry instrumentation, funnels, admin dashboards, billing metrics, activation, retention, attribution, privacy guardrails, observability, and cross-provider reporting.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-unified-analytics",
+      "contentHash": "de9d493b18c8810750a898122d4d2055ae90ab78d2ee7427a6286f0cf55582f0"
+    },
+    {
+      "id": "skill-verification-before-completion",
+      "name": "skill-verification-before-completion",
+      "description": "Garante que uma tarefa só seja declarada concluída após evidência proporcional, cobrindo comportamento, qualidade e documentação.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-verification-before-completion",
+      "contentHash": "46fd357b0888cae9253b447f138ed68ad9bc6875c4bc0d8cdbf19905b3ead2db"
+    },
+    {
+      "id": "skill-watch-evidence",
+      "name": "skill-watch-evidence",
+      "description": "Use quando o usuário entrega um vídeo, stream, gravação de tela ou reunião, pergunta sobre um momento ou vídeo já indexado, precisa de OCR/transcrição com timestamps, quer extrair estrutura ou bug report, ou precisa comprovar um fluxo visual com evidência temporal.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-watch-evidence",
+      "contentHash": "c1021b47d11d4277857a04b89df166f83ad1bccd343f1b20a238e9e3d0b9b834"
+    },
+    {
+      "id": "skill-web-clone",
+      "name": "skill-web-clone",
+      "description": "Clona uma página web a partir de uma URL, preservando estrutura visual, responsividade e interações essenciais com verificação por navegador.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-web-clone",
+      "contentHash": "55fab40a8fde0569492d7bac2eedb36ff26768d1458507264d81faa89cd2aac2"
+    },
+    {
+      "id": "skill-webapp-testing",
+      "name": "skill-webapp-testing",
+      "description": "Testa aplicações web com Playwright ou ferramenta equivalente, cobrindo fluxos críticos, acessibilidade, estados de erro e regressões visuais.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-webapp-testing",
+      "contentHash": "d143b7496a647aede8ef9be43611b82cb660d215c98acc6050ebecf6ae3dbb47"
+    },
+    {
+      "id": "skill-whatsapp-meta-ads-leads",
+      "name": "skill-whatsapp-meta-ads-leads",
+      "description": "Configurar campanhas de WhatsApp no Meta Ads para gerar leads qualificados para negócios locais, baseado nas melhores práticas atuais.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-whatsapp-meta-ads-leads",
+      "contentHash": "f8e1b479ef5d1644ca52b3d55559fa334e99ebd90b28fe4d18d60b6aabe44126"
+    },
+    {
+      "id": "team",
+      "name": "team",
+      "description": "N coordinated agents on shared task list using tmux-based orchestration",
+      "source": "codex",
+      "relativePath": "codex/skills/team",
+      "contentHash": "450984ef5c65b7c0493ae6d839c2ba4ff4b00583063bf3a71e595ee2ccaaa707"
+    },
+    {
+      "id": "ultrawork",
+      "name": "ultrawork",
+      "description": "Parallel execution engine for high-throughput task completion",
+      "source": "codex",
+      "relativePath": "codex/skills/ultrawork",
+      "contentHash": "96574bd3be69fd1690684c89cd349cdf15b7126f45730cd374e19a4741768de4"
+    },
+    {
+      "id": "web-clone",
+      "name": "web-clone",
+      "description": "URL-driven website cloning with visual + functional verification",
+      "source": "codex",
+      "relativePath": "codex/skills/web-clone",
+      "contentHash": "77ae2a3aafd8360b84873cbefede1d0075fc8aa6aa62d6bae3f2297e06ce99ea"
+    },
+    {
+      "id": "worker",
+      "name": "worker",
+      "description": "Team worker protocol (ACK, mailbox, task lifecycle) for tmux-based OMX teams",
+      "source": "codex",
+      "relativePath": "codex/skills/worker",
+      "contentHash": "bb46b31f275a7ec4006d43bba9bf5d0e05955c846a3b58e66b82dc930ac0ac70"
+    }
+  ],
+  "conflicts": [
+    "skill-browser-agent",
+    "skill-frontend-ux-guardrails",
+    "skill-impeccable",
+    "skill-modern-ui-patterns",
+    "skill-multiagent-orchestration",
+    "skill-open-design-ui",
+    "skill-saas-factory"
+  ]
+}

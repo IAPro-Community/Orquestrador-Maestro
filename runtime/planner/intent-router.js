@@ -1,8 +1,10 @@
 "use strict";
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { resolveMaestroRoot } = require("../config/maestro-paths");
+const { discoverSkills } = require("../skills/discovery");
 
 /**
  * IntentRouter — Resolve a intenção do usuário para skills concretas
@@ -11,12 +13,14 @@ const { resolveMaestroRoot } = require("../config/maestro-paths");
  * Não pergunta nada. Apenas classifica.
  */
 class IntentRouter {
-  constructor({ maestroRoot }) {
+  constructor({ maestroRoot, userHome } = {}) {
     this.maestroRoot = maestroRoot || resolveMaestroRoot();
+    this.userHome = userHome || os.homedir();
     this._aliases = null;
     this._router = null;
     this._chains = null;
     this._profiles = null;
+    this._discoveredSkills = null;
   }
 
   // Lazy-load config files
@@ -49,6 +53,35 @@ class IntentRouter {
     return this._profiles;
   }
 
+  get discoveredSkills() {
+    if (!this._discoveredSkills) {
+      this._discoveredSkills = discoverSkills({
+        userHome: this.userHome,
+        maestroRoot: this.maestroRoot,
+        includeUserSources: true
+      }).skills.reduce((result, skill) => {
+        // Explicit /skill:<id> invocation is deterministic even when two
+        // providers expose the same directory name. Prefer the first source
+        // selected by discovery priority and keep the path available to the
+        // caller that loads the skill body.
+        if (!result[skill.id]) {
+          result[skill.id] = {
+            id: skill.id,
+            description: skill.description || `Skill descoberta em ${skill.source}.`,
+            triggers: [],
+            aliases: [],
+            source: skill.source,
+            provider: skill.provider,
+            path: skill.path,
+            priority: -1
+          };
+        }
+        return result;
+      }, {});
+    }
+    return this._discoveredSkills;
+  }
+
   _phraseMatches(text, phrase) {
     const escaped = phrase.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
@@ -75,13 +108,17 @@ class IntentRouter {
 
     const skillIds = new Set([
       ...Object.keys(this.router.skills || {}),
-      ...Object.keys(this.router.librarySkills || {})
+      ...Object.keys(this.router.librarySkills || {}),
+      ...Object.keys(this.discoveredSkills)
     ]);
 
     // Explicit canonical invocation always wins (for example /skill:skill-x).
     for (const skillId of skillIds) {
+      const isDiscoveredOnly = !this.router.skills?.[skillId] &&
+        !this.router.librarySkills?.[skillId] &&
+        Boolean(this.discoveredSkills[skillId]);
       const explicit = new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:/)?skill:${skillId}(?:$|[^\\p{L}\\p{N}])`, "iu").test(rawDescription);
-      const bareCanonical = new RegExp(`(?:^|[^\\p{L}\\p{N}])${skillId}(?:$|[^\\p{L}\\p{N}])`, "iu").test(rawDescription);
+      const bareCanonical = !isDiscoveredOnly && new RegExp(`(?:^|[^\\p{L}\\p{N}])${skillId}(?:$|[^\\p{L}\\p{N}])`, "iu").test(rawDescription);
       if (explicit || bareCanonical) {
         addEvidence(skillId, {
           kind: "canonical",
@@ -154,7 +191,7 @@ class IntentRouter {
 
     const primarySkillId = ranked[0]?.[0] || null;
     const primarySkill = primarySkillId
-      ? { id: primarySkillId, ...(this.router.skills?.[primarySkillId] || this.router.librarySkills?.[primarySkillId] || {}) }
+      ? { id: primarySkillId, ...(this.router.skills?.[primarySkillId] || this.router.librarySkills?.[primarySkillId] || this.discoveredSkills[primarySkillId] || {}) }
       : null;
 
     const top = ranked[0]?.[1] || null;
@@ -172,7 +209,7 @@ class IntentRouter {
           const details = summarize(matchedSkills.get(allowedSkill));
           chainedSkills.push({
             id: allowedSkill,
-            ...(this.router.skills?.[allowedSkill] || this.router.librarySkills?.[allowedSkill] || {}),
+            ...(this.router.skills?.[allowedSkill] || this.router.librarySkills?.[allowedSkill] || this.discoveredSkills[allowedSkill] || {}),
             matchScore: details.score,
             matchedEvidence: details.evidence
           });
@@ -185,7 +222,7 @@ class IntentRouter {
       .slice(0, 4)
       .map(([skillId, details]) => ({
         id: skillId,
-        ...(this.router.skills?.[skillId] || this.router.librarySkills?.[skillId] || {}),
+        ...(this.router.skills?.[skillId] || this.router.librarySkills?.[skillId] || this.discoveredSkills[skillId] || {}),
         matchScore: details.score,
         matchedEvidence: details.evidence
       }));

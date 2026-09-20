@@ -1,7 +1,7 @@
 # Maestro — Especificação do Produto (PRODUCT_SPEC)
 
 > Fonte: `docs/product/CAPABILITY_MATRIX.json` + código. Código e testes vencem
-> documentação.
+> documentação. Revisão da base: `48b4065` (pacote `0.4.4`).
 
 ## 1. Identidade
 
@@ -84,8 +84,8 @@ runs e evidência. Dependem do provider: execução, sessão, permissões e stre
 ## 5. Capabilities comprovadas
 
 Ver `CAPABILITY_MATRIX.json` (`status: stable`, `publicClaimAllowed: true`):
-protocolo, contexto progressivo, DEV, memória episódica, roteamento de skills,
-governança, providers, runs/artefatos, verificação, worktrees, PTY, observação
+protocolo, contexto progressivo, DEV, memória episódica, roteamento de 75 skills públicas (52 canônicas),
+governança, 4 providers, runs/artefatos, verificação, worktrees, PTY, observação
 Git, observabilidade de uso, telemetria opt-in, benchmark com evidence gate,
 bridge, Cockpit TUI, cliente VS Code.
 

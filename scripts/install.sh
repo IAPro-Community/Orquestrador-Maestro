@@ -692,6 +692,14 @@ if [ "$SKIP_SKILL_SYNC" = false ]; then
   fi
 fi
 
+DISCOVERY_SCRIPT="$REPO_ROOT/scripts/discover-skills.js"
+if [ -f "$DISCOVERY_SCRIPT" ]; then
+  node "$DISCOVERY_SCRIPT" \
+    --home-path "$HOME_PATH" \
+    --maestro-root "$TARGET_ORQUESTRADOR" \
+    --output "$TARGET_ORQUESTRADOR/SKILLS_DISCOVERY.json"
+fi
+
 echo "Installation complete."
 if [ "$VERBOSE_PATHS" = true ]; then
   echo "HomePath: $HOME_PATH"

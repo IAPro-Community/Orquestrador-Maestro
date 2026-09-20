@@ -15,9 +15,9 @@ trocar de ferramenta perde padrão, memória e verificabilidade.
 ferramenta lê `AGENTS.md`/regras/skills, o Runtime opcional executa via um dos
 providers (`codex`, `claude`, `opencode`, `agy`), verifica e registra evidência.
 
-**Diferenciais.** Local-first com privacidade por construção; skills com
-roteamento por evidência; memória DEV + episódica; evidence gate no benchmark
-(sem marketing numérico sem prova); providers reais com cancelamento/timeout;
+**Diferenciais.** Local-first com privacidade por construção; 75 skills públicas
+deduplicadas no roteador, com 52 rotas canônicas por evidência; memória DEV + episódica; evidence gate no benchmark
+(sem marketing numérico sem prova); 4 providers reais com cancelamento/timeout;
 Cockpit TUI + cliente VS Code opcionais.
 
 **Como começar?** `orquestrador-maestro install`, depois `verify` e `doctor`.

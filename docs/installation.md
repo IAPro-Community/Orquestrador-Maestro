@@ -76,9 +76,10 @@ Em uma máquina de exemplo, se o usuário for `maria`, os destinos ficam abaixo 
 | `%USERPROFILE%\.gemini\skills` | Raiz nativa mínima para Gemini |
 | `%USERPROFILE%\.windsurf\skills` | Raiz nativa mínima para Windsurf |
 | `%USERPROFILE%\.antigravity-skills\skills` | Raiz nativa mínima para compatibilidade adicional |
-| `%USERPROFILE%\.orquestrador\skill-library\community-skills` | Biblioteca comunitária completa fora das raízes nativas |
-| `%USERPROFILE%\.orquestrador\skill-library\codex-skills` | Catálogo completo de skills OMX/Codex fora da raiz nativa |
+| `%USERPROFILE%\.orquestrador\skill-library\community-skills` | Fonte comunitária distribuída; o registro público deduplica seus IDs |
+| `%USERPROFILE%\.orquestrador\skill-library\codex-skills` | Fonte OMX/Codex distribuída; o registro público deduplica seus IDs |
 | `%USERPROFILE%\.orquestrador\skill-library\disabled-native` | Skills offloadadas das raízes nativas durante otimizações |
+| `%USERPROFILE%\.orquestrador\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
 | `%USERPROFILE%\.ai-standards` | Standards portáteis usados pelo Antigravity |
 | `%USERPROFILE%\.opencode` | Hooks e perfil textual do OpenCode |
 | `%USERPROFILE%\.claude` | Hooks e prompt textual do Claude |
@@ -97,7 +98,9 @@ Em uma máquina de exemplo, se o usuário for `maria`, os destinos ficam abaixo 
 
 No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador`, `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
 
-O ponto central dessa arquitetura é economia de contexto: as bibliotecas grandes continuam instaladas, mas fora das pastas que Claude Code, Codex, OpenCode, Cursor, Gemini, Windsurf e outros clientes tendem a enumerar automaticamente em toda sessão.
+O pacote publicado inclui o catálogo público versionado em `skill-library/PUBLIC_SKILLS_MANIFEST.json`. A instalação também atualiza `SKILLS_DISCOVERY.json` a partir das árvores distribuídas pelo pacote. A contagem `invokableSkills` é deduplicada por ID; caches de plugins, `.tmp` e versões instaladas em outras ferramentas não entram no catálogo público.
+
+O manifesto canônico (`SKILLS_MANIFEST.json`) continua contando somente skills mantidas e validadas pelo roteador. O manifesto público separado informa o total compartilhável, as cópias sombreadas e os IDs com conteúdo conflitante. Nenhuma skill deve ser considerada disponível apenas porque existe no cache local de uma máquina.
 
 Para usar o Freebuff, consulte o [guia de integração específico](freebuff-integration.md). O instalador mantém a integração após reinícios porque não depende de um processo residente: o contrato global e as skills ficam no home do usuário e são relidos quando o Freebuff é aberto.
 
@@ -132,7 +135,7 @@ Resultado esperado:
 Install verification passed.
 ```
 
-O comando também mostra contagens de skills, agentes e prompts instalados.
+O comando também mostra contagens de skills, agentes e prompts instalados. Para conferir o inventário completo após instalar ou atualizar, leia `%USERPROFILE%\.orquestrador\SKILLS_DISCOVERY.json` ou rode `orquestrador-maestro skills list`.
 
 ## Instalações Alternativas
 

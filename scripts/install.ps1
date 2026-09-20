@@ -536,6 +536,11 @@ if (-not $SkipSkillSync) {
   }
 }
 
+$discoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
+if (Test-Path -LiteralPath $discoveryScript) {
+  & node $discoveryScript --home-path $HomePath --maestro-root $TargetOrquestrador --output (Join-Path $TargetOrquestrador "SKILLS_DISCOVERY.json")
+}
+
 [pscustomobject]@{
   HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
   InstalledOrquestrador = if ($VerbosePaths) { $TargetOrquestrador } else { $TargetOrquestradorName }

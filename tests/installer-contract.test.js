@@ -27,6 +27,21 @@ test("source installer excludes local runtime state", () => {
   assert.match(installer, /Get-TreeFiles/);
 });
 
+test("published package carries the public catalog and refreshes its installed inventory", () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const powershellInstaller = fs.readFileSync(path.join(ROOT, "scripts", "install.ps1"), "utf8");
+  const shellInstaller = fs.readFileSync(path.join(ROOT, "scripts", "install.sh"), "utf8");
+  const publicManifest = JSON.parse(fs.readFileSync(path.join(ROOT, "skill-library", "PUBLIC_SKILLS_MANIFEST.json"), "utf8"));
+
+  assert.ok(packageJson.files.includes("codex/skills/"));
+  assert.ok(packageJson.files.includes("skill-library/PUBLIC_SKILLS_MANIFEST.json"));
+  assert.equal(publicManifest.counts.uniqueSkills, 75);
+  assert.match(powershellInstaller, /discover-skills\.js/u);
+  assert.match(shellInstaller, /discover-skills\.js/u);
+  assert.doesNotMatch(powershellInstaller, /plugins[\\/]cache/u);
+  assert.doesNotMatch(shellInstaller, /plugins\/cache/u);
+});
+
 test("desktop notifications keep a compatible notifier API and safe uuid override", () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   const notifier = require("node-notifier");

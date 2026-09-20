@@ -5,6 +5,24 @@
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 
+## 0.4.4 - 2026-09-20
+
+Esta versão publica o catálogo público completo de skills do Maestro, com deduplicação determinística e atualização automática durante a instalação.
+
+### Skills e instalação
+
+- Publicadas 75 skills únicas e invocáveis no pacote, provenientes de 174 arquivos de skills versionados.
+- Adicionado manifesto público com hashes, precedência de fontes e registro de duplicatas sombreadas.
+- O roteador, o inventário instalado e o instalador passam a trabalhar com o mesmo catálogo público deduplicado.
+- Diretórios de cache de plugins, worktrees e estado local deixam de ser tratados como catálogo público ou fonte de skills instaláveis.
+- Atualizados os bootstrap installers, a documentação e os testes para a release `0.4.4`.
+
+### Verificação
+
+- Validação pública e de skills aprovada.
+- Testes direcionados de catálogo, roteamento e registro aprovados.
+- Empacotamento npm verificado com `npm pack --dry-run`.
+
 ## 0.4.3 - 2026-09-20
 
 Esta versão consolida o alinhamento do produto com a implementação e fecha pontos de drift identificados no PR #20.

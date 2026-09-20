@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { discoverSkills } = require("./discovery");
 
 function isDirectory(directory) {
   try {
@@ -45,6 +46,7 @@ class SkillRegistry {
     this.maestroRoot = options.maestroRoot || path.resolve(__dirname, "../..");
     this.userHome = options.userHome || os.homedir();
     this.projectRoot = options.projectRoot || process.cwd();
+    this.useDefaultDiscovery = !Object.prototype.hasOwnProperty.call(options, "userSources");
     this.userSources = options.userSources || [
       { provider: "codex", path: path.join(this.userHome, ".codex", "skills") },
       { provider: "claude", path: path.join(this.userHome, ".claude", "skills") },
@@ -60,12 +62,11 @@ class SkillRegistry {
   }
 
   list() {
-    const records = [
-      ...this.listMaestro(),
-      ...this.listUser(),
-      ...this.listProject()
-    ];
-    return Object.freeze([...new Map(records.map((record) => [record.identity, record])).values()]
+    const records = this.useDefaultDiscovery
+      ? [...this.listDiscovered(), ...this.listProject()]
+      : [...this.listMaestro(), ...this.listUser(), ...this.listProject()];
+    const key = this.useDefaultDiscovery ? (record) => record.id : (record) => record.identity;
+    return Object.freeze([...new Map(records.map((record) => [key(record), record])).values()]
       .sort((left, right) => left.identity.localeCompare(right.identity)));
   }
 
@@ -87,6 +88,9 @@ class SkillRegistry {
   }
 
   listUser() {
+    if (this.useDefaultDiscovery) {
+      return this.listDiscovered();
+    }
     return this.userSources.flatMap((source) => listSkillDirectories(source.path).map((skill) => toRecord({
       namespace: `user/${source.provider}`,
       id: skill.id,
@@ -95,6 +99,17 @@ class SkillRegistry {
       provider: source.provider,
       skillPath: skill.path
     })));
+  }
+
+  listDiscovered() {
+    return discoverSkills({ userHome: this.userHome, maestroRoot: this.maestroRoot, includeUserSources: true }).skills.map((skill) => toRecord({
+        namespace: skill.namespace,
+        id: skill.id,
+        source: skill.source,
+        verification: skill.source === "maestro" ? "maestro_verified" : skill.source === "library" ? "public_catalog" : "unverified",
+        provider: skill.provider,
+        skillPath: skill.path
+      }));
   }
 
   listProject() {

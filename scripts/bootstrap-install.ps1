@@ -3,8 +3,8 @@ param()
 
 $ErrorActionPreference = "Stop"
 $package = "@iapro/orquestrador-maestro-cli"
-$packageVersion = "0.4.3"
-$bootstrapVersion = "2026.09.08.2"
+$packageVersion = "0.4.4"
+$bootstrapVersion = "2026.09.20.1"
 Write-Host "Orquestrador Maestro bootstrap $bootstrapVersion"
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {

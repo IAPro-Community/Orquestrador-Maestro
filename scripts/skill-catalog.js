@@ -19,6 +19,7 @@ const syncShellPath = path.join(orchestratorRoot, "sync-skills.sh");
 const syncPowerShellPath = path.join(orchestratorRoot, "sync-skills.ps1");
 const referenceRoot = path.join(repoRoot, "docs", "skills", "reference");
 const compactCatalogPath = path.join(repoRoot, "docs", "skill-catalog.md");
+const publicCatalogPath = path.join(repoRoot, "skill-library", "PUBLIC_SKILLS_MANIFEST.json");
 const GENERATED_MARKER = "<!-- GENERATED FILE: scripts/skill-catalog.js; DO NOT EDIT. -->";
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_RISKS = new Set(["low", "medium", "high"]);
@@ -644,6 +645,7 @@ ${tagSections}
 
 function renderCompactCatalog(context) {
   const entries = Object.entries(context.manifest.skills || {}).sort(([left], [right]) => left.localeCompare(right));
+  const publicCatalog = readOptionalJson(publicCatalogPath, null);
   const rows = entries.map(([name, entry]) => {
     const availability = entry.mirrorEverywhere ? "Nativa" : "Sob demanda";
     return `| [${name}](skills/reference/${name}.md) | ${markdownCell(entry.category)} | ${markdownCell(entry.risk)} | ${availability} | ${markdownCell(entry.routerSummary || entry.description)} |`;
@@ -653,7 +655,8 @@ function renderCompactCatalog(context) {
 
 Este catálogo compacto é gerado a partir de [\`orquestrador/SKILLS_MANIFEST.json\`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
 
-Total: ${entries.length}
+Total canônico: ${entries.length}
+${publicCatalog?.counts?.uniqueSkills ? `Catálogo público deduplicado: ${publicCatalog.counts.uniqueSkills} skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).` : ""}
 
 Atualize e valide este catálogo com \`node scripts/skill-catalog.js generate\`, \`check\` e \`validate\` (ou \`orquestrador-maestro skill-catalog <comando>\`).
 

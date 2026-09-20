@@ -1,39 +1,46 @@
 {
-    "generatedAt":  "2026-09-08T10:49:17",
-    "source":  "sanitized-local-export",
-    "packages":  {
-                     "orquestrador":  {
-                                          "path":  "orquestrador",
-                                          "files":  57038,
-                                          "skillDirectories":  50
-                                      },
-                     "codex":  {
-                                   "path":  "codex",
-                                   "skillFiles":  143,
-                                   "agentFiles":  20,
-                                   "promptFiles":  20
-                               },
-                     "communitySkills":  {
-                                             "path":  "skill-library/community-skills",
-                                             "files":  77,
-                                             "skillDirectories":  51
-                                         },
-                     "toolProfiles":  {
-                                          "path":  "tool-profiles",
-                                          "files":  23
-                                      }
-                 },
-    "excluded":  [
-                     "logs",
-                     "backups",
-                     "runtime caches",
-                     "binary build artifacts",
-                     "benchmark results",
-                     "generated databases",
-                     "local memories",
-                     "local config files",
-                     "Codex local rules and command allowlists",
-                     "private path names",
-                     "backup files"
-                 ]
+  "generatedAt": "2026-09-08T10:49:17",
+  "source": "sanitized-local-export",
+  "packages": {
+    "orquestrador": {
+      "path": "orquestrador",
+      "files": 57038,
+      "skillDirectories": 50
+    },
+    "codex": {
+      "path": "codex",
+      "skillFiles": 143,
+      "agentFiles": 20,
+      "promptFiles": 20
+    },
+    "communitySkills": {
+      "path": "skill-library/community-skills",
+      "files": 77,
+      "skillDirectories": 51
+    },
+    "publicCatalog": {
+      "path": "skill-library/PUBLIC_SKILLS_MANIFEST.json",
+      "uniqueSkills": 75,
+      "sourceSkillFiles": 174,
+      "shadowedDuplicates": 99,
+      "conflictingIds": 7
+    },
+    "toolProfiles": {
+      "path": "tool-profiles",
+      "files": 23
+    }
+  },
+  "excluded": [
+    "logs",
+    "backups",
+    "runtime caches",
+    "binary build artifacts",
+    "benchmark results",
+    "generated databases",
+    "local memories",
+    "local config files",
+    "Codex local rules and command allowlists",
+    "private path names",
+    "backup files"
+  ]
 }

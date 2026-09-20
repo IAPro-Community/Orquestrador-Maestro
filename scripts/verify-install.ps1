@@ -106,6 +106,7 @@ Assert-Path -Path (Join-Path $orquestrador "bin\dev-context-tools.js") -Label "P
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_INDEX.md") -Label "Orquestrador skills index"
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_ROUTER.json") -Label "Orquestrador skills router"
 Assert-Path -Path (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Label "Orquestrador skill install policy"
+Assert-Path -Path (Join-Path $orquestrador "SKILLS_DISCOVERY.json") -Label "Orquestrador local skills inventory"
 Assert-Path -Path (Join-Path $orquestrador "skills") -Label "Orquestrador canonical skills"
 Assert-Path -Path (Join-Path $HomePath "AGENTS.md") -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/" -Label "Global AGENTS.md"

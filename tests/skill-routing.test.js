@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { IntentRouter } = require("../runtime/planner/intent-router.js");
@@ -92,4 +93,25 @@ test("premium web experience owns premium site intents and delegates focused UI 
 
   const focused = router.resolve("criar um botão de confirmar");
   assert.notEqual(focused.primarySkill?.id, "skill-premium-web-experience");
+});
+
+test("explicit invocation resolves a public library skill and ignores plugin cache", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-router-discovery-"));
+  const maestroRoot = path.join(home, ".orquestrador");
+  const skillPath = path.join(maestroRoot, "skill-library", "codex-skills", "skill-local-only", "SKILL.md");
+  const cachedPath = path.join(home, ".codex", "plugins", "cache", "demo", "1", "skills", "skill-cached-only", "SKILL.md");
+  fs.mkdirSync(path.dirname(skillPath), { recursive: true });
+  fs.mkdirSync(path.dirname(cachedPath), { recursive: true });
+  fs.writeFileSync(skillPath, "---\nname: skill-local-only\ndescription: Public library test skill\n---\n", "utf8");
+  fs.writeFileSync(cachedPath, "---\nname: skill-cached-only\ndescription: Cache-only test skill\n---\n", "utf8");
+
+  const router = new IntentRouter({
+    maestroRoot,
+    userHome: home
+  });
+  const result = router.resolve("/skill:skill-local-only");
+  assert.equal(result.primarySkill.id, "skill-local-only");
+  assert.equal(result.primarySkill.source, "library");
+  assert.equal(result.primarySkill.path, path.dirname(skillPath));
+  assert.equal(router.resolve("/skill:skill-cached-only").primarySkill, null);
 });

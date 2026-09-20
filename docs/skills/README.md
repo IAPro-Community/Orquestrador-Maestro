@@ -23,6 +23,8 @@ O Maestro separa três tipos que podem aparecer juntos no mesmo fluxo:
 
 O [manifesto canônico](../../orquestrador/SKILLS_MANIFEST.json) descreve as skills. O [roteador](../../orquestrador/SKILLS_ROUTER.json), os [aliases](../../orquestrador/SKILL_ALIASES.json), as [chains](../../orquestrador/SKILL_CHAINS.json) e os [perfis de execução](../../orquestrador/SKILL_EXECUTION_PROFILES.json) orientam o uso; a referência humana é gerada a partir dessas fontes.
 
+Após a instalação, o arquivo `~/.orquestrador/SKILLS_DISCOVERY.json` mantém o inventário do catálogo público instalado. Ele usa uma única entrada por ID e ignora caches de plugins, `.tmp` e cópias de outras ferramentas. O catálogo distribuído fica em [`skill-library/PUBLIC_SKILLS_MANIFEST.json`](../../skill-library/PUBLIC_SKILLS_MANIFEST.json); skills públicas podem ser chamadas explicitamente por `/skill:<id>` mesmo quando ficam fora das raízes nativas de enumeração automática.
+
 ## Como o roteador decide
 
 O pedido é comparado com a evidência mais específica disponível, nesta ordem:

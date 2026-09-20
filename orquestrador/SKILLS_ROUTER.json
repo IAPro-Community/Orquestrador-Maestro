@@ -146,19 +146,189 @@
     }
   },
   "librarySkills": {
+    "ask-claude": {
+      "description": "Ask Claude via local CLI and capture a reusable artifact",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ask-claude/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ask-claude/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "ask-gemini": {
+      "description": "Ask Gemini via local CLI and capture a reusable artifact",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ask-gemini/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ask-gemini/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "autopilot": {
+      "description": "Use when the user explicitly wants an autonomous, end-to-end software delivery workflow from an idea or brief to verified working code.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/autopilot/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/autopilot/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "cancel": {
+      "description": "Cancel any active OMX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, swarm, ultrapilot, pipeline, team)",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/cancel/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/cancel/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "code-review": {
+      "description": "Run a comprehensive code review",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/code-review/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/code-review/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "deep-interview": {
+      "description": "Socratic deep interview with mathematical ambiguity gating before execution",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/deep-interview/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/deep-interview/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "doctor": {
+      "description": "Diagnose and fix oh-my-codex installation issues",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/doctor/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/doctor/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "imagegen": {
+      "description": "Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/imagegen/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/imagegen/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
     "improve-codebase-architecture": {
-      "description": "Análise arquitetural profunda sob demanda, sem carregar a skill em tarefas comuns.",
-      "triggers": [
-        "revisar a arquitetura",
-        "saúde arquitetural",
-        "acoplamento do código",
-        "débito estrutural",
-        "architecture review"
-      ],
+      "description": "Avaliar a arquitetura de um codigo existente, encontrar friccoes comprovaveis, gerar obrigatoriamente um relatorio HTML e propor refatoracoes incrementais com impacto tecnico e de produto. Usar quando o usuario pedir melhoria arquitetural, crescimento sustentavel, reducao de acoplamento, modulos mais testaveis ou um mapa para decidir onde investir. Em projetos pt-BR, responder integralmente em portugues.",
+      "triggers": [],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/community-skills/improve-codebase-architecture/SKILL.md",
       "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/community-skills/improve-codebase-architecture/SKILL.md",
-      "cost": "high-on-demand",
-      "safety": "read-only-architecture-diagnostics"
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "openai-docs": {
+      "description": "Use for Codex models/pricing, scheduled tasks, skills, settings, setup, troubleshooting, customization, automations, and self-knowledge—including 'you,' 'your,' 'this app,' or 'this coding agent' when they refer to Codex—and for OpenAI APIs/products and ChatGPT Work. Also use for model choice/migration, prompting, SDKs, Responses, Realtime, agents, evals, and Chat/Work/Codex comparisons. Do not use for generic app/software tasks that merely mention Codex.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/openai-docs/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/openai-docs/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "orquestrador-maestro": {
+      "description": "Aplica o contrato compartilhado do Orquestrador Maestro ao trabalho de código e projeto.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/orquestrador-maestro/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/orquestrador-maestro/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "plan": {
+      "description": "Strategic planning with optional interview workflow",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/plan/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/plan/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "plugin-creator": {
+      "description": "Create and scaffold plugin directories for Codex with a required `.codex-plugin/plugin.json`, optional plugin folders/files, valid manifest defaults, and personal-marketplace entries by default. Use when Codex needs to create a new personal plugin, add optional plugin structure, generate or update marketplace entries for plugin ordering and availability metadata, or update an existing local plugin during development with the CLI-driven cachebuster and reinstall flow.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/plugin-creator/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/plugin-creator/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "ralph": {
+      "description": "Self-referential loop until task completion with architect verification",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ralph/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ralph/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "ralplan": {
+      "description": "Alias for $plan --consensus",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ralplan/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ralplan/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "review-agent": {
+      "description": "Perform a read-only, defect-first review of a specified code change and return every actionable finding. Use when another agent delegates review of uncommitted changes, a base-branch diff, a commit, or custom review instructions.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/review-agent/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/review-agent/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "security-review": {
+      "description": "Run a comprehensive security review on code",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/security-review/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/security-review/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "skill-creator": {
+      "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations.",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/skill-creator/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/skill-creator/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "skill-installer": {
+      "description": "Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos).",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/skill-installer/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/skill-installer/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "team": {
+      "description": "N coordinated agents on shared task list using tmux-based orchestration",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/team/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/team/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "ultrawork": {
+      "description": "Parallel execution engine for high-throughput task completion",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ultrawork/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/ultrawork/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "web-clone": {
+      "description": "URL-driven website cloning with visual + functional verification",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/web-clone/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/web-clone/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
+    },
+    "worker": {
+      "description": "Team worker protocol (ACK, mailbox, task lifecycle) for tmux-based OMX teams",
+      "triggers": [],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/worker/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.orquestrador/skill-library/codex-skills/worker/SKILL.md",
+      "cost": "on-demand",
+      "safety": "standard"
     }
   },
   "skills": {

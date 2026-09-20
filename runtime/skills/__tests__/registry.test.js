@@ -32,3 +32,25 @@ test("registry keeps source, verification, and identity separate", () => {
   assert.equal(registry.get("maestro/react").verification, "maestro_verified");
   assert.equal(registry.get("user/codex/react").verification, "unverified");
 });
+
+test("default registry discovers public roots and direct user skills, never plugin caches", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-discovery-root-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-discovery-home-"));
+  fs.mkdirSync(path.join(root, "orquestrador", "skills"), { recursive: true });
+  fs.writeFileSync(path.join(root, "orquestrador", "SKILLS_MANIFEST.json"), JSON.stringify({ skills: {} }), "utf8");
+  writeSkill(root, "orquestrador/skills/skill-public", "skill-public");
+  writeSkill(root, "skill-library/community-skills/skill-community", "skill-community");
+  writeSkill(home, ".codex/skills/skill-direct", "skill-direct");
+  writeSkill(home, ".codex/plugins/cache/demo/1/skills/skill-plugin", "skill-plugin");
+
+  const registry = new SkillRegistry({
+    maestroRoot: root,
+    userHome: home,
+    projectSources: []
+  });
+  const identities = registry.list().map((skill) => skill.identity);
+  assert.ok(identities.includes("maestro/skill-public"));
+  assert.ok(identities.includes("user/codex/skill-direct"));
+  assert.ok(identities.includes("library/community/skill-community"));
+  assert.ok(!identities.includes("skill-plugin"));
+});
