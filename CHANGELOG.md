@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Nenhuma alteração publicada ainda.
+- Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
+- Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 
 ## 0.4.2 - 2026-09-20
 

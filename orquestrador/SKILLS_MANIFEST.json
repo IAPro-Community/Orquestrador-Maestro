@@ -3245,6 +3245,76 @@
         "notes": "Metadados mantidos pelo manifesto canônico."
       },
       "priority": 0
+    },
+    "skill-melhorar-ux-ui-por-referencia": {
+      "description": "Use para melhorar interfaces a partir de screenshots ou referências visuais, produzir prompts executáveis e validar fidelidade sem depender de uma API de visão específica.",
+      "category": "frontend",
+      "risk": "low",
+      "source": "original-contribution",
+      "mirrorEverywhere": false,
+      "triggers": [
+        "melhorar ux/ui por referência",
+        "melhorar ux/ui por referencia",
+        "melhore essa tela com base na referência",
+        "melhore esta tela com base na referência",
+        "melhorar interface a partir de screenshot",
+        "compare estas telas",
+        "deixar o login igual à referência",
+        "prompt de ui a partir de screenshot",
+        "redesign from screenshot"
+      ],
+      "aliases": [
+        "ux ui por referência",
+        "ux ui por referencia",
+        "melhorar-ux-ui-por-referencia"
+      ],
+      "status": "canonical",
+      "tags": [
+        "frontend",
+        "melhorar",
+        "ux",
+        "ui",
+        "por",
+        "referencia"
+      ],
+      "routerSummary": "Melhorar interfaces por screenshots/referências; separar análise, prompt e implementação autorizada. Confirmar o contexto visual após a seleção textual.",
+      "documentation": {
+        "bestFor": [
+          "Extrair um contrato visual de screenshots e referências de interfaces.",
+          "Gerar um prompt autossuficiente ou implementar a melhoria quando solicitado."
+        ],
+        "notFor": [
+          "Retoque de fotografias, artes promocionais e transcrição isolada.",
+          "Diagnóstico de terminal ou redesign global sem referência e sem escopo."
+        ],
+        "examples": [
+          "Melhore essa tela com base na referência e gere apenas o prompt.",
+          "Compare estas telas e liste as diferenças verificáveis.",
+          "Implemente o redesign from screenshot no projeto disponível."
+        ],
+        "prerequisites": [
+          "Referência de interface acessível ou descrição suficiente, com limitações declaradas.",
+          "Projeto e autorização de edição somente para o modo de implementação."
+        ],
+        "expectedEvidence": [
+          "Contrato visual distinguindo observações, estimativas e propostas.",
+          "Critérios de aceite ligados às alterações e validações efetivamente realizadas.",
+          "Limitações explícitas quando faltarem imagem, código ou renderização."
+        ]
+      },
+      "provenance": {
+        "evidence": [
+          "orquestrador/skills/skill-melhorar-ux-ui-por-referencia/SKILL.md"
+        ],
+        "steward": "orquestrador-maintainers",
+        "reviewedAt": "2026-09-20",
+        "upstream": "original-contribution",
+        "version": "bundled",
+        "license": "repository-license",
+        "legacyCompatible": true,
+        "notes": "Contribuição original adaptada ao contrato canônico; roteamento sob demanda sem alterar o runtime."
+      },
+      "priority": 0
     }
   }
 }
