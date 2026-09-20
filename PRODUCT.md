@@ -1,4 +1,10 @@
-# Maestro Cockpit
+# Maestro — Produto (ponte)
+
+> Referência completa: `docs/product/PRODUCT_SPEC.md`. Matriz canônica:
+> `docs/product/CAPABILITY_MATRIX.json`. Este arquivo é uma ponte curta;
+> Cockpit é uma das superfícies do produto, não o produto inteiro.
+
+# Maestro Cockpit (superfície)
 
 O Maestro é um cockpit local para uma pessoa coordenar projetos, missões, agentes, skills, worktrees e verificações.
 

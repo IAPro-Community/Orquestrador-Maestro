@@ -30,7 +30,10 @@ function safeEnvironment(environment) {
       throw new TypeError(`execution request.environment.${key} must be a string`);
     }
   }
-  return { ...process.env, ...environment };
+  const blocked = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]);
+  const env = { ...process.env };
+  for (const key of blocked) delete env[key];
+  return { ...env, ...environment };
 }
 
 function emit(onEvent, type, data) {

@@ -1,5 +1,7 @@
 # Maestro Target Architecture
 
+> Status: Target Architecture — direção futura, não estado atual.
+
 ## Direction
 
 The target is the existing Maestro plus an optional local execution runtime. Legacy installation, skills, DEV, rules, hooks, sync, doctor, verify, tool profiles, and manual workflows remain first-class.

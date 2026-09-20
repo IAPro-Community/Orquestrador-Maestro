@@ -1,5 +1,8 @@
 # Roadmap - Orquestrador Maestro Evolution
 
+> Nota: roadmap descreve plano, não capability. O que vale como capability
+> atual está em `docs/product/CAPABILITY_MATRIX.json` com `status: stable`.
+
 ## Overview
 Evolve Maestro to include episodic memory and benchmark engine, following the Master Prompt phases.
 
@@ -10,7 +13,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - ADR-001 (Episodic Memory)
 
 ## Phase 1: Benchmark Protocol
-**Status:** Not started
+**Status:** Complete (superseded by shipped `benchmark-harness/` with 13 scenarios in 0.2.0–0.4.0)
 **Goal:** Define benchmark schema, scenarios, isolation, acceptance
 **Output:**
 - BENCHMARK_SCHEMA.json
@@ -26,7 +29,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Initial report
 
 ## Phase 3: Episodic Memory Core
-**Status:** Not started
+**Status:** Complete (shipped: `memory record/search/show/timeline` with JSONL, isolation, redaction, tests)
 **Goal:** Implement record, search, show, timeline with JSONL
 **Output:**
 - memory.js module
@@ -85,7 +88,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Marketing summary
 
 ## Current Focus
-Complete Phase 0 documentation, then proceed to Phase 1 (Benchmark Protocol).
+Stabilize the 0.4.x runtime: durable privacy, terminal persistence, diagnostic sanitizer, usage CLI and cross-platform validation.
 
 ## Success Criteria
 - Memory isolated per project

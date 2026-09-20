@@ -50,7 +50,12 @@ class WorkspaceManager {
     }
     if (fs.existsSync(directory)) throw new Error(`workspace already exists: ${directory}`);
     fs.mkdirSync(path.dirname(directory), { recursive: true });
-    await runGit(["worktree", "add", "--detach", directory, ref], repositoryPath);
+    try {
+      await runGit(["worktree", "add", "--detach", directory, ref], repositoryPath);
+    } catch (error) {
+      try { fs.rmSync(directory, { recursive: true, force: true }); } catch { /* Best-effort rollback. */ }
+      throw error;
+    }
     return Object.freeze({ id: `${runId}-${stepId}`, path: directory, isolated: true });
   }
 

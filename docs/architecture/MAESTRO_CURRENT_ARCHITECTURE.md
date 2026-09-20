@@ -1,5 +1,7 @@
 # Maestro Current Architecture
 
+> Status: Current — descreve a arquitetura implementada nesta base.
+
 ## System Shape
 
 Orquestrador Maestro is currently a Node.js CommonJS npm package targeting Node.js 20 or later. Its CLI delegates installation and verification to Bash and PowerShell scripts and exposes project-context helpers implemented in Node.js.

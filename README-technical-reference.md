@@ -10,7 +10,8 @@ O Orquestrador Maestro organiza regras, contexto, skills, hooks, perfis de ferra
 
 [GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro) · [Pacote npm](https://www.npmjs.com/package/@iapro/orquestrador-maestro-cli) · [Changelog](CHANGELOG.md)
 
-> Revisão pública mais recente: `2026-09-09` (`0.3.2`).
+> Versão do pacote: ver `package.json` (não fixar versão neste texto).
+> Revisão anterior deste documento: `2026-09-09` (`0.3.2`).
 
 ## Para quem este projeto é
 

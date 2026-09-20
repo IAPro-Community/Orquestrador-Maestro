@@ -1,5 +1,7 @@
 # Maestro Runtime
 
+> Status: Current — descreve o runtime implementado nesta base.
+
 The optional local runtime converts a Task into a traceable Run, Step, ExecutionPackage, provider process, artifacts, Git observation, and real Verification. Operational data is stored outside `DEV/` through `RunStore`; the initial portable implementation is an atomic private JSON file for Node 20 compatibility.
 
 Runtime support starts at Node.js `>=20.0.0`. The required CI matrix runs the full suite on

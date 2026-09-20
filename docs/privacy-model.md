@@ -4,7 +4,7 @@ O snapshot público compartilha comportamento e estrutura, não o conteúdo priv
 
 ![Fronteira entre conteúdo público e local](diagrams/privacy-boundary.svg)
 
-Use este guia para conferir o que entra no repositório, o que permanece local e como funciona a telemetria anônima ativa por padrão.
+Use este guia para conferir o que entra no repositório, o que permanece local e como funciona a telemetria anônima opt-in (desabilitada por padrão).
 
 ## Incluído
 
@@ -52,7 +52,7 @@ Esses packs são permitidos como contexto local, mas não fazem parte do snapsho
 
 ## Telemetria
 
-O CLI npm envia telemetria anônima mínima por padrão ao PostHog Cloud na região US (Virginia), usando captura server-side. A finalidade exclusiva é medir adoção e uso técnico. O identificador é um pseudônimo aleatório de instalação, não uma identidade pessoal e não permite afirmar quantas pessoas usam o pacote.
+O CLI npm mede telemetria anônima mínima somente quando ativada explicitamente (`orquestrador-maestro telemetry enable` + endpoint + chave). Por padrão ela vem desabilitada (opt-in, `consentVersion: 2`; ver `bin/orquestrador-maestro.js: defaultTelemetryConfig`). Quando ativa, usa captura server-side ao PostHog Cloud na região US (Virginia). A finalidade exclusiva é medir adoção e uso técnico. O identificador é um pseudônimo aleatório de instalação, não uma identidade pessoal e não permite afirmar quantas pessoas usam o pacote.
 
 Permitido:
 

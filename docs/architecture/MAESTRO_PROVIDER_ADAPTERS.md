@@ -1,5 +1,7 @@
 # Maestro Provider Adapters
 
+> Status: Current — 4 runtime providers: codex, claude, opencode, agy.
+
 Adapters implement `detect`, `capabilities`, and `execute`. The Core does not branch on provider identity.
 
 - Codex uses `codex exec --json --color never`, with supported model, sandbox, workspace, timeout, cancellation, and JSONL output handling.

@@ -75,11 +75,13 @@ Each benchmark run is isolated at three levels.
 
 ### 4.1 Workspace Isolation
 
-The harness creates an ephemeral copy of the fixture directory in the system temp folder (`benchmark-harness/src/index.js:55-66`):
+The harness hashes the fixture and creates an ephemeral copy in the system temp folder (`benchmark-harness/src/fixtures/index.ts`, via `benchmark-harness/src/orchestrator/index.ts`):
 
 ```
-/tmp/bench-v2-<random>/
+/tmp/fixture-<timestamp>-<random>-<runId>/
 ```
+
+The copy is committed with `git init+add+commit` for diffing.
 
 The fixture is copied recursively. After the run completes (pass or fail), the workspace is deleted. No two runs share a workspace.
 
@@ -97,7 +99,7 @@ Use `--container` for official runs. The container runner validates the required
 
 ### 4.3 Verifier Isolation
 
-The hidden test runner (`benchmark-harness/src/verifier.js`) executes `node --test` in the agent's workspace directory, with `NODE_ENV=test` set. It does not share state with the agent process. The verifier parses TAP output (`# pass N` / `# fail N` or `ok`/`not ok` lines) to determine pass/fail counts.
+The hidden test runner (`benchmark-harness/src/verifier/index.ts`) executes the scenario command in the agent's workspace directory, with `CI=true` and `NO_COLOR=1` (default timeout 120s). It does not share state with the agent process. Pass means exit code 0; the verifier does not parse TAP output.
 
 ---
 
@@ -105,7 +107,7 @@ The hidden test runner (`benchmark-harness/src/verifier.js`) executes `node --te
 
 ### 5.1 OpenCode CLI Driver
 
-The primary (and currently only) driver is `OpenCodeDriver` (`benchmark-harness/src/drivers/opencode-driver.js`).
+Two drivers exist: `OpenCodeDriver` (`benchmark-harness/src/drivers/opencode.ts`, invoking the real `opencode` CLI) and `MaestroDriver` (`benchmark-harness/src/drivers/maestro.ts`, invoking `orquestrador-maestro benchmark run`).
 
 It invokes the real `opencode` CLI — not a mock, not an API wrapper. This ensures measured token usage and behavior reflect the actual tool the user would experience.
 
@@ -119,13 +121,13 @@ The driver:
 
 ### 5.2 Driver Extensibility
 
-The driver registry (`benchmark-harness/src/drivers/index.js`) supports multiple drivers. To add a driver:
+Drivers live in `benchmark-harness/src/drivers/` (`opencode.ts`, `maestro.ts`; shared types in `benchmark-harness/src/types/`). To add a driver:
 
-1. Implement the `AgentDriver` interface (`benchmark-harness/src/types.js:142-146`):
+1. Implement the `AgentDriver` interface (`benchmark-harness/src/types/driver.ts`):
    - `get name()` — unique driver identifier
    - `async isAvailable()` — check if the driver can execute
    - `async execute(scenario, options)` — run the agent and return a `DriverResult`
-2. Register it in `drivers/index.js` via `registerDriver(new YourDriver())`
+2. Wire it into the CLI (`benchmark-harness/src/cli/index.ts`)
 
 ### 5.3 Evidence Metadata
 
@@ -157,14 +159,14 @@ Any provider supported by OpenCode CLI. The harness itself is provider-agnostic;
 
 ## 7. Fixtures
 
-Fixtures are realistic mini-projects located under `benchmark-harness/_fixtures/`. They are not toy examples.
+Fixtures are realistic mini-projects located under `benchmark-harness/fixtures/`. They are not toy examples.
 
 ### 7.1 Fixture Structure
 
 Each fixture contains:
 
 ```
-_fixtures/<scenario-name>/
+fixtures/<scenario-name>/
 ├── package.json              # Node.js project with test scripts
 ├── src/                      # Source code with the bug/feature/refactor target
 │   └── <files>
@@ -209,39 +211,34 @@ Scenarios are defined as JSON files under `benchmark-harness/`.
 
 ### 8.2 Scenario Schema
 
-Defined in `benchmark-harness/src/types.js:11-22` and validated in `benchmark-harness/src/schema.js:57-86`:
+Defined in `benchmark-harness/schemas/scenario.json` and validated in `benchmark-harness/src/scenarios/index.ts`:
 
 ```json
 {
   "id": "kebab-case-unique-id",
   "name": "Human-readable name",
-  "type": "bug|feature|refactor|investigation|resume|migration",
-  "description": "What the scenario tests",
-  "prompt": "Exact instructions sent to the agent (minimum 20 characters)",
-  "fixtureDir": "_fixtures/<directory-name>",
-  "hiddenTests": "test/hidden.test.js",
-  "acceptance": ["Criteria 1", "Criteria 2"],
-  "validation": {
-    "command": "node --test test/hidden.test.js",
-    "expectedExitCode": 0,
-    "timeoutMs": 30000
-  },
-  "expectedInvariants": ["Invariant 1", "Invariant 2"]
+  "task": "Exact instructions sent to the agent",
+  "fixture": { "path": "../fixtures/<directory-name>" },
+  "acceptance": { "criteria": [{ "type": "hidden_tests", "name": "...", "command": "..." }] },
+  "limits": {
+    "maxTimeMs": 120000,
+    "maxRetries": 1
+  }
 }
 ```
 
 **Validation rules:**
 - `id` must be kebab-case (`/^[a-z0-9]+(-[a-z0-9]+)*$/`)
-- `prompt` must be at least 20 characters
-- `validation.command` is required
-- `validation.expectedExitCode` must be a number
+- `task` must be a non-empty string
+- `fixture.path` must exist on disk
+- `limits` is required
 
 ### 8.3 Adding a Scenario
 
-1. Create a fixture directory under `benchmark-harness/_fixtures/<your-scenario>/`
+1. Create a fixture directory under `benchmark-harness/fixtures/<your-scenario>/`
 2. Populate it with realistic source code and a `package.json` with test scripts
 3. Create `test/hidden.test.js` using Node.js built-in test runner (`node:test`)
-4. Create `benchmark-harness/<your-scenario>.json` following the schema
+4. Create `benchmark-harness/scenarios/<your-scenario>.json` following the schema
 5. Validate from the repository root with `npm run bench:validate`
 
 ### 8.4 Design Principles
@@ -259,11 +256,7 @@ Each scenario defines an `acceptance` array of human-readable criteria and a `va
 
 ### 9.1 Hidden Tests
 
-Hidden tests run via `node --test` (Node.js built-in test runner). The verifier (`benchmark-harness/src/verifier.js`) executes the test command in the agent's workspace directory and parses TAP output.
-
-**TAP parsing:** The verifier handles two formats:
-- Summary lines: `# pass N` / `# fail N`
-- Individual results: `ok N` / `not ok N` (counted by line matching)
+Hidden tests run via the scenario command (usually `node --test`, the Node.js built-in test runner). The verifier (`benchmark-harness/src/verifier/index.ts`) executes the test command in the agent's workspace directory; pass means exit code 0. Anti-gaming checks (`benchmark-harness/src/verifier/integrity.ts`) reject `.skip`/`.only` cheats in official runs.
 
 ### 9.2 Build Verification
 

@@ -1,5 +1,8 @@
 # Maestro Evolution Plan
 
+> Status: Target/Historical — plano de entrega distinto do `ROADMAP.md`;
+> já ultrapassado pelo `CHANGELOG 0.2.0/0.4.x`. Vale como contexto, não como plano vigente.
+
 ## Additive Delivery Plan
 
 | Phase | Deliverable | Gate |

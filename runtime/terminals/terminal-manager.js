@@ -143,6 +143,8 @@ class TerminalManager {
     const active = this.active.get(id);
     if (!active) return false;
     active.child.kill("SIGTERM");
+    const killTimeout = setTimeout(() => { try { active.child.kill("SIGKILL"); } catch {} }, 5000);
+    active.child.once("close", () => clearTimeout(killTimeout));
     return true;
   }
 
