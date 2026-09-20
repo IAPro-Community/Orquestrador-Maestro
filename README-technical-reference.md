@@ -400,7 +400,7 @@ O benchmark compara 3 condições (Vanilla, Maestro Core, Maestro Memory) em 6 c
 
 O context brief monta o briefing integrando git context, visibility policy, task classifier, DEV/ files e memory observations, com budget trimming para evitar overflow.
 
-Depois da instalação, uma solicitação útil para qualquer IA é:
+Depois da instalação, uma solicitação útil para uma ferramenta de IA compatível é:
 
 ~~~text
 Use o Orquestrador Maestro instalado neste usuário.

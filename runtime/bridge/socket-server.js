@@ -70,6 +70,8 @@ function startSocketRuntime(bridge, { projectRoot = process.cwd(), protocolV2 } 
   fs.writeFileSync(paths.pidPath, `${process.pid}\n`, { mode: 0o600 });
   const server = net.createServer((socket) => {
     socket.setEncoding("utf8"); let pending = ""; let authenticated = false; let unsubscribe; let unsubscribeV2; let processing = Promise.resolve();
+    // A client disappearing during TUI shutdown is ordinary lifecycle traffic.
+    // Never let ECONNRESET on that client become an uncaught daemon error.
     socket.on("error", () => {});
     socket.on("close", () => { unsubscribe?.(); unsubscribe = undefined; unsubscribeV2?.(); unsubscribeV2 = undefined; });
     socket.on("data", async (chunk) => {

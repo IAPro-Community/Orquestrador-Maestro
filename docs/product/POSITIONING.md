@@ -4,11 +4,11 @@
   estado real: camada comum de entender→contexto→skills→plano→execução→
   verificação→evidência, sem hospedar modelos.
 - **Tagline:** “Você escolhe a IA. O Maestro organiza o trabalho.”
-- **Mensagem principal:** Processo comum e verificável sobre qualquer ferramenta.
+- **Mensagem principal:** Processo comum e verificável entre as ferramentas de IA que você já usa.
 - **Proposta de valor:** Mesmo padrão entre ferramentas; memória que sobrevive à
   troca; verificação e evidência em vez de promessa.
 - **Diferenciais:** evidence gate; telemetria opt-in desligada por padrão;
-  roteamento de 51 skills por evidência; 4 providers com lifecycle real.
+  roteamento de skills por evidência; providers com lifecycle real.
 
 ## Anti-positioning
 

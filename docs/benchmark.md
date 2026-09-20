@@ -274,7 +274,7 @@ For fixtures with ESLint or similar, hidden tests may include lint assertions. T
 
 ### 9.5 Evidence Gate
 
-A run passes the evidence gate when all of the following are true (`benchmark-harness/src/evidence.js:3-33`):
+A run passes the evidence gate when all of the following are true (`benchmark-harness/src/evidence/index.ts:198-242`):
 
 1. **Hidden tests pass** — `testsPassed === testsTotal && testsTotal > 0`
 2. **Exit code matches** — `validationExitCode === expectedExitCode`
@@ -316,7 +316,7 @@ Processed metrics derived from raw evidence:
 
 ### 10.3 Immutability
 
-Evidence is written to disk immediately after each run (`benchmark-harness/src/index.js:90-99`) and never modified. Results are saved as:
+Evidence is written to disk immediately after each run (`benchmark-harness/src/orchestrator/index.ts:280`) and never modified. Results are saved as:
 
 ```
 evidence/<benchmark>_<condition>_run<N>.json
@@ -345,7 +345,7 @@ Token counting is the most contested metric in AI benchmarks. This harness uses 
 | 4 | `not-applicable` | — | No token data available (e.g., mock/dry runs) |
 | 5 | `unknown` | None | Source unspecified |
 
-The `tokenSource` field on `TokenUsage` (`benchmark-harness/src/types.js:49`) records which source was used.
+The `tokenSource` field on `TokenUsage` (`benchmark-harness/src/types/tokens.ts:42`) records which source was used.
 
 ### 11.2 Reconciliation
 
@@ -383,7 +383,7 @@ Tokens consumed on failed attempts before the first success. High retry tax indi
 
 ### 12.3 Statistical Functions
 
-Implemented in `benchmark-harness/src/metrics.js`:
+Implemented in `benchmark-harness/src/metrics/statistics.ts`:
 
 | Function | Description |
 |----------|-------------|

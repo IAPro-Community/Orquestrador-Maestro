@@ -6,7 +6,7 @@
 
 <p align="center"><a href="README.md">Português</a> · <a href="docs/skills/README.md">Skills (PT)</a> · <a href="docs/installation.md">Install</a> · <a href="docs/benchmark.md">Benchmark</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
-> Give every AI tool the same working process: understand the task, read the necessary context, work within clear limits, verify the result, and leave useful state for the next session.
+> Use the same process across different AI tools: understand the task, read the necessary context, work within clear limits, verify the result, and leave useful state for the next session.
 
 Orquestrador Maestro is for people who use Codex, Claude, OpenCode, Cursor, Gemini, and other AI tools on real projects. It is not a model and does not replace your preferred tool. It prepares the environment so tools spend less context, behave more predictably, and provide evidence before declaring work complete.
 

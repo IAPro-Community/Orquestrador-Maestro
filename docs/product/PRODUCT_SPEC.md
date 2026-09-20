@@ -1,7 +1,7 @@
 # Maestro — Especificação do Produto (PRODUCT_SPEC)
 
 > Fonte: `docs/product/CAPABILITY_MATRIX.json` + código. Código e testes vencem
-> documentação. Revisão da base: `48b4065` (pacote `0.4.2`).
+> documentação.
 
 ## 1. Identidade
 
@@ -46,7 +46,7 @@ ORQUESTRADOR MAESTRO
 
 - **Protocol** é o contrato (instalação, regras, memória, skills). Funciona sem
   o Runtime.
-- **Runtime** é o executor local opcional (4 providers reais:
+- **Runtime** é o executor local opcional (providers reais:
   `codex`, `claude`, `opencode`, `agy`).
 - **Cockpit** é uma superfície (TUI + cliente VS Code opcional), não o produto.
 
@@ -60,7 +60,7 @@ ORQUESTRADOR MAESTRO
 | Run / Step / Execution | Execução rastreável de Task via provider | RunStore JSON v1 |
 | Provider | Adapter real de execução (`detect/capabilities/execute`) | `runtime/providers/` |
 | Agent | Processo de ferramenta executado pelo provider | efêmero |
-| Skill | Capacidade empacotada (`SKILL.md` + manifesto) | `orquestrador/skills` (51) |
+| Skill | Capacidade empacotada (`SKILL.md` + manifesto) | `orquestrador/skills` (catálogo canônico; contagem derivada do manifesto) |
 | Workspace / Worktree | Isolamento (`shared` ou git worktree sob `.maestro/`) | `runtime/workspaces/` |
 | Artifact | Saída registrada do run | RunStore |
 | Verification | Checagens `lint/typecheck/test/build` (safe-list) | `runtime/verification/` |
@@ -84,14 +84,14 @@ runs e evidência. Dependem do provider: execução, sessão, permissões e stre
 ## 5. Capabilities comprovadas
 
 Ver `CAPABILITY_MATRIX.json` (`status: stable`, `publicClaimAllowed: true`):
-protocolo, contexto progressivo, DEV, memória episódica, roteamento de 51 skills,
-governança, 4 providers, runs/artefatos, verificação, worktrees, PTY, observação
+protocolo, contexto progressivo, DEV, memória episódica, roteamento de skills,
+governança, providers, runs/artefatos, verificação, worktrees, PTY, observação
 Git, observabilidade de uso, telemetria opt-in, benchmark com evidence gate,
 bridge, Cockpit TUI, cliente VS Code.
 
 ## 6. Limitações explícitas
 
-- Só 4 runtime providers; demais ferramentas são contrato/integração, não execução.
+- Apenas os providers Runtime listados em `CAPABILITY_MATRIX.json`; demais ferramentas são contrato/integração, não execução.
 - `agy` ≠ Antigravity IDE. Freebuff sem headless estável (uso interativo).
 - Sem merge automático de worktree; limpeza manual.
 - `node-pty` opcional (`PTY_UNAVAILABLE` sem ele); tmux exige binário.

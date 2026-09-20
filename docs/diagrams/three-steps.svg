@@ -3,7 +3,7 @@
   <desc id="desc">Orientar a IA, executar com contexto mínimo e verificar com evidência.</desc>
   <rect width="960" height="230" rx="24" fill="#0f172a"/>
   <g font-family="system-ui, sans-serif">
-    <text x="480" y="38" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="700">Um processo simples para qualquer ferramenta de IA</text>
+    <text x="480" y="38" text-anchor="middle" fill="#f8fafc" font-size="20" font-weight="700">Um processo simples para diferentes ferramentas de IA</text>
     <path d="M300 125H338M620 125H658" stroke="#b58c3a" stroke-width="3" stroke-linecap="round"/>
     <path d="M326 116l12 9-12 9M646 116l12 9-12 9" fill="none" stroke="#b58c3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <g transform="translate(30 75)">

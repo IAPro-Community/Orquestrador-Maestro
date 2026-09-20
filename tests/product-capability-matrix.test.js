@@ -14,8 +14,8 @@ const matrixPath = path.join(repoRoot, "docs", "product", "CAPABILITY_MATRIX.jso
 const matrix = JSON.parse(fs.readFileSync(matrixPath, "utf8"));
 
 function repoExists(p) {
-  // Evidence entries may carry " (notes)" suffix or line anchors; strip them.
-  const clean = String(p).split(" (")[0].trim();
+  // Evidence entries may carry " (notes)" suffixes, command args, or line anchors; strip them.
+  const clean = String(p).split(" (")[0].split(/\s+(?:validate|check|run)\b/)[0].trim();
   return fs.existsSync(path.join(repoRoot, clean));
 }
 
@@ -41,13 +41,24 @@ test("ids are unique", () => {
   assert.equal(new Set(toolIds).size, toolIds.length, "duplicate tool id");
 });
 
-test("skill counts derive from canonical manifests", () => {
+test("skill counts derive from canonical manifests (no hardcoded drift)", () => {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(repoRoot, "orquestrador", "SKILLS_MANIFEST.json"), "utf8")
   );
-  const skillCount = Object.keys(manifest.skills || {}).length;
-  assert.ok(skillCount > 0, "manifest has no skills");
-  assert.match(matrix.sources.skillsManifest, new RegExp(`${skillCount} skills`));
+  const router = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "orquestrador", "SKILLS_ROUTER.json"), "utf8")
+  );
+  const manifestCount = Object.keys(manifest.skills || {}).length;
+  const routerCount = Object.keys(router.skills || {}).length;
+  assert.ok(manifestCount > 0, "manifest has no skills");
+  assert.equal(routerCount, manifestCount, `router skills (${routerCount}) != manifest skills (${manifestCount})`);
+  // sources must reference files, not hardcoded counts
+  for (const [key, ref] of Object.entries(matrix.sources || {})) {
+    if (key === "note") continue;
+    assert.ok(repoExists(ref), `sources.${key}: missing file ${ref}`);
+    assert.ok(!/\d+\s+(skills|programs|adapters|profiles|workflows|capabilityRoutes)/.test(String(ref)),
+      `sources.${key}: hardcoded count in reference ${ref}`);
+  }
 });
 
 test("runtimeProviders match provider adapters on disk", () => {
@@ -91,4 +102,93 @@ test("implementation evidence paths exist", () => {
     }
   }
   assert.deepEqual(missing, []);
+});
+
+test("taxonomy invariant: runtimeProvider => integrated => compatible", () => {
+  for (const tool of matrix.tools) {
+    if (tool.runtimeProvider) {
+      assert.ok(tool.integrated, `${tool.id}: runtimeProvider requires integrated`);
+    }
+    if (tool.integrated) {
+      assert.ok(tool.compatible, `${tool.id}: integrated requires compatible`);
+    }
+  }
+});
+
+test("testEvidence paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const evidence of cap.testEvidence || []) {
+      if (!repoExists(evidence)) missing.push(`${cap.id}: ${evidence}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("documentation paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const doc of cap.documentation || []) {
+      if (!repoExists(doc)) missing.push(`${cap.id}: ${doc}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("integrationEvidence paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const evidence of cap.integrationEvidence || []) {
+      if (!repoExists(evidence)) missing.push(`${cap.id}: ${evidence}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("tool runtimeProvider count matches adapter files", () => {
+  const runtimeTools = matrix.tools.filter((t) => t.runtimeProvider);
+  assert.equal(runtimeTools.length, matrix.runtimeProviders.length,
+    `tool runtimeProvider count (${runtimeTools.length}) != runtimeProviders length (${matrix.runtimeProviders.length})`);
+});
+
+test("runtimeProviders array has no duplicates", () => {
+  assert.equal(new Set(matrix.runtimeProviders).size, matrix.runtimeProviders.length,
+    "duplicate entries in runtimeProviders");
+});
+
+test("taxonomy invariant is documented in enums", () => {
+  assert.equal(matrix.enums?.taxonomyInvariant, "runtimeProvider => integrated => compatible",
+    "enums.taxonomyInvariant must declare runtimeProvider => integrated => compatible");
+});
+
+test("tool entrypoints reference existing PROGRAM_ENTRYPOINTS/TOOL_ADAPTERS ids", () => {
+  const programs = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "orquestrador", "PROGRAM_ENTRYPOINTS.json"), "utf8")
+  );
+  const adapters = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "orquestrador", "TOOL_ADAPTERS.json"), "utf8")
+  );
+  const programIds = new Set(Object.keys(programs.programs || {}));
+  const adapterIds = new Set(Object.keys(adapters.adapters || {}));
+  const missing = [];
+  for (const tool of matrix.tools) {
+    for (const entry of tool.entrypoints || []) {
+      const mProg = String(entry).match(/PROGRAM_ENTRYPOINTS\.json:\s*programs\.([A-Za-z0-9_-]+)/);
+      if (mProg && !programIds.has(mProg[1])) missing.push(`${tool.id}: unknown program ${mProg[1]}`);
+      const mAd = String(entry).match(/TOOL_ADAPTERS\.json:\s*adapters\.([A-Za-z0-9_-]+)/);
+      if (mAd && !adapterIds.has(mAd[1])) missing.push(`${tool.id}: unknown adapter ${mAd[1]}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("no hardcoded manual counts in capability notes", () => {
+  const bad = [];
+  const countRe = /\b(51 skills|4 providers|11 programs|9 adapters|13 cen[aá]rios|13 scenarios)\b/i;
+  for (const cap of matrix.capabilities) {
+    for (const field of ["notes", ...(cap.implementationEvidence || []), ...(cap.testEvidence || [])]) {
+      if (typeof field === "string" && countRe.test(field)) bad.push(`${cap.id}: ${field}`);
+    }
+  }
+  assert.deepEqual(bad, []);
 });
