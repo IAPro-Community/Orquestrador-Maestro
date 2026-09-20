@@ -76,6 +76,10 @@ Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orqu
 
 ### Skills: especialização sob demanda
 
+Em desenvolvimento (Unreleased): melhoria de UX/UI por screenshots e referências visuais,
+com análise, prompt de implementação e validação de evidências. Veja a
+[referência da skill](docs/skills/reference/skill-melhorar-ux-ui-por-referencia.md).
+
 Skills são capacidades especializadas que o Maestro roteia conforme objetivo, risco e ambiente. Nem toda skill precisa estar instalada em todas as ferramentas: algumas são **nativas**, outras ficam **sob demanda** na biblioteca e algumas são **condicionais**, pois exigem um serviço, navegador ou autorização.
 
 Escolha o caminho mais útil:

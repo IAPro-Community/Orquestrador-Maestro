@@ -6,6 +6,7 @@ Comece pela situação e ajuste pela evidência disponível no projeto. O perfil
 | --- | --- | --- | --- |
 | Iniciar ou revisar um SaaS | `skill-saas-factory` | `skill-preflight`, `skill-saas-security-scan`, `skill-verification-before-completion` | `standard` ou `deep` |
 | Criar frontend de produto | `skill-frontend-excellence` | `skill-frontend-ux-guardrails`, `skill-webapp-testing` | `standard` |
+| Melhorar uma interface por screenshot ou referência | `skill-melhorar-ux-ui-por-referencia` | Apoio de frontend somente quando necessário | `fast` ou `standard` |
 | Corrigir um bug difícil | `skill-systematic-debugging` | `skill-repo-health`, `skill-verification-before-completion` | `standard` |
 | Preparar uma release | `skill-release-engineering` | `skill-saas-security-scan`, `skill-verification-before-completion` | `deep` |
 | Integrar pagamentos | `skill-stripe-integration` ou `skill-abacatepay-integration` | `skill-saas-core-limits`, `skill-security-hooks`, `skill-verification-before-completion` | `deep` |
@@ -27,6 +28,23 @@ Requisitos externos: repositório e critérios de aceite; serviços de pagamento
 Use quando a tarefa exige descobrir ou preservar o design system do projeto, aplicar um Design Profile, cuidar de responsividade/acessibilidade e executar Visual QA. `frontend-ux-guardrails` é o apoio para regras de usabilidade; `modern-ui-patterns`, `open-design-ui` e `premium-web-experience` são capacidades diferentes para composição visual e direção de experiência. Para teste funcional amplo, acrescente `webapp-testing`.
 
 Não use como substituto de uma auditoria de acessibilidade isolada ou como licença para introduzir um design system privado. Requisito externo: navegador e baseline quando houver Visual QA. Risco médio. Resultado mínimo: implementação, contraste/responsividade validados e relatório visual com limitações declaradas.
+
+### Melhorar uma interface por referência
+
+Use [skill-melhorar-ux-ui-por-referencia](reference/skill-melhorar-ux-ui-por-referencia.md)
+para extrair hierarquia, cores, tipografia, espaçamentos, componentes e propostas
+responsivas de screenshots. Ela distingue análise, geração de prompt e implementação
+autorizada, sem impor uma API de visão.
+
+O roteador textual reconhece frases como "melhore essa tela com base na referência"
+e "compare estas telas"; ele não inspeciona anexos nem entende toda negação.
+O assistente deve confirmar que a intenção e a imagem são de interface antes de
+aplicar o fluxo. Uma imagem com "melhore isso" depende da interpretação contextual
+do assistente, não de uma garantia de seleção pelo runtime.
+
+A skill fica disponível sob demanda na fonte canônica; não exige espelhos nativos
+em todas as ferramentas. Sem imagem ou renderização, declarar a limitação em vez
+de prometer reprodução fiel. Fotos, anúncios e prints de terminal não são seu escopo.
 
 ### Investigar e corrigir
 

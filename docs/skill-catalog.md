@@ -3,7 +3,7 @@
 
 Este catálogo compacto é gerado a partir de [`orquestrador/SKILLS_MANIFEST.json`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
 
-Total: 51
+Total: 52
 
 Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `check` e `validate` (ou `orquestrador-maestro skill-catalog <comando>`).
 
@@ -31,6 +31,7 @@ Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `
 | [skill-live-processing](skills/reference/skill-live-processing.md) | media | medium | Sob demanda | Live media processing pipeline with capture, queueing, worker state, retries, and observability. |
 | [skill-manual-video-processing](skills/reference/skill-manual-video-processing.md) | media | medium | Sob demanda | Manual upload video processing with secure storage, validation, job states, and retryable workers. |
 | [skill-mcp-builder](skills/reference/skill-mcp-builder.md) | integrations | high | Sob demanda | Construção segura de MCP servers tipados e testáveis. |
+| [skill-melhorar-ux-ui-por-referencia](skills/reference/skill-melhorar-ux-ui-por-referencia.md) | frontend | low | Sob demanda | Melhorar interfaces por screenshots/referências; separar análise, prompt e implementação autorizada. Confirmar o contexto visual após a seleção textual. |
 | [skill-modern-ui-patterns](skills/reference/skill-modern-ui-patterns.md) | frontend | low | Sob demanda | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
 | [skill-multiagent-orchestration](skills/reference/skill-multiagent-orchestration.md) | orchestration | medium | Nativa | Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely. |
 | [skill-open-design-ui](skills/reference/skill-open-design-ui.md) | frontend | low | Sob demanda | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |

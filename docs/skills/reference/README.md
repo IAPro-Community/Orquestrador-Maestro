@@ -1,7 +1,7 @@
 <!-- GENERATED FILE: scripts/skill-catalog.js; DO NOT EDIT. -->
 # Referência de skills
 
-Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../../orquestrador/SKILLS_MANIFEST.json). Total: 51.
+Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../../orquestrador/SKILLS_MANIFEST.json). Total: 52.
 
 ## Por objetivo
 
@@ -14,6 +14,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-frontend-ux-guardrails](./skill-frontend-ux-guardrails.md)
 - [skill-impeccable](./skill-impeccable.md)
 - [skill-incident-response](./skill-incident-response.md)
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 - [skill-modern-ui-patterns](./skill-modern-ui-patterns.md)
 - [skill-multiagent-orchestration](./skill-multiagent-orchestration.md)
 - [skill-open-design-ui](./skill-open-design-ui.md)
@@ -123,6 +124,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-frontend-excellence](./skill-frontend-excellence.md)
 - [skill-frontend-ux-guardrails](./skill-frontend-ux-guardrails.md)
 - [skill-impeccable](./skill-impeccable.md)
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 - [skill-modern-ui-patterns](./skill-modern-ui-patterns.md)
 - [skill-open-design-ui](./skill-open-design-ui.md)
 - [skill-premium-web-experience](./skill-premium-web-experience.md)
@@ -404,6 +406,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-frontend-excellence](./skill-frontend-excellence.md)
 - [skill-frontend-ux-guardrails](./skill-frontend-ux-guardrails.md)
 - [skill-impeccable](./skill-impeccable.md)
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 - [skill-modern-ui-patterns](./skill-modern-ui-patterns.md)
 - [skill-open-design-ui](./skill-open-design-ui.md)
 - [skill-premium-web-experience](./skill-premium-web-experience.md)
@@ -497,6 +500,10 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-smart-clip-detection](./skill-smart-clip-detection.md)
 - [skill-watch-evidence](./skill-watch-evidence.md)
 
+### melhorar
+
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
+
 ### meta
 
 - [skill-whatsapp-meta-ads-leads](./skill-whatsapp-meta-ads-leads.md)
@@ -549,6 +556,10 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-cobranca-automatizada-saas-abacatepay](./skill-cobranca-automatizada-saas-abacatepay.md)
 - [skill-stripe-integration](./skill-stripe-integration.md)
 
+### por
+
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
+
 ### preflight
 
 - [skill-preflight](./skill-preflight.md)
@@ -570,6 +581,10 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 ### recon
 
 - [skill-saas-dast-recon](./skill-saas-dast-recon.md)
+
+### referencia
+
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 
 ### release
 
@@ -654,6 +669,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 
 ### ui
 
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 - [skill-modern-ui-patterns](./skill-modern-ui-patterns.md)
 - [skill-open-design-ui](./skill-open-design-ui.md)
 
@@ -668,6 +684,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 ### ux
 
 - [skill-frontend-ux-guardrails](./skill-frontend-ux-guardrails.md)
+- [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 
 ### verification
 

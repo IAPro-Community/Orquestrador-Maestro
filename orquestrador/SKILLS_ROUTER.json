@@ -1061,6 +1061,25 @@
       "cost": "medium",
       "safety": "task-specific-guardrails",
       "priority": 0
+    },
+    "skill-melhorar-ux-ui-por-referencia": {
+      "description": "Melhorar interfaces por screenshots/referências; separar análise, prompt e implementação autorizada. Confirmar o contexto visual após a seleção textual.",
+      "triggers": [
+        "melhorar ux/ui por referência",
+        "melhorar ux/ui por referencia",
+        "melhore essa tela com base na referência",
+        "melhore esta tela com base na referência",
+        "melhorar interface a partir de screenshot",
+        "compare estas telas",
+        "deixar o login igual à referência",
+        "prompt de ui a partir de screenshot",
+        "redesign from screenshot"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-melhorar-ux-ui-por-referencia/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-melhorar-ux-ui-por-referencia/SKILL.md",
+      "cost": "low",
+      "safety": "task-specific-guardrails",
+      "priority": 0
     }
   },
   "riskClasses": {
