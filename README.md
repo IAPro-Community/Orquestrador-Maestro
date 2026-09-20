@@ -126,7 +126,7 @@ Este é um snapshot público e sanitizado: compartilha estrutura e comportamento
 
 Leia o [modelo de privacidade](docs/privacy-model.md) para saber exatamente o que entra, o que fica local e como a telemetria anônima funciona.
 
-O CLI mede **instalações anônimas ativas** por padrão, nunca pessoas únicas. Envia somente comando, resultado, versão e ambiente técnico ao PostHog Cloud (US); não envia caminhos, argumentos, prompts, arquivos, nomes, IP armazenado pelo produto ou credenciais. Desative com `orquestrador-maestro telemetry disable` ou `ORQUESTRADOR_MAESTRO_TELEMETRY=0`.
+A telemetria vem **desabilitada por padrão** (opt-in via `orquestrador-maestro telemetry enable`). Quando ativada, o CLI mede **instalações anônimas ativas**, nunca pessoas únicas. Envia somente comando, resultado, versão e ambiente técnico ao endpoint configurado; não envia caminhos, argumentos, prompts, arquivos, nomes, IP armazenado pelo produto ou credenciais. Desative com `orquestrador-maestro telemetry disable` ou `ORQUESTRADOR_MAESTRO_TELEMETRY=0`.
 
 **Próximo passo:** [confira o modelo completo de privacidade](docs/privacy-model.md) antes de sincronizar uma instalação pública.
 

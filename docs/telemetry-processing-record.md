@@ -13,6 +13,6 @@ Este registro descreve a configuração planejada e deve ser confirmado pelo res
 | Compartilhamento | PostHog Cloud, como provedor de analytics; endpoint US (Virginia). |
 | Retenção | Meta operacional: 12 meses. Confirmar e configurar a retenção efetiva no projeto PostHog antes do lançamento. |
 | Eliminação | Excluir eventos pelo procedimento do PostHog e remover o projeto quando aplicável; documentar confirmação operacional. |
-| Controles | Ativo por padrão, `telemetry disable`, variável `ORQUESTRADOR_MAESTRO_TELEMETRY=0`, timeout curto, falha silenciosa, configuração versionada e sem autocaptura. |
+| Controles | Desabilitada por padrão (opt-in via `telemetry enable` + endpoint + chave), `telemetry disable`, variável `ORQUESTRADOR_MAESTRO_TELEMETRY=0`, timeout curto, falha silenciosa, configuração versionada (`consentVersion: 2`) e sem autocaptura. |
 
 O lançamento fica condicionado à revisão do aviso de privacidade, base legal, contrato/subprocessadores, região, retenção e exclusão no provedor.

@@ -169,7 +169,7 @@ orquestrador-maestro verify --home-path "$env:TEMP\orquestrador-test" --core-onl
 
 ## Telemetria
 
-O CLI envia, por padrão, telemetria anônima mínima para medir adoção e uso técnico do pacote. O provedor inicial é o PostHog Cloud na região US (Virginia), por captura server-side, sem SDK de sessão, replay, cookies, heatmaps ou autocaptura. O mantenedor deve revisar privacidade, retenção, eliminação e transferência internacional do projeto PostHog antes de publicar.
+A telemetria vem desabilitada por padrão (opt-in explícito via `orquestrador-maestro telemetry enable`, mais endpoint e chave; `consentVersion: 2`). Quando ativada, o CLI envia telemetria anônima mínima para medir adoção e uso técnico do pacote. O provedor inicial é o PostHog Cloud na região US (Virginia), por captura server-side, sem SDK de sessão, replay, cookies, heatmaps ou autocaptura. O mantenedor deve revisar privacidade, retenção, eliminação e transferência internacional do projeto PostHog antes de publicar.
 
 O indicador é **instalação anônima ativa**, não pessoa única. Uma pessoa em dois computadores conta duas instalações, e remover a configuração pode gerar outro ID. A base legal e o aviso de privacidade devem ser revisados com orientação jurídica; esta documentação não afirma conformidade automática.
 
