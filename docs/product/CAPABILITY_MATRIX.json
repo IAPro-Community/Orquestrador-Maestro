@@ -1,11 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-20",
-  "baseCommit": "0f164ce",
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "0.4.1",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": ["protocol", "runtime", "cockpit"]
@@ -79,7 +76,7 @@
       "testEvidence": ["tests/frontend-excellence.test.js", "scripts/skill-catalog.js validate"],
       "documentation": ["docs/skills/README.md", "docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
-      "notes": "51 skills canônicas; núcleo nativo limitado a 14 curadas; contagem sempre derivada do manifesto."
+      "notes": "Skills canônicas derivadas do manifesto; núcleo nativo limitado a 14 curadas; contagem sempre derivada do manifesto."
     },
     {
       "id": "execution-profiles",
@@ -115,7 +112,7 @@
       "testEvidence": ["runtime/providers/__tests__/adapters.test.js", "runtime/providers/__tests__/provider-output.test.js"],
       "documentation": ["docs/architecture/MAESTRO_PROVIDER_ADAPTERS.md", "docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
-      "notes": "Exatamente 4 runtime providers. agy é o CLI agy, não o IDE Antigravity."
+      "notes": "Runtime providers derivados dos adapters em runtime/providers/. agy é o CLI agy, não o IDE Antigravity."
     },
     {
       "id": "runs-artifacts",
@@ -148,7 +145,7 @@
       "status": "stable",
       "surface": "runtime",
       "implementationEvidence": ["runtime/workspaces/manager.js", "runtime/application/maestro-application.js (createTerminalSession, isolation==worktree)"],
-      "testEvidence": ["tests/workspaces-manager.test.js", "tests/e2e-isolation.test.js"],
+      "testEvidence": ["runtime/workspaces/__tests__/manager.test.js", "tests/e2e-isolation.test.js"],
       "documentation": ["docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
       "notes": "Limitações: sem merge automático de volta; limpeza manual; não copia ignored/stash/.git."
@@ -160,7 +157,7 @@
       "status": "stable",
       "surface": "runtime",
       "implementationEvidence": ["runtime/terminals/pty-session-manager.js", "runtime/terminals/session-manager.js", "runtime/terminals/terminal-manager.js", "runtime/runs/run-terminal-bridge.js"],
-      "testEvidence": ["tests/f8-pty-contract.test.js", "tests/f8-run-terminal-bridge.test.js", "tests/terminal-durable-privacy.test.js"],
+      "testEvidence": ["tests/f8-pty-contract.test.js", "tests/f8-run-terminal-bridge.test.js", "runtime/terminals/__tests__/terminal-durable-privacy.test.js"],
       "documentation": ["docs/architecture/MAESTRO_COCKPIT.md"],
       "publicClaimAllowed": true,
       "notes": "Limitações: node-pty opcional (PTY_UNAVAILABLE); output integral só em memória; store recebe só metadados sanitizados."
@@ -232,7 +229,7 @@
       "status": "stable",
       "surface": "cockpit",
       "implementationEvidence": ["runtime/tui/views/cockpit-view.ts", "runtime/tui/views/cockpit-model.ts", "runtime/attention/"],
-      "testEvidence": ["tests/tui-cockpit.test.js"],
+      "testEvidence": ["runtime/tui/__tests__/tui-cockpit.test.ts"],
       "documentation": ["docs/architecture/MAESTRO_COCKPIT.md", "docs/product/PRODUCT_SPEC.md"],
       "publicClaimAllowed": true,
       "notes": "4 layouts por largura; 5 seções canônicas. Cockpit é uma superfície do produto, não o produto inteiro. Polish responsivo em evolução."
@@ -307,7 +304,7 @@
       "displayName": "agy CLI",
       "kind": "provider-cli",
       "compatible": true,
-      "integrated": false,
+      "integrated": true,
       "runtimeProvider": true,
       "experimental": false,
       "entrypoints": ["runtime/providers/agy-adapter.js", "bin/orquestrador-maestro.js (terminal agent)"],

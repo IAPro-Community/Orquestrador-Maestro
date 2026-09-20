@@ -22,7 +22,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Tests for benchmark
 
 ## Phase 2: Baseline V0
-**Status:** Not started
+**Status:** Partial (harness infrastructure shipped: `compareConditions`, paired runs, evidence gate; no official baseline execution yet)
 **Goal:** Execute Vanilla vs Maestro Core baseline
 **Output:**
 - Raw benchmark data
@@ -39,7 +39,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Tests
 
 ## Phase 4: Context Intelligence
-**Status:** Not started
+**Status:** Complete (shipped: `context-brief` with `buildBrief`, `computeBudget`, memory retrieval, task classification; tests in `context-brief.test.js`, `smart-targets.test.js`)
 **Goal:** Integrate context brief + episodic search + budget + classification
 **Output:**
 - Enhanced context-brief.js
@@ -47,14 +47,14 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Context budget management
 
 ## Phase 5: Knowledge Promotion
-**Status:** Not started
+**Status:** Complete (shipped: `memory promote --apply` with `verified:true`, conflict detection; tests in `memory.test.js`)
 **Goal:** Implement memory promote with conflict and security
 **Output:**
 - memory promote command
 - Promotion rules
 
 ## Phase 6: Retention/Dedupe/Consolidation
-**Status:** Not started
+**Status:** Complete (shipped: `memory dedupe`, `retention`, `prune`, `consolidate`, `cleanup` in `orquestrador/bin/memory.js`)
 **Goal:** Implement necessary complexity for data management
 **Output:**
 - Retention policy
@@ -62,26 +62,26 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - Consolidation rules
 
 ## Phase 7: Automatic Capture Adapters
-**Status:** Not started
+**Status:** Partial (4 runtime adapters shipped: codex, claude, opencode, agy; 8 declarative adapters in TOOL_ADAPTERS: junie, goose, openhands, continue, cline, copilot, ollama, lm-studio; Freebuff event-adapter for memory)
 **Goal:** Implement adapters for different tools progressively
 **Output:**
 - Tool-specific adapters (Claude, Codex, OpenCode, etc.)
 
 ## Phase 8: Benchmark V1
-**Status:** Not started
+**Status:** Planned (harness infrastructure complete: 13 scenarios, evidence gate, paired comparison; awaiting official execution with N>=20)
 **Goal:** Execute Vanilla vs Maestro Core vs Maestro Memory
 **Output:**
 - Complete benchmark data
 - Statistical analysis
 
 ## Phase 9: Analysis
-**Status:** Not started
+**Status:** Planned (statistical functions implemented in `benchmark-harness/src/metrics/`; awaiting data from Phase 8)
 **Goal:** Calculate success rate, median tokens, tokens/successful task, etc.
 **Output:**
 - Analysis report
 
 ## Phase 10: Public Report
-**Status:** Not started
+**Status:** Planned (report generation and claims policy defined in `docs/benchmark.md`; awaiting data from Phase 8-9)
 **Goal:** Generate benchmark.md, benchmark.json, optional HTML
 **Output:**
 - Reproducible public report

@@ -14,8 +14,8 @@ const matrixPath = path.join(repoRoot, "docs", "product", "CAPABILITY_MATRIX.jso
 const matrix = JSON.parse(fs.readFileSync(matrixPath, "utf8"));
 
 function repoExists(p) {
-  // Evidence entries may carry " (notes)" suffix or line anchors; strip them.
-  const clean = String(p).split(" (")[0].trim();
+  // Evidence entries may carry " (notes)" suffixes, command args, or line anchors; strip them.
+  const clean = String(p).split(" (")[0].split(/\s+(?:validate|check|run)\b/)[0].trim();
   return fs.existsSync(path.join(repoRoot, clean));
 }
 
@@ -91,4 +91,56 @@ test("implementation evidence paths exist", () => {
     }
   }
   assert.deepEqual(missing, []);
+});
+
+test("taxonomy invariant: runtimeProvider => integrated => compatible", () => {
+  for (const tool of matrix.tools) {
+    if (tool.runtimeProvider) {
+      assert.ok(tool.integrated, `${tool.id}: runtimeProvider requires integrated`);
+    }
+    if (tool.integrated) {
+      assert.ok(tool.compatible, `${tool.id}: integrated requires compatible`);
+    }
+  }
+});
+
+test("testEvidence paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const evidence of cap.testEvidence || []) {
+      if (!repoExists(evidence)) missing.push(`${cap.id}: ${evidence}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("documentation paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const doc of cap.documentation || []) {
+      if (!repoExists(doc)) missing.push(`${cap.id}: ${doc}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("integrationEvidence paths exist", () => {
+  const missing = [];
+  for (const cap of matrix.capabilities) {
+    for (const evidence of cap.integrationEvidence || []) {
+      if (!repoExists(evidence)) missing.push(`${cap.id}: ${evidence}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
+
+test("tool runtimeProvider count matches adapter files", () => {
+  const runtimeTools = matrix.tools.filter((t) => t.runtimeProvider);
+  assert.equal(runtimeTools.length, matrix.runtimeProviders.length,
+    `tool runtimeProvider count (${runtimeTools.length}) != runtimeProviders length (${matrix.runtimeProviders.length})`);
+});
+
+test("runtimeProviders array has no duplicates", () => {
+  assert.equal(new Set(matrix.runtimeProviders).size, matrix.runtimeProviders.length,
+    "duplicate entries in runtimeProviders");
 });

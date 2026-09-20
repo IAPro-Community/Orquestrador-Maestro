@@ -175,9 +175,11 @@ interface ClaimEligibleInput {
   evidence?: {
     publicClaimEligible?: boolean;
     executionType?: string;
-    container?: boolean;
     reproducible?: boolean;
     isolated?: boolean;
+  } | null;
+  environment?: {
+    container?: boolean;
   } | null;
   usage?: { tokenSource?: string } | null;
   driverResult?: { usage?: { tokenSource?: string } | null } | null;
@@ -195,6 +197,7 @@ interface ClaimEligibleInput {
  * Requirements (all must be true):
  * - `evidence.publicClaimEligible` is true
  * - `evidence.executionType` is "real-execution"
+ * - `environment.container` is not true
  * - Token source is "provider-reported"
  * - `evidence.reproducible` is true
  * - `evidence.isolated` is true
@@ -203,7 +206,7 @@ interface ClaimEligibleInput {
 export function isClaimEligibleRun(run: ClaimEligibleInput): boolean {
   if (!run?.evidence?.publicClaimEligible) return false;
   if (run.evidence.executionType !== 'real-execution') return false;
-  if (run.evidence.container === true) return false;
+  if (run.environment?.container === true) return false;
   const tokenSource = run.usage?.tokenSource ?? run.driverResult?.usage?.tokenSource;
   if (tokenSource !== 'provider-reported') return false;
   if (run.evidence.reproducible !== true) return false;

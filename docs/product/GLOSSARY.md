@@ -23,5 +23,6 @@
 - **Compatible**: entende/recebe o contrato Maestro (NÃO implica execução).
 - **Integrated**: possui integração mantida (config/skills/hooks/adapters/bridge).
 - **Runtime Provider**: adapter real com detect+exec+lifecycle+testes.
+- **Invariant**: `runtimeProvider ⇒ integrated ⇒ compatible`. Todo runtime provider é integrated; todo integrated é compatible. O inverso não é verdadeiro.
 - **Experimental**: implementado, sem contrato estável.
 - **Planned**: projetado, sem implementação suficiente para claim atual.

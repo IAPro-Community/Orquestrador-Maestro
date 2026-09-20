@@ -6,7 +6,7 @@
 
 <p align="center"><a href="README.en.md">English</a> · <a href="docs/skills/README.md">Skills</a> · <a href="docs/installation.md">Instalar</a> · <a href="docs/benchmark.md">Benchmark</a> · <a href="CONTRIBUTING.md">Contribuir</a></p>
 
-> Faça qualquer IA trabalhar com o mesmo processo: entender o pedido, ler o contexto necessário, executar com limites, verificar o resultado e deixar um rastro útil para a próxima sessão.
+> Use o mesmo processo com diferentes ferramentas de IA: entender o pedido, ler o contexto necessário, executar com limites, verificar o resultado e deixar um rastro útil para a próxima sessão.
 
 O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini e outras ferramentas de IA em projetos reais. Ele não é um modelo nem substitui sua ferramenta favorita: prepara o ambiente para que ela trabalhe com menos desperdício, mais previsibilidade e evidência antes de dizer que terminou.
 

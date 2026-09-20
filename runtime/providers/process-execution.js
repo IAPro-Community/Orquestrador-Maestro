@@ -20,20 +20,22 @@ function optionalPositiveInteger(value, name) {
   return value;
 }
 
+const BLOCKED_ENV_KEYS = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]);
+
 function safeEnvironment(environment) {
-  if (environment === undefined) return process.env;
-  if (!environment || typeof environment !== "object" || Array.isArray(environment)) {
-    throw new TypeError("execution request.environment must be an object");
-  }
-  for (const [key, value] of Object.entries(environment)) {
-    if (typeof value !== "string") {
-      throw new TypeError(`execution request.environment.${key} must be a string`);
+  if (environment !== undefined) {
+    if (!environment || typeof environment !== "object" || Array.isArray(environment)) {
+      throw new TypeError("execution request.environment must be an object");
+    }
+    for (const [key, value] of Object.entries(environment)) {
+      if (typeof value !== "string") {
+        throw new TypeError(`execution request.environment.${key} must be a string`);
+      }
     }
   }
-  const blocked = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]);
-  const env = { ...process.env };
-  for (const key of blocked) delete env[key];
-  return { ...env, ...environment };
+  const env = { ...process.env, ...(environment || {}) };
+  for (const key of BLOCKED_ENV_KEYS) delete env[key];
+  return env;
 }
 
 function emit(onEvent, type, data) {
