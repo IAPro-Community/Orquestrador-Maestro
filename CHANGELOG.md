@@ -4,6 +4,28 @@
 
 - Nenhuma alteração publicada ainda.
 
+## 0.4.3 - 2026-09-20
+
+Esta versão consolida o alinhamento do produto com a implementação e fecha pontos de drift identificados no PR #20.
+
+### Produto e documentação
+
+- Roadmap, posicionamento, brief, especificação, glossário e README agora distinguem com precisão o que está entregue, parcial ou planejado.
+- A matriz canônica de capacidades deixou de depender de metadados gerados, revisões fixas e contagens manuais; os relacionamentos passam a ser derivados do manifesto.
+- Corrigidas referências obsoletas do benchmark-harness e documentada a elegibilidade correta de execuções em container.
+- Adicionada a invariável de taxonomia `runtimeProvider => integrated => compatible`, com validação de providers e adapters sem duplicidade.
+
+### Runtime e segurança
+
+- `safeEnvironment` agora filtra sempre as variáveis reservadas, inclusive quando nenhum ambiente explícito é fornecido.
+- A evidência de execução em container passa a consultar a fonte correta (`environment.container`).
+- O servidor socket documenta a recuperação do ciclo de vida após `ECONNRESET`.
+
+### Verificação
+
+- Adicionados testes para evidências, caminhos de documentação, taxonomia de capabilities, providers integrados, adapters duplicados e sufixos de comandos.
+- CI, benchmarks, security scan, empacotamento e smoke tests passaram antes e depois do merge do PR #20.
+
 ## 0.4.2 - 2026-09-20
 
 Esta versão alinha a documentação de produto ao código entregue, incorpora o hardening crítico do runtime e amplia a integração com ferramentas compatíveis.
