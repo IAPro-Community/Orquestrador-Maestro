@@ -1,5 +1,9 @@
 # Maestro Project Manager
 
+> Status: Historical (parcialmente superseded) — referências a tmux persistente
+> e TUI sem dependências conflitam com `MAESTRO_COCKPIT.md` (pty-primary).
+> Vale como contexto histórico; o estado atual está em `MAESTRO_COCKPIT.md`.
+
 O Project Manager é uma camada opcional sobre o Runtime. Ele não altera `DEV/`, instalações, sincronização de Skills nem comandos legados.
 
 Cada projeto é identificado de modo determinístico a partir de seu caminho absoluto e é criado somente quando um Run ou comando gerenciado é iniciado. Os comandos aditivos são:

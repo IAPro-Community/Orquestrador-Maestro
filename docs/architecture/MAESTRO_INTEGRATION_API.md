@@ -1,5 +1,9 @@
 # Maestro Integration API
 
+> Status: Partially superseded — cobre o protocolo v1 (`bridge --stdio`).
+> Métodos v2 (`missions.*`, `agentSessions.*`, `panes.*`, `projects.dashboard`)
+> existem no código (`runtime/protocol/protocol-v2.js`) e ainda não estão aqui.
+
 `orquestrador-maestro bridge --stdio` exposes protocol version 1 as JSON-RPC 2.0 over newline-delimited JSON. `initialize` negotiates the protocol version. Read methods include `project.inspect`, `skills.list`, `providers.list`, `runs.list`, `runs.get`, `artifacts.list`, `artifacts.get`, and `verification.get`.
 
 `runs.create`, `runs.cancel`, `runs.inspect`, `projects.list`, `projects.get`, `projects.register`, `terminals.list`, `terminals.get`, `terminals.create`, `terminals.attach`, `terminals.close`, `terminals.registerClient`, `terminals.updateClientStatus` and `terminals.capabilities` are available when the runtime service is present. `terminals.start`, `terminals.stop` and `terminals.input` remain compatibility methods for the original non-interactive managed command.

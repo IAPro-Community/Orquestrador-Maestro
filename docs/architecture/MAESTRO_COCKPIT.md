@@ -1,5 +1,7 @@
 # Maestro Cockpit por projeto
 
+> Status: Current — PTY (`node-pty`) é o backend primário; tmux é legado listável.
+
 O runtime local é o proprietário dos PTYs. Cada sessão usa `node-pty`; `@xterm/headless` interpreta ANSI e mantém um scrollback limitado exclusivamente em memória. O store JSON recebe somente metadados da sessão e eventos compactos.
 
 As novas sessões são `backend: "pty"`. Registros tmux antigos continuam listáveis como legado e podem ser abertos externamente; tmux não é o backend primário da grade.
