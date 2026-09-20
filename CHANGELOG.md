@@ -2,8 +2,32 @@
 
 ## Unreleased
 
+- Nenhuma alteração publicada ainda.
+
+## 0.4.2 - 2026-09-20
+
+Esta versão alinha a documentação de produto ao código entregue, incorpora o hardening crítico do runtime e amplia a integração com ferramentas compatíveis.
+
+### Runtime e segurança
+
+- Bloqueada a injeção de variáveis de ambiente reservadas durante a execução de processos.
+- Endurecidos os servidores stdio e socket com recuperação de exceções, serialização de handlers e limite de 1 MiB por linha de entrada.
+- Adicionado fallback de `SIGTERM` para `SIGKILL` após 5 segundos no gerenciador de terminais.
+- Corrigida a limpeza de worktrees órfãos quando a inclusão de arquivos Git falha.
+- Execuções em container deixaram de ser elegíveis para claims de evidência pública sem proveniência adequada.
+- A extensão VS Code passou a reconectar a ponte e liberar seus recursos corretamente.
+
+### Produto e compatibilidade
+
+- Publicada a matriz canônica de capacidades, especificação do produto, posicionamento, casos de uso, glossário e brief do Maestro.
 - Registrado o Freebuff como ferramenta compatível, com catálogo de entrypoint/adaptador, instalação `--only freebuff`, alias de sincronização para `.agents/skills`, verificação persistente e documentação de uso após reinício/publicação.
 - Adicionado `FreebuffAdapter` para eventos estruturados de ferramentas e subagentes, sem assumir um modo headless que o CLI oficial ainda não estabilizou.
+- Atualizados os documentos técnicos, de benchmark, privacidade, telemetria e roadmap para refletir a implementação atual.
+
+### Verificação
+
+- Suíte completa, smoke, empacotamento, validação pública/skills, benchmarks, auditoria de dependências e scan de segurança aprovados.
+- CI pós-merge confirmado em Ubuntu, Windows e macOS com Node 20, 22 e 24.
 
 ## 0.4.1 - 2026-09-19
 

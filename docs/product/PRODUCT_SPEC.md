@@ -1,7 +1,7 @@
 # Maestro — Especificação do Produto (PRODUCT_SPEC)
 
 > Fonte: `docs/product/CAPABILITY_MATRIX.json` + código. Código e testes vencem
-> documentação. Revisão da base: `0f164ce` (pacote `0.4.1`).
+> documentação. Revisão da base: `48b4065` (pacote `0.4.2`).
 
 ## 1. Identidade
 

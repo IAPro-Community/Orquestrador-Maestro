@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-09-20",
-  "baseCommit": "0f164ce",
+  "baseCommit": "48b4065",
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "0.4.1",
+    "packageVersion": "0.4.2",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": ["protocol", "runtime", "cockpit"]
