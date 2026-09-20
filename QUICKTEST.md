@@ -33,20 +33,20 @@ node orquestrador/bin/memory.js stats \
 
 ## 2. Testar Benchmark
 
+Os comandos atuais usam `benchmark-harness/` (os paths `benchmarks/benchmark.js` e `benchmarks/real-benchmark.js` não existem mais neste repo).
+
 ### Listar cenários
 ```bash
-node benchmarks/benchmark.js list
+npm run bench:list
 ```
 
-### Executar benchmark
+### Validar cenários
 ```bash
-node benchmarks/real-benchmark.js
+npm run bench:validate
 ```
 
 ### Ver resultados
-```bash
-cat benchmarks/results/real/real-benchmark-report.json
-```
+Os relatórios ficam sob `benchmark-harness/evidence/` ou no diretório de saída indicado pelo comando `report`. Veja a metodologia em `docs/benchmark.md`.
 
 ## 3. Rodar Todos os Testes
 

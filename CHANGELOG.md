@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+<<<<<<< HEAD
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 
@@ -44,6 +45,11 @@ Esta versão consolida o alinhamento do produto com a implementação e fecha po
 
 - Adicionados testes para evidências, caminhos de documentação, taxonomia de capabilities, providers integrados, adapters duplicados e sufixos de comandos.
 - CI, benchmarks, security scan, empacotamento e smoke tests passaram antes e depois do merge do PR #20.
+- Documentação para iniciantes: nova jornada numerada em `docs/START-HERE.md` (entender → instalar → configurar DEV/ → primeira skill → verificar) com mapa de onde encontrar cada informação.
+- Novo exemplo guiado `docs/skills/primeira-skill.md` com `skill-repo-health` (pedido pronto, saída esperada e checklist de verificação).
+- `docs/skills/README.md`: seção “Como ler uma página de skill (para humanos)”; `docs/skills/choose.md` linka o exemplo guiado; `docs/README.md` e `README.md` apontam para o Comece aqui.
+- `QUICKTEST.md`: seção de benchmark corrigida para `benchmark-harness/` (`bench:list`/`bench:validate`); paths `benchmarks/*` removidos.
+- `orquestrador/TUTORIAL.md`: marcado como documento histórico com ponteiros para os guias atuais.
 
 ## 0.4.2 - 2026-09-20
 
