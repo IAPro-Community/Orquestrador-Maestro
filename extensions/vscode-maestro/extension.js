@@ -6,12 +6,15 @@ const readline = require("node:readline");
 const vscode = require("vscode");
 
 class BridgeClient {
-  constructor(command = "maestro") { this.command = command; this.sequence = 0; this.pending = new Map(); }
+  constructor(command = "maestro") { this.command = command; this.sequence = 0; this.pending = new Map(); this._reconnectTimer = null; this._disposed = false; }
   start(workspacePath) {
     if (this.child) return;
     this.child = spawn(this.command, ["bridge", "--stdio", "--project-path", workspacePath], { stdio: ["pipe", "pipe", "pipe"], shell: false });
     this.child.on("error", (error) => this.rejectAll(error));
-    this.child.on("exit", () => this.rejectAll(new Error("Maestro bridge was stopped.")));
+    this.child.on("exit", () => {
+      this.rejectAll(new Error("Maestro bridge was stopped."));
+      if (!this._disposed) this._reconnectTimer = setTimeout(() => { this.child = null; this.start(workspacePath); }, 3000);
+    });
     readline.createInterface({ input: this.child.stdout }).on("line", (line) => {
       try { const response = JSON.parse(line); const pending = this.pending.get(response.id); if (pending) { this.pending.delete(response.id); response.error ? pending.reject(Object.assign(new Error(response.error.message), { code: response.error.code, data: response.error.data })) : pending.resolve(response.result); } } catch { /* Ignore non-protocol output. */ }
     });
@@ -22,7 +25,7 @@ class BridgeClient {
     const id = ++this.sequence;
     return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`); });
   }
-  dispose() { this.rejectAll(new Error("Maestro extension deactivated.")); this.child?.kill(); }
+  dispose() { this._disposed = true; if (this._reconnectTimer) clearTimeout(this._reconnectTimer); this.rejectAll(new Error("Maestro extension deactivated.")); this.child?.kill(); }
 }
 
 function item(label, state = vscode.TreeItemCollapsibleState.None, command, key) {

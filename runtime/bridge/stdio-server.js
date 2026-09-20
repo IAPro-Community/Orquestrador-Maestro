@@ -39,7 +39,11 @@ async function parseAndHandle(line, bridge) {
     return errorResponse(null, ERROR_CODES.parse, "Parse error");
   }
 
-  return bridge.handle(request);
+  try {
+    return await bridge.handle(request);
+  } catch {
+    return errorResponse(request.id, ERROR_CODES.internal, "Internal error");
+  }
 }
 
 module.exports = {

@@ -29,15 +29,18 @@ function runCommand(command, options = {}) {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let settled = false;
     const timeout = options.timeoutMs ? setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
     }, options.timeoutMs) : null;
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", (error) => { stderr += error.message; });
+    child.on("error", (error) => { stderr += error.message; if (!settled) { settled = true; if (timeout) clearTimeout(timeout); resolve({ exitCode: 1, stdout, stderr, durationMs: Date.now() - startedAt, timedOut, error: error.message }); } });
     child.on("close", (code) => {
       if (timeout) clearTimeout(timeout);
+      if (settled) return;
+      settled = true;
       resolve({ exitCode: Number.isInteger(code) ? code : 1, stdout, stderr, durationMs: Date.now() - startedAt, timedOut });
     });
   });
