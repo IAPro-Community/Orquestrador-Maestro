@@ -27,7 +27,6 @@ const {
   buildMaestroPromptManifest,
   createResolution,
   finalizeResolution,
-  resolutionTransition,
   resolutionProjection,
   buildResolutionTelemetry,
   createBudgetReservation,
@@ -199,6 +198,18 @@ class MaestroApplication {
   async getRun(runId) { return this.store.getRun(runId); }
   async getTask(taskId) { return this.store.getTask(taskId); }
   async listTasks(filters) { return this.store.listTasks(filters); }
+  async getTaskOutcomeHistory(taskId) {
+    const runs = await this.store.listRuns({ taskId });
+    return Object.freeze(runs
+      .filter((run) => run.metadata?.resolution?.outcome)
+      .sort((a, b) => String(a.completedAt || a.startedAt || "").localeCompare(String(b.completedAt || b.startedAt || "")))
+      .map((run) => Object.freeze({
+        runId: run.id,
+        status: run.status,
+        completedAt: run.completedAt || null,
+        outcome: run.metadata.resolution.outcome
+      })));
+  }
   async listProjects() {
     const projects = await this.store.listProjects();
     return Promise.all(projects.map((project) => this.inspectProject({ projectId: project.id })));
@@ -420,7 +431,7 @@ class MaestroApplication {
       resolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
-    const task = core.createTask({ id: request.semanticTaskId || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
+    const task = core.createTask({ id: request.semanticTaskId || request.semanticTask?.id || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
@@ -458,6 +469,7 @@ class MaestroApplication {
       };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
+      await this._recordTaskOutcomeTransition(task.id, run.id, blockedResolution.outcome);
       await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
       return { task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock };
@@ -514,6 +526,7 @@ class MaestroApplication {
         completedAt,
         metadata: { ...run.metadata, preflightBlock: "budget-conflict", resolution: blockedResolution, cognitiveTelemetry: blockedCognitiveTelemetry }
       });
+      await this._recordTaskOutcomeTransition(task.id, run.id, blockedResolution.outcome);
       await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason });
       return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
@@ -611,6 +624,7 @@ class MaestroApplication {
         completedAt,
         metadata: { ...run.metadata, resolution: failedResolution, cognitiveTelemetry: failedCognitiveTelemetry }
       });
+      await this._recordTaskOutcomeTransition(task.id, run.id, failedResolution.outcome);
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
       await this.record(run.id, "run.failed", { reason: cleanReason });
       return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
@@ -674,7 +688,6 @@ class MaestroApplication {
       reason: governance.blocking[0] || (hasCriticalFinding ? "quality-finding" : reviewBlocking ? "review-blocking" : null),
       now: completedAt
     });
-    const transition = resolutionTransition(run.metadata.resolution, finalizedResolution);
     await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
     await this.store.saveRun({
       ...run,
@@ -684,7 +697,7 @@ class MaestroApplication {
       metadata: { ...run.metadata, resolution: finalizedResolution }
     });
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status, resolutionState: finalizedResolution.outcome.state });
-    if (transition.event) await this.record(run.id, transition.event, { state: finalizedResolution.outcome.state });
+    await this._recordTaskOutcomeTransition(task.id, run.id, finalizedResolution.outcome);
     const finalRun = await this.store.getRun(run.id);
     if (finalRun) {
       // Economic telemetry: provider-reported when the CLI exposes usage,
@@ -771,6 +784,27 @@ class MaestroApplication {
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
     }
     return { run: await this.store.getRun(run.id), verification, evidence: persistedEvidence, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+  }
+
+  async _recordTaskOutcomeTransition(taskId, runId, outcome) {
+    if (!outcome?.state) return null;
+    const history = await this.getTaskOutcomeHistory(taskId);
+    const previous = [...history].reverse().find((entry) => entry.runId !== runId) || null;
+    const hadValidated = history.some((entry) => entry.runId !== runId && entry.outcome?.state === "validated");
+    let type = null;
+    if (outcome.state === "validated" && previous?.outcome?.state !== "validated") {
+      type = hadValidated ? "outcome.revalidated" : "outcome.validated";
+    } else if (previous?.outcome?.state === "validated" && outcome.state !== "validated") {
+      type = "outcome.revoked";
+    }
+    if (!type) return null;
+    await this.record(runId, type, {
+      taskId,
+      previousState: previous?.outcome?.state || null,
+      state: outcome.state,
+      previousRunId: previous?.runId || null
+    });
+    return type;
   }
 
   async _persistProducedEvidence({ evidence, taskId, runId, verificationId }) {
