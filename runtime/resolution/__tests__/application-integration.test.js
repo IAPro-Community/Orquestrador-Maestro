@@ -61,9 +61,11 @@ test("adaptive resolution observes a real run without changing execution", async
 
   assert.equal(provider.prompts.length, 1);
   assert.equal(outcome.run.status, "completed");
-  assert.equal(outcome.run.metadata.adaptiveResolution.mode, "shadow");
-  assert.equal(outcome.run.metadata.adaptiveResolution.strategy, "targeted");
-  assert.deepEqual(outcome.run.metadata.adaptiveResolution.evidenceAdvice.selected.map((item) => item.id), ["failure", "source"]);
+  assert.equal(outcome.run.metadata.resolution.engine, "maestro-resolution-engine");
+  assert.equal(outcome.run.metadata.resolution.mode, "shadow");
+  assert.equal(outcome.run.metadata.resolution.strategy, "targeted");
+  assert.deepEqual(outcome.run.metadata.resolution.evidence.selected.map((item) => item.id), ["failure", "source"]);
+  assert.equal(outcome.run.metadata.resolution.outcome.state, "validated");
 
   const resolution = outcome.run.metadata.cognitiveTelemetry.resolution;
   assert.equal(resolution.hardValidated, true);
