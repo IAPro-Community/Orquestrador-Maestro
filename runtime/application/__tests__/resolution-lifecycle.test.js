@@ -280,9 +280,10 @@ test("provider evidence is sanitized before durable persistence", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-evidence-redaction-"));
   const token = "ghp_" + "A".repeat(40);
   const provider = new Adapter("fake", 0, [{
-    type: "provider-evidence",
+    type: `provider-${token}`,
     content: `provider diagnostic Bearer ${token} at /home/alice/private/repo`,
-    producer: "provider",
+    producer: `provider-${token}`,
+    artifactId: "artifact-does-not-exist",
     metadata: { authorization: `Bearer ${token}`, path: "/home/alice/private/repo" }
   }]);
   const app = createApp(root, [provider]);
@@ -298,6 +299,7 @@ test("provider evidence is sanitized before durable persistence", async () => {
   const persisted = await app.listEvidence({ taskId: outcome.run.taskId });
   const serialized = JSON.stringify(persisted);
   assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].artifactId, undefined);
   assert.doesNotMatch(serialized, new RegExp(token, "u"));
   assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
   assert.match(serialized, /redacted/u);
