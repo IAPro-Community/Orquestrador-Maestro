@@ -1,5 +1,7 @@
 "use strict";
 
+const { deriveMissionResolutionFromTaskStates } = require("../resolution-state");
+
 function sortByTime(values = []) {
   return [...values].sort((a, b) => String(a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.createdAt || b.startedAt || b.completedAt || "")));
 }
@@ -88,19 +90,29 @@ async function buildMissionProofBundle({ store, missionId } = {}) {
     const bundle = await buildTaskProofBundle({ store, taskId: task.id });
     if (bundle) bundles.push(bundle);
   }
-  const states = bundles.map((bundle) => bundle.latestOutcome?.state).filter(Boolean);
-  const validated = states.length > 0 && states.every((state) => state === "validated");
+  const derivedResolution = deriveMissionResolutionFromTaskStates(
+    bundles.map((bundle) => ({
+      taskId: bundle.task.id,
+      state: bundle.latestOutcome?.state || "needs_attention"
+    })),
+    { objective: mission.objective }
+  );
+  const missionResolution = mission.metadata?.resolution?.scope === "mission"
+    ? mission.metadata.resolution
+    : derivedResolution;
   return Object.freeze({
     schemaVersion: 1,
     kind: "mission-proof-bundle",
-    mission: Object.freeze({ id: mission.id, objective: mission.objective, status: mission.status }),
+    mission: Object.freeze({
+      id: mission.id,
+      objective: mission.objective,
+      status: mission.status,
+      resolution: missionResolution
+    }),
     tasks: Object.freeze(bundles),
     summary: Object.freeze({
-      tasks: bundles.length,
-      validatedTasks: states.filter((state) => state === "validated").length,
-      failedTasks: states.filter((state) => state === "failed").length,
-      needsAttentionTasks: states.filter((state) => state === "needs_attention").length,
-      validated
+      ...missionResolution.summary,
+      validated: missionResolution.state === "validated"
     })
   });
 }
