@@ -91,6 +91,20 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
   const qualityRegressions = promotionEvidence.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted !== true).length;
   const qualityImprovements = promotionEvidence.filter((sample) => sample.baseline?.accepted !== true && sample.treatment?.accepted === true).length;
 
+  const resolutionObserved = promotionEvidence
+    .map((sample) => sample.features?.treatmentResolution)
+    .filter((value) => value && typeof value === "object");
+  const firstPassObserved = resolutionObserved.filter((value) =>
+    Number.isInteger(value.firstPassValidatedTaskCount) && Number.isInteger(value.taskCount) && value.taskCount > 0);
+  const firstPassValidatedTasks = firstPassObserved.reduce((sum, value) => sum + value.firstPassValidatedTaskCount, 0);
+  const firstPassTotalTasks = firstPassObserved.reduce((sum, value) => sum + value.taskCount, 0);
+  const retryObserved = resolutionObserved.filter((value) => Number.isInteger(value.automaticRetries));
+  const escalationObserved = resolutionObserved.filter((value) => Number.isInteger(value.escalations));
+  const switchObserved = resolutionObserved.filter((value) => Number.isInteger(value.providerSwitches));
+  const ttvo = resolutionObserved
+    .filter((value) => value.state === "validated" && Number.isFinite(value.tokensToValidatedOutcome))
+    .map((value) => value.tokensToValidatedOutcome);
+
   return Object.freeze({
     schemaVersion: 1,
     datasetFingerprint: typeof dataset.datasetFingerprint === "string" ? dataset.datasetFingerprint : null,
@@ -124,6 +138,15 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
       medianTokenSavings,
       medianRelativeTokenSavings: median(relativeSavings),
       medianDurationSavingsMs: median(durationSavings)
+    }),
+    operational: Object.freeze({
+      observedMissions: resolutionObserved.length,
+      missionValidationRate: rate(resolutionObserved.filter((value) => value.state === "validated").length, resolutionObserved.length),
+      firstPassTaskValidationRate: rate(firstPassValidatedTasks, firstPassTotalTasks),
+      retryMissionRate: rate(retryObserved.filter((value) => value.automaticRetries > 0).length, retryObserved.length),
+      escalationMissionRate: rate(escalationObserved.filter((value) => value.escalations > 0).length, escalationObserved.length),
+      providerSwitchMissionRate: rate(switchObserved.filter((value) => value.providerSwitches > 0).length, switchObserved.length),
+      medianTokensToValidatedOutcome: median(ttvo)
     }),
     limitation: "This gate can declare evidence readiness only. It does not activate a policy, modify Runtime defaults, or train a model."
   });
