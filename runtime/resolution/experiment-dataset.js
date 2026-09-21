@@ -55,6 +55,28 @@ function policyFingerprintFromRun(run) {
     || nonEmptyOrNull(run?.driver?.config?.policyFingerprint);
 }
 
+function nonNegativeIntegerOrNull(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function resolutionMetricsFromRun(run) {
+  const value = run?.resolution;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const taskCount = nonNegativeIntegerOrNull(value.taskCount);
+  const validatedTaskCount = nonNegativeIntegerOrNull(value.validatedTaskCount);
+  if (taskCount === null || validatedTaskCount === null) return null;
+  return Object.freeze({
+    state: nonEmptyOrNull(value.state),
+    taskCount,
+    validatedTaskCount,
+    firstPassValidatedTaskCount: nonNegativeIntegerOrNull(value.firstPassValidatedTaskCount),
+    automaticRetries: nonNegativeIntegerOrNull(value.automaticRetries),
+    escalations: nonNegativeIntegerOrNull(value.escalations),
+    providerSwitches: nonNegativeIntegerOrNull(value.providerSwitches),
+    tokensToValidatedOutcome: nonNegativeIntegerOrNull(value.tokensToValidatedOutcome)
+  });
+}
+
 function relativeSavings(control, treatment) {
   if (!Number.isFinite(control) || !Number.isFinite(treatment) || control <= 0) return null;
   return Number(((control - treatment) / control).toFixed(6));
@@ -268,7 +290,9 @@ function normalizeBenchmarkPair(baselineRun, treatmentRun, { baselineCondition, 
       container: containerPair,
       maestroRuntimeCommit: nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit) || nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit),
       networkMode: nonEmptyOrNull(treatmentRun?.environment?.networkMode) || nonEmptyOrNull(baselineRun?.environment?.networkMode),
-      forwardedEnvNames: Object.freeze(normalizedStringList(treatmentRun?.environment?.forwardedEnvNames))
+      forwardedEnvNames: Object.freeze(normalizedStringList(treatmentRun?.environment?.forwardedEnvNames)),
+      baselineResolution: resolutionMetricsFromRun(baselineRun),
+      treatmentResolution: resolutionMetricsFromRun(treatmentRun)
     }),
     observed: observedMetrics(baseline, treatment),
     promotionEligible: Boolean(policyFingerprint) && integrity.valid && isolatedPair
@@ -369,6 +393,7 @@ module.exports = {
   TRUSTED_TOKEN_SOURCES,
   TRUSTED_TOKEN_CONFIDENCE,
   tokenEvidenceFromRun,
+  resolutionMetricsFromRun,
   normalizeAdaptiveContextReport,
   normalizeAdaptivePlanningReport,
   normalizeBenchmarkPair,
