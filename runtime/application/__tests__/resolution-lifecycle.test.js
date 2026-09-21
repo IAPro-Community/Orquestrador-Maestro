@@ -330,3 +330,36 @@ test("pre-run provider failure is anchored to the fallback run audit trail", asy
   const events = await app.store.listEvents({ runId: outcome.run.id });
   assert.equal(events.some((event) => event.type === "provider.handoff" && event.data?.preRunFailure === true), true);
 });
+
+
+test("mission proof collapses a legacy semantic placeholder into the canonical runtime task", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-proof-legacy-task-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const mission = await app.createMission({ workspacePath: root, objective: "Legacy-compatible proof", status: "running" });
+
+  await app.store.saveTask({
+    id: "task-1",
+    projectId: mission.projectId,
+    description: "Legacy graph placeholder",
+    metadata: {
+      missionId: mission.id,
+      graphId: "graph-1",
+      semantic: { id: "task-1", objective: "Legacy-compatible proof" }
+    }
+  });
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    missionId: mission.id,
+    description: "Legacy-compatible proof",
+    semanticTaskId: "task-1",
+    semanticTask: { id: "task-1", objective: "Legacy-compatible proof", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  const proof = await app.getMissionProofBundle(mission.id);
+  assert.equal(proof.tasks.length, 1);
+  assert.equal(proof.tasks[0].task.id, outcome.run.taskId);
+  assert.equal(proof.summary.validated, true);
+});
