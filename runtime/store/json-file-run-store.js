@@ -261,11 +261,17 @@ class JsonFileRunStore extends RunStore {
         // real permission error.
         let contended = error?.code === "EEXIST";
         if (!contended && error?.code === "EPERM" && process.platform === "win32") {
-          // Windows can return EPERM for a transient create/delete race on an
-          // exclusive lock file. The file may already be gone by the time we
-          // inspect it, so retry through the normal contention path instead
-          // of treating that race as a permanent permission failure.
-          contended = true;
+          // Windows can return EPERM for an existing lock or for the tiny
+          // create/delete race where the file disappears before inspection.
+          // A second permission error is a real ACL problem and must surface
+          // immediately instead of being disguised as a lock timeout.
+          try {
+            await fs.stat(this.lockPath);
+            contended = true;
+          } catch (statError) {
+            if (statError?.code === "ENOENT") contended = true;
+            else throw error;
+          }
         }
         if (!contended) throw error;
         if (await this._isStaleFileLock()) {
