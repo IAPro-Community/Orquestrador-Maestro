@@ -355,12 +355,44 @@ class JsonFileRunStore extends RunStore {
     return state;
   }
 
+  async _syncParentDirectory() {
+    // POSIX durability requires the directory entry created by rename() to be
+    // synced as well. Windows does not expose portable directory fsync
+    // semantics through Node, so the durable temp-file sync remains the
+    // strongest portable guarantee there.
+    if (process.platform === "win32") return;
+    let directoryHandle;
+    try {
+      directoryHandle = await fs.open(path.dirname(this.filePath), "r");
+      await directoryHandle.sync();
+    } catch (error) {
+      if (!["EINVAL", "ENOTSUP", "EISDIR", "EPERM"].includes(error?.code)) throw error;
+    } finally {
+      try { await directoryHandle?.close(); } catch { /* best-effort close */ }
+    }
+  }
+
   async _flush() {
     const temporaryPath = `${this.filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
-    await fs.writeFile(temporaryPath, `${JSON.stringify(this._state, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-    await fs.rename(temporaryPath, this.filePath);
-    try { await fs.chmod(this.filePath, 0o600); } catch { /* Windows does not implement POSIX modes. */ }
-    try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch { /* best-effort */ }
+    let handle;
+    try {
+      handle = await fs.open(temporaryPath, "w", 0o600);
+      await handle.writeFile(`${JSON.stringify(this._state, null, 2)}\n`, "utf8");
+      // Atomic rename prevents readers from seeing a partial generation, but
+      // it does not make the temp file's data durable across a crash. Sync the
+      // file before publishing the new generation.
+      await handle.sync();
+      await handle.close();
+      handle = null;
+      await fs.rename(temporaryPath, this.filePath);
+      await this._syncParentDirectory();
+      try { await fs.chmod(this.filePath, 0o600); } catch { /* Windows does not implement POSIX modes. */ }
+      try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch { /* best-effort */ }
+    } catch (error) {
+      try { await handle?.close(); } catch { /* preserve original error */ }
+      try { await fs.unlink(temporaryPath); } catch (cleanupError) { if (cleanupError?.code !== "ENOENT") { /* best-effort cleanup */ } }
+      throw error;
+    }
   }
 }
 
