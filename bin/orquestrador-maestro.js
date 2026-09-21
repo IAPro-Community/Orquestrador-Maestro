@@ -1919,7 +1919,15 @@ async function handleGoCommand(args, planningOnly = false) {
     resolutionMode
   });
   const { TaskLifecycleMonitor } = require(path.join(rootDir, "runtime", "planner", "task-lifecycle-monitor"));
-  const lifecycleMonitor = TaskLifecycleMonitor.attach({ executor, app, graphs, store: app.store, missionId: mission.id });
+  const lifecycleMonitor = TaskLifecycleMonitor.attach({
+    executor,
+    app,
+    graphs,
+    store: app.store,
+    missionId: mission.id,
+    projectId: project.id,
+    graphId: planResult.taskGraph.id
+  });
 
   const runningTasks = new Set();
   const updateSpinner = () => {
