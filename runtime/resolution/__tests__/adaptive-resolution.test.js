@@ -58,7 +58,7 @@ test("validated outcome telemetry never invents token cost", () => {
 
   const measured = buildResolutionTelemetry({
     plan,
-    cognitiveTelemetry: { tokenSource: "provider-reported", tokenInput: 500, tokenOutput: 120, durationMs: 25 },
+    cognitiveTelemetry: { tokenSource: "provider-reported", usageComplete: true, tokenInput: 500, tokenOutput: 120, durationMs: 25 },
     verification: { status: "passed" },
     completion: { eligible: true },
     review: { status: "disabled" },
@@ -67,6 +67,17 @@ test("validated outcome telemetry never invents token cost", () => {
   });
   assert.equal(measured.observedTokensToValidatedOutcome, 620);
   assert.equal(measured.tokenMetricCompleteness, "provider-only");
+
+  const partial = buildResolutionTelemetry({
+    plan,
+    cognitiveTelemetry: { tokenSource: "provider-reported", usageComplete: false, tokenInput: 500, tokenOutput: 120, durationMs: 25 },
+    verification: { status: "passed" },
+    completion: { eligible: true },
+    review: { status: "approved" },
+    status: "completed"
+  });
+  assert.equal(partial.observedTokensToValidatedOutcome, null);
+  assert.equal(partial.tokenMetricCompleteness, "partial-provider-only");
   assert.equal(measured.promptEvaluation.comparisonReady, true);
   assert.equal(measured.promptEvaluation.recommendationOverlapRate, 1);
   assert.equal(measured.maestroPrompt.promptHash, promptManifest.promptHash);
