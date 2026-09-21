@@ -6,7 +6,7 @@ export type EntityState<T extends { id: string }> = Readonly<{
 export function upsertEntity<T extends { id: string }>(state: EntityState<T>, entity: T): EntityState<T> {
   const exists = Object.prototype.hasOwnProperty.call(state.byId, entity.id);
   return Object.freeze({
-    byId: Object.freeze({ ...state.byId, [entity.id]: entity }),
+    byId: Object.freeze({ ...state.byId, [entity.id]: Object.freeze({ ...(state.byId[entity.id] || {}), ...entity }) }),
     ids: Object.freeze(exists ? [...state.ids] : [...state.ids, entity.id])
   });
 }
