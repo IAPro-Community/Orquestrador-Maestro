@@ -38,10 +38,16 @@ class LaneExecutor extends EventEmitter {
       // Mission lookup is best-effort; fall back to the mission id.
     }
 
-    const markFailed = (task, errorMessage) => {
-      results[task.id] = { status: "failed", error: errorMessage };
+    const markFailed = (task, errorMessage, details = {}) => {
+      results[task.id] = {
+        status: "failed",
+        error: errorMessage,
+        ...(details.result ? { result: details.result } : {}),
+        ...(details.resolutionState ? { resolutionState: details.resolutionState } : {}),
+        ...(details.failureClass ? { failureClass: details.failureClass } : {})
+      };
       failed.add(task.id);
-      this.emit("task.failed", { ...task, error: errorMessage });
+      this.emit("task.failed", { ...task, error: errorMessage, resolutionState: details.resolutionState || null });
     };
 
     return new Promise((resolve, reject) => {
@@ -54,7 +60,7 @@ class LaneExecutor extends EventEmitter {
           const blockingFailures = deps.filter((dep) => failed.has(dep));
           if (blockingFailures.length === 0) continue;
           pending.splice(i, 1);
-          markFailed(task, `blocked by failed dependency: ${blockingFailures.join(", ")}`);
+          markFailed(task, `blocked by failed dependency: ${blockingFailures.join(", ")}`, { resolutionState: "blocked" });
         }
 
         while (running.size < this.maxParallel) {
@@ -69,7 +75,7 @@ class LaneExecutor extends EventEmitter {
             ? task.semanticMetadata
             : task;
           if (!isScopeExecutionEligible(semanticTask)) {
-            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`);
+            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`, { resolutionState: "blocked", failureClass: "policy-block" });
             continue;
           }
           running.add(task.id);
@@ -105,7 +111,11 @@ class LaneExecutor extends EventEmitter {
                   || result?.governanceBlocking?.[0]
                   || (resolutionState && resolutionState !== "validated" ? `resolution outcome: ${resolutionState}` : null)
                   || `run finished with status: ${runStatus || "unknown"}`;
-                markFailed(task, reason);
+                markFailed(task, reason, {
+                  result,
+                  resolutionState: resolutionState || (runStatus === "blocked" ? "blocked" : "failed"),
+                  failureClass: result?.failureClass || null
+                });
                 return;
               }
               results[task.id] = { status: "completed", result };
@@ -113,7 +123,7 @@ class LaneExecutor extends EventEmitter {
               this.emit("task.completed", task);
             })
             .catch((error) => {
-              markFailed(task, error.message);
+              markFailed(task, error.message, { resolutionState: "failed", failureClass: "provider-failure" });
             })
             .finally(() => {
               running.delete(task.id);
@@ -128,7 +138,7 @@ class LaneExecutor extends EventEmitter {
           if (hasFailedDependency) return checkNext();
 
           for (const task of pending.splice(0)) {
-            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`);
+            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`, { resolutionState: "blocked" });
           }
         }
 
