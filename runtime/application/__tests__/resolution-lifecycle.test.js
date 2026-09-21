@@ -72,7 +72,7 @@ test("provider handoff creates a checkpoint and continues the same semantic task
   assert.equal(fallback.requests.length, 1);
   assert.equal(primary.requests[0].model, "primary-only-model");
   assert.equal(fallback.requests[0].model, undefined);
-  assert.match(fallback.requests[0].prompt, /Provider handoff checkpoint/u);
+  assert.match(fallback.requests[0].prompt, /Provider-neutral continuation checkpoint/u);
 
   const runs = await app.listRuns({ taskId: "handoff-task" });
   assert.equal(runs.length, 2);
