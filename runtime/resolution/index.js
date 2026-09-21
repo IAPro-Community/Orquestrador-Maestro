@@ -6,6 +6,7 @@ module.exports = {
   ...require("./resolution-state"),
   ...require("./resolution-engine"),
   ...require("./evidence-ranker"),
+  ...require("./evidence/signal-extractor"),
   ...require("./prompt-manifest"),
   ...require("./context-experiment"),
   ...require("./progressive-planning"),
