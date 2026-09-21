@@ -256,9 +256,9 @@ The derived evidence report may calculate mission validation rate, first-pass Ta
 
 The JSON RunStore serializes independent Maestro processes with an OS-visible lock file.
 
-Every mutation reloads the latest committed file inside the critical section and persists through atomic temporary-file rename.
+Every mutation reloads the latest committed file inside the critical section, fsyncs the private temporary generation, publishes it through atomic rename and, where supported, fsyncs the parent directory entry.
 
-This prevents stale in-memory writers from silently overwriting concurrent committed state while retaining the existing portable JSON store.
+This prevents stale in-memory writers from silently overwriting concurrent committed state and reduces crash/power-loss exposure while retaining the existing portable JSON store.
 
 ## Surfaces
 
