@@ -255,7 +255,20 @@ class JsonFileRunStore extends RunStore {
         }
         return async () => this._releaseFileLock(token);
       } catch (error) {
-        if (error?.code !== "EEXIST") throw error;
+        // On Windows, opening an existing/contended lock with "wx" may
+        // surface as EPERM instead of EEXIST. Treat EPERM as contention only
+        // when the lock path can actually be observed; otherwise preserve the
+        // real permission error.
+        let contended = error?.code === "EEXIST";
+        if (!contended && error?.code === "EPERM") {
+          try {
+            await fs.stat(this.lockPath);
+            contended = true;
+          } catch (statError) {
+            if (statError?.code !== "ENOENT") throw error;
+          }
+        }
+        if (!contended) throw error;
         if (await this._isStaleFileLock()) {
           try { await fs.unlink(this.lockPath); } catch (unlinkError) { if (unlinkError?.code !== "ENOENT") throw unlinkError; }
           continue;
