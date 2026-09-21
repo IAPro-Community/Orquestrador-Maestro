@@ -40,3 +40,8 @@ test("protocol v2 conversion preserves the canonical runId on task-family events
   assert.equal(event.projectId, "project-1");
   assert.equal(event.payload.data.state, "validated");
 });
+
+
+test("blocked runs remain valid protocol v2 task-family events", () => {
+  assert.equal(familyOf("run.blocked"), "task.*");
+});
