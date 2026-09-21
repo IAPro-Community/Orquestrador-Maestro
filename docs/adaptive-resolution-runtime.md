@@ -2,7 +2,7 @@
 
 ## Status
 
-Experimental V1, shadow-only.
+Experimental V2, context-budget experiment; normal Runtime execution remains shadow-only.
 
 This branch extends the current JavaScript Runtime. It does not introduce a second RunStore, a second cognitive-budget system, or a competing governance layer.
 
@@ -15,7 +15,7 @@ The current Maestro already owns execution, cognitive budgets, verification, evi
 1. advisory ranking of candidate evidence before future context expansion;
 2. validated-outcome metrics attached to the existing `cognitiveTelemetry`.
 
-V1 still never changes which context the provider actually receives. It measures first. In addition to V0 outcome telemetry, it now records a hash-only manifest of the prompt authored by Maestro and compares candidate evidence against that observable prompt surface.
+V2 targets the real planning-context path. It fixes object token accounting in ContextBudget, removes DEV items already represented by context brief, compacts the brief object to the content and provenance actually consumed by planning, and adds an explicit control/treatment experiment for context-brief size. Normal execution keeps the existing 8,000-character brief baseline.
 
 ## Architecture
 
@@ -110,6 +110,33 @@ V1 compares selected evidence candidates that have SHA-256 content hashes agains
 
 Zero overlap is not automatically bad; it may mean the optimizer found useful evidence that the current prompt never included.
 
+## V2 Context Budget Experiment
+
+The existing ContextEngine had two measurable sources of avoidable token cost:
+
+1. object-valued context items were charged as a fixed 25-token estimate even when JSON serialization contained thousands of characters;
+2. `context.brief` and raw `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md` could travel together even when the brief manifest already proved that the same DEV source was represented.
+
+V2 fixes both. ContextBudget now evaluates the serialized `{ intent, items }` envelope that SemanticPlanner actually receives, so ordinary selected context stays within the configured token estimate (critical/user-decision items retain the existing override behavior). ContextEngine prefers the compact `context.brief`; DEV items covered by its manifest are removed. If the brief itself cannot fit the requested token budget, ContextEngine falls back to the raw DEV items instead of silently dropping both representations.
+
+The persisted/forwarded brief object is also reduced to `task`, `content`, and minimal manifest provenance. Budget/state/files metadata that duplicated the briefing content is no longer sent to the semantic planner.
+
+For benchmark experiments, ContextEngine accepts an explicit authorized contract with `control` or `treatment`, an opaque `pairId`, and a strategy:
+
+- `targeted`: 4,000 briefing characters;
+- `balanced`: 8,000 characters (current baseline);
+- `deep`: 12,000 characters.
+
+These are experiment envelopes, not claims of optimality. For treatment runs, Maestro first builds the current 8,000-character baseline locally, then builds the candidate envelope. A treatment is accepted only when the authority entries that exist in the project — DEV state summary, `AGENTS.md`, `DEV/HANDOFF.md`, and `DEV/SPECS/ACTIVE.md` — keep the same selected-content digest as the baseline. Missing or changed authority evidence causes an immediate fallback to the already-built baseline.
+
+Use:
+
+```bash
+node scripts/adaptive-context-benchmark.js --project-path . --task "current objective" --strategy targeted
+```
+
+The report compares deterministic serialized-token estimates and authority coverage. Fallback runs retain attempted missing/changed-authority counts separately from the final baseline coverage, so failed experiments remain diagnosable. Provider-reported input/output tokens and hard validated outcomes remain the higher-level metric for later stages.
+
 ## Shadow Contract
 
 V1 remains deliberately non-enforcing:
@@ -152,6 +179,10 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 
 - `runtime/resolution/evidence-ranker.js`: deterministic evidence ranking and deduplication.
 - `runtime/resolution/prompt-manifest.js`: privacy-safe observation of Maestro-authored prompt sections and recommendation overlap.
+- `runtime/resolution/context-experiment.js`: explicit context-brief control/treatment policy, authority-coverage gate, and paired metrics.
+- `runtime/context/context-budget.js`: serialization-aware token estimation.
+- `runtime/context/context-engine.js`: brief compaction, DEV deduplication, fallback, and experiment metrics.
+- `scripts/adaptive-context-benchmark.js`: deterministic paired benchmark for a real project.
 - `runtime/resolution/adaptive-resolution.js`: budget mapping, shadow plan, outcome telemetry, aggregation.
 - `runtime/resolution/__tests__/adaptive-resolution.test.js`: deterministic unit tests.
 - `runtime/resolution/__tests__/application-integration.test.js`: integration contract with the existing application/runtime.
@@ -162,8 +193,8 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 
 1. **V0 — shadow:** implemented; collect validated outcome telemetry without changing execution.
 2. **V1 — evidence evaluation:** implemented for the Maestro-authored prompt surface; compare ranked evidence hashes against prompt manifests and validated outcomes.
-3. **V2 — progressive context experiment:** next; allow advisory-selected context in controlled benchmark scenarios.
-4. **V3 — progressive escalation:** evaluate targeted -> balanced -> deep using validation failures and evidence gaps.
+3. **V2 — progressive context experiment:** implemented on ContextEngine with real serialization accounting, manifest-based deduplication, authority gates, and paired brief budgets.
+4. **V3 — progressive escalation:** next; escalate targeted -> balanced -> deep when planning/validation evidence shows the smaller context was insufficient.
 5. **V4 — learned policy:** only after enough validated, privacy-safe runs exist to beat deterministic baselines.
 
 A learned model is not the starting point. The dataset and rollback criteria come first.

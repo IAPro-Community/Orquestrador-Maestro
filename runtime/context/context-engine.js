@@ -2,22 +2,74 @@
 
 const { gatherPreflight } = require("../planner/context-preflight");
 const { ContextBudget } = require("./context-budget");
+const {
+  BASELINE_BRIEF_MAX_CHARS,
+  normalizeContextExperiment,
+  requestedBriefMaxChars,
+  evaluateBriefAuthorityCoverage,
+  buildContextExperimentMetrics
+} = require("../resolution/context-experiment");
+
+function compactBrief(brief) {
+  if (!brief || typeof brief !== "object") return null;
+  const entries = Array.isArray(brief.manifest?.entries)
+    ? brief.manifest.entries.map((entry) => ({
+        path: entry.path,
+        reason: entry.reason,
+        chars: entry.chars,
+        truncated: entry.truncated === true,
+        digest: entry.digest,
+        strategy: entry.strategy,
+        sourceDigest: entry.sourceDigest || null,
+        range: entry.range || null
+      }))
+    : [];
+  return {
+    task: brief.task || "",
+    content: typeof brief.content === "string" ? brief.content : "",
+    manifest: {
+      version: brief.manifest?.version || 1,
+      headCommit: brief.manifest?.headCommit || null,
+      contentDigest: brief.manifest?.contentDigest || null,
+      entries
+    }
+  };
+}
+
+function briefCoveredPaths(items) {
+  const brief = items.find((item) => item.key === "context.brief");
+  return new Set((brief?.value?.manifest?.entries || []).map((entry) => entry.path));
+}
+
+function deduplicateBriefCoveredDevItems(items) {
+  const covered = briefCoveredPaths(items);
+  if (covered.size === 0) return { primary: items, duplicates: [] };
+  const duplicates = items.filter((item) => {
+    if (!String(item.key || "").startsWith("devstate.")) return false;
+    const sourcePath = item.sources?.[0]?.path;
+    return typeof sourcePath === "string" && covered.has(sourcePath);
+  });
+  return {
+    primary: items.filter((item) => !duplicates.includes(item)),
+    duplicates
+  };
+}
 
 class ContextEngine {
   constructor({ workspacePath, semanticRanker }) {
     this.workspacePath = workspacePath;
-    this.semanticRanker = semanticRanker; // Optional abstraction
+    this.semanticRanker = semanticRanker;
+    this.lastBuildMetrics = null;
   }
 
-  /**
-   * Deterministic Discovery
-   * Reuses context-preflight as a ContextSource.
-   */
-  async _discoverFacts(intent) {
-    const items = [];
-    const facts = gatherPreflight(this.workspacePath, intent); // real user intent flows into preflight
+  getLastBuildMetrics() {
+    return this.lastBuildMetrics ? JSON.parse(JSON.stringify(this.lastBuildMetrics)) : null;
+  }
 
-    // Convert preflight facts into ContextItem contracts
+  async _discoverFacts(intent, options = {}) {
+    const items = [];
+    const facts = gatherPreflight(this.workspacePath, intent, { briefMaxChars: options.briefMaxChars });
+
     if (facts.projectName) {
       items.push({
         key: "project.name",
@@ -54,7 +106,7 @@ class ContextEngine {
     if (facts.contextBrief && typeof facts.contextBrief === "object") {
       items.push({
         key: "context.brief",
-        value: facts.contextBrief,
+        value: compactBrief(facts.contextBrief),
         kind: "FACT",
         confidence: 1,
         relevance: 1,
@@ -78,58 +130,97 @@ class ContextEngine {
     return items;
   }
 
-  /**
-   * Main entry point to build TaskRelevantContext.
-   *
-   * @param {string} intent - User intent.
-   * @param {number} maxTokens - Budget allowed.
-   */
-  async buildContext(intent, maxTokens = 8000) {
-    // 1. Deterministic Discovery
-    const items = await this._discoverFacts(intent);
+  async buildContext(intent, maxTokens = 8000, options = {}) {
+    const mode = options.adaptiveResolutionMode || "shadow";
+    const contract = normalizeContextExperiment({ mode, experiment: options.adaptiveResolutionExperiment });
+    const requestedMaxChars = requestedBriefMaxChars(contract);
 
-    // 2. Local AI Semantic Enrichment
+    let baselineItems = null;
+    if (contract?.arm === "treatment" && requestedMaxChars !== BASELINE_BRIEF_MAX_CHARS) {
+      baselineItems = await this._discoverFacts(intent, { briefMaxChars: BASELINE_BRIEF_MAX_CHARS });
+    }
+
+    let items = await this._discoverFacts(intent, { briefMaxChars: requestedMaxChars });
+    const candidateBrief = items.find((item) => item.key === "context.brief")?.value;
+    const baselineBrief = baselineItems?.find((item) => item.key === "context.brief")?.value || candidateBrief;
+    let coverage = evaluateBriefAuthorityCoverage(this.workspacePath, candidateBrief, baselineBrief);
+    const attemptedCoverage = coverage;
+    let effectiveMaxChars = requestedMaxChars;
+    let fallbackReason = null;
+
+    if (contract?.arm === "treatment" && !coverage.safe) {
+      fallbackReason = coverage.changed.length > 0 ? "changed-authority-context" : "missing-authority-context";
+      effectiveMaxChars = BASELINE_BRIEF_MAX_CHARS;
+      items = baselineItems || await this._discoverFacts(intent, { briefMaxChars: effectiveMaxChars });
+      const fallbackBrief = items.find((item) => item.key === "context.brief")?.value;
+      coverage = evaluateBriefAuthorityCoverage(this.workspacePath, fallbackBrief, fallbackBrief);
+    }
+
     if (this.semanticRanker) {
       const enrichment = await this.semanticRanker.rankAndEnrich(intent, items);
-
-      // Apply enrichment (without transforming INFERENCE into FACT)
       for (const item of items) {
         if (enrichment[item.key]) {
           const enrich = enrichment[item.key];
-          // Update relevance but keep FACT if it was a FACT
-          if (enrich.relevance !== undefined) {
-            item.relevance = enrich.relevance;
-          }
-          // Enrichment may suggest confidence updates but deterministic facts stay confidence 1
-          if (item.kind !== "FACT" && enrich.confidence !== undefined) {
-             item.confidence = enrich.confidence;
-          }
+          if (enrich.relevance !== undefined) item.relevance = enrich.relevance;
+          if (item.kind !== "FACT" && enrich.confidence !== undefined) item.confidence = enrich.confidence;
         }
       }
-
-      // Add new INFERENCES generated by the AI
       if (enrichment.newInferences) {
-         for (const inf of enrichment.newInferences) {
-            items.push({
-              key: inf.key,
-              value: inf.value,
-              kind: "INFERENCE", // Never FACT
-              confidence: inf.confidence || 0.5,
-              relevance: inf.relevance || 1,
-              sources: inf.sources || [{ type: "ai-enrichment" }]
-            });
-         }
+        for (const inf of enrichment.newInferences) {
+          items.push({
+            key: inf.key,
+            value: inf.value,
+            kind: "INFERENCE",
+            confidence: inf.confidence || 0.5,
+            relevance: inf.relevance || 1,
+            sources: inf.sources || [{ type: "ai-enrichment" }]
+          });
+        }
       }
     }
 
-    // 3. Context Selection / Budget
-    const budgetedItems = ContextBudget.applyBudget(items, maxTokens);
+    const { primary, duplicates } = deduplicateBriefCoveredDevItems(items);
+    let budgetedItems = ContextBudget.applyBudget(primary, maxTokens, { intent });
+    const briefSelected = budgetedItems.some((item) => item.key === "context.brief");
 
-    return {
-      intent,
-      items: budgetedItems
-    };
+    if (!briefSelected && duplicates.length > 0) {
+      const withoutBrief = items.filter((item) => item.key !== "context.brief");
+      budgetedItems = ContextBudget.applyBudget(withoutBrief, maxTokens, { intent });
+    }
+
+    const estimatedTokens = ContextBudget.estimateContextTokens(intent, budgetedItems);
+    const briefItem = budgetedItems.find((item) => item.key === "context.brief");
+    const briefUsedChars = briefItem?.value?.content?.length || 0;
+    const experiment = buildContextExperimentMetrics({
+      contract,
+      requestedMaxChars,
+      effectiveMaxChars,
+      coverage,
+      attemptedCoverage,
+      fallbackReason,
+      estimatedTokens,
+      selectedItems: budgetedItems.length,
+      discoveredItems: items.length,
+      deduplicatedItems: briefSelected ? duplicates.length : 0,
+      briefUsedChars
+    });
+
+    this.lastBuildMetrics = Object.freeze({
+      version: 1,
+      estimatedTokens,
+      maxTokens,
+      discoveredItems: items.length,
+      selectedItems: budgetedItems.length,
+      deduplicatedItems: briefSelected ? duplicates.length : 0,
+      briefSelected,
+      briefMaxChars: effectiveMaxChars,
+      briefUsedChars,
+      authorityCoverage: coverage,
+      experiment
+    });
+
+    return { intent, items: budgetedItems };
   }
 }
 
-module.exports = { ContextEngine };
+module.exports = { ContextEngine, compactBrief, deduplicateBriefCoveredDevItems };

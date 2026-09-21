@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const { rankEvidenceCandidates } = require("../evidence-ranker");
 const { buildResolutionPlan, buildResolutionTelemetry, summarizeResolutionRuns } = require("../adaptive-resolution");
 const { buildMaestroPromptManifest, sha256 } = require("../prompt-manifest");
+const { normalizeContextExperiment, requestedBriefMaxChars } = require("../context-experiment");
 
 test("evidence ranker deduplicates and prefers high-value bounded evidence", () => {
   const candidates = [
@@ -101,4 +102,13 @@ test("evidence candidates reject path-like ids and non-digest content hashes", (
   assert.throws(() => rankEvidenceCandidates([
     { id: "source-file", kind: "source", contentHash: "raw-content", estimatedTokens: 10, relevance: 1, reliability: 1, freshness: 1, failureRelation: 1, dependencyProximity: 1 }
   ], { strategy: "targeted", tokenBudget: 100 }), /SHA-256/u);
+});
+
+
+test("context experiment policy is explicit and keeps control on the existing baseline", () => {
+  const control = normalizeContextExperiment({ mode: "experiment", experiment: { authorized: true, arm: "control", strategy: "targeted", pairId: "pair-control" } });
+  const treatment = normalizeContextExperiment({ mode: "experiment", experiment: { authorized: true, arm: "treatment", strategy: "targeted", pairId: "pair-treatment" } });
+  assert.equal(requestedBriefMaxChars(control), 8000);
+  assert.equal(requestedBriefMaxChars(treatment), 4000);
+  assert.throws(() => normalizeContextExperiment({ mode: "experiment", experiment: { arm: "treatment", strategy: "targeted", pairId: "pair-x" } }), /authorized=true/u);
 });
