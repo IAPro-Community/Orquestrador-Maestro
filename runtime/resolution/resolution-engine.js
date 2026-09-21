@@ -20,6 +20,10 @@ function finalizeResolution({
   if (!contract || contract.engine !== "maestro-resolution-engine") {
     throw new TypeError("canonical Maestro resolution contract is required");
   }
+  const definitionOfDone = contract.outcome?.definitionOfDone || {};
+  const verificationRequired = (contract.validators || []).some((validator) => validator.required !== false)
+    || (definitionOfDone.acceptanceConditions || []).length > 0
+    || (definitionOfDone.evidenceRequirements || []).length > 0;
   const outcome = transitionValidatedOutcome(contract.outcome, {
     runStatus,
     verification,
@@ -27,7 +31,8 @@ function finalizeResolution({
     review,
     reason,
     needsAttention,
-    definitionOfDone: contract.outcome?.definitionOfDone
+    verificationRequired,
+    definitionOfDone
   }, now || new Date().toISOString());
   return Object.freeze({
     ...contract,
