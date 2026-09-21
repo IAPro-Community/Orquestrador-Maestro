@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { JsonFileRunStore } = require("../../store");
 const { MaestroApplication, ProviderRegistry } = require("../../application/maestro-application");
 const { capabilities } = require("../../core");
@@ -33,6 +34,10 @@ class UsageAdapter {
   }
 }
 
+function sha256(text) {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
+
 test("adaptive resolution observes a real run without changing execution", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-adaptive-resolution-"));
   const provider = new UsageAdapter();
@@ -48,8 +53,8 @@ test("adaptive resolution observes a real run without changing execution", async
     providerId: "codex",
     semanticTask: { id: "resolution-1", objective: "Fix a small local regression", risk: "low", complexity: "simple", changeClass: "local", acceptanceCriteria: [] },
     evidenceCandidates: [
-      { id: "failure", kind: "error", contentHash: "failure-hash", required: true, estimatedTokens: 120, relevance: 1, reliability: 1, freshness: 1, failureRelation: 1, dependencyProximity: 0.8 },
-      { id: "source", kind: "source-file", contentHash: "source-hash", estimatedTokens: 700, relevance: 0.95, reliability: 0.9, freshness: 0.9, failureRelation: 0.9, dependencyProximity: 1 }
+      { id: "failure", kind: "error", contentHash: sha256("Fix a small local regression"), required: true, estimatedTokens: 120, relevance: 1, reliability: 1, freshness: 1, failureRelation: 1, dependencyProximity: 0.8 },
+      { id: "source", kind: "source-file", contentHash: "a".repeat(64), estimatedTokens: 700, relevance: 0.95, reliability: 0.9, freshness: 0.9, failureRelation: 0.9, dependencyProximity: 1 }
     ],
     verificationCommands: [{ name: "ok", command: `${process.execPath} -e "process.exit(0)"` }]
   });
@@ -65,4 +70,10 @@ test("adaptive resolution observes a real run without changing execution", async
   assert.equal(resolution.observedTokensToValidatedOutcome, 620);
   assert.equal(resolution.tokenMetricCompleteness, "provider-only");
   assert.equal(resolution.contextBudgetOverflow, false);
+  assert.ok(outcome.run.metadata.cognitiveTelemetry.promptHash);
+  assert.equal(resolution.maestroPrompt.scope, "maestro-authored-prompt");
+  assert.equal(resolution.promptEvaluation.comparisonReady, true);
+  assert.equal(resolution.promptEvaluation.recommendationOverlapRate, 0.5);
+  assert.equal(resolution.promptEvaluation.selectedAlreadyPresent, 1);
+  assert.equal(resolution.promptEvaluation.selectedNovel, 1);
 });

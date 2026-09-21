@@ -29,7 +29,13 @@ function normalizeCandidate(candidate, index) {
     throw new TypeError(`evidence candidate ${index}.estimatedTokens must be a non-negative integer`);
   }
   const id = typeof candidate.id === "string" && candidate.id.trim() ? candidate.id.trim() : `candidate-${index}`;
-  const contentHash = typeof candidate.contentHash === "string" && candidate.contentHash.trim() ? candidate.contentHash.trim() : null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(id)) {
+    throw new TypeError(`evidence candidate ${index}.id must be an opaque identifier without paths or user data`);
+  }
+  const contentHash = typeof candidate.contentHash === "string" && candidate.contentHash.trim() ? candidate.contentHash.trim().toLowerCase() : null;
+  if (contentHash !== null && !/^[a-f0-9]{64}$/u.test(contentHash)) {
+    throw new TypeError(`evidence candidate ${index}.contentHash must be a SHA-256 hex digest`);
+  }
   return Object.freeze({
     id,
     kind: typeof candidate.kind === "string" ? candidate.kind : "unknown",

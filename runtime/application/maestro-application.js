@@ -23,7 +23,7 @@ const { resolveInteractionProfile, interactionContract } = require("../interacti
 const { parseProviderUsage } = require("../telemetry/provider-usage");
 const { extractChildAgents } = require("../telemetry/agent-topology");
 const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
-const { buildResolutionPlan, buildResolutionTelemetry } = require("../resolution");
+const { buildMaestroPromptManifest, buildResolutionPlan, buildResolutionTelemetry } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
@@ -442,10 +442,11 @@ class MaestroApplication {
       interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
     });
+    const promptEnvelope = this.buildPromptEnvelope(executionPackage);
     let handle;
     let result;
     try {
-      handle = await provider.execute({ prompt: this.buildPrompt(executionPackage), workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
+      handle = await provider.execute({ prompt: promptEnvelope.prompt, workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
       this.activeRuns.set(run.id, handle);
       result = await handle.result;
     } catch (error) {
@@ -488,13 +489,19 @@ class MaestroApplication {
         completedAt,
         durationMs: failedStartedMs !== null && failedCompletedMs !== null ? Math.max(0, failedCompletedMs - failedStartedMs) : null,
         status: "failed",
-        childAgents: []
+        childAgents: [],
+        prompt: promptEnvelope.prompt,
+        contextDigests: {
+          maestroPrompt: promptEnvelope.manifest.promptHash,
+          maestroPromptManifest: promptEnvelope.manifest.manifestHash
+        }
       });
       const failedCognitiveTelemetry = {
         ...failedTelemetry,
         resolution: buildResolutionTelemetry({
           plan: run.metadata?.adaptiveResolution,
           cognitiveTelemetry: failedTelemetry,
+          promptManifest: promptEnvelope.manifest,
           status: "failed"
         })
       };
@@ -594,7 +601,11 @@ class MaestroApplication {
         durationMs: startedMs !== null && completedMs !== null ? Math.max(0, completedMs - startedMs) : null,
         status,
         childAgents,
-        prompt: null
+        prompt: promptEnvelope.prompt,
+        contextDigests: {
+          maestroPrompt: promptEnvelope.manifest.promptHash,
+          maestroPromptManifest: promptEnvelope.manifest.manifestHash
+        }
       });
       const cognitiveTelemetry = {
         ...telemetry,
@@ -604,6 +615,7 @@ class MaestroApplication {
           verification,
           completion,
           review,
+          promptManifest: promptEnvelope.manifest,
           status
         })
       };
@@ -728,13 +740,27 @@ class MaestroApplication {
     return brief;
   }
 
-  buildPrompt(executionPackage) {
+  buildPromptEnvelope(executionPackage) {
     const taskContext = compactContext(executionPackage.task, {
       files: [],
       skills: executionPackage.skills
     });
     const skillPaths = taskContext.skills.map((skill) => `- ${skill.identity}: ${skill.path}`).join("\n");
-    return [executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, interactionContract(executionPackage.interaction), `Task: ${taskContext.description}`, `Workspace: ${executionPackage.workspace.path}`, executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "", skillPaths ? `Resolved skills:\n${skillPaths}` : "", "Work only within the workspace and report concrete changes."].filter(Boolean).join("\n\n");
+    const sections = [
+      { id: "profile", kind: "profile", content: executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, text: executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.` },
+      { id: "interaction", kind: "interaction", content: interactionContract(executionPackage.interaction), text: interactionContract(executionPackage.interaction) },
+      { id: "task", kind: "task", content: taskContext.description, text: `Task: ${taskContext.description}` },
+      { id: "workspace", kind: "workspace", content: executionPackage.workspace.path, text: `Workspace: ${executionPackage.workspace.path}` },
+      { id: "engineering-contract", kind: "governance", content: executionPackage.includeGovernanceContext ? JSON.stringify(executionPackage.engineeringContract) : "", text: executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "" },
+      { id: "skills", kind: "skills", content: skillPaths, text: skillPaths ? `Resolved skills:\n${skillPaths}` : "" },
+      { id: "execution-boundary", kind: "instruction", content: "Work only within the workspace and report concrete changes.", text: "Work only within the workspace and report concrete changes." }
+    ].filter((section) => Boolean(section.text));
+    const prompt = sections.map((section) => section.text).join("\n\n");
+    return Object.freeze({ prompt, manifest: buildMaestroPromptManifest(sections) });
+  }
+
+  buildPrompt(executionPackage) {
+    return this.buildPromptEnvelope(executionPackage).prompt;
   }
 
   inferProjectVerification(workspacePath) {
