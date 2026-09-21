@@ -20,6 +20,15 @@ function clampUnit(value) {
   return Math.max(0, Math.min(1, numeric));
 }
 
+function normalizeSignalProvenance(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return Object.freeze({});
+  const allowed = ["relevance", "reliability", "freshness", "failureRelation", "dependencyProximity"];
+  const entries = allowed
+    .filter((key) => typeof value[key] === "string" && value[key].trim())
+    .map((key) => [key, value[key].trim().slice(0, 96)]);
+  return Object.freeze(Object.fromEntries(entries));
+}
+
 function normalizeCandidate(candidate, index) {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new TypeError(`evidence candidate ${index} must be an object`);
@@ -46,7 +55,8 @@ function normalizeCandidate(candidate, index) {
     reliability: clampUnit(candidate.reliability),
     freshness: clampUnit(candidate.freshness),
     failureRelation: clampUnit(candidate.failureRelation),
-    dependencyProximity: clampUnit(candidate.dependencyProximity)
+    dependencyProximity: clampUnit(candidate.dependencyProximity),
+    signalProvenance: normalizeSignalProvenance(candidate.signalProvenance)
   });
 }
 
@@ -104,7 +114,7 @@ function rankEvidenceCandidates(candidates = [], { strategy = "targeted", tokenB
   let budgetOverflow = false;
 
   for (const item of required) {
-    selected.push(item);
+    selected.push(Object.freeze({ ...item, selectionReason: "required" }));
     estimatedSelectedTokens += item.estimatedTokens;
     if (estimatedSelectedTokens > tokenBudget) budgetOverflow = true;
   }
@@ -122,7 +132,7 @@ function rankEvidenceCandidates(candidates = [], { strategy = "targeted", tokenB
       skipped.push(Object.freeze({ id: item.id, reason: "token-budget", priorityScore: item.priorityScore, estimatedTokens: item.estimatedTokens }));
       continue;
     }
-    selected.push(item);
+    selected.push(Object.freeze({ ...item, selectionReason: "ranked-within-budget" }));
     estimatedSelectedTokens += item.estimatedTokens;
   }
 
@@ -140,7 +150,9 @@ function rankEvidenceCandidates(candidates = [], { strategy = "targeted", tokenB
       estimatedTokens: item.estimatedTokens,
       informationValue: item.informationValue,
       costFactor: item.costFactor,
-      priorityScore: item.priorityScore
+      priorityScore: item.priorityScore,
+      selectionReason: item.selectionReason || (item.required ? "required" : "ranked-within-budget"),
+      signalProvenance: item.signalProvenance
     }))),
     skipped: Object.freeze(skipped),
     duplicates,
@@ -148,4 +160,4 @@ function rankEvidenceCandidates(candidates = [], { strategy = "targeted", tokenB
   });
 }
 
-module.exports = { DEFAULT_POLICY, clampUnit, normalizeCandidate, scoreCandidate, rankEvidenceCandidates };
+module.exports = { DEFAULT_POLICY, clampUnit, normalizeSignalProvenance, normalizeCandidate, scoreCandidate, rankEvidenceCandidates };
