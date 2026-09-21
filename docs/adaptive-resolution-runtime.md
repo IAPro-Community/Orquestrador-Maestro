@@ -1,10 +1,12 @@
-# Adaptive Resolution Runtime
+# Adaptive Resolution Experiments
+
+> **Historical / compatibility documentation.** The canonical production architecture is now the [Maestro Resolution Engine](maestro-resolution-engine.md) under `runtime/resolution/`. This document remains to preserve the V0–V4.6 experiment history, benchmark policy identities and reproducibility contracts. It is not a second Runtime or source of truth.
 
 ## Status
 
-Experimental V4.6, conservative end-to-end mission usage metering; no learned policy is active and normal Runtime execution remains shadow-only.
+Historical experiment line retained for benchmark compatibility. No learned policy is active. Normal Runtime execution remains non-enforcing (`shadow` / `advisory`); `enforce` remains promotion-gated.
 
-This branch extends the current JavaScript Runtime. It does not introduce a second RunStore, a second cognitive-budget system, or a competing governance layer.
+These experiments extend the current JavaScript Runtime. They do not introduce a second RunStore, cognitive-budget system, governance layer or Resolution lifecycle.
 
 ## Goal
 
@@ -230,7 +232,7 @@ node scripts/adaptive-resolution-evaluate.js \
   --out .maestro/adaptive/evaluation.json
 ```
 
-The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Hard validated V3 quality evidence is produced with `orquestrador-maestro benchmark adaptive-pair`, which runs only the `maestro` control and `maestro-adaptive` treatment through the real `go --auto` path and requires runtime confirmation of the canonical policy fingerprint. End-to-end Maestro token totals remain deliberately unavailable until all mission model calls can be aggregated without double counting. Local `adaptive-pair` runs are also analysis-only until executed in a policy-matching isolated image. The promotion gate therefore remains `HOLD` unless evidence is policy-bound, isolated, verifier-valid, token-comparable, and large enough.
+The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Hard validated V3 quality evidence is produced with `orquestrador-maestro benchmark adaptive-pair`, which runs only the `maestro` control and `maestro-adaptive` treatment through the real `go --auto` path and requires runtime confirmation of the canonical policy fingerprint. End-to-end Maestro token totals are accepted only when the MissionUsageMeter observes every provider invocation completely; otherwise the total remains `null`. The authenticated benchmark marker also carries Mission resolution counters used for descriptive first-pass/retry/escalation/provider-switch metrics. Local `adaptive-pair` runs remain analysis-only until executed in a policy-matching isolated image. The promotion gate therefore remains `HOLD` unless evidence is policy-bound, isolated, verifier-valid, token-comparable, and large enough.
 
 ## Experimental Boundary
 
