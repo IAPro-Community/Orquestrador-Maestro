@@ -25,7 +25,7 @@ comportamento; trocar de ferramenta perde padrão, memória e verificabilidade.
 
 ```text
 entender → recuperar contexto → selecionar capacidades → planejar
-→ executar → verificar → registrar evidência → continuar depois
+→ executar → verificar → validar o outcome → registrar evidência → continuar depois
 ```
 
 **Princípios.** Local-first; privacidade por construção (sanitização e
@@ -39,7 +39,8 @@ ORQUESTRADOR MAESTRO
 ├── Maestro Protocol — rules, governance, project context, DEV memory,
 │   episodic memory, skills, routing, profiles, handoff
 ├── Maestro Runtime — missions, tasks, task graph, planning, providers,
-│   runs, workspaces, worktrees, verification, artifacts, telemetry, evidence
+│   Resolution Engine, runs, workspaces, worktrees, verification,
+│   artifacts, telemetry, evidence
 └── Maestro Cockpit — projects, missions, task graph, agents, terminals,
     skills, attention, notifications, inspection
 ```
@@ -64,7 +65,9 @@ ORQUESTRADOR MAESTRO
 | Workspace / Worktree | Isolamento (`shared` ou git worktree sob `.maestro/`) | `runtime/workspaces/` |
 | Artifact | Saída registrada do run | RunStore |
 | Verification | Checagens `lint/typecheck/test/build` (safe-list) | `runtime/verification/` |
-| Evidence | Pacote imutável do benchmark (`run-report.json` + outputs) | `benchmark-harness/` |
+| Resolution Contract / Outcome | Política, estratégia, budget, Evidence, DoD e estado de resolução de uma Task | `runtime/resolution/` + `run.metadata.resolution` |
+| Evidence | Evidência produzida pelo Runtime e evidência imutável de benchmark | RunStore + `benchmark-harness/` |
+| Proof Bundle | Projeção auditável de Task/Mission sobre Runs, Verification, Artifacts, Evidence e outcomes | `runtime/resolution/evidence/proof-bundle.js` |
 | Memory | Episódica JSONL redigida + DEV curada por humanos | `~/.orquestrador-maestro/memory` + `DEV/` |
 | DEV | Memória operacional canônica do projeto | `DEV/` (gitignored neste espelho) |
 | Governance | Portões de mudança, compatibilidade, revisão independente | `runtime/governance/` |
@@ -75,7 +78,8 @@ ORQUESTRADOR MAESTRO
 
 ```text
 Intent → Mission → Context → Skills → Plan → Task Graph
-→ Execution → Verification → Evidence → Memory/Handoff
+→ Resolution Contract → Execution → Verification → Review
+→ Definition of Done → Validated Outcome → Evidence → Memory/Handoff
 ```
 
 Troca de ferramenta: sobrevivem regras, contexto, skills, memória DEV/episódica,
@@ -87,6 +91,7 @@ Ver `CAPABILITY_MATRIX.json` (`status: stable`, `publicClaimAllowed: true`):
 protocolo, contexto progressivo, DEV, memória episódica, roteamento de 75 skills públicas (52 canônicas),
 governança, 4 providers, runs/artefatos, verificação, worktrees, PTY, observação
 Git, observabilidade de uso, telemetria opt-in, benchmark com evidence gate,
+Maestro Resolution Engine, Validated Outcome, Proof Bundle, provider handoff,
 bridge, Cockpit TUI, cliente VS Code.
 
 ## 6. Limitações explícitas
@@ -97,4 +102,5 @@ bridge, Cockpit TUI, cliente VS Code.
 - `node-pty` opcional (`PTY_UNAVAILABLE` sem ele); tmux exige binário.
 - Telemetria remota exige `telemetry enable` + endpoint + chave; sem isso nada sai.
 - Benchmark: claim público exige N≥20 pareados e condições de elegibilidade.
+- Resolution `enforce` não é modo normal de CLI: permanece bloqueado até evidência hard-validada, policy-bound e autorização explícita. `shadow` e `advisory` não alteram silenciosamente a seleção normal de contexto.
 - Bridge doc cobre v1; métodos v2 existem no código e ainda não estão na doc da API.
