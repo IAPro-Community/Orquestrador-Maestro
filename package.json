@@ -13,6 +13,7 @@
     "codex/prompts/",
     "codex/skills/",
     "docs/",
+    "extensions/vscode-maestro/",
     "home/AGENTS.md",
     "install.ps1",
     "install.sh",

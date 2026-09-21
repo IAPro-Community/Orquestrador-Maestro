@@ -53,7 +53,8 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup. |
 | `-ListTargets` | Lista os alvos que seriam tratados. |
 | `-Uninstall` | Remove de forma conservadora os arquivos mapeados pelo snapshot. |
-| `-NonInteractive` | Reservado para automação; não altera o comportamento atual porque o instalador já não pergunta. |
+| `-NonInteractive` | Reservado para automação; no motor shell (`scripts/install.sh`), instala apenas os perfis de ferramentas detectados, salvo com `-AllTargets`. |
+| `-AllTargets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `-VerbosePaths` | Mostra paths completos em listagem/dry-run. |
 
 ## Wrapper Linux/macOS
@@ -70,7 +71,8 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--dry-run` | Mostra o plano sem efeitos colaterais. |
 | `--list-targets` | Lista alvos planejados. |
 | `--uninstall` | Remove arquivos mapeados pelo snapshot e preserva backups. |
-| `--non-interactive` | Reservado para automação. |
+| `--non-interactive` | Reservado para automação; no motor shell (`scripts/install.sh`), instala apenas os perfis de ferramentas detectados, salvo com `--all-targets`. |
+| `--all-targets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `--verbose-paths` | Mostra paths completos em listagem/dry-run. |
 
 ## IDs Para `Only`
@@ -80,6 +82,8 @@ IDs aceitos:
 ```text
 all
 core
+orquestrador
+global-agents
 skills
 community-skills
 codex
@@ -203,10 +207,15 @@ Os smoke tests automatizam esse fluxo:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1 -Full
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1 -KeepTemp
 ```
 
 Linux/macOS:
 
 ```bash
 bash scripts/test-install.sh
+bash scripts/test-install.sh --full
+bash scripts/test-install.sh --keep-temp
 ```
+
+`-Full`/`--full` executa a instalação completa no home temporário (em vez de `--core-only`); `-KeepTemp`/`--keep-temp` preserva o home temporário para inspeção. `scripts/verify-install.ps1 -VerbosePaths` e `scripts/verify-install.sh --verbose-paths` mostram o `HomePath` completo em vez de `[redacted]`.
