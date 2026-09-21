@@ -21,7 +21,12 @@ $ErrorActionPreference = "Stop"
 # wrong profile. Override explicitly with ORQUESTRADOR_ALLOW_ROOT_INSTALL=1.
 $windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
-if ($windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL) {
+if (
+  $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
+  -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
+  -not $DryRun -and
+  -not $ListTargets
+) {
   throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
 }
 
