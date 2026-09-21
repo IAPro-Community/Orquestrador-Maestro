@@ -486,7 +486,10 @@ class MaestroApplication {
     const approvalPreflight = cognitiveBudget.humanApproval && !approvalGranted
       ? "human-approval-required" : null;
     const preflightBlock = reviewPreflight || approvalPreflight;
+    const taskId = runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task");
+    const existingTask = await this.store.getTask(taskId);
     const taskMetadata = {
+      ...(existingTask?.metadata || {}),
       ...(request.missionId ? { missionId: request.missionId } : {}),
       ...(semanticTaskId ? { semanticTaskId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
@@ -495,7 +498,7 @@ class MaestroApplication {
       resolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
-    const task = core.createTask({ id: runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
+    const task = core.createTask({ id: taskId, description: request.description, projectId, createdAt: existingTask?.createdAt || new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
