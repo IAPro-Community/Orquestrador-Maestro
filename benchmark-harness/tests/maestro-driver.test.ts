@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMaestroArgs, extractAdaptiveExecutionMetadata, extractMissionTokenUsage } from '../src/drivers/maestro.js';
+import { buildMaestroArgs, extractAdaptiveExecutionMetadata, extractMissionResolutionMetrics, extractMissionTokenUsage } from '../src/drivers/maestro.js';
 
 describe('MaestroDriver benchmark contract', () => {
   it('builds the real go --auto command with explicit model and workspace', () => {
@@ -82,4 +82,37 @@ it('rejects spoofed mission usage markers with the wrong nonce', () => {
     `MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: 'attacker-nonce', complete: true, inputTokens: 1, outputTokens: 1, reasoningTokens: 0 })}`,
   ].join('\n');
   assert.equal(extractMissionTokenUsage(output, nonce).total, 120);
+});
+
+
+it('extracts authenticated mission resolution metrics without inventing missing counters', () => {
+  const nonce = 'resolution-nonce-1234567890';
+  const output = `MAESTRO_MISSION_USAGE=${JSON.stringify({
+    nonce,
+    complete: true,
+    inputTokens: 100,
+    outputTokens: 20,
+    reasoningTokens: 0,
+    resolution: {
+      state: 'validated',
+      taskCount: 2,
+      validatedTaskCount: 2,
+      firstPassValidatedTaskCount: 1,
+      failedTaskCount: 0,
+      blockedTaskCount: 0,
+      needsAttentionTaskCount: 0,
+      providerSwitches: 1,
+      automaticRetries: null,
+      escalations: 1,
+      tokensToValidatedOutcome: 120,
+    },
+  })}`;
+  const metrics = extractMissionResolutionMetrics(output, nonce);
+  assert.equal(metrics?.state, 'validated');
+  assert.equal(metrics?.taskCount, 2);
+  assert.equal(metrics?.firstPassValidatedTaskCount, 1);
+  assert.equal(metrics?.providerSwitches, 1);
+  assert.equal(metrics?.automaticRetries, null);
+  assert.equal(metrics?.tokensToValidatedOutcome, 120);
+  assert.equal(extractMissionResolutionMetrics(output, 'wrong-nonce'), null);
 });
