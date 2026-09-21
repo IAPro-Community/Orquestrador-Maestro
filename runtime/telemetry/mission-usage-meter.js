@@ -81,7 +81,10 @@ class MissionUsageMeter {
       inputTokens: complete ? input : null, outputTokens: complete ? output : null,
       reasoningTokens: complete ? reasoning : null, cacheReadTokens: complete ? sum("cachedInputTokens") : null,
       cacheWriteTokens: complete ? sum("cachedOutputTokens") : null,
-      totalTokens: complete ? input + output + reasoning : null,
+      // Provider schemas disagree on whether reasoning is additive to output
+      // or an output-token detail. Never add it to the canonical total
+      // without an explicit provider total; keep it as a separate dimension.
+      totalTokens: complete ? input + output : null,
       modelCalls: complete ? sum("modelCalls") : null,
       observed: Object.freeze({
         inputTokens: complete ? input : completeRecords.length ? input : null,
