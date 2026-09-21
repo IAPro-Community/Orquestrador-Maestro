@@ -144,9 +144,17 @@ function sanitizeEvidenceMetadata(value, depth = 0) {
 }
 
 function criterionText(value) {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (value && typeof value === "object") return String(value.id || value.condition || "").trim() || undefined;
-  return undefined;
+  const raw = typeof value === "string"
+    ? value.trim()
+    : value && typeof value === "object"
+      ? String(value.id || value.condition || "").trim()
+      : "";
+  return raw ? sanitizeDiagnostic(raw, { maxChars: 512 }) : undefined;
+}
+
+function evidenceLabel(value, fallback, maxChars = 128) {
+  const raw = typeof value === "string" && value.trim() ? value.trim() : fallback;
+  return sanitizeDiagnostic(raw, { maxChars }) || fallback;
 }
 
 function normalizeProviderAttempts(request = {}) {
@@ -1012,17 +1020,21 @@ class MaestroApplication {
       const acceptanceCriterion = criterionText(entry.acceptanceCriterion ?? entry.criterion ?? entry.acceptanceCriterionId);
       const confidence = Number.isInteger(entry.confidence) && entry.confidence >= 0 && entry.confidence <= 100
         ? entry.confidence : undefined;
+      let artifactId;
+      if (typeof entry.artifactId === "string" && entry.artifactId.trim()) {
+        const candidateArtifact = await this.store.getArtifact(entry.artifactId.trim());
+        if (candidateArtifact?.runId === runId) artifactId = candidateArtifact.id;
+      }
       const record = core.createEvidence({
         id: id("evidence"),
         taskId,
         runId,
-        artifactId: typeof entry.artifactId === "string" && entry.artifactId.trim() ? entry.artifactId : undefined,
-        type: typeof entry.type === "string" && entry.type.trim() ? entry.type : "runtime-evidence",
+        artifactId,
+        type: evidenceLabel(entry.type, "runtime-evidence"),
         content: evidenceText(entry.content ?? entry.value ?? entry.summary ?? entry.type),
         acceptanceCriterion,
-        acceptanceCriterionId: typeof entry.acceptanceCriterionId === "string" && entry.acceptanceCriterionId.trim()
-          ? entry.acceptanceCriterionId : undefined,
-        producer: typeof entry.producer === "string" && entry.producer.trim() ? entry.producer : "runtime",
+        acceptanceCriterionId: criterionText(entry.acceptanceCriterionId),
+        producer: evidenceLabel(entry.producer, "runtime"),
         verificationId,
         createdAt: new Date().toISOString(),
         metadata: entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
