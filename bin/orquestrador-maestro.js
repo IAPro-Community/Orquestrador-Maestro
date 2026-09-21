@@ -1747,15 +1747,6 @@ async function handleGoCommand(args, planningOnly = false) {
   }
 
   // Fase 4: Planejamento semântico
-  // Create the canonical Mission before planning so the TaskGraph, approvals,
-  // attention records, runtime Tasks and Proof Bundle share one missionId.
-  const mission = await app.createMission({
-    workspacePath,
-    objective: approvedBrief.objective,
-    status: "planning",
-    startedAt: new Date().toISOString(),
-    metadata: { missionBriefId: approvedBrief.id }
-  });
   updateTitle("Montando plano de engenharia...");
   s.start("Montando plano de engenharia");
 
@@ -1775,12 +1766,24 @@ async function handleGoCommand(args, planningOnly = false) {
     localOnly: selectedProviderId === "opencode"
   });
 
+  // Create the canonical Mission only after the execution target is known, but
+  // before planning, so TaskGraph, approvals, runtime Tasks and Proof share one
+  // missionId without leaving orphan planning Missions on provider discovery failure.
+  const mission = await app.createMission({
+    workspacePath,
+    objective: approvedBrief.objective,
+    status: "planning",
+    startedAt: new Date().toISOString(),
+    metadata: { missionBriefId: approvedBrief.id }
+  });
+
   const adaptivePolicyId = process.env.MAESTRO_ADAPTIVE_POLICY_ID || "";
   const adaptivePolicyFingerprint = process.env.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT || "";
   const adaptivePairId = process.env.MAESTRO_ADAPTIVE_PAIR_ID || "";
   const adaptiveRequested = Boolean(adaptivePolicyId || adaptivePolicyFingerprint || adaptivePairId);
   let planResult;
 
+  try {
   if (adaptiveRequested) {
     const { POLICY_IDENTITIES } = require(path.join(rootDir, "runtime", "resolution", "policy-identity"));
     const { planProgressively } = require(path.join(rootDir, "runtime", "resolution", "progressive-planning"));
@@ -1821,6 +1824,18 @@ async function handleGoCommand(args, planningOnly = false) {
       allowFallback: true,
       workspacePath
     });
+  }
+  } catch (error) {
+    await app.updateMission(mission.id, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      metadata: {
+        ...(mission.metadata || {}),
+        failureStage: "planning",
+        failureCode: typeof error?.code === "string" ? error.code : "PLANNING_FAILED"
+      }
+    });
+    throw error;
   }
 
   const { TaskGraphPersistence } = require(path.join(rootDir, "runtime", "planner", "task-graph-persistence"));
