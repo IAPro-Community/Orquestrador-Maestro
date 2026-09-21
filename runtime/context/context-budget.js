@@ -6,6 +6,12 @@ class ContextBudget {
    * Prioritizes USER_DECISION, high relevance, and high confidence.
    * Does NOT just discard large files.
    *
+   * Guarantee: priority order is filled until the cap; the single
+   * highest-priority item is always kept (never silently empty). When that
+   * item alone exceeds the cap, the overflow is explicit via a
+   * non-enumerable `overBudget` flag on the returned array (invisible to
+   * length/map/JSON, readable by callers that care).
+   *
    * @param {Array} items - List of ContextItems.
    * @param {number} maxTokens - The maximum allowed tokens (estimated).
    * @returns {Array} The budgeted ContextItems.
@@ -65,6 +71,12 @@ class ContextBudget {
         currentCost += itemCost;
       }
     }
+
+    Object.defineProperty(result, "overBudget", {
+      value: currentCost > maxTokens,
+      enumerable: false,
+      writable: false
+    });
 
     return result;
   }

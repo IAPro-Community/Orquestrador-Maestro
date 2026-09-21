@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 
 function Get-HostPowerShell {
   # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
+  # Mirrored in scripts/install.ps1; keep both in sync.
   $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
   if ($pwsh) { return "pwsh" }
   return "powershell"

@@ -56,14 +56,19 @@ class Adapter {
     if (this.gitContext) opts.gitContext = this.gitContext;
     if (this.taskId && !normalizedEvent.taskId) normalizedEvent.taskId = this.taskId;
 
-    // Agent pipelines must not crash on rejected observations (injection,
-    // private content, invalid scope): Memory throws loudly by contract,
-    // adapters degrade to a skip here.
+    // Agent pipelines must not crash on rejected observations, but only
+    // on *rejections* (the exact validation/policy messages below). IO,
+    // lock and programmer errors are re-thrown: silent data loss is worse
+    // than a loud pipeline failure.
     try {
       const obs = this.memory.record(this.projectId, normalizedEvent, opts);
       return obs;
-    } catch {
-      return null;
+    } catch (err) {
+      const msg = err && err.message ? err.message : "";
+      if (/Private content|cannot be persisted|prompt injection|Invalid (schemaVersion|observation|scope)|Summary (is required|must be)|Project is required|No valid observations|Cannot consolidate/i.test(msg)) {
+        return null;
+      }
+      throw err;
     }
   }
 

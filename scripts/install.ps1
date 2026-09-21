@@ -27,6 +27,7 @@ if ($windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administ
 
 function Get-HostPowerShell {
   # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
+  # Mirrored in scripts/test-install.ps1; keep both in sync.
   $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
   if ($pwsh) { return "pwsh" }
   return "powershell"
@@ -523,12 +524,15 @@ if ($InstallToolProfiles) {
   }
 
   if (Test-SelectedComponent -Names @("tool-profiles", "antigravity")) {
-    Add-InstallFileTarget `
-      -Targets $extraFileTargets `
-      -Source (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") `
-      -Destination (Join-Path $HomePath "antigravity-rules.json") `
-      -Label "antigravity-rules.json" `
-      -Component "antigravity"
+    $antigravityDetected = $AllTargets -or -not $NonInteractive -or (Test-ToolPresent -Command "antigravity" -ConfigDir ".antigravity")
+    if ($antigravityDetected) {
+      Add-InstallFileTarget `
+        -Targets $extraFileTargets `
+        -Source (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") `
+        -Destination (Join-Path $HomePath "antigravity-rules.json") `
+        -Label "antigravity-rules.json" `
+        -Component "antigravity"
+    }
   }
 }
 

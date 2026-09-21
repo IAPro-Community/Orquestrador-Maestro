@@ -132,7 +132,13 @@ function sanitizeContent(content) {
     .replace(/(?:ghp_|github_pat_|gho_|ghu_)[A-Za-z0-9_]{20,}/g, "[token GitHub redigido]")
     .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, "[token GitLab redigido]")
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[chave AWS redigida]")
-    .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[chave Google redigida]");
+    .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[chave Google redigida]")
+    .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[token Slack redigido]")
+    .replace(/cookie\s*[:=]\s*[^\s`"']+/gi, "[cookie redigido]")
+    .replace(/(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GOOGLE_APPLICATION_CREDENTIALS|GITHUB_TOKEN)\s*[:=]\s*[^\s`"']+/gi, "[credencial redigida]")
+    .replace(/(?:mysql|postgres|postgresql|mongodb):\/\/[^\s`"']+/gi, "[string de conexão redigida]")
+    .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[telefone redigido]")
+    .replace(/\.env[^a-zA-Z0-9]/gi, "[arquivo env redigido]");
 }
 
 function readUtf8(filePath) {

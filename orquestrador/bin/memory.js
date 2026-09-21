@@ -47,7 +47,7 @@ const PROMPT_INJECTION_PATTERNS = [
   /act\s+as\s+if/i,
   /pretend\s+you\s+are/i,
   /<script>/i,
-  /\{\{.*\}\}/
+  /\{\{[\s\S]*?\}\}/
 ];
 
 class Memory {
@@ -515,7 +515,14 @@ class Memory {
   show(projectId, observationId) {
     const filePath = this.getObservationsFile(projectId);
     const { valid: observations } = this.readObservations(filePath);
-    return observations.find(obs => obs.id === observationId) || null;
+    const obs = observations.find(o => o.id === observationId) || null;
+    if (!obs) return null;
+    // Display normalization: legacy/hand-edited rows with bare
+    // `verified:true` must not present as verified to consumers.
+    if (obs.verified === true && !isTrulyVerified(obs)) {
+      return { ...obs, verified: false, verifiedClaimed: true };
+    }
+    return obs;
   }
 
   timeline(projectId, options = {}) {
@@ -728,6 +735,26 @@ class Memory {
 
       const firstScope = observations[0].scope || { level: "repository" };
 
+      // Fail loud like record(): caller-supplied consolidated content with
+      // injection or private markers throws instead of vanishing via DROP.
+      if (this.detectInjectionDeep({
+        summary: consolidatedObs.summary,
+        details: consolidatedObs.details,
+        files: consolidatedObs.files,
+        tags: consolidatedObs.tags,
+        source: consolidatedObs.source,
+        taskId: consolidatedObs.taskId
+      })) {
+        throw new Error("Potential prompt injection detected in content");
+      }
+      if (this.containsPrivateDeep(consolidatedObs.summary) ||
+          this.containsPrivateDeep(consolidatedObs.details) ||
+          this.containsPrivateDeep(consolidatedObs.files) ||
+          this.containsPrivateDeep(consolidatedObs.tags) ||
+          this.containsPrivateDeep(consolidatedObs.source)) {
+        throw new Error("Private content cannot be persisted to memory");
+      }
+
       const consolidated = {
         schemaVersion: this.schemaVersion,
         id: consolidatedObs.id || this.generateId(),
@@ -828,11 +855,17 @@ class Memory {
     return { deduped: dedupeResult.deduped, retained: retentionResult.retained, removed: retentionResult.removed };
   }
 
-  forget(projectId, observationId) {
+  forget(projectId, observationId, options = {}) {
     const filePath = this.getObservationsFile(projectId);
     const lockPath = getLockPath(filePath);
     return withLock(lockPath, () => {
       const { valid: observations, malformedLines } = this.readObservations(filePath);
+      const target = observations.find(obs => obs.id === observationId);
+      // Verified or promoted rows need explicit --force: silent convenient
+      // deletion of trusted records is a data-loss path.
+      if (target && (isTrulyVerified(target) || target.scope?.promoted) && !options.force) {
+        throw new Error("Refusing to forget verified/promoted observation without --force");
+      }
       const filtered = observations.filter(obs => obs.id !== observationId);
       const removed = observations.length - filtered.length;
       if (removed > 0) {
@@ -999,9 +1032,14 @@ function main() {
     case "forget": {
       const id = memory.getArg(rest, "--id");
       if (!id) { console.error("--id required"); return 1; }
-      const result = memory.forget(project, id);
-      console.log(JSON.stringify(result, null, 2));
-      return 0;
+      try {
+        const result = memory.forget(project, id, { force: rest.includes("--force") });
+        console.log(JSON.stringify(result, null, 2));
+        return 0;
+      } catch (err) {
+        console.error(`forget failed: ${err.message}`);
+        return 1;
+      }
     }
     case "timeline": {
       const tl = memory.timeline(project, { limit: memory.getArgNumber(rest, "--limit") || 50 });

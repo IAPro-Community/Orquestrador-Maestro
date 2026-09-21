@@ -53,9 +53,11 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup; lista como etapas planejadas a criação de `logs`, o sync de skills e a descoberta (sem executar). |
 | `-ListTargets` | Lista os alvos que seriam tratados. |
 | `-Uninstall` | Remove de forma conservadora os arquivos mapeados pelo snapshot. |
-| `-NonInteractive` | Reservado para automação; no motor shell (`scripts/install.sh`), instala apenas os perfis de ferramentas detectados, salvo com `-AllTargets`. |
+| `-NonInteractive` | Reservado para automação; instala apenas os perfis de ferramentas detectados (binário no PATH ou diretório de config existente), salvo com `-AllTargets`. Vale para `scripts/install.ps1` e `scripts/install.sh`. |
 | `-AllTargets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `-VerbosePaths` | Mostra paths completos em listagem/dry-run. |
+
+> Elevação: `scripts/install.ps1` e `scripts/bootstrap-install.ps1` recusam Administrador salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1` (mesma variável libera `install.sh` sob sudo).
 
 ## Wrapper Linux/macOS
 
@@ -71,9 +73,11 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--dry-run` | Mostra o plano sem efeitos colaterais; lista como etapas planejadas a criação de `logs`, o `chmod +x`, o sync de skills e a descoberta (sem executar). |
 | `--list-targets` | Lista alvos planejados. |
 | `--uninstall` | Remove arquivos mapeados pelo snapshot e preserva backups. |
-| `--non-interactive` | Reservado para automação; no motor shell (`scripts/install.sh`), instala apenas os perfis de ferramentas detectados, salvo com `--all-targets`. |
+| `--non-interactive` | Reservado para automação; instala apenas os perfis de ferramentas detectados, salvo com `--all-targets`. |
 | `--all-targets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `--verbose-paths` | Mostra paths completos em listagem/dry-run. |
+
+> Elevação: `scripts/install.sh` recusa `sudo` root salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1`.
 
 ## IDs Para `Only`
 

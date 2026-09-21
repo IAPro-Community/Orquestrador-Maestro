@@ -38,7 +38,7 @@ const INJECTION_PATTERNS = [
   /act\s+as\s+if/i,
   /pretend\s+you\s+are/i,
   /<script>/i,
-  /\{\{.*\}\}/
+  /\{\{[\s\S]*?\}\}/
 ];
 
 class CapturePolicy {
