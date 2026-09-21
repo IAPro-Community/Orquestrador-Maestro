@@ -509,7 +509,8 @@ class MaestroApplication {
           providerId,
           providerFallbacks: undefined,
           maxProviderSwitches: undefined,
-          handoffCheckpoint: checkpoint
+          handoffCheckpoint: checkpoint,
+          providerSwitchAttempt: index
         });
         lastResult = result;
         const outcomeState = result?.run?.metadata?.resolution?.outcome?.state;
@@ -699,6 +700,9 @@ class MaestroApplication {
         durationMs: failedStartedMs !== null && failedCompletedMs !== null ? Math.max(0, failedCompletedMs - failedStartedMs) : null,
         status: "failed",
         childAgents: [],
+        automaticRetries: Number.isInteger(request.automaticRetries) ? request.automaticRetries : 0,
+        escalations: run.metadata?.resolution?.escalation?.count ?? 0,
+        providerSwitches: Number.isInteger(request.providerSwitchAttempt) ? request.providerSwitchAttempt : 0,
         prompt: promptEnvelope.prompt,
         contextDigests: {
           maestroPrompt: promptEnvelope.manifest.promptHash,
@@ -853,6 +857,9 @@ class MaestroApplication {
         durationMs: startedMs !== null && completedMs !== null ? Math.max(0, completedMs - startedMs) : null,
         status,
         childAgents,
+        automaticRetries: Number.isInteger(request.automaticRetries) ? request.automaticRetries : 0,
+        escalations: finalRun.metadata?.resolution?.escalation?.count ?? 0,
+        providerSwitches: Number.isInteger(request.providerSwitchAttempt) ? request.providerSwitchAttempt : 0,
         prompt: promptEnvelope.prompt,
         contextDigests: {
           maestroPrompt: promptEnvelope.manifest.promptHash,
