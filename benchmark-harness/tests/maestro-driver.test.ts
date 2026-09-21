@@ -69,7 +69,7 @@ it('defaults to a checkout-relative Maestro binary instead of a global CLI', asy
 it('uses mission totals only when runtime marks usage complete', () => {
   const nonce = 'usage-nonce-1234567890';
   const complete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce,complete:true,inputTokens:1200,outputTokens:300,reasoningTokens:50,cacheReadTokens:400,cacheWriteTokens:0 })}`, nonce);
-  assert.equal(complete.total,1550); assert.equal(complete.source,'provider-reported'); assert.equal(complete.confidence,'exact');
+  assert.equal(complete.total,1500); assert.equal(complete.reasoningTokens,50); assert.equal(complete.source,'provider-reported'); assert.equal(complete.confidence,'exact');
   const incomplete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce,complete:false,observed:{inputTokens:1200} })}`, nonce);
   assert.equal(incomplete.total,null); assert.equal(incomplete.source,'unavailable');
 });
