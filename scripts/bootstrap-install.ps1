@@ -18,7 +18,7 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 }
 
 $nodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
-if ($nodeMajor -lt 18) {
+if ($nodeMajor -lt 20) {
   throw "Node.js 20 ou superior é necessário. Versão atual: $(& node --version)."
 }
 

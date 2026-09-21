@@ -426,6 +426,84 @@ uninstall_mapped_directory() {
   remove_empty_parents_under_root "$dest_dir" "$HOME_PATH"
 }
 
+sync_mirror_selected() {
+  local program="$1"
+  local wanted
+  if [ -z "${ONLY_COMPONENTS[*]-}" ]; then
+    return 0
+  fi
+  for wanted in "${ONLY_COMPONENTS[@]}"; do
+    if [ "$wanted" = "all" ]; then
+      return 0
+    fi
+    if [ "$wanted" = "$program" ]; then
+      return 0
+    fi
+    if [ "$program" = "agents" ] && [ "$wanted" = "freebuff" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+get_managed_mirror_names() {
+  local manifest="$SOURCE_ORQUESTRADOR/SKILLS_MANIFEST.json"
+  local policy="$SOURCE_ORQUESTRADOR/SKILL_INSTALL_POLICY.json"
+  if command -v node >/dev/null 2>&1 && { [ -f "$manifest" ] || [ -f "$policy" ]; }; then
+    if node -e '
+      const fs = require("fs");
+      const names = new Set(["orquestrador-maestro"]);
+      try {
+        const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        for (const [key, value] of Object.entries(manifest.skills || {})) {
+          if (value && value.mirrorEverywhere) names.add(key);
+        }
+      } catch {}
+      try {
+        const policy = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+        for (const entry of Object.values(policy.nativeRoots || {})) {
+          for (const dir of (entry.allowDirectories || [])) names.add(dir);
+        }
+      } catch {}
+      console.log([...names].sort().join("\n"));
+    ' "$manifest" "$policy" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  printf '%s\n' \
+    ".system" "ask-claude" "ask-gemini" "autopilot" "cancel" "code-review" \
+    "deep-interview" "doctor" "orquestrador-maestro" "plan" "ralplan" "ralph" \
+    "security-review" "skill-adr" "skill-ai-orchestration" "skill-frontend-excellence" \
+    "skill-multiagent-orchestration" "skill-preflight" "skill-quality-gate" \
+    "skill-release-engineering" "skill-repo-health" "skill-research-and-synthesis" \
+    "skill-saas-factory" "skill-saas-security-scan" "skill-systematic-debugging" \
+    "skill-verification-before-completion" "skill-webapp-testing" "team" \
+    "ultrawork" "web-clone" "worker"
+}
+
+uninstall_synced_mirror_dir() {
+  local dest_dir="$1"
+  local label="$2"
+  [ -d "$dest_dir" ] || return 0
+  if ! path_under_root "$dest_dir" "$HOME_PATH"; then
+    echo "Error: refusing to uninstall synced mirror outside home: $dest_dir" >&2
+    exit 1
+  fi
+  backup_path "$dest_dir" "$label"
+  rm -rf "$dest_dir"
+}
+
+SYNC_MIRROR_SPECS=(
+  "codex|.codex/skills|.codex__skills"
+  "opencode|.opencode/skills|.opencode__skills"
+  "agents|.agents/skills|.agents__skills"
+  "claude|.claude/skills|.claude__skills"
+  "cursor|.cursor/skills|.cursor__skills"
+  "gemini|.gemini/skills|.gemini__skills"
+  "windsurf|.windsurf/skills|.windsurf__skills"
+  "antigravity|.antigravity-skills/skills|.antigravity-skills__skills"
+)
+
 validate_only_components
 if [ "$UNINSTALL" = true ]; then
   if selected_component core orquestrador global-agents; then
@@ -555,6 +633,46 @@ if [ "$LIST_TARGETS" = true ] || [ "$DRY_RUN" = true ]; then
   else
     list_install_plan "list"
   fi
+  if [ "$DRY_RUN" = true ] && [ "$UNINSTALL" = false ]; then
+    echo "Planned post-copy steps (not executed in dry-run):"
+    if [ "$VERBOSE_PATHS" = true ]; then
+      echo "- Would create logs directory: $TARGET_ORQUESTRADOR/logs"
+    else
+      echo "- Would create logs directory: $TARGET_ORQUESTRADOR_NAME/logs"
+    fi
+    echo "- Would chmod +x: sync-skills.sh and bin scripts (if present)"
+    if [ "$SKIP_SKILL_SYNC" = true ]; then
+      echo "- Would skip skill sync (--skip-skill-sync specified)."
+    else
+      sync_detail="sync-skills.sh --apply --home-path <home>"
+      if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
+        sync_detail="$sync_detail --only $(IFS=','; echo "${ONLY_COMPONENTS[*]}")"
+      fi
+      echo "- Would run skill sync: $sync_detail"
+    fi
+    if [ -f "$REPO_ROOT/scripts/discover-skills.js" ]; then
+      echo "- Would run skill discovery: node scripts/discover-skills.js -> $TARGET_ORQUESTRADOR_NAME/SKILLS_DISCOVERY.json"
+    fi
+  fi
+  if [ "$DRY_RUN" = true ] && [ "$UNINSTALL" = true ]; then
+    while IFS= read -r managed_name; do
+      [ -n "$managed_name" ] || continue
+      for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+        IFS='|' read -r program rel prefix <<< "$spec"
+        if ! sync_mirror_selected "$program"; then
+          continue
+        fi
+        candidate="$HOME_PATH/$rel/$managed_name"
+        if [ -d "$candidate" ]; then
+          if [ "$VERBOSE_PATHS" = true ]; then
+            echo "- Would remove synced mirror: $candidate"
+          else
+            echo "- Would remove synced mirror: ${prefix}__${managed_name}"
+          fi
+        fi
+      done
+    done < <(get_managed_mirror_names)
+  fi
   exit 0
 fi
 
@@ -610,6 +728,31 @@ EOF
         exit 1
       fi
       rm -f "$dest"
+    fi
+  done
+
+  while IFS= read -r managed_name; do
+    [ -n "$managed_name" ] || continue
+    for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+      IFS='|' read -r program rel prefix <<< "$spec"
+      if ! sync_mirror_selected "$program"; then
+        continue
+      fi
+      candidate="$HOME_PATH/$rel/$managed_name"
+      if [ -d "$candidate" ]; then
+        uninstall_synced_mirror_dir "$candidate" "${prefix}__${managed_name}"
+      fi
+    done
+  done < <(get_managed_mirror_names)
+
+  for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+    IFS='|' read -r program rel _prefix <<< "$spec"
+    if ! sync_mirror_selected "$program"; then
+      continue
+    fi
+    mirror_root="$HOME_PATH/$rel"
+    if [ -d "$mirror_root" ]; then
+      remove_empty_parents_under_root "$mirror_root" "$HOME_PATH"
     fi
   done
 

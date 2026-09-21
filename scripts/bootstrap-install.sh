@@ -26,7 +26,7 @@ case "$NODE_MAJOR" in
     exit 1
     ;;
 esac
-if [ "$NODE_MAJOR" -lt 18 ]; then
+if [ "$NODE_MAJOR" -lt 20 ]; then
   echo "Erro: Node.js 20 ou superior é necessário. Versão atual: $(node --version)." >&2
   exit 1
 fi
