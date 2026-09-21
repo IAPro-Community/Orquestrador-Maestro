@@ -89,3 +89,20 @@ test("explicit fresh named sessions are safe to aggregate", async () => {
   assert.equal(snapshot.complete, true);
   assert.equal(snapshot.totalTokens, 100);
 });
+
+
+test("reasoning tokens remain a separate dimension and are not double-counted in totals", async () => {
+  const stdout = JSON.stringify({
+    type: "step_finish",
+    sessionID: "ses",
+    part: { type: "step-finish", tokens: { input: 100, output: 20, reasoning: 7, cache: { read: 0, write: 0 } } }
+  });
+  const meter = new MissionUsageMeter();
+  const registry = { adapters: new Map([["opencode", adapter([stdout])]]) };
+  meter.instrumentRegistry(registry);
+  await (await registry.adapters.get("opencode").execute({ prompt: "reason" })).result;
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, true);
+  assert.equal(snapshot.reasoningTokens, 7);
+  assert.equal(snapshot.totalTokens, 120);
+});
