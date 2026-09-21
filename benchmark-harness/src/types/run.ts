@@ -125,6 +125,21 @@ export interface RunEvidence {
   publicClaimEligible?: boolean;
 }
 
+/** Resolution metrics emitted by the Maestro mission boundary. */
+export interface RunResolutionMetrics {
+  state: string;
+  taskCount: number;
+  validatedTaskCount: number;
+  firstPassValidatedTaskCount: number | null;
+  failedTaskCount: number;
+  blockedTaskCount: number;
+  needsAttentionTaskCount: number;
+  providerSwitches: number | null;
+  automaticRetries: number | null;
+  escalations: number | null;
+  tokensToValidatedOutcome: number | null;
+}
+
 /** Complete report for a single benchmark run. */
 export interface BenchmarkRunReport {
   /** Unique run identifier (UUID). */
@@ -165,6 +180,8 @@ export interface BenchmarkRunReport {
   usage?: { tokenSource?: string; confidence?: string };
   /** Explicit validation outcome. */
   validation?: { passed?: boolean };
+  /** Maestro Resolution Engine mission metrics when emitted by the runtime. */
+  resolution?: RunResolutionMetrics;
   /** Tool usage statistics (null if unavailable). */
   toolUsage?: import('../types/driver.js').ToolUsage | null;
   /** Wall-clock timing. */
