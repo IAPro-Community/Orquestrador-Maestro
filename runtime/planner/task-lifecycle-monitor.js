@@ -1,13 +1,14 @@
 "use strict";
 
 class TaskLifecycleMonitor {
-  static attach({ executor, app, graphs, store }) {
+  static attach({ executor, app, graphs, store, missionId = null }) {
     if (!executor || !app || !graphs) throw new TypeError("executor, app and graphs are required");
     const listeners = [];
     let pending = Promise.resolve();
     const persist = async (type, task, extra = {}) => {
       try {
-        const link = await graphs.missionForTask(task.id);
+        const graphLink = await graphs.missionForTask(task.id);
+        const link = missionId ? { ...(graphLink || {}), missionId } : graphLink;
         if (!link?.missionId) return;
         await app.record(null, type, { taskId: task.id, ...link, ...extra });
       } catch { /* observability must not interrupt execution */ }
