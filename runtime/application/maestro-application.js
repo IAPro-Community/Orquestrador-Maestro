@@ -23,7 +23,7 @@ const { resolveInteractionProfile, interactionContract } = require("../interacti
 const { parseProviderUsage } = require("../telemetry/provider-usage");
 const { extractChildAgents } = require("../telemetry/agent-topology");
 const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
-const { buildMaestroPromptManifest, buildResolutionPlan, buildResolutionTelemetry } = require("../resolution");
+const { buildMaestroPromptManifest, createResolution, finalizeResolution, resolutionTransition, resolutionProjection, buildResolutionTelemetry } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
@@ -220,20 +220,24 @@ class MaestroApplication {
     const latestRun = runs.slice().sort((a, b) => String(b.startedAt || "").localeCompare(String(a.startedAt || "")))[0] || null;
     const git = snapshot(workspacePath);
     const verification = latestRun ? await this.getVerification(latestRun.id) : null;
-    const status = latestRun?.status === "running" ? "running"
-      : latestRun?.status === "failed" && verification?.status === "failed" ? "verification_failed"
-        : latestRun?.status === "failed" ? "needs_attention"
-          : git.available && git.files.length > 0 ? "changes_detected"
-            : latestRun?.status === "completed" ? "healthy" : "idle";
+    const resolution = latestRun ? resolutionProjection(latestRun) : null;
+    const status = resolution?.state === "validated" ? "healthy"
+      : resolution?.state === "blocked" ? "blocked"
+        : resolution?.state === "needs_attention" ? "needs_attention"
+          : resolution?.state === "failed" && verification?.status === "failed" ? "verification_failed"
+            : resolution?.state === "failed" ? "needs_attention"
+              : resolution?.state === "running" || resolution?.state === "verifying" ? resolution.state
+                : git.available && git.files.length > 0 ? "changes_detected" : "idle";
     return {
       id: idToUse, path: workspacePath, name: stored?.name || path.basename(workspacePath), known: Boolean(stored),
-      status, latestRun, verification, git, runCount: runs.length
+      status, latestRun, resolution, verification, git, runCount: runs.length
     };
   }
   async inspectRun(runId) {
     const run = await this.getRun(runId); if (!run) return null;
     const task = await this.getTask(run.taskId);
     return { run, task, project: task?.projectId ? await this.getProject(task.projectId) : null,
+      resolution: resolutionProjection(run),
       steps: await this.store.listSteps({ runId }), executions: await this.store.listExecutions({ runId }),
       artifacts: await this.listArtifacts({ runId }), verification: await this.getVerification(runId),
       events: await this.store.listEvents({ runId }) };
@@ -339,10 +343,20 @@ class MaestroApplication {
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
     const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
-    const adaptiveResolution = buildResolutionPlan({
+    const semanticTask = request.semanticTask || {
+      id: request.semanticTaskId || undefined,
+      objective: request.description,
+      acceptanceCriteria: [],
+      evidenceRequirements: []
+    };
+    const resolution = createResolution({
+      task: semanticTask,
       cognitiveBudget,
       evidenceCandidates: Array.isArray(request.evidenceCandidates) ? request.evidenceCandidates : [],
-      mode: request.adaptiveResolutionMode || "shadow"
+      mode: request.resolutionMode || request.adaptiveResolutionMode || "shadow",
+      executionProfile: profile.id,
+      validators: request.validators,
+      enforceAuthorized: request.resolutionEnforceAuthorized === true
     });
     const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
       && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
@@ -357,33 +371,39 @@ class MaestroApplication {
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
       cognitiveBudget,
-      adaptiveResolution,
+      resolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
-    const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
+    const task = core.createTask({ id: request.semanticTaskId || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
     await this.record(run.id, "resolution.planned", {
-      mode: adaptiveResolution.mode,
-      strategy: adaptiveResolution.strategy,
-      evidenceCandidates: adaptiveResolution.evidenceAdvice.stats.inputCandidates,
-      evidenceSelected: adaptiveResolution.evidenceAdvice.stats.selectedCandidates,
-      contextBudgetOverflow: adaptiveResolution.evidenceAdvice.budgetOverflow
+      mode: resolution.mode,
+      strategy: resolution.strategy,
+      evidenceCandidates: resolution.evidence.candidates,
+      evidenceSelected: resolution.evidence.selected.length,
+      contextBudgetOverflow: resolution.evidence.budgetOverflow
     });
     if (preflightBlock) {
+      const blockedResolution = finalizeResolution({ contract: resolution, runStatus: "blocked", reason: preflightBlock });
       const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason: preflightBlock });
       const blockedCognitiveTelemetry = {
         ...blockedTelemetryValue,
         resolution: buildResolutionTelemetry({
-          plan: adaptiveResolution,
+          plan: blockedResolution,
           cognitiveTelemetry: blockedTelemetryValue,
           status: "blocked"
         })
       };
-      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: blockedCognitiveTelemetry } };
+      const blockedRun = {
+        ...run,
+        status: "blocked",
+        completedAt: new Date().toISOString(),
+        metadata: { ...run.metadata, preflightBlock, resolution: blockedResolution, cognitiveTelemetry: blockedCognitiveTelemetry }
+      };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
@@ -496,16 +516,22 @@ class MaestroApplication {
           maestroPromptManifest: promptEnvelope.manifest.manifestHash
         }
       });
+      const failedResolution = finalizeResolution({ contract: run.metadata.resolution, runStatus: "failed", reason: cleanReason });
       const failedCognitiveTelemetry = {
         ...failedTelemetry,
         resolution: buildResolutionTelemetry({
-          plan: run.metadata?.adaptiveResolution,
+          plan: failedResolution,
           cognitiveTelemetry: failedTelemetry,
           promptManifest: promptEnvelope.manifest,
           status: "failed"
         })
       };
-      await this.store.saveRun({ ...run, status: "failed", completedAt, metadata: { ...run.metadata, cognitiveTelemetry: failedCognitiveTelemetry } });
+      await this.store.saveRun({
+        ...run,
+        status: "failed",
+        completedAt,
+        metadata: { ...run.metadata, resolution: failedResolution, cognitiveTelemetry: failedCognitiveTelemetry }
+      });
       await this.record(run.id, "run.failed", { reason: cleanReason });
       return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
@@ -552,9 +578,26 @@ class MaestroApplication {
     const reviewBlocking = review.status === "rejected" || review.status === "inconclusive" || review.status === "unavailable";
     const status = executionStatus === "completed" && !reviewBlocking && !hasCriticalFinding && governance.blocking.length === 0 && (!strictGate || (verification.status === "passed" && completion.eligible)) ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
     const completedAt = new Date().toISOString();
+    const finalizedResolution = finalizeResolution({
+      contract: run.metadata.resolution,
+      runStatus: status,
+      verification,
+      completion,
+      review,
+      reason: governance.blocking[0] || (hasCriticalFinding ? "quality-finding" : reviewBlocking ? "review-blocking" : null),
+      now: completedAt
+    });
+    const transition = resolutionTransition(run.metadata.resolution, finalizedResolution);
     await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
-    await this.store.saveRun({ ...run, status, startedAt: execution.startedAt, completedAt });
-    await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status });
+    await this.store.saveRun({
+      ...run,
+      status,
+      startedAt: execution.startedAt,
+      completedAt,
+      metadata: { ...run.metadata, resolution: finalizedResolution }
+    });
+    await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status, resolutionState: finalizedResolution.outcome.state });
+    if (transition.event) await this.record(run.id, transition.event, { state: finalizedResolution.outcome.state });
     const finalRun = await this.store.getRun(run.id);
     if (finalRun) {
       // Economic telemetry: provider-reported when the CLI exposes usage,
@@ -610,7 +653,7 @@ class MaestroApplication {
       const cognitiveTelemetry = {
         ...telemetry,
         resolution: buildResolutionTelemetry({
-          plan: finalRun.metadata?.adaptiveResolution,
+          plan: finalRun.metadata?.resolution,
           cognitiveTelemetry: telemetry,
           verification,
           completion,
