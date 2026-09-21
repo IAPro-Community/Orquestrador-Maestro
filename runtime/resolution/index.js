@@ -8,6 +8,7 @@ module.exports = {
   ...require("./budget/reservation"),
   ...require("./escalation/classifier"),
   ...require("./escalation/controller"),
+  ...require("./checkpoint/provider-checkpoint"),
   ...require("./evidence-ranker"),
   ...require("./evidence/signal-extractor"),
   ...require("./evidence/proof-bundle"),
