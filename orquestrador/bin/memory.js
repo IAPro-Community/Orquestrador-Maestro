@@ -21,6 +21,10 @@ const SAFE_DESTINATIONS = [
   "DEV/RUNBOOKS"
 ];
 
+// RFC-0003: unbounded details bloat JSONL and smuggle bulk content past
+// review. Truncated (not rejected) so adapter flows keep working.
+const MAX_DETAILS_CHARS = 4000;
+
 /**
  * Uniform trust predicate for READS. A bare `verified:true` (legacy rows,
  * hand-edited JSONL) has no authority: verified requires an identified
@@ -147,9 +151,12 @@ class Memory {
       .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
       .replace(/\b\d{3}[-]?\d{2}[-]?\d{4}\b/g, "[SSN_REDACTED]")
       .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[JWT_REDACTED]")
-      .replace(/-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g, "[PRIVATE_KEY_REDACTED]")
+      .replace(/-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g, "[PRIVATE_KEY_REDACTED]")
       .replace(/(?:sk-|pk-|rk-|sk-ant-|sk-proj-)[A-Za-z0-9_-]{20,}/g, "[API_KEY_REDACTED]")
-      .replace(/(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/(?:ghp_|github_pat_|gho_|ghu_)[A-Za-z0-9_]{20,}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, "[GITLAB_TOKEN_REDACTED]")
+      .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[GOOGLE_KEY_REDACTED]")
+      .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[AWS_KEY_REDACTED]")
       .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[SLACK_TOKEN_REDACTED]")
       .replace(/cookie\s*[:=]\s*[^\s`"']+/gi, "[COOKIE_REDACTED]")
       .replace(/(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)\s*[:=]\s*[^\s`"']+/gi, "[AWS_KEY_REDACTED]")
@@ -164,6 +171,12 @@ class Memory {
       return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.redactValue(item)]));
     }
     return value;
+  }
+
+  truncateDetails(details) {
+    if (typeof details !== "string") return details;
+    if (details.length <= MAX_DETAILS_CHARS) return details;
+    return details.slice(0, MAX_DETAILS_CHARS) + "\n[truncated]";
   }
 
   containsPrivateContent(content) {
@@ -207,10 +220,19 @@ class Memory {
     if (!obs.scope || !isValidScope(obs.scope)) {
       throw new Error("Invalid observation scope: scope is required and must have valid level with required identifiers");
     }
-    if (this.detectInjection(obs.summary) || this.detectInjection(obs.details || "")) {
+    if (this.detectInjectionDeep({ summary: obs.summary, details: obs.details, files: obs.files, tags: obs.tags, source: obs.source, taskId: obs.taskId })) {
       throw new Error("Potential prompt injection detected in content");
     }
     return true;
+  }
+
+  detectInjectionDeep(value) {
+    if (typeof value === "string") return this.detectInjection(value);
+    if (Array.isArray(value)) return value.some(item => this.detectInjectionDeep(item));
+    if (value && typeof value === "object") {
+      return Object.values(value).some(item => this.detectInjectionDeep(item));
+    }
+    return false;
   }
 
   resolveVerification(observation) {
@@ -285,6 +307,19 @@ class Memory {
       throw new Error("Private content cannot be persisted to memory");
     }
 
+    // Fail loud on injection in ANY field before policy/redaction, so
+    // smuggled instructions can neither persist nor vanish silently.
+    if (this.detectInjectionDeep({
+      summary: observation.summary,
+      details: observation.details,
+      files: observation.files,
+      tags: observation.tags,
+      source: observation.source,
+      taskId: observation.taskId
+    })) {
+      throw new Error("Potential prompt injection detected in content");
+    }
+
     const policyResult = this.capturePolicy.evaluate(observation);
     if (policyResult.policy === POLICIES.DROP) {
       return null;
@@ -315,7 +350,7 @@ class Memory {
       project: projectId,
       type: observation.type,
       summary: this.redactContent(observation.summary),
-      details: observation.details ? this.redactContent(observation.details) : null,
+      details: observation.details ? this.truncateDetails(this.redactContent(observation.details)) : null,
       files: (observation.files || []).map(f => this.redactContent(f)),
       tags: this.redactValue(observation.tags || []),
       ...this.resolveVerification(observation),
@@ -700,7 +735,7 @@ class Memory {
         project: projectId,
         type: consolidatedObs.type || "discovery",
         summary: this.redactContent(consolidatedObs.summary),
-        details: consolidatedObs.details ? this.redactContent(consolidatedObs.details) : null,
+        details: consolidatedObs.details ? this.truncateDetails(this.redactContent(consolidatedObs.details)) : null,
         files: this.redactValue([...new Set(observations.flatMap(obs => obs.files || []))]),
         tags: this.redactValue([...new Set(observations.flatMap(obs => obs.tags || []))]),
         source: this.redactValue(consolidatedObs.source || {}),
@@ -793,6 +828,21 @@ class Memory {
     return { deduped: dedupeResult.deduped, retained: retentionResult.retained, removed: retentionResult.removed };
   }
 
+  forget(projectId, observationId) {
+    const filePath = this.getObservationsFile(projectId);
+    const lockPath = getLockPath(filePath);
+    return withLock(lockPath, () => {
+      const { valid: observations, malformedLines } = this.readObservations(filePath);
+      const filtered = observations.filter(obs => obs.id !== observationId);
+      const removed = observations.length - filtered.length;
+      if (removed > 0) {
+        const lines = [...filtered.map(obs => JSON.stringify(obs)), ...malformedLines];
+        this.writeAtomic(filePath, lines.join("\n") + "\n");
+      }
+      return { removed };
+    });
+  }
+
   prune(projectId, options = {}) {
     const filePath = this.getObservationsFile(projectId);
     const lockPath = getLockPath(filePath);
@@ -831,6 +881,7 @@ Uso:
   memory record [--project PATH] --type TYPE --summary TEXT [opcoes]
   memory search [--project PATH] [--search TEXT] [--type TYPE] [--verified] [--unverified]
   memory show [--project PATH] --id ID
+  memory forget [--project PATH] --id ID
   memory timeline [--project PATH] [--limit N]
   memory promote [--project PATH] --id ID --destination PATH [--apply]
   memory stats [--project PATH]
@@ -903,19 +954,24 @@ function main() {
       const type = memory.getArg(rest, "--type");
       const summary = memory.getArg(rest, "--summary");
       if (!type || !summary) { console.error("--type and --summary required"); return 1; }
-      const obs = memory.record(project, {
-        type, summary,
-        details: memory.getArg(rest, "--details"),
-        files: memory.getArgList(rest, "--files"),
-        tags: memory.getArgList(rest, "--tags"),
-        verified: rest.includes("--verified"),
-        verifier: memory.getArg(rest, "--verifier"),
-        verifyNote: memory.getArg(rest, "--verify-note"),
-        taskId: memory.getArg(rest, "--task"),
-        scope: memory.resolveScope(project, rest, projectPath)
-      }, { gitContext: gitCtx, projectRoot: projectPath });
-      console.log(JSON.stringify(obs, null, 2));
-      return 0;
+      try {
+        const obs = memory.record(project, {
+          type, summary,
+          details: memory.getArg(rest, "--details"),
+          files: memory.getArgList(rest, "--files"),
+          tags: memory.getArgList(rest, "--tags"),
+          verified: rest.includes("--verified"),
+          verifier: memory.getArg(rest, "--verifier"),
+          verifyNote: memory.getArg(rest, "--verify-note"),
+          taskId: memory.getArg(rest, "--task"),
+          scope: memory.resolveScope(project, rest, projectPath)
+        }, { gitContext: gitCtx, projectRoot: projectPath });
+        console.log(JSON.stringify(obs, null, 2));
+        return 0;
+      } catch (err) {
+        console.error(`record failed: ${err.message}`);
+        return 1;
+      }
     }
     case "search": {
       const results = memory.search(project, {
@@ -938,6 +994,13 @@ function main() {
       const obs = memory.show(project, id);
       if (!obs) { console.error("Not found"); return 1; }
       console.log(JSON.stringify(obs, null, 2));
+      return 0;
+    }
+    case "forget": {
+      const id = memory.getArg(rest, "--id");
+      if (!id) { console.error("--id required"); return 1; }
+      const result = memory.forget(project, id);
+      console.log(JSON.stringify(result, null, 2));
       return 0;
     }
     case "timeline": {

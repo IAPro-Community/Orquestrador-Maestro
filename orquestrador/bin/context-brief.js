@@ -124,7 +124,15 @@ function parseArgs(argv) {
 function sanitizeContent(content) {
   return content
     .replace(/(api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password)\s*[:=]\s*[^\s`"']+/giu, "$1=[redigido]")
-    .replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]");
+    .replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]")
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[email redigido]")
+    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[JWT redigido]")
+    .replace(/-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g, "[chave privada redigida]")
+    .replace(/(?:sk-|pk-|rk-|sk-ant-|sk-proj-)[A-Za-z0-9_-]{20,}/g, "[chave de API redigida]")
+    .replace(/(?:ghp_|github_pat_|gho_|ghu_)[A-Za-z0-9_]{20,}/g, "[token GitHub redigido]")
+    .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, "[token GitLab redigido]")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[chave AWS redigida]")
+    .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[chave Google redigida]");
 }
 
 function readUtf8(filePath) {

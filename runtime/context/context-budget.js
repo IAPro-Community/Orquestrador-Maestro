@@ -10,6 +10,18 @@ class ContextBudget {
    * @param {number} maxTokens - The maximum allowed tokens (estimated).
    * @returns {Array} The budgeted ContextItems.
    */
+  static estimateCost(value) {
+    if (typeof value === "string") return Math.ceil(value.length / 4);
+    // Objects (e.g. a whole contextBrief) must be measured, not flat-rated:
+    // serialize and estimate like any other payload.
+    try {
+      const text = JSON.stringify(value) ?? "";
+      return Math.ceil(text.length / 4);
+    } catch {
+      return 25;
+    }
+  }
+
   static applyBudget(items, maxTokens = 8000) {
     if (!Array.isArray(items)) return [];
 
@@ -32,8 +44,8 @@ class ContextBudget {
       if (confA !== confB) return confB - confA; // Descending confidence
 
       // Secondary: string length cost
-      const lenA = typeof a.value === "string" ? a.value.length : 100;
-      const lenB = typeof b.value === "string" ? b.value.length : 100;
+      const lenA = ContextBudget.estimateCost(a.value) * 4;
+      const lenB = ContextBudget.estimateCost(b.value) * 4;
       return lenA - lenB; // Ascending length
     });
 
@@ -42,20 +54,15 @@ class ContextBudget {
 
     for (const item of sorted) {
       // Estimate cost
-      const valueCost = typeof item.value === "string" ? Math.ceil(item.value.length / 4) : 25;
-      const itemCost = 10 + valueCost; // base cost + value cost
+      const itemCost = 10 + ContextBudget.estimateCost(item.value); // base cost + value cost
 
-      // USER_DECISION and critical blocking facts are ALWAYS preserved regardless of budget
-      const isCritical = item.kind === "USER_DECISION" || item.key.startsWith("critical.") || item.key.startsWith("blocking.");
-
-      if (isCritical) {
+      // Critical facts keep priority order (sorted first) but still count
+      // against the budget: the loop stops once the cap is exceeded, except
+      // it always keeps the single highest-priority item so context is
+      // never silently empty.
+      if (currentCost + itemCost <= maxTokens || result.length === 0) {
         result.push(item);
         currentCost += itemCost;
-      } else {
-        if (currentCost + itemCost <= maxTokens) {
-          result.push(item);
-          currentCost += itemCost;
-        }
       }
     }
 
