@@ -279,3 +279,32 @@ test("topologyVisibility separates zero observed from unavailable", () => {
   assert.equal(some.childAgentsObserved, 1);
   assert.equal(some.topologyVisibility, "partially-observed");
 });
+
+
+test("opencode sums per-step usage and marks a closed lifecycle complete", () => {
+  const stdout = [
+    JSON.stringify({ type: "step_start", sessionID: "ses-1", part: { type: "step-start" } }),
+    JSON.stringify({ type: "step_finish", sessionID: "ses-1", part: { type: "step-finish", tokens: { input: 100, output: 20, reasoning: 5, cache: { read: 40, write: 3 } } } }),
+    JSON.stringify({ type: "step_start", sessionID: "ses-1", part: { type: "step-start" } }),
+    JSON.stringify({ type: "step_finish", sessionID: "ses-1", part: { type: "step-finish", tokens: { input: 150, output: 30, reasoning: 7, cache: { read: 60, write: 4 } } } })
+  ].join("\n");
+  const usage = parseProviderUsage({ providerId: "opencode", stdout, model: "provider/model" });
+  assert.equal(usage.tokenInput, 250);
+  assert.equal(usage.tokenOutput, 50);
+  assert.equal(usage.reasoningTokens, 12);
+  assert.equal(usage.cachedInputTokens, 100);
+  assert.equal(usage.cachedOutputTokens, 7);
+  assert.equal(usage.modelCalls, 2);
+  assert.equal(usage.usageComplete, true);
+});
+
+test("opencode keeps counts but marks usage incomplete when payload activity follows the last step finish", () => {
+  const stdout = [
+    JSON.stringify({ type: "step_finish", sessionID: "ses-2", part: { type: "step-finish", tokens: { input: 100, output: 20, reasoning: 0, cache: { read: 0, write: 0 } } } }),
+    JSON.stringify({ type: "text", sessionID: "ses-2", part: { type: "text", text: "late output" } })
+  ].join("\n");
+  const usage = parseProviderUsage({ providerId: "opencode", stdout });
+  assert.equal(usage.tokenInput, 100);
+  assert.equal(usage.tokenOutput, 20);
+  assert.equal(usage.usageComplete, false);
+});

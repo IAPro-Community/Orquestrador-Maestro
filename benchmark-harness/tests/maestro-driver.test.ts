@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMaestroArgs, extractAdaptiveExecutionMetadata } from '../src/drivers/maestro.js';
+import { buildMaestroArgs, extractAdaptiveExecutionMetadata, extractMissionTokenUsage } from '../src/drivers/maestro.js';
 
 describe('MaestroDriver benchmark contract', () => {
   it('builds the real go --auto command with explicit model and workspace', () => {
@@ -56,4 +56,12 @@ it('defaults to a checkout-relative Maestro binary instead of a global CLI', asy
   const source = await import('node:fs/promises').then((fs) => fs.readFile(new URL('../src/drivers/maestro.ts', import.meta.url), 'utf8'));
   assert.match(source, /CHECKOUT_MAESTRO_BINARY/u);
   assert.doesNotMatch(source, /\?\? 'orquestrador-maestro'/u);
+});
+
+
+it('uses mission totals only when runtime marks usage complete', () => {
+  const complete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ complete:true,inputTokens:1200,outputTokens:300,reasoningTokens:50,cacheReadTokens:400,cacheWriteTokens:0 })}`);
+  assert.equal(complete.total,1550); assert.equal(complete.source,'provider-reported'); assert.equal(complete.confidence,'exact');
+  const incomplete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ complete:false,observed:{inputTokens:1200} })}`);
+  assert.equal(incomplete.total,null); assert.equal(incomplete.source,'unavailable');
 });

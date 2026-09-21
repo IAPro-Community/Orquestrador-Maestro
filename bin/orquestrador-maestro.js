@@ -1639,6 +1639,12 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const workspacePath = path.resolve(options.projectPath || process.cwd());
   const app = await createRuntimeApplication(workspacePath);
+  let missionUsageMeter = null;
+  if (process.env.MAESTRO_BENCHMARK_USAGE === "1") {
+    const { MissionUsageMeter } = require(path.join(rootDir, "runtime", "telemetry", "mission-usage-meter"));
+    missionUsageMeter = new MissionUsageMeter();
+    missionUsageMeter.instrumentRegistry(app.providers);
+  }
 
   const p = require("@clack/prompts");
   const notifier = require("node-notifier");
@@ -1918,6 +1924,10 @@ async function handleGoCommand(args, planningOnly = false) {
   s.stop("Execução concluída");
 
   const failures = Object.values(results).filter((r) => r.status === "failed");
+
+  if (missionUsageMeter) {
+    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify(missionUsageMeter.snapshot())}`);
+  }
 
   if (failures.length) {
     updateTitle("Concluído (com falhas)");

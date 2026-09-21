@@ -11,9 +11,12 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { AgentDriver, DriverExecuteOptions, DriverResult } from '../types/driver.js';
+import type { TokenUsage } from '../types/tokens.js';
+import { TokenConfidence, TokenSource } from '../types/tokens.js';
 import { createUnavailableTokens } from '../utils/tokens.js';
 
 const ADAPTIVE_MARKER = 'MAESTRO_ADAPTIVE_POLICY=';
+const MISSION_USAGE_MARKER = 'MAESTRO_MISSION_USAGE=';
 const CHECKOUT_MAESTRO_BINARY = fileURLToPath(new URL('../../../bin/orquestrador-maestro.js', import.meta.url));
 
 export interface AdaptiveExecutionMetadata {
@@ -69,6 +72,27 @@ export function extractAdaptiveExecutionMetadata(output: string): Record<string,
   }
 }
 
+export function extractMissionTokenUsage(output: string): TokenUsage {
+  const line = String(output || '').split(/\r?\n/u).reverse().find((entry) => entry.startsWith(MISSION_USAGE_MARKER));
+  if (!line) return createUnavailableTokens();
+  try {
+    const parsed = JSON.parse(line.slice(MISSION_USAGE_MARKER.length)) as Record<string, unknown>;
+    if (parsed.complete !== true) return createUnavailableTokens();
+    const inputTokens = typeof parsed.inputTokens === 'number' ? parsed.inputTokens : null;
+    const outputTokens = typeof parsed.outputTokens === 'number' ? parsed.outputTokens : null;
+    const reasoningTokens = typeof parsed.reasoningTokens === 'number' ? parsed.reasoningTokens : 0;
+    if (inputTokens === null || outputTokens === null) return createUnavailableTokens();
+    return {
+      inputTokens, outputTokens, reasoningTokens,
+      cacheReadTokens: typeof parsed.cacheReadTokens === 'number' ? parsed.cacheReadTokens : null,
+      cacheWriteTokens: typeof parsed.cacheWriteTokens === 'number' ? parsed.cacheWriteTokens : null,
+      total: inputTokens + outputTokens + reasoningTokens,
+      source: TokenSource.ProviderReported, confidence: TokenConfidence.Exact,
+      rawEvidenceRef: 'maestro-mission-usage-marker',
+    };
+  } catch { return createUnavailableTokens(); }
+}
+
 export class MaestroDriver implements AgentDriver {
   readonly name = 'maestro';
   readonly version: string;
@@ -114,6 +138,7 @@ export class MaestroDriver implements AgentDriver {
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
       ...(options.env ?? {}),
+      MAESTRO_BENCHMARK_USAGE: '1',
     };
     const adaptiveKeys = [
       'MAESTRO_ADAPTIVE_POLICY_ID',
@@ -172,7 +197,7 @@ export class MaestroDriver implements AgentDriver {
     return {
       output,
       exitCode,
-      tokens: createUnavailableTokens(),
+      tokens: extractMissionTokenUsage(output),
       durationMs: Date.now() - startMs,
       sessionFile: '',
       agentOutput,
