@@ -48,6 +48,7 @@ function buildResolutionPlan({ cognitiveBudget = {}, evidenceCandidates = [], mo
 }
 
 function observedProviderTokens(cognitiveTelemetry = {}) {
+  if (cognitiveTelemetry.usageComplete !== true) return null;
   if (cognitiveTelemetry.tokenSource !== "provider-reported" && cognitiveTelemetry.tokenSource !== "derived") return null;
   const input = cognitiveTelemetry.tokenInput;
   const output = cognitiveTelemetry.tokenOutput;
@@ -95,7 +96,9 @@ function buildResolutionTelemetry({ plan, cognitiveTelemetry = {}, verification,
     completionEligible: completion?.eligible === true,
     reviewStatus: review?.status || "not-requested",
     observedTokensToValidatedOutcome: hardValidated ? observedTokens : null,
-    tokenMetricCompleteness: observedTokens === null ? "unavailable" : "provider-only",
+    tokenMetricCompleteness: observedTokens !== null
+      ? "provider-only"
+      : ["provider-reported", "derived"].includes(cognitiveTelemetry.tokenSource) ? "partial-provider-only" : "unavailable",
     durationMs: Number.isFinite(cognitiveTelemetry.durationMs) ? cognitiveTelemetry.durationMs : null,
     evidenceCandidates: stats.candidates,
     evidenceSelected: stats.selected,
