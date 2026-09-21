@@ -12,6 +12,7 @@ function emptyState() {
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 function assertRecord(record, label) {
   if (!record || typeof record !== "object" || Array.isArray(record)) throw new TypeError(`${label} must be an object`);
@@ -28,31 +29,40 @@ function assertKnownCollection(collection) {
  * Linux, and macOS. Each mutation atomically replaces one private JSON file.
  */
 class JsonFileRunStore extends RunStore {
-  constructor({ filePath } = {}) {
+  constructor({ filePath, lockTimeoutMs = 60_000, lockStaleMs = 30_000, lockRetryMs = 25 } = {}) {
     super();
     if (typeof filePath !== "string" || filePath.trim() === "") throw new TypeError("filePath must be a non-empty string");
+    for (const [name, value] of Object.entries({ lockTimeoutMs, lockStaleMs, lockRetryMs })) {
+      if (!Number.isInteger(value) || value <= 0) throw new TypeError(`${name} must be a positive integer`);
+    }
     this.filePath = path.resolve(filePath);
+    this.lockPath = `${this.filePath}.lock`;
+    this.lockTimeoutMs = lockTimeoutMs;
+    this.lockStaleMs = lockStaleMs;
+    this.lockRetryMs = lockRetryMs;
     this._state = null;
     this._mutation = Promise.resolve();
     this._lastWriteMtime = null;
+    this._initializing = null;
   }
 
   async initialize() {
     if (this._state) return;
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
-    try {
-      const contents = await fs.readFile(this.filePath, "utf8");
-      this._state = this._validateState(JSON.parse(contents));
-      this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs;
-    } catch (error) {
-      if (error && error.code === "ENOENT") {
-        this._state = emptyState();
-        await this._flush();
-      } else if (error instanceof SyntaxError) {
-        throw new Error(`RunStore data is invalid JSON: ${this.filePath}`);
-      } else {
-        throw error;
+    if (this._initializing) return this._initializing;
+    this._initializing = (async () => {
+      await fs.mkdir(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
+      const release = await this._acquireFileLock();
+      try {
+        if (this._state) return;
+        await this._reloadFromDisk({ createIfMissing: true });
+      } finally {
+        await release();
       }
+    })();
+    try {
+      await this._initializing;
+    } finally {
+      this._initializing = null;
     }
   }
 
@@ -107,6 +117,7 @@ class JsonFileRunStore extends RunStore {
 
   async getLatestProjectSnapshot(projectId) {
     await this.initialize();
+    await this._reloadIfChanged();
     if (typeof projectId !== "string" || projectId.trim() === "") throw new TypeError("projectId must be a non-empty string");
     const snapshots = this._state.projectSnapshots.filter(s => s.projectId === projectId);
     if (snapshots.length === 0) throw new Error(`Project snapshot not found for project: ${projectId}`);
@@ -154,6 +165,7 @@ class JsonFileRunStore extends RunStore {
 
   async _get(collection, id) {
     await this.initialize();
+    await this._reloadIfChanged();
     if (typeof id !== "string" || id.trim() === "") throw new TypeError("id must be a non-empty string");
     const record = this._state[collection].find((entry) => entry.id === id);
     return record ? clone(record) : undefined;
@@ -162,6 +174,7 @@ class JsonFileRunStore extends RunStore {
   async _list(collection, filters = {}, allowed) {
     assertKnownCollection(collection);
     await this.initialize();
+    await this._reloadIfChanged();
     return this._filter(this._state[collection], filters, allowed);
   }
 
@@ -181,33 +194,117 @@ class JsonFileRunStore extends RunStore {
   async _mutate(operation) {
     const next = this._mutation.then(async () => {
       await this.initialize();
-      await this._reloadIfChanged();
-      return operation();
+      const release = await this._acquireFileLock();
+      try {
+        // The lock serializes independent Maestro processes. Always reload
+        // inside the critical section so the mutation is based on the latest
+        // committed file, never on a stale in-memory snapshot.
+        await this._reloadFromDisk({ createIfMissing: true });
+        return await operation();
+      } finally {
+        await release();
+      }
     });
     this._mutation = next.catch(() => undefined);
     return next;
   }
 
-  /**
-   * Reloads the persisted state before a mutation when another process wrote
-   * the file since our last read/flush. Prevents last-writer-wins clobbering
-   * of concurrent runtime instances sharing the same run store file.
-   */
+  async _reloadFromDisk({ createIfMissing = false } = {}) {
+    try {
+      const contents = await fs.readFile(this.filePath, "utf8");
+      this._state = this._validateState(JSON.parse(contents));
+      this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs;
+    } catch (error) {
+      if (error && error.code === "ENOENT" && createIfMissing) {
+        this._state = emptyState();
+        await this._flush();
+        return;
+      }
+      if (error instanceof SyntaxError) throw new Error(`RunStore data is invalid JSON: ${this.filePath}`);
+      throw error;
+    }
+  }
+
   async _reloadIfChanged() {
     if (this._lastWriteMtime === null) return;
     let stat;
     try {
       stat = await fs.stat(this.filePath);
-    } catch {
-      return; // file is absent or unreadable; keep current state
+    } catch (error) {
+      if (error?.code === "ENOENT") return;
+      throw error;
     }
     if (stat.mtimeMs === this._lastWriteMtime) return;
+    await this._reloadFromDisk();
+  }
+
+  async _acquireFileLock() {
+    const startedAt = Date.now();
+    const token = `${process.pid}-${crypto.randomUUID()}`;
+    while (true) {
+      try {
+        const handle = await fs.open(this.lockPath, "wx", 0o600);
+        try {
+          await handle.writeFile(JSON.stringify({ token, pid: process.pid, createdAt: new Date().toISOString() }), "utf8");
+        } finally {
+          await handle.close();
+        }
+        return async () => this._releaseFileLock(token);
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+        if (await this._isStaleFileLock()) {
+          try { await fs.unlink(this.lockPath); } catch (unlinkError) { if (unlinkError?.code !== "ENOENT") throw unlinkError; }
+          continue;
+        }
+        if (Date.now() - startedAt >= this.lockTimeoutMs) {
+          const timeout = new Error(`RunStore lock timed out: ${this.lockPath}`);
+          timeout.code = "RUN_STORE_LOCK_TIMEOUT";
+          throw timeout;
+        }
+        await sleep(this.lockRetryMs);
+      }
+    }
+  }
+
+  async _isStaleFileLock() {
+    let stat;
+    let lock = null;
     try {
-      const contents = await fs.readFile(this.filePath, "utf8");
-      this._state = this._validateState(JSON.parse(contents));
-      this._lastWriteMtime = stat.mtimeMs;
-    } catch {
-      // Unreadable or invalid external write: keep current in-memory state.
+      stat = await fs.stat(this.lockPath);
+      lock = JSON.parse(await fs.readFile(this.lockPath, "utf8"));
+    } catch (error) {
+      if (error?.code === "ENOENT") return true;
+      // A malformed lock is removable only after the stale threshold.
+      try { stat = stat || await fs.stat(this.lockPath); } catch { return true; }
+    }
+
+    const ownerPid = Number(lock?.pid);
+    if (Number.isInteger(ownerPid) && ownerPid > 0) {
+      try {
+        process.kill(ownerPid, 0);
+        return false;
+      } catch (error) {
+        if (error?.code === "ESRCH") return true;
+        if (error?.code === "EPERM") return false;
+      }
+    }
+    return Date.now() - stat.mtimeMs >= this.lockStaleMs;
+  }
+
+  async _releaseFileLock(token) {
+    let current;
+    try {
+      current = JSON.parse(await fs.readFile(this.lockPath, "utf8"));
+    } catch (error) {
+      if (error?.code === "ENOENT") return;
+      throw error;
+    }
+    // Never unlink a lock that was replaced by another owner.
+    if (current?.token !== token) return;
+    try {
+      await fs.unlink(this.lockPath);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
   }
 
