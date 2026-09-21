@@ -1,26 +1,74 @@
 /**
  * Maestro driver implementation.
  *
- * Executes tasks via the `orquestrador-maestro` CLI, which provides
- * the full Maestro runtime: governance, memory, skill routing, and context.
+ * Executes tasks through the real `orquestrador-maestro go --auto` path.
+ * Token usage remains unavailable until Maestro can aggregate every model call
+ * in the end-to-end mission without double counting.
  *
  * @module drivers/maestro
  */
 
 import { spawn } from 'node:child_process';
-import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import type { AgentDriver, DriverExecuteOptions, DriverResult, ToolUsage } from '../types/driver.js';
-import type { TokenUsage } from '../types/tokens.js';
-import { TokenSource, TokenConfidence } from '../types/tokens.js';
+import { fileURLToPath } from 'node:url';
+import type { AgentDriver, DriverExecuteOptions, DriverResult } from '../types/driver.js';
 import { createUnavailableTokens } from '../utils/tokens.js';
 
-/**
- * Maestro driver — executes tasks through the Orquestrador Maestro CLI.
- *
- * This provides the REAL Maestro experience: governance, memory, skill routing,
- * interaction profiles, and context injection.
- */
+const ADAPTIVE_MARKER = 'MAESTRO_ADAPTIVE_POLICY=';
+const CHECKOUT_MAESTRO_BINARY = fileURLToPath(new URL('../../../bin/orquestrador-maestro.js', import.meta.url));
+
+export interface AdaptiveExecutionMetadata {
+  confirmed: true;
+  policyId: string;
+  policyFingerprint: string;
+  pairId: string;
+  successStrategy: string | null;
+  fallbackUsed: boolean;
+}
+
+export function buildMaestroArgs(
+  task: string,
+  options: Pick<DriverExecuteOptions, 'workspace' | 'model' | 'condition'>,
+  interactionProfile?: string,
+): string[] {
+  const args = [
+    'go',
+    task,
+    '--auto',
+    '--project-path', options.workspace,
+    '--provider', 'opencode',
+    '--model', options.model,
+  ];
+  const profile = interactionProfile ?? (options.condition === 'maestro-focus' ? 'focus' : undefined);
+  if (profile) args.push('--interaction', profile);
+  return args;
+}
+
+export function extractAdaptiveExecutionMetadata(output: string): Record<string, unknown> | null {
+  const lines = String(output || '').split(/\r?\n/u).reverse();
+  const line = lines.find((entry) => entry.startsWith(ADAPTIVE_MARKER));
+  if (!line) return null;
+  try {
+    const parsed = JSON.parse(line.slice(ADAPTIVE_MARKER.length)) as Record<string, unknown>;
+    if (
+      typeof parsed.policyId !== 'string'
+      || typeof parsed.policyFingerprint !== 'string'
+      || typeof parsed.pairId !== 'string'
+      || !/^[a-f0-9]{64}$/u.test(parsed.policyFingerprint)
+    ) return null;
+    const adaptiveResolution: AdaptiveExecutionMetadata = {
+      confirmed: true,
+      policyId: parsed.policyId,
+      policyFingerprint: parsed.policyFingerprint,
+      pairId: parsed.pairId,
+      successStrategy: typeof parsed.successStrategy === 'string' ? parsed.successStrategy : null,
+      fallbackUsed: parsed.fallbackUsed === true,
+    };
+    return { adaptiveResolution };
+  } catch {
+    return null;
+  }
+}
+
 export class MaestroDriver implements AgentDriver {
   readonly name = 'maestro';
   readonly version: string;
@@ -29,14 +77,22 @@ export class MaestroDriver implements AgentDriver {
   private readonly interactionProfile?: string;
 
   constructor(options?: { binaryPath?: string; version?: string; interactionProfile?: string }) {
-    this.binaryPath = options?.binaryPath ?? 'orquestrador-maestro';
-    this.version = options?.version ?? '0.3.0';
+    this.binaryPath = options?.binaryPath ?? CHECKOUT_MAESTRO_BINARY;
+    this.version = options?.version ?? 'unknown';
     this.interactionProfile = options?.interactionProfile;
+  }
+
+  private spawnTarget(args: string[]): { command: string; args: string[] } {
+    if (this.binaryPath.endsWith('.js')) {
+      return { command: process.execPath, args: [this.binaryPath, ...args] };
+    }
+    return { command: this.binaryPath, args };
   }
 
   async isAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn(this.binaryPath, ['version'], {
+      const target = this.spawnTarget(['version']);
+      const proc = spawn(target.command, target.args, {
         timeout: 5_000,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -47,23 +103,25 @@ export class MaestroDriver implements AgentDriver {
     });
   }
 
+  extractMetadata(output: string): Record<string, unknown> | null {
+    return extractAdaptiveExecutionMetadata(output);
+  }
+
   async execute(task: string, options: DriverExecuteOptions): Promise<DriverResult> {
     const startMs = Date.now();
-
-    const args = [
-      'benchmark', 'run',
-      '--scenario', '-',  // inline scenario
-      '--condition', this.interactionProfile ? 'maestro-focus' : 'maestro',
-      '--model', options.model,
-      '--evidence', options.workspace,
-    ];
+    const args = buildMaestroArgs(task, options, this.interactionProfile);
 
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
       ...(options.env ?? {}),
     };
-    if (this.interactionProfile) {
-      env.MAESTRO_INTERACTION_PROFILE = this.interactionProfile;
+    const adaptiveKeys = [
+      'MAESTRO_ADAPTIVE_POLICY_ID',
+      'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT',
+      'MAESTRO_ADAPTIVE_PAIR_ID',
+    ];
+    if (options.condition !== 'maestro-adaptive') {
+      for (const key of adaptiveKeys) delete env[key];
     }
 
     let output = '';
@@ -72,7 +130,8 @@ export class MaestroDriver implements AgentDriver {
 
     try {
       const result = await new Promise<{ stdout: string; stderr: string; code: number }>((resolve, reject) => {
-        const proc = spawn(this.binaryPath, args, {
+        const target = this.spawnTarget(args);
+        const proc = spawn(target.command, target.args, {
           cwd: options.workspace,
           stdio: ['ignore', 'pipe', 'pipe'],
           env,
@@ -110,74 +169,15 @@ export class MaestroDriver implements AgentDriver {
       if (!agentOutput) agentOutput = `agent-error: ${errMsg}`;
     }
 
-    const endMs = Date.now();
-    const durationMs = endMs - startMs;
-
-    const sessionFile = await this.findSessionFile(options.workspace);
-
-    const tokens = sessionFile
-      ? await this.extractTokens(sessionFile)
-      : createUnavailableTokens();
-
     return {
       output,
       exitCode,
-      tokens,
-      durationMs,
-      sessionFile: sessionFile ?? '',
+      tokens: createUnavailableTokens(),
+      durationMs: Date.now() - startMs,
+      sessionFile: '',
       agentOutput,
       toolUsage: null,
+      metadata: this.extractMetadata(output),
     };
-  }
-
-  private async findSessionFile(workspace: string): Promise<string | null> {
-    try {
-      const candidates = [
-        join(workspace, '.opencode', 'sessions'),
-        join(workspace, '.opencode'),
-        join(workspace, 'sessions'),
-      ];
-
-      for (const dir of candidates) {
-        try {
-          const files = await readdir(dir);
-          const sessionFile = files.find(
-            (f) => f.endsWith('.json') || f.endsWith('.jsonl'),
-          );
-          if (sessionFile) return join(dir, sessionFile);
-        } catch {
-          continue;
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
-  private async extractTokens(sessionFile: string): Promise<TokenUsage> {
-    try {
-      const content = await readFile(sessionFile, 'utf-8');
-      try {
-        const data = JSON.parse(content) as Record<string, unknown>;
-        if ('inputTokens' in data || 'outputTokens' in data || 'totalTokens' in data) {
-          return {
-            inputTokens: typeof data.inputTokens === 'number' ? data.inputTokens : null,
-            outputTokens: typeof data.outputTokens === 'number' ? data.outputTokens : null,
-            reasoningTokens: typeof data.reasoningTokens === 'number' ? data.reasoningTokens : null,
-            cacheReadTokens: typeof data.cacheReadTokens === 'number' ? data.cacheReadTokens : null,
-            cacheWriteTokens: typeof data.cacheWriteTokens === 'number' ? data.cacheWriteTokens : null,
-            total: typeof data.totalTokens === 'number' ? data.totalTokens : null,
-            source: TokenSource.OpenCodeNative,
-            confidence: TokenConfidence.Exact,
-          };
-        }
-      } catch {
-        // Not valid JSON
-      }
-      return createUnavailableTokens();
-    } catch {
-      return createUnavailableTokens();
-    }
   }
 }

@@ -17,6 +17,10 @@ export interface DriverExecuteOptions {
   model: string;
   /** Additional environment variables for the isolated condition. */
   env?: Record<string, string>;
+  /** Benchmark condition being executed. */
+  condition?: string;
+  /** Pair identifier for matched control/treatment evidence. */
+  pairId?: string;
 }
 
 /** Tool usage statistics extracted from agent execution. */
@@ -49,6 +53,8 @@ export interface DriverResult {
   agentOutput: string;
   /** Tool usage statistics (null if unavailable). */
   toolUsage: ToolUsage | null;
+  /** Driver-provided structured execution metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -90,4 +96,7 @@ export interface AgentDriver {
    * @returns           - Token usage if parseable, otherwise `null`.
    */
   getTokenUsage?(sessionFile: string): Promise<TokenUsage | null>;
+
+  /** Parse structured metadata from already-captured execution output. */
+  extractMetadata?(output: string): Record<string, unknown> | null;
 }

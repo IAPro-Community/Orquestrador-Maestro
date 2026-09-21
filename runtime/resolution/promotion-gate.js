@@ -8,7 +8,8 @@ const DEFAULT_PROMOTION_POLICY = Object.freeze({
   maxAcceptanceRateRegression: 0,
   requirePositiveMedianTokenSavings: true,
   requirePairIntegrity: true,
-  requirePolicyBinding: true
+  requirePolicyBinding: true,
+  requireIsolatedPairs: true
 });
 
 function median(values) {
@@ -41,15 +42,18 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
   const bound = candidate.filter((sample) => sample.policyBound === true);
   const valid = bound.filter((sample) => sample.integrity?.valid === true);
   const invalid = bound.filter((sample) => sample.integrity?.valid !== true);
+  const promotionEvidence = merged.requireIsolatedPairs
+    ? valid.filter((sample) => sample.promotionEligible === true && sample.features?.isolated === true)
+    : valid;
 
-  const baselineAccepted = valid.filter((sample) => sample.baseline?.accepted === true).length;
-  const treatmentAccepted = valid.filter((sample) => sample.treatment?.accepted === true).length;
-  const baselineAcceptanceRate = rate(baselineAccepted, valid.length);
-  const treatmentAcceptanceRate = rate(treatmentAccepted, valid.length);
+  const baselineAccepted = promotionEvidence.filter((sample) => sample.baseline?.accepted === true).length;
+  const treatmentAccepted = promotionEvidence.filter((sample) => sample.treatment?.accepted === true).length;
+  const baselineAcceptanceRate = rate(baselineAccepted, promotionEvidence.length);
+  const treatmentAcceptanceRate = rate(treatmentAccepted, promotionEvidence.length);
   const acceptanceRateDelta = baselineAcceptanceRate !== null && treatmentAcceptanceRate !== null
     ? Number((treatmentAcceptanceRate - baselineAcceptanceRate).toFixed(6)) : null;
 
-  const bothAccepted = valid.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted === true);
+  const bothAccepted = promotionEvidence.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted === true);
   const tokenComparable = bothAccepted.filter((sample) =>
     Number.isFinite(sample.baseline?.tokens) && Number.isFinite(sample.treatment?.tokens));
   const tokenSavings = tokenComparable.map((sample) => sample.baseline.tokens - sample.treatment.tokens);
@@ -66,6 +70,9 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
   }
   if (merged.requirePairIntegrity && invalid.length > 0) blockers.push(`invalid-pairs:${invalid.length}`);
   if (valid.length < merged.minHardValidatedPairs) blockers.push(`valid-hard-pairs-below-minimum:${valid.length}/${merged.minHardValidatedPairs}`);
+  if (merged.requireIsolatedPairs && promotionEvidence.length < merged.minHardValidatedPairs) {
+    blockers.push(`isolated-promotion-pairs-below-minimum:${promotionEvidence.length}/${merged.minHardValidatedPairs}`);
+  }
   if (tokenComparable.length < merged.minTokenComparablePairs) {
     blockers.push(`token-comparable-pairs-below-minimum:${tokenComparable.length}/${merged.minTokenComparablePairs}`);
   }
@@ -78,8 +85,8 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
     blockers.push("median-token-savings-not-positive");
   }
 
-  const qualityRegressions = valid.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted !== true).length;
-  const qualityImprovements = valid.filter((sample) => sample.baseline?.accepted !== true && sample.treatment?.accepted === true).length;
+  const qualityRegressions = promotionEvidence.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted !== true).length;
+  const qualityImprovements = promotionEvidence.filter((sample) => sample.baseline?.accepted !== true && sample.treatment?.accepted === true).length;
 
   return Object.freeze({
     schemaVersion: 1,
@@ -94,6 +101,7 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
       policyBoundHardPairs: bound.length,
       validHardPairs: valid.length,
       invalidHardPairs: invalid.length,
+      isolatedPromotionPairs: promotionEvidence.length,
       bothAcceptedPairs: bothAccepted.length,
       tokenComparablePairs: tokenComparable.length,
       durationComparablePairs: durationComparable.length

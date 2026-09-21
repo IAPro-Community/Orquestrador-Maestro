@@ -14,6 +14,7 @@ function createMockDriver(overrides?: {
   exitCode?: number;
   output?: string;
   tokens?: TokenUsage;
+  metadata?: Record<string, unknown> | null;
   throw?: Error;
 }): AgentDriver {
   return {
@@ -43,6 +44,7 @@ function createMockDriver(overrides?: {
         sessionFile: '',
         agentOutput: overrides?.output ?? 'mock agent output',
         toolUsage: null,
+        metadata: overrides?.metadata ?? null,
       };
     },
   };
@@ -231,5 +233,71 @@ describe('orchestrator', () => {
         await rm(tmpDir, { recursive: true, force: true });
       }
     });
+  });
+});
+
+
+describe('adaptive benchmark integrity', () => {
+  it('policy-binds a maestro-adaptive run only from runtime-confirmed metadata', async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), 'orch-adaptive-confirmed-'));
+    const fixtureDir = join(tmpDir, 'fixture');
+    const evidenceDir = join(tmpDir, 'evidence');
+    const fingerprint = 'a'.repeat(64);
+    try {
+      await mkdir(fixtureDir, { recursive: true });
+      await writeFile(join(fixtureDir, 'index.ts'), 'export const x = 1;\n', 'utf-8');
+      await mkdir(evidenceDir, { recursive: true });
+      const result = await orchestrateRun({
+        scenario: createMockScenario(fixtureDir),
+        condition: 'maestro-adaptive',
+        driver: createMockDriver({
+          metadata: {
+            adaptiveResolution: {
+              confirmed: true,
+              policyId: 'adaptive-progressive-planning-v3',
+              policyFingerprint: fingerprint,
+              pairId: 'pair-adaptive',
+            },
+          },
+        }),
+        evidenceBase: evidenceDir,
+        pairId: 'pair-adaptive',
+        env: {
+          BENCHMARK_ADAPTIVE_POLICY_ID: 'adaptive-progressive-planning-v3',
+          BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: fingerprint,
+        },
+      });
+      assert.equal(result.report.status, 'passed');
+      assert.equal(result.report.driver.config?.adaptiveResolutionPolicyFingerprint, fingerprint);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects maestro-adaptive hard evidence when runtime confirmation is absent', async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), 'orch-adaptive-unconfirmed-'));
+    const fixtureDir = join(tmpDir, 'fixture');
+    const evidenceDir = join(tmpDir, 'evidence');
+    try {
+      await mkdir(fixtureDir, { recursive: true });
+      await writeFile(join(fixtureDir, 'index.ts'), 'export const x = 1;\n', 'utf-8');
+      await mkdir(evidenceDir, { recursive: true });
+      const result = await orchestrateRun({
+        scenario: createMockScenario(fixtureDir),
+        condition: 'maestro-adaptive',
+        driver: createMockDriver(),
+        evidenceBase: evidenceDir,
+        pairId: 'pair-unconfirmed',
+        env: {
+          BENCHMARK_ADAPTIVE_POLICY_ID: 'adaptive-progressive-planning-v3',
+          BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: 'b'.repeat(64),
+        },
+      });
+      assert.equal(result.report.status, 'benchmark-integrity-violation');
+      assert.equal(result.report.failureType, 'adaptive-policy-unconfirmed-or-mismatched');
+      assert.equal(result.report.driver.config?.adaptiveResolutionPolicyFingerprint, undefined);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });

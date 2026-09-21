@@ -19,7 +19,9 @@ function sample(index, { baselineAccepted = true, treatmentAccepted = true, base
     integrity: { valid: integrity, issues: integrity ? [] : ["taskHash-mismatch"] },
     baseline: { accepted: baselineAccepted, tokens: baselineTokens, durationMs: 100 },
     treatment: { accepted: treatmentAccepted, tokens: treatmentTokens, durationMs: 90 },
-    observed: { relativeTokenSavings: baselineTokens > 0 && Number.isFinite(treatmentTokens) ? (baselineTokens - treatmentTokens) / baselineTokens : null }
+    features: { isolated: true, container: true },
+    observed: { relativeTokenSavings: baselineTokens > 0 && Number.isFinite(treatmentTokens) ? (baselineTokens - treatmentTokens) / baselineTokens : null },
+    promotionEligible: policyBound && integrity
   };
 }
 
@@ -70,4 +72,21 @@ test("unbound or integrity-invalid benchmark evidence cannot promote the candida
   assert.equal(result.promotionReady, false);
   assert.ok(result.blockers.some((blocker) => blocker.startsWith("invalid-pairs:")));
   assert.ok(result.blockers.some((blocker) => blocker.startsWith("policy-bound-hard-pairs-below-minimum:")));
+});
+
+
+test("non-isolated hard evidence remains analysis-only and cannot promote", () => {
+  const samples = Array.from({ length: 20 }, (_, index) => ({
+    ...sample(index),
+    features: { isolated: false, container: false },
+    promotionEligible: false
+  }));
+  const result = evaluatePromotionGate(
+    { samples },
+    { candidatePolicyFingerprint: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.fingerprint }
+  );
+  assert.equal(result.promotionReady, false);
+  assert.equal(result.evidence.validHardPairs, 20);
+  assert.equal(result.evidence.isolatedPromotionPairs, 0);
+  assert.ok(result.blockers.includes("isolated-promotion-pairs-below-minimum:0/20"));
 });

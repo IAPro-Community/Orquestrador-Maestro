@@ -230,7 +230,7 @@ node scripts/adaptive-resolution-evaluate.js \
   --out .maestro/adaptive/evaluation.json
 ```
 
-The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Until hard-validated benchmark runs are explicitly bound to the resulting V3 fingerprint, the expected result is `HOLD`. That is intentional: planner-level token savings are not enough evidence to change production defaults.
+The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Hard validated V3 quality evidence is produced with `orquestrador-maestro benchmark adaptive-pair`, which runs only the `maestro` control and `maestro-adaptive` treatment through the real `go --auto` path and requires runtime confirmation of the canonical policy fingerprint. End-to-end Maestro token totals remain deliberately unavailable until all mission model calls can be aggregated without double counting. Local `adaptive-pair` runs are also analysis-only until executed in a policy-matching isolated image. The promotion gate therefore remains `HOLD` unless evidence is policy-bound, isolated, verifier-valid, token-comparable, and large enough.
 
 ## Experimental Boundary
 
@@ -298,6 +298,7 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 3. **V2 — progressive context experiment:** implemented on ContextEngine with real serialization accounting, manifest-based deduplication, authority gates, and paired brief budgets.
 4. **V3 — progressive escalation:** implemented as an explicit experiment: one planning call per unique context, validation-driven escalation, duplicate-context skipping, and deterministic fallback.
 5. **V4 — evidence dataset + promotion gate:** implemented; weak evidence is retained for analysis but only policy-bound hard-validated pairs can make a candidate promotion-ready.
-6. **V5 — learned policy:** not started. Training begins only after the V4 gate has enough policy-bound evidence to define labels and rollback criteria without guessing.
+6. **V4.5 — hard-evidence benchmark boundary:** implemented in the candidate branch: real `go --auto` execution, dedicated `maestro-adaptive` treatment, runtime policy confirmation, and no false end-to-end token claim.
+7. **V5 — learned policy:** not started. Training begins only after the V4 gate has enough policy-bound evidence to define labels and rollback criteria without guessing.
 
 A learned model is intentionally not the current Runtime dependency.

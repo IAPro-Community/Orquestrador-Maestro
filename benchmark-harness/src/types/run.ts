@@ -15,7 +15,7 @@ export type RunStatus =
   | 'benchmark-integrity-violation';
 
 /** Experimental condition under which the run was executed. */
-export type Condition = 'vanilla' | 'maestro' | 'maestro-focus';
+export type Condition = 'vanilla' | 'maestro' | 'maestro-focus' | 'maestro-adaptive';
 
 /** Driver identity recorded in the run report. */
 export interface RunDriver {

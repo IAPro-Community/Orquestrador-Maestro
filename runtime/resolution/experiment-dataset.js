@@ -206,6 +206,8 @@ function normalizeBenchmarkPair(baselineRun, treatmentRun, { baselineCondition, 
   const policyFingerprint = policyFingerprintFromRun(treatmentRun);
   const policyId = policyIdFromRun(treatmentRun);
   const integrity = Object.freeze({ valid: issues.length === 0, issues: Object.freeze(issues) });
+  const isolatedPair = treatmentRun?.environment?.isolated === true && baselineRun?.environment?.isolated === true;
+  const containerPair = treatmentRun?.environment?.container === true && baselineRun?.environment?.container === true;
 
   return Object.freeze({
     schemaVersion: 1,
@@ -226,15 +228,15 @@ function normalizeBenchmarkPair(baselineRun, treatmentRun, { baselineCondition, 
       baselineCondition,
       treatmentCondition,
       fixtureHash: fixtureHashFromRun(treatmentRun) || fixtureHashFromRun(baselineRun),
-      isolated: treatmentRun?.environment?.isolated === true && baselineRun?.environment?.isolated === true,
-      container: treatmentRun?.environment?.container === true && baselineRun?.environment?.container === true
+      isolated: isolatedPair,
+      container: containerPair
     }),
     observed: observedMetrics(baseline, treatment),
-    promotionEligible: Boolean(policyFingerprint) && integrity.valid
+    promotionEligible: Boolean(policyFingerprint) && integrity.valid && isolatedPair
   });
 }
 
-function pairBenchmarkRuns(runs = [], { baselineCondition = "maestro", treatmentCondition = "maestro-focus" } = {}) {
+function pairBenchmarkRuns(runs = [], { baselineCondition = "maestro", treatmentCondition = "maestro-adaptive" } = {}) {
   if (!Array.isArray(runs)) throw new TypeError("benchmark runs must be an array");
   const groups = new Map();
   const unpaired = [];
@@ -277,7 +279,7 @@ function pairBenchmarkRuns(runs = [], { baselineCondition = "maestro", treatment
   });
 }
 
-function buildResolutionDataset({ adaptiveReports = [], benchmarkRuns = [], baselineCondition = "maestro", treatmentCondition = "maestro-focus" } = {}) {
+function buildResolutionDataset({ adaptiveReports = [], benchmarkRuns = [], baselineCondition = "maestro", treatmentCondition = "maestro-adaptive" } = {}) {
   if (!Array.isArray(adaptiveReports)) throw new TypeError("adaptiveReports must be an array");
   const samples = [];
   const rejectedReports = [];

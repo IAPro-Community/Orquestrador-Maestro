@@ -77,7 +77,7 @@ test("benchmark pairs are hard validated only when identity matches and treatmen
   const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
   const paired = pairBenchmarkRuns([
     benchmarkRun({ condition: "maestro", tokens: 1000 }),
-    benchmarkRun({ condition: "maestro-focus", tokens: 800, policyIdentity: identity })
+    benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity })
   ]);
   assert.equal(paired.samples.length, 1);
   const sample = paired.samples[0];
@@ -93,7 +93,7 @@ test("benchmark pairs are hard validated only when identity matches and treatmen
 test("benchmark identity mismatch is retained as invalid evidence instead of silently paired", () => {
   const paired = pairBenchmarkRuns([
     benchmarkRun({ condition: "maestro", taskHash: "a".repeat(64) }),
-    benchmarkRun({ condition: "maestro-focus", taskHash: "f".repeat(64), policyIdentity: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3 })
+    benchmarkRun({ condition: "maestro-adaptive", taskHash: "f".repeat(64), policyIdentity: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3 })
   ]);
   assert.equal(paired.samples[0].integrity.valid, false);
   assert.ok(paired.samples[0].integrity.issues.includes("taskHash-mismatch"));
@@ -128,12 +128,29 @@ test("dataset fingerprint is independent of benchmark input order", () => {
   const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
   const runs = [
     benchmarkRun({ pairId: "p-b", condition: "maestro", tokens: 1000 }),
-    benchmarkRun({ pairId: "p-b", condition: "maestro-focus", tokens: 800, policyIdentity: identity }),
+    benchmarkRun({ pairId: "p-b", condition: "maestro-adaptive", tokens: 800, policyIdentity: identity }),
     benchmarkRun({ pairId: "p-a", condition: "maestro", tokens: 900 }),
-    benchmarkRun({ pairId: "p-a", condition: "maestro-focus", tokens: 700, policyIdentity: identity })
+    benchmarkRun({ pairId: "p-a", condition: "maestro-adaptive", tokens: 700, policyIdentity: identity })
   ];
   const forward = buildResolutionDataset({ benchmarkRuns: runs });
   const reverse = buildResolutionDataset({ benchmarkRuns: [...runs].reverse() });
   assert.equal(forward.datasetFingerprint, reverse.datasetFingerprint);
   assert.deepEqual(forward.samples.map((sample) => sample.pairId), ["p-a", "p-b"]);
+});
+
+
+test("non-isolated policy-bound benchmark pair is hard evidence but analysis-only for promotion", () => {
+  const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const control = benchmarkRun({ condition: "maestro", tokens: 1000 });
+  const treatment = benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity });
+  control.environment = { isolated: false, container: false };
+  treatment.environment = { isolated: false, container: false };
+  const paired = pairBenchmarkRuns([control, treatment], {
+    baselineCondition: "maestro",
+    treatmentCondition: "maestro-adaptive"
+  });
+  assert.equal(paired.samples[0].evidenceLevel, EVIDENCE_LEVELS.HARD_VALIDATED);
+  assert.equal(paired.samples[0].integrity.valid, true);
+  assert.equal(paired.samples[0].promotionEligible, false);
+  assert.equal(paired.samples[0].features.isolated, false);
 });

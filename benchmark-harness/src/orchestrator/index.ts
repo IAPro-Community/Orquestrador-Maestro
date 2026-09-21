@@ -29,6 +29,7 @@ import { checkBenchmarkIntegrity } from '../verifier/integrity.js';
 import { preserveRawEvidence, sanitizeSecrets } from '../evidence/index.js';
 import { runCmd } from '../utils/run-cmd.js';
 import { ContainerRunner } from '../container/runner.js';
+import { buildMaestroArgs } from '../drivers/maestro.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,7 +90,7 @@ export async function orchestrateRun(
 
   // Select the appropriate driver based on condition
   const activeDriver =
-    (condition === 'maestro' || condition === 'maestro-focus') && maestroDriver
+    (condition === 'maestro' || condition === 'maestro-focus' || condition === 'maestro-adaptive') && maestroDriver
       ? maestroDriver
       : driver;
 
@@ -114,12 +115,28 @@ export async function orchestrateRun(
     const taskHash = computeHash(scenario.task);
 
     // 6. Run the agent
+    const conditionEnv: Record<string, string> = { ...env };
+    for (const key of ['MAESTRO_ADAPTIVE_POLICY_ID', 'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT', 'MAESTRO_ADAPTIVE_PAIR_ID']) {
+      delete conditionEnv[key];
+    }
+    if (condition === 'maestro-adaptive') {
+      const policyId = env.BENCHMARK_ADAPTIVE_POLICY_ID ?? process.env.BENCHMARK_ADAPTIVE_POLICY_ID;
+      const policyFingerprint = env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT ?? process.env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT;
+      if (!pairId) throw new Error('maestro-adaptive requires a pairId');
+      if (!policyId || !policyFingerprint) throw new Error('maestro-adaptive requires canonical benchmark policy identity');
+      conditionEnv.MAESTRO_ADAPTIVE_POLICY_ID = policyId;
+      conditionEnv.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT = policyFingerprint;
+      conditionEnv.MAESTRO_ADAPTIVE_PAIR_ID = pairId;
+    }
+
     const driverOptions: DriverExecuteOptions = {
       workspace,
       fixture: scenario.fixture.path,
       timeoutMs: timeoutMs ?? scenario.limits.maxTimeMs ?? 300_000,
       model: overrideModel ?? scenario.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash',
-      env,
+      env: conditionEnv,
+      condition,
+      pairId,
     };
 
     const task = condition === 'maestro-focus'
@@ -136,12 +153,19 @@ export async function orchestrateRun(
     let driverResult;
     if (useContainer) {
       const containerRunner = new ContainerRunner({ image: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim' });
+      const containerDriverOptions: DriverExecuteOptions = {
+        ...driverOptions,
+        workspace: '/benchmark',
+      };
+      const command = activeDriver.name === 'maestro'
+        ? ['orquestrador-maestro', ...buildMaestroArgs(task, containerDriverOptions)]
+        : ['opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task];
       const containerResult = await containerRunner.runBenchmark({
         task,
         workspace,
         fixturePath: scenario.fixture.path,
-        command: [activeDriver.name === 'maestro' ? 'orquestrador-maestro' : 'opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task],
-        env: { ...env, BENCHMARK_MODEL: driverOptions.model },
+        command,
+        env: { ...conditionEnv, BENCHMARK_MODEL: driverOptions.model },
         timeoutMs: driverOptions.timeoutMs,
       });
       driverResult = {
@@ -152,6 +176,7 @@ export async function orchestrateRun(
         sessionFile: '',
         agentOutput: containerResult.output,
         toolUsage: null,
+        metadata: activeDriver.extractMetadata?.(containerResult.output) ?? null,
       };
       // Record container provenance
       environment = {
@@ -185,11 +210,28 @@ export async function orchestrateRun(
       workspace,
     });
 
+    const adaptiveMetadata = driverResult.metadata?.adaptiveResolution as {
+      confirmed?: boolean;
+      policyId?: string;
+      policyFingerprint?: string;
+      pairId?: string;
+    } | undefined;
+    const adaptiveIdentityValid = condition !== 'maestro-adaptive'
+      || (
+        adaptiveMetadata?.confirmed === true
+        && adaptiveMetadata.policyId === conditionEnv.MAESTRO_ADAPTIVE_POLICY_ID
+        && adaptiveMetadata.policyFingerprint === conditionEnv.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT
+        && adaptiveMetadata.pairId === pairId
+      );
+
     // 9. Determine status
     let status: RunStatus;
     let failureType: string | undefined;
 
-    if (!integrityResult.valid) {
+    if (!adaptiveIdentityValid) {
+      status = 'benchmark-integrity-violation';
+      failureType = 'adaptive-policy-unconfirmed-or-mismatched';
+    } else if (!integrityResult.valid) {
       status = 'benchmark-integrity-violation';
       failureType = integrityResult.violations.join('; ');
     } else if (driverResult.exitCode !== 0 && !verifierResult.passed) {
@@ -237,7 +279,13 @@ export async function orchestrateRun(
       driver: {
         name: activeDriver.name,
         version: activeDriver.version,
-        config: { model: driverOptions.model },
+        config: {
+          model: driverOptions.model,
+          ...(adaptiveIdentityValid && adaptiveMetadata?.confirmed === true ? {
+            adaptiveResolutionPolicyId: adaptiveMetadata.policyId,
+            adaptiveResolutionPolicyFingerprint: adaptiveMetadata.policyFingerprint,
+          } : {}),
+        },
       },
       fixture: {
         path: scenario.fixture.path,

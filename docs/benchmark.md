@@ -698,3 +698,33 @@ Every `RunResult` written to disk follows this structure:
   "note": "Adequate sample size for directional comparison"
 }
 ```
+
+
+## Adaptive Resolution hard-evidence condition
+
+The benchmark harness reserves `maestro-adaptive` for the policy-bound Adaptive Resolution treatment. It is not an alias for `maestro-focus`.
+
+A valid Adaptive Resolution hard-evidence pair uses the same scenario, fixture, model, driver family, and generated `pairId` for:
+
+- control: `maestro`;
+- treatment: `maestro-adaptive`.
+
+Use the top-level Maestro CLI so the runtime injects the canonical policy identity:
+
+```bash
+orquestrador-maestro benchmark adaptive-pair \
+  --scenario <scenario> \
+  --model <model>
+```
+
+The Maestro benchmark driver executes the real `go --auto` path. The treatment runtime emits a structured confirmation marker containing the canonical V3 policy ID, SHA-256 fingerprint, and pair ID. The harness copies the policy identity into `run-report.json` only when that marker matches the expected benchmark identity. Missing or mismatched confirmation is a `benchmark-integrity-violation`.
+
+End-to-end Maestro token usage is intentionally reported as unavailable until every model call in the mission can be aggregated without double counting. Consequently, these runs can establish hard validated quality evidence immediately, but the token-optimization promotion gate remains `HOLD` until comparable complete token totals exist.
+
+
+The dedicated command intentionally runs only the two conditions needed by the V4 promotion dataset. It does not run Vanilla or Maestro Focus, avoiding two unrelated model executions per adaptive pair.
+
+
+Local `adaptive-pair` runs execute the exact CLI file from the current checkout and use isolated temporary fixture workspaces, but they are **analysis-only for promotion** because they are not container-isolated. Add `--container --image <maestro-image>` only when the supplied image is known to contain the same Adaptive Resolution policy and OpenCode. The command refuses to guess a generic image.
+
+The promotion gate requires isolated policy-bound pairs in addition to verifier success. This prevents a local run from becoming production-promotion evidence merely because its acceptance checks passed.

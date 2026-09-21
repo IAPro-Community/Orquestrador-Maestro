@@ -12,7 +12,7 @@ function parseArgs(argv) {
     reports: [],
     evidenceDirs: [],
     baselineCondition: "maestro",
-    treatmentCondition: "maestro-focus",
+    treatmentCondition: "maestro-adaptive",
     candidatePolicy: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.id,
     minPairs: DEFAULT_PROMOTION_POLICY.minHardValidatedPairs,
     out: null,
