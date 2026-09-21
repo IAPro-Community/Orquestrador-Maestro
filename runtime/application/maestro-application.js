@@ -23,7 +23,18 @@ const { resolveInteractionProfile, interactionContract } = require("../interacti
 const { parseProviderUsage } = require("../telemetry/provider-usage");
 const { extractChildAgents } = require("../telemetry/agent-topology");
 const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
-const { buildMaestroPromptManifest, createResolution, finalizeResolution, resolutionTransition, resolutionProjection, buildResolutionTelemetry } = require("../resolution");
+const {
+  buildMaestroPromptManifest,
+  createResolution,
+  finalizeResolution,
+  resolutionTransition,
+  resolutionProjection,
+  buildResolutionTelemetry,
+  createBudgetReservation,
+  commitBudgetReservation,
+  releaseBudgetReservation,
+  withBudgetReservation
+} = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
@@ -349,7 +360,7 @@ class MaestroApplication {
       acceptanceCriteria: [],
       evidenceRequirements: []
     };
-    const resolution = createResolution({
+    let resolution = createResolution({
       task: semanticTask,
       cognitiveBudget,
       evidenceCandidates: Array.isArray(request.evidenceCandidates) ? request.evidenceCandidates : [],
@@ -358,6 +369,15 @@ class MaestroApplication {
       validators: request.validators,
       enforceAuthorized: request.resolutionEnforceAuthorized === true
     });
+    resolution = withBudgetReservation(resolution, createBudgetReservation({
+      estimate: {
+        providerTokens: Number.isFinite(request.estimatedProviderTokens) ? request.estimatedProviderTokens : null,
+        maestroContextTokens: resolution.evidence.estimatedSelectedTokens > 0 ? resolution.evidence.estimatedSelectedTokens : null,
+        calls: 1,
+        retries: 0,
+        escalations: 0
+      }
+    }));
     const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
       && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
       ? "reviewer-capability-unavailable" : null;
@@ -387,8 +407,14 @@ class MaestroApplication {
       evidenceSelected: resolution.evidence.selected.length,
       contextBudgetOverflow: resolution.evidence.budgetOverflow
     });
+    await this.record(run.id, "budget.reserved", {
+      reservationId: resolution.budget.reservation.id,
+      estimate: resolution.budget.reservation.estimate
+    });
     if (preflightBlock) {
-      const blockedResolution = finalizeResolution({ contract: resolution, runStatus: "blocked", reason: preflightBlock });
+      const releasedReservation = releaseBudgetReservation(resolution.budget.reservation, preflightBlock);
+      const releasedResolution = withBudgetReservation(resolution, releasedReservation);
+      const blockedResolution = finalizeResolution({ contract: releasedResolution, runStatus: "blocked", reason: preflightBlock });
       const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason: preflightBlock });
       const blockedCognitiveTelemetry = {
         ...blockedTelemetryValue,
@@ -406,6 +432,7 @@ class MaestroApplication {
       };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
+      await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
       return { task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock };
     }
@@ -445,7 +472,9 @@ class MaestroApplication {
     if (requiredSkills.length > cognitiveBudget.maxSkills) {
       const completedAt = new Date().toISOString();
       const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
-      const blockedResolution = finalizeResolution({ contract: run.metadata.resolution, runStatus: "blocked", reason, now: completedAt });
+      const releasedReservation = releaseBudgetReservation(run.metadata.resolution.budget.reservation, "budget-conflict", { completedAt });
+      const releasedResolution = withBudgetReservation(run.metadata.resolution, releasedReservation);
+      const blockedResolution = finalizeResolution({ contract: releasedResolution, runStatus: "blocked", reason, now: completedAt });
       const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length });
       const blockedCognitiveTelemetry = {
         ...blockedTelemetryValue,
@@ -459,6 +488,7 @@ class MaestroApplication {
         completedAt,
         metadata: { ...run.metadata, preflightBlock: "budget-conflict", resolution: blockedResolution, cognitiveTelemetry: blockedCognitiveTelemetry }
       });
+      await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason });
       return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
     }
@@ -527,7 +557,19 @@ class MaestroApplication {
           maestroPromptManifest: promptEnvelope.manifest.manifestHash
         }
       });
-      const failedResolution = finalizeResolution({ contract: run.metadata.resolution, runStatus: "failed", reason: cleanReason });
+      const committedReservation = commitBudgetReservation(run.metadata.resolution.budget.reservation, {
+        providerTokens: null,
+        calls: 1,
+        agentsObserved: null,
+        retries: 0,
+        escalations: 0,
+        durationMs: failedStartedMs !== null && failedCompletedMs !== null ? Math.max(0, failedCompletedMs - failedStartedMs) : null
+      }, { completedAt });
+      const failedResolution = finalizeResolution({
+        contract: withBudgetReservation(run.metadata.resolution, committedReservation),
+        runStatus: "failed",
+        reason: cleanReason
+      });
       const failedCognitiveTelemetry = {
         ...failedTelemetry,
         resolution: buildResolutionTelemetry({
@@ -543,6 +585,7 @@ class MaestroApplication {
         completedAt,
         metadata: { ...run.metadata, resolution: failedResolution, cognitiveTelemetry: failedCognitiveTelemetry }
       });
+      await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
       await this.record(run.id, "run.failed", { reason: cleanReason });
       return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
@@ -661,10 +704,25 @@ class MaestroApplication {
           maestroPromptManifest: promptEnvelope.manifest.manifestHash
         }
       });
+      const providerTokens = ["provider-reported", "derived"].includes(telemetry.tokenSource)
+        && Number.isFinite(telemetry.tokenInput) && Number.isFinite(telemetry.tokenOutput)
+        ? telemetry.tokenInput + telemetry.tokenOutput : null;
+      const committedReservation = commitBudgetReservation(finalRun.metadata.resolution.budget.reservation, {
+        providerTokens,
+        maestroContextTokens: finalRun.metadata.resolution.evidence.estimatedSelectedTokens > 0
+          ? finalRun.metadata.resolution.evidence.estimatedSelectedTokens : null,
+        calls: Number.isInteger(telemetry.primaryCalls) && Number.isInteger(telemetry.reviewCalls)
+          ? telemetry.primaryCalls + telemetry.reviewCalls : null,
+        agentsObserved: Number.isInteger(telemetry.childAgentsObserved) ? telemetry.childAgentsObserved + 1 : null,
+        retries: Number.isInteger(telemetry.automaticRetries) ? telemetry.automaticRetries : null,
+        escalations: finalRun.metadata.resolution.escalation?.count ?? 0,
+        durationMs: telemetry.durationMs
+      }, { completedAt });
+      const committedResolution = withBudgetReservation(finalRun.metadata.resolution, committedReservation);
       const cognitiveTelemetry = {
         ...telemetry,
         resolution: buildResolutionTelemetry({
-          plan: finalRun.metadata?.resolution,
+          plan: committedResolution,
           cognitiveTelemetry: telemetry,
           verification,
           completion,
@@ -673,7 +731,11 @@ class MaestroApplication {
           status
         })
       };
-      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry } });
+      await this.store.saveRun({
+        ...finalRun,
+        metadata: { ...(finalRun.metadata || {}), resolution: committedResolution, cognitiveTelemetry }
+      });
+      await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
     }
     return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
   }
