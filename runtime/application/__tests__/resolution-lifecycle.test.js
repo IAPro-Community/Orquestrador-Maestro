@@ -61,6 +61,7 @@ test("provider handoff creates a checkpoint and continues the same semantic task
     description: "Complete task",
     semanticTaskId: "handoff-task",
     semanticTask: { id: "handoff-task", objective: "Complete task", acceptanceCriteria: ["tests pass"] },
+    evidence: [{ type: "test", content: "deterministic verifier evidence", acceptanceCriterion: "tests pass", producer: "test-suite", confidence: 100 }],
     verificationCommands: [passCommand]
   });
 
@@ -95,6 +96,7 @@ test("deterministic validation failure does not switch provider", async () => {
     description: "Task with deterministic verifier",
     semanticTaskId: "validation-task",
     semanticTask: { id: "validation-task", objective: "Task with deterministic verifier", acceptanceCriteria: ["tests pass"] },
+    evidence: [{ type: "test", content: "deterministic verifier evidence", acceptanceCriterion: "tests pass", producer: "test-suite", confidence: 100 }],
     verificationCommands: [failCommand]
   });
 
@@ -113,7 +115,8 @@ test("validated outcome history records revoke and revalidate transitions", asyn
     providerId: "fake",
     description: "Stable task",
     semanticTaskId: "stable-task",
-    semanticTask: { id: "stable-task", objective: "Stable task", acceptanceCriteria: ["tests pass"] }
+    semanticTask: { id: "stable-task", objective: "Stable task", acceptanceCriteria: ["tests pass"] },
+    evidence: [{ type: "test", content: "deterministic verifier evidence", acceptanceCriterion: "tests pass", producer: "test-suite", confidence: 100 }]
   };
 
   const first = await app.executeRun({ ...base, verificationCommands: [passCommand] });
@@ -150,7 +153,7 @@ test("persisted evidence is joined into task and mission proof bundles", async (
       id: "proof-task",
       objective: "Ship verified change",
       acceptanceCriteria: ["tests pass"],
-      evidenceRequirements: ["test evidence"]
+      evidenceRequirements: ["tests pass"]
     },
     evidence: [{
       type: "test",
