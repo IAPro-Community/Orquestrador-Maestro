@@ -97,9 +97,9 @@ async function buildMissionProofBundle({ store, missionId } = {}) {
     })),
     { objective: mission.objective }
   );
-  const missionResolution = mission.metadata?.resolution?.scope === "mission"
+  const recordedResolution = mission.metadata?.resolution?.scope === "mission"
     ? mission.metadata.resolution
-    : derivedResolution;
+    : null;
   return Object.freeze({
     schemaVersion: 1,
     kind: "mission-proof-bundle",
@@ -107,12 +107,13 @@ async function buildMissionProofBundle({ store, missionId } = {}) {
       id: mission.id,
       objective: mission.objective,
       status: mission.status,
-      resolution: missionResolution
+      resolution: derivedResolution,
+      recordedResolution
     }),
     tasks: Object.freeze(bundles),
     summary: Object.freeze({
-      ...missionResolution.summary,
-      validated: missionResolution.state === "validated"
+      ...derivedResolution.summary,
+      validated: derivedResolution.state === "validated"
     })
   });
 }
