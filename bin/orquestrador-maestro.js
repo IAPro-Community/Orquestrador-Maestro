@@ -1928,6 +1928,8 @@ async function handleGoCommand(args, planningOnly = false) {
   s.stop("Execução concluída");
 
   const failures = Object.values(results).filter((r) => r.status === "failed");
+  const missionStatus = failures.length > 0 ? "failed" : "completed";
+  await app.updateMission(mission.id, { status: missionStatus, completedAt: new Date().toISOString() });
 
   if (missionUsageMeter) {
     console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsageMeter.snapshot() })}`);
