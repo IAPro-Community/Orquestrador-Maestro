@@ -34,7 +34,10 @@ const {
   releaseBudgetReservation,
   withBudgetReservation,
   buildTaskProofBundle,
-  buildMissionProofBundle
+  buildMissionProofBundle,
+  buildProviderCheckpoint,
+  checkpointPrompt,
+  classifyResolutionFailure
 } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
@@ -477,6 +480,107 @@ class MaestroApplication {
     return { task, run, step, profile, policy, provider, capabilities, workspacePath, preflightBlock: null };
   }
 
+  async executeTaskWithHandoff(request = {}) {
+    const providers = [request.providerId || "codex", ...(Array.isArray(request.providerFallbacks) ? request.providerFallbacks : [])]
+      .filter((value) => typeof value === "string" && value.trim())
+      .map((value) => value.trim())
+      .filter((value, index, all) => all.indexOf(value) === index);
+    const maxSwitches = request.maxProviderSwitches === undefined
+      ? Math.max(0, providers.length - 1)
+      : request.maxProviderSwitches;
+    if (!Number.isInteger(maxSwitches) || maxSwitches < 0 || maxSwitches > 10) {
+      throw new TypeError("maxProviderSwitches must be an integer between 0 and 10");
+    }
+
+    const attempts = [];
+    let checkpoint = request.handoffCheckpoint || null;
+    let lastResult = null;
+    let lastError = null;
+
+    for (let index = 0; index < providers.length && index <= maxSwitches; index += 1) {
+      const providerId = providers[index];
+      try {
+        const result = await this.executeRun({
+          ...request,
+          providerId,
+          providerFallbacks: undefined,
+          maxProviderSwitches: undefined,
+          handoffCheckpoint: checkpoint
+        });
+        lastResult = result;
+        const outcomeState = result?.run?.metadata?.resolution?.outcome?.state;
+        if (result?.run?.status === "completed" && (!outcomeState || outcomeState === "validated")) {
+          return Object.freeze({
+            ...result,
+            handoff: Object.freeze({
+              switched: attempts.length > 0,
+              providerSwitches: attempts.length,
+              attempts: Object.freeze([...attempts, Object.freeze({ providerId, runId: result.run.id, status: "validated" })])
+            })
+          });
+        }
+
+        const failureClass = result?.failureClass || classifyResolutionFailure({
+          code: result?.failureCode,
+          reason: result?.run?.metadata?.resolution?.outcome?.reason,
+          failureKind: result?.failureKind
+        });
+        attempts.push(Object.freeze({ providerId, runId: result?.run?.id || null, status: outcomeState || result?.run?.status || "failed", failureClass }));
+        if (failureClass !== "provider-failure" || index >= providers.length - 1 || index >= maxSwitches) {
+          return Object.freeze({ ...result, handoff: Object.freeze({ switched: attempts.length > 1, providerSwitches: Math.max(0, attempts.length - 1), attempts: Object.freeze(attempts) }) });
+        }
+
+        const task = result?.run?.taskId ? await this.getTask(result.run.taskId) : null;
+        checkpoint = buildProviderCheckpoint({
+          task: task || request.semanticTask || {},
+          request,
+          run: result?.run,
+          attempt: index + 1,
+          providerId,
+          reason: result?.execution?.error || result?.run?.metadata?.resolution?.outcome?.reason || "provider-failure",
+          changes: result?.changes,
+          evidence: result?.evidence,
+          verification: result?.verification,
+          review: result?.review,
+          remainingBudget: result?.run?.metadata?.resolution?.budget || null
+        });
+        if (result?.run?.id) {
+          const artifact = core.createArtifact({
+            id: id("checkpoint"),
+            runId: result.run.id,
+            type: "CHECKPOINT",
+            name: "provider-handoff",
+            createdAt: new Date().toISOString(),
+            metadata: checkpoint
+          });
+          await this.store.saveArtifact(artifact);
+          await this.record(result.run.id, "provider.handoff", {
+            checkpointId: checkpoint.checkpointId,
+            fromProvider: providerId,
+            toProvider: providers[index + 1],
+            attempt: index + 1
+          });
+        }
+      } catch (error) {
+        lastError = error;
+        const failureClass = classifyResolutionFailure({ code: error?.code || "PROVIDER_EXECUTION_FAILED", failureKind: "provider" });
+        attempts.push(Object.freeze({ providerId, runId: null, status: "failed", failureClass }));
+        if (failureClass !== "provider-failure" || index >= providers.length - 1 || index >= maxSwitches) throw error;
+        checkpoint = buildProviderCheckpoint({
+          task: request.semanticTask || {},
+          request,
+          attempt: index + 1,
+          providerId,
+          reason: error?.message || "provider-failure",
+          remainingBudget: null
+        });
+      }
+    }
+
+    if (lastResult) return Object.freeze({ ...lastResult, handoff: Object.freeze({ switched: attempts.length > 1, providerSwitches: Math.max(0, attempts.length - 1), attempts: Object.freeze(attempts) }) });
+    throw lastError || new Error("PROVIDER_HANDOFF_EXHAUSTED");
+  }
+
   async executeRun(request) {
     const prepared = await this.createRun(request);
     const { task, run, step, profile, policy, provider, workspacePath } = prepared;
@@ -538,6 +642,7 @@ class MaestroApplication {
       permissions: request.permissions || {},
       skills: selectedSkills.map((item) => item.skill),
       previousArtifacts: request.previousArtifacts || [],
+      handoffCheckpoint: request.handoffCheckpoint || null,
       engineeringContract,
       interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
@@ -627,7 +732,7 @@ class MaestroApplication {
       await this._recordTaskOutcomeTransition(task.id, run.id, failedResolution.outcome);
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
       await this.record(run.id, "run.failed", { reason: cleanReason });
-      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
+      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, failureClass: "provider-failure", failureKind: "provider", failureCode: "PROVIDER_EXECUTION_FAILED", governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
@@ -783,7 +888,11 @@ class MaestroApplication {
       });
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
     }
-    return { run: await this.store.getRun(run.id), verification, evidence: persistedEvidence, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+    const failureClass = status === "completed" ? null
+      : executionStatus !== "completed" ? "provider-failure"
+        : governance.blocking.length > 0 ? "policy-block"
+          : "validation-failure";
+    return { run: await this.store.getRun(run.id), verification, evidence: persistedEvidence, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, failureClass, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
   }
 
   async _recordTaskOutcomeTransition(taskId, runId, outcome) {
@@ -974,6 +1083,7 @@ class MaestroApplication {
       { id: "workspace", kind: "workspace", content: executionPackage.workspace.path, text: `Workspace: ${executionPackage.workspace.path}` },
       { id: "engineering-contract", kind: "governance", content: executionPackage.includeGovernanceContext ? JSON.stringify(executionPackage.engineeringContract) : "", text: executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "" },
       { id: "skills", kind: "skills", content: skillPaths, text: skillPaths ? `Resolved skills:\n${skillPaths}` : "" },
+      { id: "handoff-checkpoint", kind: "continuation", content: executionPackage.handoffCheckpoint ? JSON.stringify(executionPackage.handoffCheckpoint) : "", text: checkpointPrompt(executionPackage.handoffCheckpoint) },
       { id: "execution-boundary", kind: "instruction", content: "Work only within the workspace and report concrete changes.", text: "Work only within the workspace and report concrete changes." }
     ].filter((section) => Boolean(section.text));
     const prompt = sections.map((section) => section.text).join("\n\n");
