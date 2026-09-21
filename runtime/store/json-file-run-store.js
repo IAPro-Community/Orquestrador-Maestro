@@ -260,13 +260,12 @@ class JsonFileRunStore extends RunStore {
         // when the lock path can actually be observed; otherwise preserve the
         // real permission error.
         let contended = error?.code === "EEXIST";
-        if (!contended && error?.code === "EPERM") {
-          try {
-            await fs.stat(this.lockPath);
-            contended = true;
-          } catch (statError) {
-            if (statError?.code !== "ENOENT") throw error;
-          }
+        if (!contended && error?.code === "EPERM" && process.platform === "win32") {
+          // Windows can return EPERM for a transient create/delete race on an
+          // exclusive lock file. The file may already be gone by the time we
+          // inspect it, so retry through the normal contention path instead
+          // of treating that race as a permanent permission failure.
+          contended = true;
         }
         if (!contended) throw error;
         if (await this._isStaleFileLock()) {
