@@ -16,6 +16,10 @@ class ContextBudget {
     return Math.ceil(Buffer.byteLength(serialized, "utf8") / 4);
   }
 
+  static estimateCost(value) {
+    return ContextBudget.estimateSerializedTokens(value);
+  }
+
   static estimateItemTokens(item) {
     return ContextBudget.estimateSerializedTokens(item);
   }
