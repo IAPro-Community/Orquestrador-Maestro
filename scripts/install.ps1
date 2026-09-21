@@ -17,6 +17,33 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Parity with install.sh: refuse elevated installs that would land in the
+# wrong profile. Override explicitly with ORQUESTRADOR_ALLOW_ROOT_INSTALL=1.
+$windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
+if ($windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL) {
+  throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+}
+
+function Get-HostPowerShell {
+  # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
+  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+  if ($pwsh) { return "pwsh" }
+  return "powershell"
+}
+
+function Test-ToolPresent {
+  # Mirrors install.sh tool_is_present: binary on PATH, or a config dir
+  # that we did not create ourselves (.maestro-managed marker).
+  param([string]$Command, [string]$ConfigDir)
+  if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) { return $true }
+  if ($ConfigDir) {
+    $dir = Join-Path $HomePath $ConfigDir
+    if ((Test-Path -LiteralPath $dir) -and -not (Test-Path -LiteralPath (Join-Path $dir ".maestro-managed"))) { return $true }
+  }
+  return $false
+}
+
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $SourceOrquestrador = Join-Path $RepoRoot "orquestrador"
 $SourceAgents = Join-Path $RepoRoot "home\AGENTS.md"
@@ -465,21 +492,26 @@ if (-not $SkipExtraSkills) {
 
 if ($InstallToolProfiles) {
   $toolProfileTargets = @(
-    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex" },
-    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode" },
-    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode" },
-    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude" },
-    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor" },
-    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini" },
-    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf" },
-    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf" },
-    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity" },
-    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity" },
-    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo" },
-    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi" },
-    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok" }
+    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex"; ToolCommand = "codex"; ToolConfigDir = ".codex" },
+    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode"; ToolCommand = "opencode"; ToolConfigDir = ".opencode" },
+    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode"; ToolCommand = "opencode"; ToolConfigDir = ".config/opencode" },
+    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude"; ToolCommand = "claude"; ToolConfigDir = ".claude" },
+    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor"; ToolCommand = "cursor"; ToolConfigDir = ".cursor" },
+    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini"; ToolCommand = "gemini"; ToolConfigDir = ".gemini" },
+    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf"; ToolCommand = "windsurf"; ToolConfigDir = ".windsurf" },
+    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf"; ToolCommand = "windsurf"; ToolConfigDir = ".codeium/windsurf/memories" },
+    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity"; ToolCommand = "antigravity"; ToolConfigDir = ".antigravity" },
+    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity"; ToolCommand = "antigravity"; ToolConfigDir = ".ai-standards" },
+    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo"; ToolCommand = "mimo"; ToolConfigDir = ".mimo" },
+    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi"; ToolCommand = "kimi"; ToolConfigDir = ".kimi-code" },
+    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok"; ToolCommand = "grok"; ToolConfigDir = ".grok" }
   )
   foreach ($target in $toolProfileTargets) {
+    # -AllTargets installs everything; -NonInteractive installs only
+    # detected tools (mirrors install.sh tool_should_install).
+    if (-not $AllTargets -and $NonInteractive) {
+      if (-not (Test-ToolPresent -Command $target.ToolCommand -ConfigDir $target.ToolConfigDir)) { continue }
+    }
     if (Test-SelectedComponent -Names @("tool-profiles", $target.Component)) {
       Add-InstallTarget `
         -Targets $extraTargets `
@@ -641,7 +673,7 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
   }
 }
 

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Install: `--dry-run` passa a listar sync/discovery/chmod/logs planejados em vez de omitir; uninstall reverte mirrors do `sync --apply`, faz backup integral no Windows (antes: só mapeados) e `Copy-ManagedDirectory` recusa destino fora da raiz.
+- Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20+ de verdade.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 
