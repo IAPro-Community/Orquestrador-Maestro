@@ -158,6 +158,15 @@ class Memory {
     return /<private>[\s\S]*?<\/private>/i.test(content);
   }
 
+  containsPrivateDeep(value) {
+    if (typeof value === "string") return this.containsPrivateContent(value);
+    if (Array.isArray(value)) return value.some(item => this.containsPrivateDeep(item));
+    if (value && typeof value === "object") {
+      return Object.values(value).some(item => this.containsPrivateDeep(item));
+    }
+    return false;
+  }
+
   stripPrivateContent(content) {
     if (typeof content !== "string") return content;
     return content.replace(/<private>[\s\S]*?<\/private>/gi, "").trim();
@@ -189,6 +198,27 @@ class Memory {
       throw new Error("Potential prompt injection detected in content");
     }
     return true;
+  }
+
+  resolveVerification(observation) {
+    // Hard line: a bare `verified` claim has no authority. It only counts
+    // with an identified verifier (human or process) and a timestamp.
+    const claimsVerified = observation.verified === true || observation.verified === "true";
+    const verifier = typeof observation.verifier === "string" ? observation.verifier.trim() : "";
+    const verifyNote = typeof observation.verifyNote === "string" ? observation.verifyNote.slice(0, 280) : "";
+    if (claimsVerified && verifier.length > 0) {
+      return {
+        verified: true,
+        verifier,
+        verifiedAt: observation.verifiedAt || new Date().toISOString(),
+        verifyNote,
+        verifiedClaimed: false
+      };
+    }
+    if (claimsVerified) {
+      return { verified: false, verifier: "", verifiedAt: null, verifyNote, verifiedClaimed: true };
+    }
+    return { verified: false, verifier: "", verifiedAt: null, verifyNote: "", verifiedClaimed: false };
   }
 
   writeAtomic(filePath, content) {
@@ -227,7 +257,14 @@ class Memory {
   }
 
   record(projectId, observation, options = {}) {
-    if (this.containsPrivateContent(observation.summary) || this.containsPrivateContent(observation.details || "")) {
+    const privateFields = [
+      observation.summary,
+      observation.details,
+      observation.files,
+      observation.tags,
+      observation.source
+    ];
+    if (privateFields.some(field => this.containsPrivateDeep(field))) {
       throw new Error("Private content cannot be persisted to memory");
     }
 
@@ -264,7 +301,7 @@ class Memory {
       details: observation.details ? this.redactContent(observation.details) : null,
       files: (observation.files || []).map(f => this.redactContent(f)),
       tags: this.redactValue(observation.tags || []),
-      verified: observation.verified || false,
+      ...this.resolveVerification(observation),
       source: this.redactValue(observation.source || {}),
       scope,
       capturePolicy: policyResult.policy
@@ -299,12 +336,12 @@ class Memory {
     }
     if (query.tags && query.tags.length > 0) {
       observations = observations.filter(obs =>
-        query.tags.some(tag => obs.tags.includes(tag))
+        query.tags.some(tag => (obs.tags || []).includes(tag))
       );
     }
     if (query.files && query.files.length > 0) {
       observations = observations.filter(obs =>
-        query.files.some(file => obs.files.includes(file))
+        query.files.some(file => (obs.files || []).includes(file))
       );
     }
     if (query.from) {
@@ -436,6 +473,7 @@ class Memory {
       type: obs.type,
       summary: obs.summary,
       verified: obs.verified,
+      verifier: obs.verifier || "",
       branch: obs.scope?.branch
     }));
   }
@@ -443,7 +481,9 @@ class Memory {
   promote(projectId, observationId, destination, options = {}) {
     const obs = this.show(projectId, observationId);
     if (!obs) throw new Error(`Observation not found: ${observationId}`);
-    if (!obs.verified) throw new Error("Cannot promote unverified observation");
+    if (!obs.verified || typeof obs.verifier !== "string" || obs.verifier.trim().length === 0 || !obs.verifiedAt) {
+      throw new Error("Cannot promote unverified observation (requires verified:true with verifier and verifiedAt; bare --verified claims are recorded as verifiedClaimed, not verified)");
+    }
 
     const projectRoot = options.projectRoot || process.cwd();
     const resolvedRoot = resolveProjectRoot(projectRoot) || path.resolve(projectRoot);
@@ -476,7 +516,7 @@ class Memory {
         observation: obs,
         destination,
         status: "dry-run",
-        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${obs.files.join(", ")}\nTags: ${obs.tags.join(", ")}\nVerified: ${obs.verified}\n`
+        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${(obs.files || []).join(", ")}\nTags: ${(obs.tags || []).join(", ")}\nVerified: ${obs.verified}\n`
       };
     }
 
@@ -642,11 +682,44 @@ class Memory {
         details: consolidatedObs.details ? this.redactContent(consolidatedObs.details) : null,
         files: this.redactValue([...new Set(observations.flatMap(obs => obs.files || []))]),
         tags: this.redactValue([...new Set(observations.flatMap(obs => obs.tags || []))]),
-        verified: consolidatedObs.verified || false,
         source: this.redactValue(consolidatedObs.source || {}),
         scope: consolidatedObs.scope || firstScope,
         consolidatedFrom: observationIds
       };
+
+      const consolidatedPrivateFields = [
+        consolidated.summary,
+        consolidated.details,
+        consolidated.files,
+        consolidated.tags,
+        consolidated.source
+      ];
+      if (consolidatedPrivateFields.some(field => this.containsPrivateDeep(field))) {
+        throw new Error("Private content cannot be persisted to memory");
+      }
+
+      const consolidatedPolicy = this.capturePolicy.evaluate(consolidated);
+      if (consolidatedPolicy.policy === POLICIES.DROP) {
+        return null;
+      }
+
+      // Verified is inherited only when every source is verified with an
+      // identified verifier; a bare claim never upgrades through consolidation.
+      const allSourcesVerified = observations.every(
+        o => o.verified === true && typeof o.verifier === "string" && o.verifier.trim().length > 0
+      );
+      const claim = this.resolveVerification(consolidatedObs);
+      if (claim.verified && allSourcesVerified) {
+        consolidated.verified = true;
+        consolidated.verifier = claim.verifier;
+        consolidated.verifiedAt = claim.verifiedAt;
+        consolidated.verifyNote = claim.verifyNote;
+      } else {
+        consolidated.verified = false;
+        if (claim.verified || claim.verifiedClaimed || consolidatedObs.verified) {
+          consolidated.verifiedClaimed = true;
+        }
+      }
 
       if (consolidatedObs.taskId) consolidated.taskId = consolidatedObs.taskId;
 
@@ -752,7 +825,9 @@ Flags:
   --details TEXT     Detalhes
   --files LIST       Arquivos (comma-separated)
   --tags LIST        Tags (comma-separated)
-  --verified         Marcar como verificado
+  --verified         Reivindicar verificacao (só vale com --verifier; sem ele vira verifiedClaimed)
+  --verifier ID      Quem verificou (humano ou processo); obrigatório para verified:true
+  --verify-note TEXT Motivo da verificacao (ate 280 caracteres)
   --unverified       Filtrar nao verificados
   --task ID          ID da tarefa
   --search TEXT      Texto para buscar
@@ -813,6 +888,8 @@ function main() {
         files: memory.getArgList(rest, "--files"),
         tags: memory.getArgList(rest, "--tags"),
         verified: rest.includes("--verified"),
+        verifier: memory.getArg(rest, "--verifier"),
+        verifyNote: memory.getArg(rest, "--verify-note"),
         taskId: memory.getArg(rest, "--task"),
         scope: memory.resolveScope(project, rest, projectPath)
       }, { gitContext: gitCtx, projectRoot: projectPath });

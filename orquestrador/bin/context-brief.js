@@ -158,6 +158,13 @@ function relativePath(projectRoot, filePath) {
   return path.relative(projectRoot, filePath).replace(/\\/g, "/");
 }
 
+function sanitizeMemoryEntry(value) {
+  // Memory content is untrusted: a summary containing </episodic-memory>
+  // would break out of the wrapper below. Strip wrapper-like tags so the
+  // brief always emits exactly one open + one close tag.
+  return String(value || "").replace(/<\/?episodic-memory[^>]*>/gi, "[tag-removida]");
+}
+
 function isExcluded(relative) {
   const segments = relative.split("/");
   return segments.some((segment) => EXCLUDED_SEGMENTS.has(segment)) || EXCLUDED_NAMES.has(path.basename(relative));
@@ -609,8 +616,12 @@ function buildBrief(options) {
     try {
       const { Memory } = require("./memory.js");
       const mem = options.memory || new Memory();
-      const projectId = mem.resolveRepositoryId(projectRoot);
+      // Single source for the repository id: resolveRepositoryId() hashes a
+      // sanitized/truncated path for non-git projects while
+      // resolveGitContext() hashes the resolved path, so mixing them yields
+      // different ids and a silently empty memory section. Use gitCtx.
       const gitCtx = resolveGitContext(projectRoot);
+      const projectId = gitCtx.repositoryId;
       const taskTokens = tokenize(options.task || "");
       const taskClass = classifyTask(options.task);
 
@@ -630,7 +641,7 @@ function buildBrief(options) {
         const selected = [];
 
         for (const obs of memResults) {
-          const entry = `- [${obs.verified ? "verified" : "unverified"}] ${obs.summary}`;
+          const entry = `- [${obs.verified ? "verified" : "unverified"}] ${sanitizeMemoryEntry(obs.summary)}`;
           if (usedMemory + entry.length > budget.memoryChars) break;
           selected.push(entry);
           usedMemory += entry.length;
@@ -792,4 +803,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, buildSection, classifyTask, computeBudget, main, parseArgs, parsePhaseState, resolveGitDelta };
+module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, buildSection, classifyTask, computeBudget, main, parseArgs, parsePhaseState, resolveGitDelta, sanitizeMemoryEntry };

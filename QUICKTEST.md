@@ -9,8 +9,12 @@ node orquestrador/bin/memory.js record \
   --type decision \
   --summary "Usei JWT para autenticação" \
   --tags "auth,jwt" \
-  --verified
+  --verified --verifier "alice" --verify-note "revisado no PR #42"
 ```
+
+> Linha dura: `--verified` sozinho não verifica — vira `verifiedClaimed`.
+> Só vale com `--verifier` (quem verificou) e `verifiedAt`; `promote --apply`
+> para `DEV/` exige os dois.
 
 ### Buscar observations
 ```bash
