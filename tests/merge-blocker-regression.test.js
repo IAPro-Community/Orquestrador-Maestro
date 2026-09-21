@@ -519,6 +519,7 @@ try {
     it("should allow real-execution runs to be claim-eligible", () => {
       const realRun = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+        environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
         usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
@@ -594,6 +595,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -630,6 +632,7 @@ try {
           usage: { inputTokens: 100, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         },
         {
@@ -637,6 +640,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -662,6 +666,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
