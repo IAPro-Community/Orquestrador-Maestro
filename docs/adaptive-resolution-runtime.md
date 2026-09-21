@@ -2,7 +2,7 @@
 
 ## Status
 
-Experimental V4, evidence dataset and promotion gate; no learned policy is active and normal Runtime execution remains shadow-only.
+Experimental V4.6, conservative end-to-end mission usage metering; no learned policy is active and normal Runtime execution remains shadow-only.
 
 This branch extends the current JavaScript Runtime. It does not introduce a second RunStore, a second cognitive-budget system, or a competing governance layer.
 
@@ -230,7 +230,7 @@ node scripts/adaptive-resolution-evaluate.js \
   --out .maestro/adaptive/evaluation.json
 ```
 
-The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Hard validated V3 quality evidence is produced with `orquestrador-maestro benchmark adaptive-pair`, which runs only the `maestro` control and `maestro-adaptive` treatment through the real `go --auto` path and requires runtime confirmation of the canonical policy fingerprint. End-to-end Maestro token totals remain deliberately unavailable until all mission model calls can be aggregated without double counting. Local `adaptive-pair` runs are also analysis-only until executed in a policy-matching isolated image. The promotion gate therefore remains `HOLD` unless evidence is policy-bound, isolated, verifier-valid, token-comparable, and large enough.
+The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Hard validated V3 quality evidence is produced with `orquestrador-maestro benchmark adaptive-pair`, which runs only the `maestro` control and `maestro-adaptive` treatment through the real `go --auto` path and requires runtime confirmation of the canonical policy fingerprint. End-to-end Maestro token totals remain deliberately unavailable until all mission model calls can be aggregated without double counting. Local `adaptive-pair` runs are also analysis-only until executed in a policy-matching isolated image. The promotion gate therefore remains `HOLD` unless evidence is policy-bound, isolated, verifier-valid, token-comparable, and large enough.
 
 ## Experimental Boundary
 
@@ -254,6 +254,20 @@ A V0 outcome is considered hard validated only when:
 - an independent review, when present, is not rejected, inconclusive, or unavailable.
 
 This deliberately reuses current Maestro semantics instead of creating a second definition of success.
+
+## V4.6 Mission Usage Meter
+
+V4.6 instruments the shared provider boundary used by interview, planning, execution and review. Each fresh `provider.execute()` invocation must leave exactly one ledger record before a mission total can be considered complete.
+
+Completeness is fail-closed:
+
+- a provider call that throws before returning a handle makes the mission incomplete;
+- a handle without an observable result promise makes the mission incomplete;
+- a rejected provider result makes the mission incomplete;
+- resumed/continued sessions are not blindly added to fresh-session totals;
+- OpenCode `task` subagents make root-session usage incomplete unless step usage for each child session is explicitly present in the observed stream.
+
+Observed partial counters remain available for diagnosis, but `totalTokens` stays `null` whenever any invocation is incomplete. This prevents root-session OpenCode tokens from being presented as end-to-end mission cost when an unobserved child agent may have consumed additional tokens.
 
 ## Token Metric
 
@@ -298,7 +312,8 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 3. **V2 — progressive context experiment:** implemented on ContextEngine with real serialization accounting, manifest-based deduplication, authority gates, and paired brief budgets.
 4. **V3 — progressive escalation:** implemented as an explicit experiment: one planning call per unique context, validation-driven escalation, duplicate-context skipping, and deterministic fallback.
 5. **V4 — evidence dataset + promotion gate:** implemented; weak evidence is retained for analysis but only policy-bound hard-validated pairs can make a candidate promotion-ready.
-6. **V4.5 — hard-evidence benchmark boundary:** implemented in the candidate branch: real `go --auto` execution, dedicated `maestro-adaptive` treatment, runtime policy confirmation, and no false end-to-end token claim.
-7. **V5 — learned policy:** not started. Training begins only after the V4 gate has enough policy-bound evidence to define labels and rollback criteria without guessing.
+6. **V4.5 — hard-evidence benchmark boundary:** implemented: real `go --auto` execution, dedicated `maestro-adaptive` treatment, runtime policy confirmation, and policy-bound evidence.
+7. **V4.6 — mission usage completeness:** implemented conservatively; unobserved subagents or provider invocations invalidate the mission total instead of being silently omitted.
+8. **V5 — learned policy:** not started. Training begins only after the V4 gate has enough policy-bound evidence to define labels and rollback criteria without guessing.
 
 A learned model is intentionally not the current Runtime dependency.

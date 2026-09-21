@@ -20,3 +20,38 @@ test("resumed session is never blindly summed", async () => {
   await (await registry.adapters.get("opencode").execute({prompt:"a",sessionId:"old"})).result;
   assert.deepEqual(meter.snapshot().incompleteReasons,["session-resume-unsafe"]);
 });
+
+
+test("execute rejection before handle creation is recorded as incomplete", async () => {
+  const bad = {
+    id: "opencode",
+    async detect() { return { installed: true }; },
+    async capabilities() { return {}; },
+    async execute() { throw new Error("spawn failed"); }
+  };
+  const meter = new MissionUsageMeter();
+  const registry = { adapters: new Map([["opencode", bad]]) };
+  meter.instrumentRegistry(registry);
+  await assert.rejects(() => registry.adapters.get("opencode").execute({ prompt: "x" }), /spawn failed/u);
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, false);
+  assert.equal(snapshot.invocationCount, 1);
+  assert.deepEqual(snapshot.incompleteReasons, ["provider-execute-rejected"]);
+});
+
+test("unobservable provider handle is recorded as incomplete", async () => {
+  const bad = {
+    id: "opencode",
+    async detect() { return { installed: true }; },
+    async capabilities() { return {}; },
+    async execute() { return { cancel() {} }; }
+  };
+  const meter = new MissionUsageMeter();
+  const registry = { adapters: new Map([["opencode", bad]]) };
+  meter.instrumentRegistry(registry);
+  await registry.adapters.get("opencode").execute({ prompt: "x" });
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, false);
+  assert.equal(snapshot.invocationCount, 1);
+  assert.deepEqual(snapshot.incompleteReasons, ["provider-result-unobservable"]);
+});

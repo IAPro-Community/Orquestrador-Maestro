@@ -308,3 +308,58 @@ test("opencode keeps counts but marks usage incomplete when payload activity fol
   assert.equal(usage.tokenOutput, 20);
   assert.equal(usage.usageComplete, false);
 });
+
+
+test("opencode marks root usage incomplete when a task subagent is not represented by child step usage", () => {
+  const stdout = [
+    JSON.stringify({
+      type: "tool_use",
+      sessionID: "root",
+      part: {
+        type: "tool",
+        tool: "task",
+        state: { status: "completed", metadata: { sessionId: "child-1" } }
+      }
+    }),
+    JSON.stringify({
+      type: "step_finish",
+      sessionID: "root",
+      part: { type: "step-finish", tokens: { input: 100, output: 20, reasoning: 0, cache: { read: 0, write: 0 } } }
+    })
+  ].join("\n");
+  const parsed = parseProviderUsage({ providerId: "opencode", stdout });
+  assert.equal(parsed.tokenInput, 100);
+  assert.equal(parsed.toolCalls, 1);
+  assert.equal(parsed.usageComplete, false);
+  assert.equal(parsed.usageScope, "self");
+});
+
+test("opencode can close subagent usage only when child step usage is explicitly present", () => {
+  const stdout = [
+    JSON.stringify({
+      type: "tool_use",
+      sessionID: "root",
+      part: {
+        type: "tool",
+        tool: "task",
+        state: { status: "completed", metadata: { sessionId: "child-1" } }
+      }
+    }),
+    JSON.stringify({
+      type: "step_finish",
+      sessionID: "child-1",
+      part: { type: "step-finish", tokens: { input: 40, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } }
+    }),
+    JSON.stringify({
+      type: "step_finish",
+      sessionID: "root",
+      part: { type: "step-finish", tokens: { input: 100, output: 20, reasoning: 0, cache: { read: 0, write: 0 } } }
+    })
+  ].join("\n");
+  const parsed = parseProviderUsage({ providerId: "opencode", stdout });
+  assert.equal(parsed.tokenInput, 140);
+  assert.equal(parsed.tokenOutput, 30);
+  assert.equal(parsed.modelCalls, 2);
+  assert.equal(parsed.usageComplete, true);
+  assert.equal(parsed.usageScope, "aggregate");
+});

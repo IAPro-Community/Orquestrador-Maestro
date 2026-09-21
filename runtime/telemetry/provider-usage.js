@@ -278,6 +278,9 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
   let sessionId = null;
   let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
   let provider = "unknown", modelCalls = 0, toolCalls = 0, sawToolCalls = false, lastLifecycleEvent = null;
+  let sawSubagent = false;
+  const childSessionIds = new Set();
+  const stepFinishSessionIds = new Set();
   for (const event of events) {
     const sid = asNonEmptyString(event.sessionID) || asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (sid && !sessionId) sessionId = sid;
@@ -287,6 +290,13 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     if (pid) provider = pid;
     const eventType = typeof event.type === "string" ? event.type : "";
     const partType = typeof event?.part?.type === "string" ? event.part.type : "";
+    const toolName = asNonEmptyString(event?.part?.tool) || asNonEmptyString(event?.tool);
+    const childSessionId = asNonEmptyString(event?.part?.state?.metadata?.sessionId)
+      || asNonEmptyString(event?.part?.state?.metadata?.sessionID);
+    if (toolName === "task") {
+      sawSubagent = true;
+      if (childSessionId) childSessionIds.add(childSessionId);
+    }
     const isStepFinish = /^(step_finish|step-finish|step\.finish)$/iu.test(eventType) || /^(step_finish|step-finish|step\.finish)$/iu.test(partType);
     const isStepStart = /^(step_start|step-start|step\.start)$/iu.test(eventType) || /^(step_start|step-start|step\.start)$/iu.test(partType);
     const isPayloadActivity = /^(text|tool|tool_call|tool-result|tool_use)$/iu.test(eventType) || /^(text|tool|tool_use)$/iu.test(partType);
@@ -294,6 +304,7 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     else if (isPayloadActivity) lastLifecycleEvent = "payload";
     else if (isStepFinish) lastLifecycleEvent = "step-finish";
     if (isStepFinish) {
+      if (sid) stepFinishSessionIds.add(sid);
       const tokens = event?.part?.tokens && typeof event.part.tokens === "object" ? event.part.tokens : event.tokens && typeof event.tokens === "object" ? event.tokens : event.usage && typeof event.usage === "object" ? event.usage : null;
       if (tokens) {
         const input = pickFirst(asNonNegativeInt(tokens.input), asNonNegativeInt(tokens.input_tokens), asNonNegativeInt(tokens.inputTokens), asNonNegativeInt(tokens.prompt_tokens));
@@ -312,6 +323,8 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     }
     if (/^(tool|tool_use|tool-use|function_call)$/iu.test(partType)) { toolCalls += 1; sawToolCalls = true; }
   }
+  const childUsageComplete = !sawSubagent
+    || (childSessionIds.size > 0 && [...childSessionIds].every((id) => stepFinishSessionIds.has(id)));
   return finalize({
     tool, provider, model: model || "unknown", sessionId,
     tokenInput: sawInput ? tokenInput : null,
@@ -320,8 +333,8 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     cachedOutputTokens: sawCacheWrite ? cachedOutputTokens : null,
     reasoningTokens: sawReasoning ? reasoningTokens : null,
     modelCalls, toolCalls: sawToolCalls ? toolCalls : null,
-    usageScope: modelCalls > 0 ? "self" : "unknown",
-    usageComplete: modelCalls > 0 && lastLifecycleEvent === "step-finish",
+    usageScope: sawSubagent && childUsageComplete ? "aggregate" : modelCalls > 0 ? "self" : "unknown",
+    usageComplete: modelCalls > 0 && lastLifecycleEvent === "step-finish" && childUsageComplete,
     source: "stdout-events"
   });
 }

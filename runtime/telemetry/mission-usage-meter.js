@@ -18,10 +18,37 @@ class MissionUsageMeter {
     wrapped.capabilities = (...args) => adapter.capabilities(...args);
     wrapped.supportsReadOnlyReview = (...args) => typeof adapter.supportsReadOnlyReview === "function" ? adapter.supportsReadOnlyReview(...args) : false;
     wrapped.execute = async (request = {}) => {
-      const handle = await adapter.execute(request);
-      if (!handle?.result || typeof handle.result.then !== "function") return handle;
-      const result = Promise.resolve(handle.result).then((completed) => { meter.record({ adapter, request, completed }); return completed; }, (error) => {
-        meter.records.push(Object.freeze({ providerId: adapter.id || "unknown", complete: false, reason: "provider-result-rejected", modelCalls: 0 }));
+      let handle;
+      try {
+        handle = await adapter.execute(request);
+      } catch (error) {
+        meter.records.push(Object.freeze({
+          providerId: adapter.id || "unknown",
+          complete: false,
+          reason: "provider-execute-rejected",
+          modelCalls: 0
+        }));
+        throw error;
+      }
+      if (!handle?.result || typeof handle.result.then !== "function") {
+        meter.records.push(Object.freeze({
+          providerId: adapter.id || "unknown",
+          complete: false,
+          reason: "provider-result-unobservable",
+          modelCalls: 0
+        }));
+        return handle;
+      }
+      const result = Promise.resolve(handle.result).then((completed) => {
+        meter.record({ adapter, request, completed });
+        return completed;
+      }, (error) => {
+        meter.records.push(Object.freeze({
+          providerId: adapter.id || "unknown",
+          complete: false,
+          reason: "provider-result-rejected",
+          modelCalls: 0
+        }));
         throw error;
       });
       return Object.freeze({ ...handle, result, cancel: typeof handle.cancel === "function" ? () => handle.cancel() : undefined });
