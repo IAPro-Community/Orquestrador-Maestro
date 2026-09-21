@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const test = require("node:test");
@@ -156,4 +157,73 @@ test("JsonFileRunStore maintains backward compatibility with legacy intent sessi
   assert.equal(newSession.facts[0], "fato intocado");
   assert.equal(newSession.relevantContext.items[0].kind, "FACT");
   assert.equal(newSession.relevantContext.items[0].key, "auth");
+});
+
+
+function runStoreWriter({ filePath, prefix, count }) {
+  const modulePath = path.resolve(__dirname, "..");
+  const source = `
+    const { JsonFileRunStore } = require(process.env.MAESTRO_STORE_MODULE);
+    (async () => {
+      const store = new JsonFileRunStore({
+        filePath: process.env.MAESTRO_STORE_FILE,
+        lockTimeoutMs: 15000,
+        lockStaleMs: 5000,
+        lockRetryMs: 5
+      });
+      for (let index = 0; index < Number(process.env.MAESTRO_STORE_COUNT); index += 1) {
+        await store.appendEvent({
+          id: process.env.MAESTRO_STORE_PREFIX + "-" + index,
+          runId: "run-shared",
+          type: "run.started"
+        });
+      }
+    })().catch((error) => {
+      console.error(error && error.stack ? error.stack : error);
+      process.exit(1);
+    });
+  `;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["-e", source], {
+      env: {
+        ...process.env,
+        MAESTRO_STORE_MODULE: modulePath,
+        MAESTRO_STORE_FILE: filePath,
+        MAESTRO_STORE_PREFIX: prefix,
+        MAESTRO_STORE_COUNT: String(count)
+      },
+      stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`writer ${prefix} exited ${code}: ${stderr}`)));
+  });
+}
+
+test("JsonFileRunStore preserves every mutation across independent writer processes", async () => {
+  const filePath = path.join(makeTempDir("maestro-store-multiprocess-"), "runtime", "runs.json");
+  const writers = 4;
+  const eventsPerWriter = 15;
+
+  await Promise.all(Array.from({ length: writers }, (_, index) =>
+    runStoreWriter({ filePath, prefix: `writer-${index}`, count: eventsPerWriter })
+  ));
+
+  const store = new JsonFileRunStore({ filePath });
+  const events = await store.listEvents({ runId: "run-shared" });
+  assert.equal(events.length, writers * eventsPerWriter);
+  assert.equal(new Set(events.map((event) => event.id)).size, writers * eventsPerWriter);
+});
+
+test("JsonFileRunStore readers observe commits made by another instance", async () => {
+  const filePath = path.join(makeTempDir("maestro-store-refresh-"), "runs.json");
+  const first = new JsonFileRunStore({ filePath });
+  const second = new JsonFileRunStore({ filePath });
+  await first.initialize();
+  await second.initialize();
+
+  await first.appendEvent({ id: "external-event", runId: "run-1", type: "run.started" });
+  assert.equal((await second.listEvents({ runId: "run-1" })).length, 1);
 });
