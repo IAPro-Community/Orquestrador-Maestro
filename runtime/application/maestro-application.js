@@ -33,7 +33,9 @@ const {
   createBudgetReservation,
   commitBudgetReservation,
   releaseBudgetReservation,
-  withBudgetReservation
+  withBudgetReservation,
+  buildTaskProofBundle,
+  buildMissionProofBundle
 } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
@@ -102,6 +104,23 @@ function blockedTelemetry({ budget, projectId, workspacePath, reason, skillsRequ
     headCommit: identity.headCommit,
     status: "blocked"
   });
+}
+
+
+function evidenceText(value) {
+  if (typeof value === "string" && value.trim()) return value;
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized && serialized !== "{}" ? serialized : "evidence";
+  } catch {
+    return "evidence";
+  }
+}
+
+function criterionText(value) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object") return String(value.id || value.condition || "").trim() || undefined;
+  return undefined;
 }
 
 function listSourceFiles(workspacePath, relativePath = "") {
@@ -255,7 +274,14 @@ class MaestroApplication {
   }
   async listArtifacts(filters) { return this.store.listArtifacts(filters); }
   async getArtifact(artifactId) { return this.store.getArtifact(artifactId); }
-  async getVerification(runId) { return (await this.store.listVerifications({ runId }))[0]; }
+  async listEvidence(filters = {}) { return this.store.listEvidence(filters); }
+  async getEvidence(evidenceId) { return this.store.getEvidence(evidenceId); }
+  async getTaskProofBundle(taskId) { return buildTaskProofBundle({ store: this.store, taskId }); }
+  async getMissionProofBundle(missionId) { return buildMissionProofBundle({ store: this.store, missionId }); }
+  async getVerification(runId) {
+    const values = await this.store.listVerifications({ runId });
+    return values.length ? values[values.length - 1] : undefined;
+  }
   async listTerminals(filters = {}) {
     const terminals = await this.store.listTerminals(filters);
     return terminals.map((terminal) => terminal.status === "running" && !this.terminals.active.has(terminal.id)
@@ -623,8 +649,15 @@ class MaestroApplication {
     if (this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
       review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: request.evidence || result.evidence });
     }
+    const producedEvidence = request.evidence || result.evidence;
+    const persistedEvidence = await this._persistProducedEvidence({
+      evidence: producedEvidence,
+      taskId: task.id,
+      runId: run.id,
+      verificationId: verification.id
+    });
     const completionTask = request.semanticTask || { id: task.id, acceptanceCriteria: [] };
-    const completion = isTaskCompletionEligible(completionTask, { evidence: request.evidence || result.evidence, verification, qualityFindings, deterministic: true });
+    const completion = isTaskCompletionEligible(completionTask, { evidence: producedEvidence, verification, qualityFindings, deterministic: true });
     const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: request.evidence || result.evidence, sessionWarnings: this.governanceWarnings });
     this.governanceNotices = [...governance.warnings, ...governance.recommendations];
     const strictGate = governance.mode === "strict";
@@ -737,7 +770,45 @@ class MaestroApplication {
       });
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
     }
-    return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+    return { run: await this.store.getRun(run.id), verification, evidence: persistedEvidence, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
+  }
+
+  async _persistProducedEvidence({ evidence, taskId, runId, verificationId }) {
+    const entries = Array.isArray(evidence) ? evidence : evidence ? [evidence] : [];
+    const persisted = [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "object") continue;
+      const acceptanceCriterion = criterionText(entry.acceptanceCriterion ?? entry.criterion ?? entry.acceptanceCriterionId);
+      const confidence = Number.isInteger(entry.confidence) && entry.confidence >= 0 && entry.confidence <= 100
+        ? entry.confidence : undefined;
+      const record = core.createEvidence({
+        id: id("evidence"),
+        taskId,
+        runId,
+        artifactId: typeof entry.artifactId === "string" && entry.artifactId.trim() ? entry.artifactId : undefined,
+        type: typeof entry.type === "string" && entry.type.trim() ? entry.type : "runtime-evidence",
+        content: evidenceText(entry.content ?? entry.value ?? entry.summary ?? entry.type),
+        acceptanceCriterion,
+        acceptanceCriterionId: typeof entry.acceptanceCriterionId === "string" && entry.acceptanceCriterionId.trim()
+          ? entry.acceptanceCriterionId : undefined,
+        producer: typeof entry.producer === "string" && entry.producer.trim() ? entry.producer : "runtime",
+        verificationId,
+        createdAt: new Date().toISOString(),
+        metadata: entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
+          ? entry.metadata : undefined,
+        confidence
+      });
+      await this.store.saveEvidence(record);
+      await this.record(runId, "evidence.created", {
+        evidenceId: record.id,
+        taskId,
+        type: record.type,
+        acceptanceCriterion: record.acceptanceCriterion || null,
+        verificationId: record.verificationId || null
+      });
+      persisted.push(record);
+    }
+    return Object.freeze(persisted);
   }
 
   async _runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence }) {
