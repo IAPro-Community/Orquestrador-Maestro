@@ -1,39 +1,50 @@
 "use strict";
 
-const { DEFAULT_POLICY, rankEvidenceCandidates } = require("./evidence-ranker");
+const { DEFAULT_POLICY } = require("./evidence-ranker");
 const { evaluateEvidenceAgainstPrompt } = require("./prompt-manifest");
+const { STRATEGY_BY_BUDGET_TIER, strategyForBudget } = require("./resolution-policy");
+const { createResolution, finalizeResolution } = require("./resolution-engine");
+const { isReviewBlocking } = require("./resolution-state");
 
-const STRATEGY_BY_BUDGET_TIER = Object.freeze({
-  lean: "targeted",
-  LEAN: "targeted",
-  standard: "balanced",
-  STANDARD: "balanced",
-  assurance: "deep",
-  ASSURANCE: "deep"
-});
-
-function strategyForBudget(cognitiveBudget = {}) {
-  const key = cognitiveBudget.tier || cognitiveBudget.id || "standard";
-  return STRATEGY_BY_BUDGET_TIER[key] || "balanced";
-}
-
-function buildResolutionPlan({ cognitiveBudget = {}, evidenceCandidates = [], mode = "shadow", policy = DEFAULT_POLICY } = {}) {
-  if (mode !== "shadow") throw new TypeError("adaptive resolution V1 supports shadow mode only");
-  const strategy = strategyForBudget(cognitiveBudget);
-  const contextTokenBudget = Number.isInteger(cognitiveBudget.contextTokens) ? cognitiveBudget.contextTokens : 0;
-  const evidenceAdvice = rankEvidenceCandidates(evidenceCandidates, { strategy, tokenBudget: contextTokenBudget, policy });
+function toLegacyEvidenceAdvice(contract) {
+  const evidence = contract.evidence;
   return Object.freeze({
-    version: 1,
-    mode,
-    strategy,
-    cognitiveBudgetTier: cognitiveBudget.tier || cognitiveBudget.id || "unknown",
-    contextTokenBudget,
-    evidenceAdvice
+    policyVersion: evidence.policyVersion,
+    strategy: contract.strategy,
+    tokenBudget: contract.budget.contextTokens,
+    estimatedSelectedTokens: evidence.estimatedSelectedTokens,
+    budgetOverflow: evidence.budgetOverflow,
+    selected: evidence.selected,
+    skipped: evidence.rejected,
+    duplicates: evidence.duplicates,
+    stats: Object.freeze({
+      inputCandidates: evidence.candidates,
+      uniqueCandidates: evidence.uniqueCandidates,
+      selectedCandidates: evidence.selected.length
+    })
   });
 }
 
-function isReviewBlocking(review) {
-  return ["rejected", "inconclusive", "unavailable"].includes(String(review?.status || ""));
+/**
+ * Compatibility facade for the historical Adaptive Resolution V1 API.
+ * Canonical Runtime code must use createResolution()/finalizeResolution().
+ */
+function buildResolutionPlan({ cognitiveBudget = {}, evidenceCandidates = [], mode = "shadow", policy = DEFAULT_POLICY } = {}) {
+  if (mode !== "shadow") throw new TypeError("adaptive resolution compatibility facade supports shadow mode only");
+  const contract = createResolution({
+    cognitiveBudget,
+    evidenceCandidates,
+    mode,
+    evidencePolicy: policy
+  });
+  return Object.freeze({
+    version: 1,
+    mode: contract.mode,
+    strategy: contract.strategy,
+    cognitiveBudgetTier: contract.budget.tier || contract.budget.id || "unknown",
+    contextTokenBudget: contract.budget.contextTokens,
+    evidenceAdvice: toLegacyEvidenceAdvice(contract)
+  });
 }
 
 function observedProviderTokens(cognitiveTelemetry = {}) {
@@ -44,17 +55,41 @@ function observedProviderTokens(cognitiveTelemetry = {}) {
   return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
 }
 
+function evidenceStats(plan) {
+  if (plan?.engine === "maestro-resolution-engine") {
+    return {
+      candidates: plan.evidence?.candidates ?? 0,
+      selected: plan.evidence?.selected?.length ?? 0,
+      estimatedTokens: plan.evidence?.estimatedSelectedTokens ?? 0,
+      overflow: plan.evidence?.budgetOverflow === true
+    };
+  }
+  return {
+    candidates: plan?.evidenceAdvice?.stats?.inputCandidates ?? 0,
+    selected: plan?.evidenceAdvice?.stats?.selectedCandidates ?? 0,
+    estimatedTokens: plan?.evidenceAdvice?.estimatedSelectedTokens ?? 0,
+    overflow: plan?.evidenceAdvice?.budgetOverflow === true
+  };
+}
+
 function buildResolutionTelemetry({ plan, cognitiveTelemetry = {}, verification, completion, review, promptManifest, status } = {}) {
-  const hardValidated = status === "completed"
-    && verification?.status === "passed"
-    && completion?.eligible === true
-    && !isReviewBlocking(review);
+  const canonical = plan?.engine === "maestro-resolution-engine"
+    ? finalizeResolution({ contract: plan, runStatus: status, verification, completion, review })
+    : null;
+  const hardValidated = canonical
+    ? canonical.outcome.state === "validated"
+    : status === "completed"
+      && verification?.status === "passed"
+      && completion?.eligible === true
+      && !isReviewBlocking(review);
   const observedTokens = observedProviderTokens(cognitiveTelemetry);
   const promptEvaluation = evaluateEvidenceAgainstPrompt({ plan, promptManifest });
+  const stats = evidenceStats(plan);
   return Object.freeze({
-    version: 1,
+    version: 2,
     mode: plan?.mode || "shadow",
     strategy: plan?.strategy || "unknown",
+    resolutionState: canonical?.outcome?.state || (hardValidated ? "validated" : status === "blocked" ? "blocked" : status === "completed" ? "needs_attention" : status || "unknown"),
     hardValidated,
     verificationStatus: verification?.status || "unavailable",
     completionEligible: completion?.eligible === true,
@@ -62,10 +97,10 @@ function buildResolutionTelemetry({ plan, cognitiveTelemetry = {}, verification,
     observedTokensToValidatedOutcome: hardValidated ? observedTokens : null,
     tokenMetricCompleteness: observedTokens === null ? "unavailable" : "provider-only",
     durationMs: Number.isFinite(cognitiveTelemetry.durationMs) ? cognitiveTelemetry.durationMs : null,
-    evidenceCandidates: plan?.evidenceAdvice?.stats?.inputCandidates ?? 0,
-    evidenceSelected: plan?.evidenceAdvice?.stats?.selectedCandidates ?? 0,
-    estimatedSelectedContextTokens: plan?.evidenceAdvice?.estimatedSelectedTokens ?? 0,
-    contextBudgetOverflow: plan?.evidenceAdvice?.budgetOverflow === true,
+    evidenceCandidates: stats.candidates,
+    evidenceSelected: stats.selected,
+    estimatedSelectedContextTokens: stats.estimatedTokens,
+    contextBudgetOverflow: stats.overflow,
     maestroPrompt: promptManifest ? Object.freeze({
       scope: promptManifest.scope,
       promptHash: promptManifest.promptHash,
@@ -76,7 +111,7 @@ function buildResolutionTelemetry({ plan, cognitiveTelemetry = {}, verification,
       items: promptManifest.items
     }) : null,
     promptEvaluation,
-    limitation: "V1 observes provider token usage plus a hash-only manifest of the Maestro-authored prompt. It does not claim visibility into provider/system context or tool-side hidden context."
+    limitation: "Resolution telemetry is observational. Provider tokens are reported separately from Maestro context estimates and remain null when completeness cannot be proven."
   });
 }
 
@@ -109,4 +144,10 @@ function summarizeResolutionRuns(runs = []) {
   });
 }
 
-module.exports = { STRATEGY_BY_BUDGET_TIER, strategyForBudget, buildResolutionPlan, buildResolutionTelemetry, summarizeResolutionRuns };
+module.exports = {
+  STRATEGY_BY_BUDGET_TIER,
+  strategyForBudget,
+  buildResolutionPlan,
+  buildResolutionTelemetry,
+  summarizeResolutionRuns
+};
