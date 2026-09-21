@@ -1962,16 +1962,47 @@ async function handleGoCommand(args, planningOnly = false) {
   });
   const missionStatus = missionResolution.status;
   const missionUsage = missionUsageMeter.snapshot();
+  const resultEntries = Object.values(results);
+  const telemetryValues = resultEntries.map((entry) => entry?.result?.run?.metadata?.cognitiveTelemetry || null);
+  const numericAggregate = (field) => telemetryValues.length > 0 && telemetryValues.every((value) => Number.isInteger(value?.[field]))
+    ? telemetryValues.reduce((sum, value) => sum + value[field], 0)
+    : null;
+  const providerSwitches = resultEntries.reduce((sum, entry) => sum + (entry?.result?.handoff?.providerSwitches || 0), 0);
+  const automaticRetries = numericAggregate("automaticRetries");
+  const escalations = resultEntries.length > 0 && resultEntries.every((entry) => Number.isInteger(entry?.result?.run?.metadata?.resolution?.escalation?.count))
+    ? resultEntries.reduce((sum, entry) => sum + entry.result.run.metadata.resolution.escalation.count, 0)
+    : null;
+  const firstPassKnown = resultEntries.every((entry) => {
+    const run = entry?.result?.run;
+    return entry?.resolutionState === "validated" || run?.metadata?.resolution?.outcome?.state === "validated"
+      ? Number.isInteger(entry?.result?.handoff?.providerSwitches ?? 0)
+        && Number.isInteger(run?.metadata?.cognitiveTelemetry?.automaticRetries)
+        && Number.isInteger(run?.metadata?.resolution?.escalation?.count)
+      : true;
+  });
+  const firstPassValidatedTaskCount = firstPassKnown
+    ? resultEntries.filter((entry) => {
+      const run = entry?.result?.run;
+      const validated = entry?.resolutionState === "validated" || run?.metadata?.resolution?.outcome?.state === "validated";
+      return validated
+        && (entry?.result?.handoff?.providerSwitches || 0) === 0
+        && run.metadata.cognitiveTelemetry.automaticRetries === 0
+        && run.metadata.resolution.escalation.count === 0;
+    }).length
+    : null;
   const missionCognitiveTelemetry = Object.freeze({
     schemaVersion: 1,
     scope: "mission",
     usage: missionUsage,
     taskCount: missionResolution.summary.tasks,
     validatedTaskCount: missionResolution.summary.validatedTasks,
+    firstPassValidatedTaskCount,
     failedTaskCount: missionResolution.summary.failedTasks,
     blockedTaskCount: missionResolution.summary.blockedTasks,
     needsAttentionTaskCount: missionResolution.summary.needsAttentionTasks,
-    providerSwitches: Object.values(results).reduce((sum, entry) => sum + (entry?.result?.handoff?.providerSwitches || 0), 0),
+    providerSwitches,
+    automaticRetries,
+    escalations,
     tokensToValidatedOutcome: missionResolution.state === "validated" && missionUsage.complete === true ? missionUsage.totalTokens : null,
     tokenMetricCompleteness: missionUsage.complete === true ? "complete" : "unavailable"
   });
@@ -1986,7 +2017,23 @@ async function handleGoCommand(args, planningOnly = false) {
   });
 
   if (benchmarkUsageRequested) {
-    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsage })}`);
+    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({
+      nonce: benchmarkMarkerNonce,
+      ...missionUsage,
+      resolution: {
+        state: missionResolution.state,
+        taskCount: missionResolution.summary.tasks,
+        validatedTaskCount: missionResolution.summary.validatedTasks,
+        firstPassValidatedTaskCount,
+        failedTaskCount: missionResolution.summary.failedTasks,
+        blockedTaskCount: missionResolution.summary.blockedTasks,
+        needsAttentionTaskCount: missionResolution.summary.needsAttentionTasks,
+        providerSwitches,
+        automaticRetries,
+        escalations,
+        tokensToValidatedOutcome: missionCognitiveTelemetry.tokensToValidatedOutcome
+      }
+    })}`);
   }
 
   if (missionResolution.state !== "validated") {
