@@ -5,6 +5,7 @@ module.exports = {
   ...require("./resolution-contract"),
   ...require("./resolution-state"),
   ...require("./resolution-engine"),
+  ...require("./budget/reservation"),
   ...require("./evidence-ranker"),
   ...require("./evidence/signal-extractor"),
   ...require("./prompt-manifest"),
