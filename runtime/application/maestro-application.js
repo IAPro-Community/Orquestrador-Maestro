@@ -831,7 +831,7 @@ class MaestroApplication {
     let primaryUsageSummary = null;
     try {
       const parsed = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
-      primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, tokenSource: parsed.tokenSource };
+      primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, tokenSource: parsed.tokenSource, usageComplete: parsed.usageComplete === true };
     } catch { primaryUsageSummary = null; }
     await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { summary: durableExecutionSummary(result, { providerId: provider.id }), engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
     const changes = diff(workspacePath);
@@ -951,7 +951,8 @@ class MaestroApplication {
           maestroPromptManifest: promptEnvelope.manifest.manifestHash
         }
       });
-      const providerTokens = ["provider-reported", "derived"].includes(telemetry.tokenSource)
+      const providerTokens = telemetry.usageComplete === true
+        && ["provider-reported", "derived"].includes(telemetry.tokenSource)
         && Number.isFinite(telemetry.tokenInput) && Number.isFinite(telemetry.tokenOutput)
         ? telemetry.tokenInput + telemetry.tokenOutput : null;
       const committedReservation = commitBudgetReservation(finalRun.metadata.resolution.budget.reservation, {
