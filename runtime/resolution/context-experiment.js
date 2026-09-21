@@ -43,7 +43,7 @@ function meaningfulFile(workspacePath, relativePath) {
   }
 }
 
-function evaluateBriefAuthorityCoverage(workspacePath, briefValue, baselineBriefValue = briefValue) {
+function evaluateBriefAuthorityCoverage(workspacePath, briefValue, baselineBriefValue = briefValue, { requireDigestEquality = true } = {}) {
   const entries = Array.isArray(briefValue?.manifest?.entries) ? briefValue.manifest.entries : [];
   const baselineEntries = Array.isArray(baselineBriefValue?.manifest?.entries) ? baselineBriefValue.manifest.entries : [];
   const byPath = new Map(entries.map((entry) => [entry.path, entry]));
@@ -56,8 +56,12 @@ function evaluateBriefAuthorityCoverage(workspacePath, briefValue, baselineBrief
     const candidate = byPath.get(relativePath);
     return baseline && candidate && baseline.digest !== candidate.digest;
   });
-  const safe = missingFromBaseline.length === 0 && missing.length === 0 && changed.length === 0;
-  const preserved = required.filter((relativePath) => baselineByPath.has(relativePath) && byPath.has(relativePath) && baselineByPath.get(relativePath).digest === byPath.get(relativePath).digest).length;
+  const safe = missingFromBaseline.length === 0 && missing.length === 0 && (!requireDigestEquality || changed.length === 0);
+  const preserved = required.filter((relativePath) => {
+    const baseline = baselineByPath.get(relativePath);
+    const candidate = byPath.get(relativePath);
+    return baseline && candidate && (!requireDigestEquality || baseline.digest === candidate.digest);
+  }).length;
   return Object.freeze({
     safe,
     required: Object.freeze(required),

@@ -2,7 +2,7 @@
 
 ## Status
 
-Experimental V2, context-budget experiment; normal Runtime execution remains shadow-only.
+Experimental V3, progressive planning experiment; normal Runtime execution remains shadow-only.
 
 This branch extends the current JavaScript Runtime. It does not introduce a second RunStore, a second cognitive-budget system, or a competing governance layer.
 
@@ -137,17 +137,65 @@ node scripts/adaptive-context-benchmark.js --project-path . --task "current obje
 
 The report compares deterministic serialized-token estimates and authority coverage. Fallback runs retain attempted missing/changed-authority counts separately from the final baseline coverage, so failed experiments remain diagnosable. Provider-reported input/output tokens and hard validated outcomes remain the higher-level metric for later stages.
 
-## Shadow Contract
+## V3 Progressive Planning
 
-V1 remains deliberately non-enforcing:
+V3 moves the decision boundary from "how much context exists" to "when is more context worth another model call."
 
-- it cannot be switched to an enforce mode;
-- it does not block an existing Run;
-- it does not replace current context construction;
-- it does not change provider prompts;
-- it records only advisory evidence selection and outcome telemetry.
+The current SemanticPlanner keeps its normal compatibility behavior, including its configured retry limit. V3 adds an experimental one-attempt diagnostic mode and a separate progressive controller:
 
-Promotion beyond shadow mode requires paired benchmark evidence that the new policy improves validated outcomes without unacceptable regression in latency, quality, or reliability.
+```text
+targeted context
+   |
+ one planner call
+   |
+   +-- valid graph --------------------------> stop
+   |
+   +-- validation failure --> balanced context
+                                  |
+                              one planner call
+                                  |
+                                  +-- valid --> stop
+                                  |
+                                  +-- validation failure --> deep context
+                                                               |
+                                                           one planner call
+                                                               |
+                                                         valid / fallback
+```
+
+The controller does **not** escalate context for malformed JSON/structure or provider/transport failures. Those failures provide no evidence that a larger context would help. It can fall back deterministically instead.
+
+Each ContextEngine result now exposes a SHA-256 `contextDigest`. If a targeted experiment already fell back to the 8,000-character baseline, the balanced step has the same digest and is skipped, preventing a duplicate model call with effectively identical context.
+
+For context reduction, required authority entries must keep the same digest as the 8k baseline. For `deep` expansion, the gate requires required authority paths to remain present but permits their digest to change because additional selected content is expected.
+
+SemanticPlanner planning telemetry contains only hashes/counts/timing/usage: prompt hash/bytes, estimated prompt tokens, provider-reported tokens when available, blocker codes, and outcome class. It does not store provider response content.
+
+A live paired benchmark is available but intentionally requires explicit execution because it calls a real model:
+
+```bash
+node scripts/adaptive-planning-benchmark.js \
+  --project-path . \
+  --task "current objective" \
+  --provider opencode \
+  --model default \
+  --start-strategy targeted \
+  --execute
+```
+
+The script requests read-only provider execution and reports control versus progressive model calls, provider tokens when exposed, estimated prompt tokens, strategy reached, and fallback use. These metrics are descriptive; a valid TaskGraph is not proof of equivalent downstream implementation quality.
+
+## Experimental Boundary
+
+Normal Maestro execution remains non-enforcing:
+
+- there is no general `enforce` mode for Adaptive Resolution;
+- ordinary Runtime runs do not replace the existing execution/context policy;
+- V0/V1 observation remains advisory and hash/count based;
+- V2 context-budget changes and V3 progressive planning require explicit experiment authorization;
+- live V3 benchmark execution additionally requires `--execute`.
+
+No V2/V3 experiment is promoted into default behavior solely because it reduces estimated tokens or model calls. Promotion requires paired evidence that hard validated outcomes, reliability, and latency remain acceptable.
 
 ## Validated Outcome
 
@@ -183,6 +231,9 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 - `runtime/context/context-budget.js`: serialization-aware token estimation.
 - `runtime/context/context-engine.js`: brief compaction, DEV deduplication, fallback, and experiment metrics.
 - `scripts/adaptive-context-benchmark.js`: deterministic paired benchmark for a real project.
+- `runtime/resolution/progressive-planning.js`: validation-driven context escalation and paired planning metrics.
+- `scripts/adaptive-planning-benchmark.js`: opt-in live control/treatment planner benchmark.
+- `runtime/planner/semantic-planner.js`: bounded-attempt diagnostics and privacy-safe planning usage telemetry.
 - `runtime/resolution/adaptive-resolution.js`: budget mapping, shadow plan, outcome telemetry, aggregation.
 - `runtime/resolution/__tests__/adaptive-resolution.test.js`: deterministic unit tests.
 - `runtime/resolution/__tests__/application-integration.test.js`: integration contract with the existing application/runtime.
@@ -194,7 +245,7 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 1. **V0 — shadow:** implemented; collect validated outcome telemetry without changing execution.
 2. **V1 — evidence evaluation:** implemented for the Maestro-authored prompt surface; compare ranked evidence hashes against prompt manifests and validated outcomes.
 3. **V2 — progressive context experiment:** implemented on ContextEngine with real serialization accounting, manifest-based deduplication, authority gates, and paired brief budgets.
-4. **V3 — progressive escalation:** next; escalate targeted -> balanced -> deep when planning/validation evidence shows the smaller context was insufficient.
-5. **V4 — learned policy:** only after enough validated, privacy-safe runs exist to beat deterministic baselines.
+4. **V3 — progressive escalation:** implemented as an explicit experiment: one planning call per unique context, validation-driven escalation, duplicate-context skipping, and deterministic fallback.
+5. **V4 — learned policy:** next only after paired V2/V3 data shows which decisions are stable enough to learn without regressing validated outcomes.
 
 A learned model is not the starting point. The dataset and rollback criteria come first.

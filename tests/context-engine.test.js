@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { ContextEngine } = require("../runtime/context/context-engine");
 const { ContextBudget } = require("../runtime/context/context-budget");
-const { summarizeContextExperimentPairs } = require("../runtime/resolution/context-experiment");
+const { evaluateBriefAuthorityCoverage, summarizeContextExperimentPairs } = require("../runtime/resolution/context-experiment");
 
 function makeBriefProject() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "orquestrador-engine-"));
@@ -179,4 +179,36 @@ test("ContextBudget keeps the serialized planning envelope within budget for non
   }));
   const selected = ContextBudget.applyBudget(items, 300, { intent: "bounded intent" });
   assert.ok(ContextBudget.estimateContextTokens("bounded intent", selected) <= 300);
+});
+
+
+test("deep authority expansion may change selected digests but may not drop required paths", () => {
+  const root = makeBriefProject();
+  const baseline = {
+    manifest: { entries: [
+      { path: "DEV state summary", digest: "state-base" },
+      { path: "DEV/HANDOFF.md", digest: "handoff-base" },
+      { path: "DEV/SPECS/ACTIVE.md", digest: "spec-base" }
+    ] }
+  };
+  const expanded = {
+    manifest: { entries: [
+      { path: "DEV state summary", digest: "state-expanded" },
+      { path: "DEV/HANDOFF.md", digest: "handoff-expanded" },
+      { path: "DEV/SPECS/ACTIVE.md", digest: "spec-expanded" }
+    ] }
+  };
+  const reducedGate = evaluateBriefAuthorityCoverage(root, expanded, baseline, { requireDigestEquality: true });
+  const deepGate = evaluateBriefAuthorityCoverage(root, expanded, baseline, { requireDigestEquality: false });
+  assert.equal(reducedGate.safe, false);
+  assert.equal(deepGate.safe, true);
+  assert.equal(deepGate.coverageRate, 1);
+
+  const missing = {
+    manifest: { entries: [
+      { path: "DEV state summary", digest: "state-expanded" },
+      { path: "DEV/HANDOFF.md", digest: "handoff-expanded" }
+    ] }
+  };
+  assert.equal(evaluateBriefAuthorityCoverage(root, missing, baseline, { requireDigestEquality: false }).safe, false);
 });

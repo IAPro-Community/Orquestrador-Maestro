@@ -1,5 +1,6 @@
 "use strict";
 
+const crypto = require("node:crypto");
 const { gatherPreflight } = require("../planner/context-preflight");
 const { ContextBudget } = require("./context-budget");
 const {
@@ -143,7 +144,8 @@ class ContextEngine {
     let items = await this._discoverFacts(intent, { briefMaxChars: requestedMaxChars });
     const candidateBrief = items.find((item) => item.key === "context.brief")?.value;
     const baselineBrief = baselineItems?.find((item) => item.key === "context.brief")?.value || candidateBrief;
-    let coverage = evaluateBriefAuthorityCoverage(this.workspacePath, candidateBrief, baselineBrief);
+    const requireDigestEquality = requestedMaxChars < BASELINE_BRIEF_MAX_CHARS;
+    let coverage = evaluateBriefAuthorityCoverage(this.workspacePath, candidateBrief, baselineBrief, { requireDigestEquality });
     const attemptedCoverage = coverage;
     let effectiveMaxChars = requestedMaxChars;
     let fallbackReason = null;
@@ -189,6 +191,8 @@ class ContextEngine {
     }
 
     const estimatedTokens = ContextBudget.estimateContextTokens(intent, budgetedItems);
+    const serializedContext = ContextBudget.serialize({ intent, items: budgetedItems });
+    const contextDigest = crypto.createHash("sha256").update(serializedContext, "utf8").digest("hex");
     const briefItem = budgetedItems.find((item) => item.key === "context.brief");
     const briefUsedChars = briefItem?.value?.content?.length || 0;
     const experiment = buildContextExperimentMetrics({
@@ -208,6 +212,7 @@ class ContextEngine {
     this.lastBuildMetrics = Object.freeze({
       version: 1,
       estimatedTokens,
+      contextDigest,
       maxTokens,
       discoveredItems: items.length,
       selectedItems: budgetedItems.length,
@@ -215,6 +220,7 @@ class ContextEngine {
       briefSelected,
       briefMaxChars: effectiveMaxChars,
       briefUsedChars,
+      briefContentDigest: briefItem?.value?.manifest?.contentDigest || null,
       authorityCoverage: coverage,
       experiment
     });
