@@ -3,6 +3,8 @@
 const crypto = require("node:crypto");
 const { gatherPreflight } = require("../planner/context-preflight");
 const { ContextBudget } = require("./context-budget");
+const { rankEvidenceCandidates } = require("../resolution/evidence-ranker");
+const { buildContextEvidenceCandidate } = require("../resolution/evidence/signal-extractor");
 const {
   BASELINE_BRIEF_MAX_CHARS,
   normalizeContextExperiment,
@@ -104,6 +106,45 @@ class ContextEngine {
       });
     }
 
+    for (const [key, value] of [
+      ["project.hasDatabase", facts.hasDatabase],
+      ["project.hasPayments", facts.hasPayments],
+      ["project.hasTests", facts.hasTests]
+    ]) {
+      if (value === true) {
+        items.push({
+          key,
+          value: true,
+          kind: "FACT",
+          confidence: 1,
+          relevance: 1,
+          sources: [{ type: "package.json", path: "package.json" }]
+        });
+      }
+    }
+
+    if (facts.framework) {
+      items.push({
+        key: "project.framework",
+        value: facts.framework,
+        kind: "FACT",
+        confidence: 1,
+        relevance: 1,
+        sources: [{ type: "package.json", path: "package.json" }]
+      });
+    }
+
+    if (facts.agentsContract) {
+      items.push({
+        key: "project.agentsContract",
+        value: facts.agentsContract,
+        kind: "FACT",
+        confidence: 1,
+        relevance: 1,
+        sources: [{ type: "agents-contract", path: "AGENTS.md" }]
+      });
+    }
+
     if (facts.contextBrief && typeof facts.contextBrief === "object") {
       items.push({
         key: "context.brief",
@@ -182,7 +223,32 @@ class ContextEngine {
     }
 
     const { primary, duplicates } = deduplicateBriefCoveredDevItems(items);
-    let budgetedItems = ContextBudget.applyBudget(primary, maxTokens, { intent, ensureOne: false });
+    const resolutionMode = options.resolutionMode || "shadow";
+    if (!["shadow", "advisory", "enforce"].includes(resolutionMode)) {
+      throw new TypeError("resolutionMode must be shadow, advisory, or enforce");
+    }
+    if (resolutionMode === "enforce" && options.enforceAuthorized !== true) {
+      const error = new Error("RESOLUTION_ENFORCE_NOT_READY: context selection enforce requires explicit authorization");
+      error.code = "RESOLUTION_ENFORCE_NOT_READY";
+      throw error;
+    }
+    const resolutionStrategy = options.resolutionStrategy
+      || contract?.strategy
+      || (maxTokens <= 4000 ? "targeted" : maxTokens >= 12000 ? "deep" : "balanced");
+    const candidates = primary.map((item) => buildContextEvidenceCandidate(intent, item, {
+      estimatedTokens: ContextBudget.estimateItemTokens(item)
+    }));
+    const candidateByKey = new Map(primary.map((item, index) => [item.key, candidates[index]]));
+    const itemByCandidateId = new Map(primary.map((item, index) => [candidates[index].id, item]));
+    const evidenceAdvice = rankEvidenceCandidates(candidates, {
+      strategy: resolutionStrategy,
+      tokenBudget: maxTokens
+    });
+    const rankingApplied = resolutionMode === "enforce" && options.enforceAuthorized === true;
+    const rankedPrimary = rankingApplied
+      ? evidenceAdvice.selected.map((entry) => itemByCandidateId.get(entry.id)).filter(Boolean)
+      : primary;
+    let budgetedItems = ContextBudget.applyBudget(rankedPrimary, maxTokens, { intent, ensureOne: false });
     const briefSelected = budgetedItems.some((item) => item.key === "context.brief");
 
     if (!briefSelected && duplicates.length > 0) {
@@ -210,8 +276,11 @@ class ContextEngine {
       briefUsedChars
     });
 
+    const actualEvidenceIds = budgetedItems
+      .map((item) => candidateByKey.get(item.key)?.id)
+      .filter(Boolean);
     this.lastBuildMetrics = Object.freeze({
-      version: 1,
+      version: 2,
       estimatedTokens,
       budgetOverrun,
       contextDigest,
@@ -224,6 +293,19 @@ class ContextEngine {
       briefUsedChars,
       briefContentDigest: briefItem?.value?.manifest?.contentDigest || null,
       authorityCoverage: coverage,
+      evidenceRanking: Object.freeze({
+        mode: resolutionMode,
+        strategy: resolutionStrategy,
+        applied: rankingApplied,
+        candidates: evidenceAdvice.stats.inputCandidates,
+        selected: evidenceAdvice.stats.selectedCandidates,
+        rejected: evidenceAdvice.skipped.length,
+        estimatedSelectedTokens: evidenceAdvice.estimatedSelectedTokens,
+        budgetOverflow: evidenceAdvice.budgetOverflow,
+        selectedIds: Object.freeze(evidenceAdvice.selected.map((entry) => entry.id)),
+        actualContextIds: Object.freeze(actualEvidenceIds),
+        rejectedReasons: Object.freeze(evidenceAdvice.skipped.map((entry) => Object.freeze({ id: entry.id, reason: entry.reason })))
+      }),
       experiment
     });
 
