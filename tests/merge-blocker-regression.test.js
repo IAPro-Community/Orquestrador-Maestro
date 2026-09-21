@@ -125,7 +125,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true,
+          verified: true, verifier: "test",
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -157,7 +157,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Old verified",
-        verified: true,
+        verified: true, verifier: "test",
         timestamp: new Date(Date.now() - 86400000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -186,7 +186,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true,
+        verified: true, verifier: "test",
         timestamp: new Date(Date.now() - 2000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -217,7 +217,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true,
+          verified: true, verifier: "test",
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -250,7 +250,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true,
+        verified: true, verifier: "test",
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
 

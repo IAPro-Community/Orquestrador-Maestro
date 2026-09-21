@@ -9,8 +9,8 @@
     "surfaces": ["protocol", "runtime", "cockpit"]
   },
   "sources": {
-    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json (version 2, 52 skills canônicas)",
-    "skillsRouter": "orquestrador/SKILLS_ROUTER.json (version 2, 75 skills públicas, 10 capabilityRoutes)",
+    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json",
+    "skillsRouter": "orquestrador/SKILLS_ROUTER.json",
     "skillExecutionProfiles": "orquestrador/SKILL_EXECUTION_PROFILES.json",
     "interactionProfiles": "orquestrador/INTERACTION_PROFILES.json",
     "workflowSchemas": "orquestrador/WORKFLOW_SCHEMAS.json",
