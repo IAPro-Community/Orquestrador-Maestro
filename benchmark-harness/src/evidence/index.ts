@@ -198,7 +198,8 @@ interface ClaimEligibleInput {
  * Determines if a run is eligible for public performance claims.
  *
  * Requirements (all must be true):
- * - final `status` is "passed"
+ * - when final `status` is present, it is "passed" (legacy evidence without
+ *   the field remains classifiable by the remaining provenance gates)
  * - `evidence.publicClaimEligible` is true
  * - `evidence.executionType` is "real-execution"
  * - container runs are accepted only with daemon-anchored provenance:
@@ -215,7 +216,7 @@ interface ClaimEligibleInput {
  * - `validation.passed` is true
  */
 export function isClaimEligibleRun(run: ClaimEligibleInput): boolean {
-  if (run?.status !== 'passed') return false;
+  if (typeof run?.status === 'string' && run.status !== 'passed') return false;
   if (!run?.evidence?.publicClaimEligible) return false;
   if (run.evidence.executionType !== 'real-execution') return false;
   const container = run.environment?.container === true;
