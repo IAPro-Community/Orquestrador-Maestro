@@ -162,3 +162,12 @@ model = "cheap-fast"
 Avisos como `MCP server is not logged in` pertencem à autenticação do servidor remoto, não ao Orquestrador. Faça login apenas no MCP que você pretende usar; não coloque tokens no repositório nem em arquivos de configuração publicados.
 
 Já `windows sandbox: helper_unknown_error` é uma falha do runtime/sandbox do Codex ou do terminal que o está hospedando. Ela não é corrigida por skills, agentes ou prompts do Orquestrador. Reinicie o terminal e o Codex; se persistir, execute `orquestrador-maestro doctor` e reporte o erro completo ao mantenedor do runtime.
+
+## Terminal PTY indisponível (`PTY_UNAVAILABLE`)
+
+O terminal persistente usa `node-pty`, dependência opcional que exige toolchain de compilação (Python 3 + make + g++). Sem ela, o Maestro degrada para sessões sem PTY automaticamente. Para habilitar:
+
+```bash
+npm rebuild node-pty
+orquestrador-maestro verify
+```
