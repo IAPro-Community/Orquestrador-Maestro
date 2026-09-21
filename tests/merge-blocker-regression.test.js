@@ -585,14 +585,14 @@ try {
       const mixedResults = [
         {
           benchmark: "test-001", condition: "vanilla", run: 1,
-          usage: { inputTokens: 100, tokenSource: "provider-reported" },
+          usage: { inputTokens: 100, tokenSource: "provider-reported", confidence: "exact" },
           validation: { passed: true },
           evidence: { executionType: "infrastructure", publicClaimEligible: false, reproducible: true, isolated: true },
           metadata: { durationMs: 100 }
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
           environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
@@ -629,7 +629,7 @@ try {
       const allEligibleResults = [
         {
           benchmark: "test-001", condition: "vanilla", run: 1,
-          usage: { inputTokens: 100, tokenSource: "provider-reported" },
+          usage: { inputTokens: 100, tokenSource: "provider-reported", confidence: "exact" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
           environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
@@ -637,7 +637,7 @@ try {
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
           environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
@@ -663,7 +663,7 @@ try {
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
           environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
