@@ -12,8 +12,10 @@ class SemanticRanker {
   constructor(application, options = {}) {
     this.app = application;
     this.localOnly = Boolean(options.localOnly);
-    // Determine the economy/local provider to use
-    this.providerId = "opencode"; // Hardcoded for M1 example, could be resolved dynamically
+    // Provider resolved from options (default "local"). There is no
+    // locality registry for providers, so under localOnly only the
+    // explicit local provider id is permitted (fail closed, loud).
+    this.providerId = options.providerId || "local";
   }
 
   /**
@@ -26,15 +28,14 @@ class SemanticRanker {
    * @returns {Promise<Object>} Map of enriched data or empty object if failed.
    */
   async rankAndEnrich(intent, facts) {
+    // Fail closed and loud: policy violation must throw, never silently
+    // degrade (the try/catch below is only for execution errors).
+    if (this.localOnly && this.providerId !== "local") {
+      throw new Error("LOCAL_ONLY_VIOLATION: Remote provider/model not permitted under localOnly policy");
+    }
     try {
       const provider = this.app.providers.get(this.providerId);
       if (!provider) return {};
-
-      // If localOnly is true, we should theoretically ensure the provider is local.
-      if (this.localOnly && this.providerId !== 'opencode' && this.providerId !== 'local') {
-         // Silently refuse to use remote models when localOnly is true.
-         return {};
-      }
 
       // In M1, we simulate or make a very lightweight call.
       // If it times out or crashes, we catch and return {} so we don't break the engine.

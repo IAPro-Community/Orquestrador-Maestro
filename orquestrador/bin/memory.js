@@ -21,6 +21,23 @@ const SAFE_DESTINATIONS = [
   "DEV/RUNBOOKS"
 ];
 
+// RFC-0003: unbounded details bloat JSONL and smuggle bulk content past
+// review. Truncated (not rejected) so adapter flows keep working.
+const MAX_DETAILS_CHARS = 4000;
+
+/**
+ * Uniform trust predicate for READS. A bare `verified:true` (legacy rows,
+ * hand-edited JSONL) has no authority: verified requires an identified
+ * verifier and a parseable verifiedAt. Write paths enforce this via
+ * resolveVerification(); every read path below must use this predicate.
+ */
+function isTrulyVerified(obs) {
+  if (!obs || obs.verified !== true) return false;
+  if (typeof obs.verifier !== "string" || obs.verifier.trim().length === 0) return false;
+  if (typeof obs.verifiedAt !== "string" || Number.isNaN(Date.parse(obs.verifiedAt))) return false;
+  return true;
+}
+
 const PROMPT_INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
   /disregard\s+(all\s+)?prior/i,
@@ -134,9 +151,12 @@ class Memory {
       .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[PHONE_REDACTED]")
       .replace(/\b\d{3}[-]?\d{2}[-]?\d{4}\b/g, "[SSN_REDACTED]")
       .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[JWT_REDACTED]")
-      .replace(/-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g, "[PRIVATE_KEY_REDACTED]")
+      .replace(/-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g, "[PRIVATE_KEY_REDACTED]")
       .replace(/(?:sk-|pk-|rk-|sk-ant-|sk-proj-)[A-Za-z0-9_-]{20,}/g, "[API_KEY_REDACTED]")
-      .replace(/(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/(?:ghp_|github_pat_|gho_|ghu_)[A-Za-z0-9_]{20,}/g, "[GITHUB_TOKEN_REDACTED]")
+      .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, "[GITLAB_TOKEN_REDACTED]")
+      .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[GOOGLE_KEY_REDACTED]")
+      .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[AWS_KEY_REDACTED]")
       .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[SLACK_TOKEN_REDACTED]")
       .replace(/cookie\s*[:=]\s*[^\s`"']+/gi, "[COOKIE_REDACTED]")
       .replace(/(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID)\s*[:=]\s*[^\s`"']+/gi, "[AWS_KEY_REDACTED]")
@@ -153,9 +173,24 @@ class Memory {
     return value;
   }
 
+  truncateDetails(details) {
+    if (typeof details !== "string") return details;
+    if (details.length <= MAX_DETAILS_CHARS) return details;
+    return details.slice(0, MAX_DETAILS_CHARS) + "\n[truncated]";
+  }
+
   containsPrivateContent(content) {
     if (typeof content !== "string") return false;
     return /<private>[\s\S]*?<\/private>/i.test(content);
+  }
+
+  containsPrivateDeep(value) {
+    if (typeof value === "string") return this.containsPrivateContent(value);
+    if (Array.isArray(value)) return value.some(item => this.containsPrivateDeep(item));
+    if (value && typeof value === "object") {
+      return Object.values(value).some(item => this.containsPrivateDeep(item));
+    }
+    return false;
   }
 
   stripPrivateContent(content) {
@@ -185,10 +220,44 @@ class Memory {
     if (!obs.scope || !isValidScope(obs.scope)) {
       throw new Error("Invalid observation scope: scope is required and must have valid level with required identifiers");
     }
-    if (this.detectInjection(obs.summary) || this.detectInjection(obs.details || "")) {
+    if (this.detectInjectionDeep({ summary: obs.summary, details: obs.details, files: obs.files, tags: obs.tags, source: obs.source, taskId: obs.taskId })) {
       throw new Error("Potential prompt injection detected in content");
     }
     return true;
+  }
+
+  detectInjectionDeep(value) {
+    if (typeof value === "string") return this.detectInjection(value);
+    if (Array.isArray(value)) return value.some(item => this.detectInjectionDeep(item));
+    if (value && typeof value === "object") {
+      return Object.values(value).some(item => this.detectInjectionDeep(item));
+    }
+    return false;
+  }
+
+  resolveVerification(observation) {
+    // Hard line: a bare `verified` claim has no authority. It only counts
+    // with an identified verifier (human or process) and a timestamp.
+    const claimsVerified = observation.verified === true || observation.verified === "true";
+    const verifier = typeof observation.verifier === "string" ? observation.verifier.trim() : "";
+    const verifyNote = typeof observation.verifyNote === "string" ? observation.verifyNote.slice(0, 280) : "";
+    const hasVerifiedAt = typeof observation.verifiedAt === "string" && observation.verifiedAt.length > 0;
+    // Garbage verifiedAt downgrades to a claim; only absent (fresh record)
+    // or parseable timestamps confer authority with a verifier.
+    const verifiedAtValid = hasVerifiedAt && !Number.isNaN(Date.parse(observation.verifiedAt));
+    if (claimsVerified && verifier.length > 0 && (verifiedAtValid || !hasVerifiedAt)) {
+      return {
+        verified: true,
+        verifier,
+        verifiedAt: verifiedAtValid ? observation.verifiedAt : new Date().toISOString(),
+        verifyNote,
+        verifiedClaimed: false
+      };
+    }
+    if (claimsVerified) {
+      return { verified: false, verifier: "", verifiedAt: null, verifyNote, verifiedClaimed: true };
+    }
+    return { verified: false, verifier: "", verifiedAt: null, verifyNote: "", verifiedClaimed: false };
   }
 
   writeAtomic(filePath, content) {
@@ -227,8 +296,28 @@ class Memory {
   }
 
   record(projectId, observation, options = {}) {
-    if (this.containsPrivateContent(observation.summary) || this.containsPrivateContent(observation.details || "")) {
+    const privateFields = [
+      observation.summary,
+      observation.details,
+      observation.files,
+      observation.tags,
+      observation.source
+    ];
+    if (privateFields.some(field => this.containsPrivateDeep(field))) {
       throw new Error("Private content cannot be persisted to memory");
+    }
+
+    // Fail loud on injection in ANY field before policy/redaction, so
+    // smuggled instructions can neither persist nor vanish silently.
+    if (this.detectInjectionDeep({
+      summary: observation.summary,
+      details: observation.details,
+      files: observation.files,
+      tags: observation.tags,
+      source: observation.source,
+      taskId: observation.taskId
+    })) {
+      throw new Error("Potential prompt injection detected in content");
     }
 
     const policyResult = this.capturePolicy.evaluate(observation);
@@ -261,10 +350,10 @@ class Memory {
       project: projectId,
       type: observation.type,
       summary: this.redactContent(observation.summary),
-      details: observation.details ? this.redactContent(observation.details) : null,
+      details: observation.details ? this.truncateDetails(this.redactContent(observation.details)) : null,
       files: (observation.files || []).map(f => this.redactContent(f)),
       tags: this.redactValue(observation.tags || []),
-      verified: observation.verified || false,
+      ...this.resolveVerification(observation),
       source: this.redactValue(observation.source || {}),
       scope,
       capturePolicy: policyResult.policy
@@ -295,16 +384,18 @@ class Memory {
       observations = observations.filter(obs => obs.type === query.type);
     }
     if (query.verified !== undefined) {
-      observations = observations.filter(obs => obs.verified === query.verified);
+      observations = query.verified
+        ? observations.filter(obs => isTrulyVerified(obs))
+        : observations.filter(obs => !isTrulyVerified(obs));
     }
     if (query.tags && query.tags.length > 0) {
       observations = observations.filter(obs =>
-        query.tags.some(tag => obs.tags.includes(tag))
+        query.tags.some(tag => (obs.tags || []).includes(tag))
       );
     }
     if (query.files && query.files.length > 0) {
       observations = observations.filter(obs =>
-        query.files.some(file => obs.files.includes(file))
+        query.files.some(file => (obs.files || []).includes(file))
       );
     }
     if (query.from) {
@@ -368,7 +459,9 @@ class Memory {
       observations = observations.filter(obs => obs.type === query.type);
     }
     if (query.verified !== undefined) {
-      observations = observations.filter(obs => obs.verified === query.verified);
+      observations = query.verified
+        ? observations.filter(obs => isTrulyVerified(obs))
+        : observations.filter(obs => !isTrulyVerified(obs));
     }
     if (query.search) {
       const searchTokens = this.tokenize(query.search);
@@ -435,7 +528,8 @@ class Memory {
       timestamp: obs.timestamp,
       type: obs.type,
       summary: obs.summary,
-      verified: obs.verified,
+      verified: isTrulyVerified(obs),
+      verifier: obs.verifier || "",
       branch: obs.scope?.branch
     }));
   }
@@ -443,7 +537,9 @@ class Memory {
   promote(projectId, observationId, destination, options = {}) {
     const obs = this.show(projectId, observationId);
     if (!obs) throw new Error(`Observation not found: ${observationId}`);
-    if (!obs.verified) throw new Error("Cannot promote unverified observation");
+    if (!isTrulyVerified(obs)) {
+      throw new Error("Cannot promote unverified observation (requires verified:true with verifier and verifiedAt; bare --verified claims are recorded as verifiedClaimed, not verified)");
+    }
 
     const projectRoot = options.projectRoot || process.cwd();
     const resolvedRoot = resolveProjectRoot(projectRoot) || path.resolve(projectRoot);
@@ -476,7 +572,7 @@ class Memory {
         observation: obs,
         destination,
         status: "dry-run",
-        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${obs.files.join(", ")}\nTags: ${obs.tags.join(", ")}\nVerified: ${obs.verified}\n`
+        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${(obs.files || []).join(", ")}\nTags: ${(obs.tags || []).join(", ")}\nVerified: ${isTrulyVerified(obs)}\n`
       };
     }
 
@@ -531,7 +627,7 @@ class Memory {
     let verified = 0;
     for (const obs of observations) {
       byType[obs.type] = (byType[obs.type] || 0) + 1;
-      if (obs.verified) verified++;
+      if (isTrulyVerified(obs)) verified++;
     }
     return { total: observations.length, byType, verified, unverified: observations.length - verified, malformed };
   }
@@ -565,8 +661,8 @@ class Memory {
           seen.set(key, obs);
           deduped.push(obs);
         } else {
-          const existingIsVerified = existing.verified;
-          const obsIsVerified = obs.verified;
+          const existingIsVerified = isTrulyVerified(existing);
+          const obsIsVerified = isTrulyVerified(obs);
           if (obsIsVerified && !existingIsVerified) {
             const index = deduped.findIndex(d => d.id === existing.id);
             if (index !== -1) deduped[index] = obs;
@@ -639,16 +735,49 @@ class Memory {
         project: projectId,
         type: consolidatedObs.type || "discovery",
         summary: this.redactContent(consolidatedObs.summary),
-        details: consolidatedObs.details ? this.redactContent(consolidatedObs.details) : null,
+        details: consolidatedObs.details ? this.truncateDetails(this.redactContent(consolidatedObs.details)) : null,
         files: this.redactValue([...new Set(observations.flatMap(obs => obs.files || []))]),
         tags: this.redactValue([...new Set(observations.flatMap(obs => obs.tags || []))]),
-        verified: consolidatedObs.verified || false,
         source: this.redactValue(consolidatedObs.source || {}),
-        scope: consolidatedObs.scope || firstScope,
+        // Scope is inherited from the sources, never caller-supplied: a
+        // consolidated record must not escape the visibility boundary of
+        // what it was consolidated from. taskId overrides are dropped for
+        // the same reason.
+        scope: firstScope,
         consolidatedFrom: observationIds
       };
 
-      if (consolidatedObs.taskId) consolidated.taskId = consolidatedObs.taskId;
+      const consolidatedPrivateFields = [
+        consolidated.summary,
+        consolidated.details,
+        consolidated.files,
+        consolidated.tags,
+        consolidated.source
+      ];
+      if (consolidatedPrivateFields.some(field => this.containsPrivateDeep(field))) {
+        throw new Error("Private content cannot be persisted to memory");
+      }
+
+      const consolidatedPolicy = this.capturePolicy.evaluate(consolidated);
+      if (consolidatedPolicy.policy === POLICIES.DROP) {
+        return null;
+      }
+
+      // Verified is inherited only when every source is verified with an
+      // identified verifier; a bare claim never upgrades through consolidation.
+      const allSourcesVerified = observations.every(o => isTrulyVerified(o));
+      const claim = this.resolveVerification(consolidatedObs);
+      if (claim.verified && allSourcesVerified) {
+        consolidated.verified = true;
+        consolidated.verifier = claim.verifier;
+        consolidated.verifiedAt = claim.verifiedAt;
+        consolidated.verifyNote = claim.verifyNote;
+      } else {
+        consolidated.verified = false;
+        if (claim.verified || claim.verifiedClaimed || consolidatedObs.verified) {
+          consolidated.verifiedClaimed = true;
+        }
+      }
 
       this.validateObservation(consolidated);
 
@@ -673,15 +802,15 @@ class Memory {
       const maxCount = options.maxCount || 1000;
 
       let filtered = observations.filter(obs => {
-        if (obs.verified) return true;
+        if (isTrulyVerified(obs)) return true;
         if (obs.scope?.promoted) return true;
         const age = (now - new Date(obs.timestamp)) / (1000 * 60 * 60 * 24);
         return age <= maxAgeDays;
       });
 
       if (filtered.length > maxCount) {
-        const verified = filtered.filter(obs => obs.verified || obs.scope?.promoted);
-        const unverified = filtered.filter(obs => !obs.verified && !obs.scope?.promoted);
+        const verified = filtered.filter(obs => isTrulyVerified(obs) || obs.scope?.promoted);
+        const unverified = filtered.filter(obs => !isTrulyVerified(obs) && !obs.scope?.promoted);
         unverified.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         const keepUnverified = Math.max(0, maxCount - verified.length);
         filtered = [...verified, ...unverified.slice(0, keepUnverified)];
@@ -699,6 +828,21 @@ class Memory {
     return { deduped: dedupeResult.deduped, retained: retentionResult.retained, removed: retentionResult.removed };
   }
 
+  forget(projectId, observationId) {
+    const filePath = this.getObservationsFile(projectId);
+    const lockPath = getLockPath(filePath);
+    return withLock(lockPath, () => {
+      const { valid: observations, malformedLines } = this.readObservations(filePath);
+      const filtered = observations.filter(obs => obs.id !== observationId);
+      const removed = observations.length - filtered.length;
+      if (removed > 0) {
+        const lines = [...filtered.map(obs => JSON.stringify(obs)), ...malformedLines];
+        this.writeAtomic(filePath, lines.join("\n") + "\n");
+      }
+      return { removed };
+    });
+  }
+
   prune(projectId, options = {}) {
     const filePath = this.getObservationsFile(projectId);
     const lockPath = getLockPath(filePath);
@@ -710,10 +854,10 @@ class Memory {
 
       const keepVerified = options.keepVerified !== false;
       const protectedObs = keepVerified
-        ? filtered.filter(obs => obs.verified)
+        ? filtered.filter(obs => isTrulyVerified(obs))
         : [];
       const prunable = keepVerified
-        ? filtered.filter(obs => !obs.verified)
+        ? filtered.filter(obs => !isTrulyVerified(obs))
         : [...filtered];
 
       if (options.keepRecent) {
@@ -737,6 +881,7 @@ Uso:
   memory record [--project PATH] --type TYPE --summary TEXT [opcoes]
   memory search [--project PATH] [--search TEXT] [--type TYPE] [--verified] [--unverified]
   memory show [--project PATH] --id ID
+  memory forget [--project PATH] --id ID
   memory timeline [--project PATH] [--limit N]
   memory promote [--project PATH] --id ID --destination PATH [--apply]
   memory stats [--project PATH]
@@ -752,7 +897,9 @@ Flags:
   --details TEXT     Detalhes
   --files LIST       Arquivos (comma-separated)
   --tags LIST        Tags (comma-separated)
-  --verified         Marcar como verificado
+  --verified         Reivindicar verificacao (só vale com --verifier; sem ele vira verifiedClaimed)
+  --verifier ID      Quem verificou (humano ou processo); obrigatório para verified:true
+  --verify-note TEXT Motivo da verificacao (ate 280 caracteres)
   --unverified       Filtrar nao verificados
   --task ID          ID da tarefa
   --search TEXT      Texto para buscar
@@ -807,17 +954,24 @@ function main() {
       const type = memory.getArg(rest, "--type");
       const summary = memory.getArg(rest, "--summary");
       if (!type || !summary) { console.error("--type and --summary required"); return 1; }
-      const obs = memory.record(project, {
-        type, summary,
-        details: memory.getArg(rest, "--details"),
-        files: memory.getArgList(rest, "--files"),
-        tags: memory.getArgList(rest, "--tags"),
-        verified: rest.includes("--verified"),
-        taskId: memory.getArg(rest, "--task"),
-        scope: memory.resolveScope(project, rest, projectPath)
-      }, { gitContext: gitCtx, projectRoot: projectPath });
-      console.log(JSON.stringify(obs, null, 2));
-      return 0;
+      try {
+        const obs = memory.record(project, {
+          type, summary,
+          details: memory.getArg(rest, "--details"),
+          files: memory.getArgList(rest, "--files"),
+          tags: memory.getArgList(rest, "--tags"),
+          verified: rest.includes("--verified"),
+          verifier: memory.getArg(rest, "--verifier"),
+          verifyNote: memory.getArg(rest, "--verify-note"),
+          taskId: memory.getArg(rest, "--task"),
+          scope: memory.resolveScope(project, rest, projectPath)
+        }, { gitContext: gitCtx, projectRoot: projectPath });
+        console.log(JSON.stringify(obs, null, 2));
+        return 0;
+      } catch (err) {
+        console.error(`record failed: ${err.message}`);
+        return 1;
+      }
     }
     case "search": {
       const results = memory.search(project, {
@@ -840,6 +994,13 @@ function main() {
       const obs = memory.show(project, id);
       if (!obs) { console.error("Not found"); return 1; }
       console.log(JSON.stringify(obs, null, 2));
+      return 0;
+    }
+    case "forget": {
+      const id = memory.getArg(rest, "--id");
+      if (!id) { console.error("--id required"); return 1; }
+      const result = memory.forget(project, id);
+      console.log(JSON.stringify(result, null, 2));
       return 0;
     }
     case "timeline": {
@@ -874,4 +1035,4 @@ if (require.main === module) {
   process.exitCode = main();
 }
 
-module.exports = { Memory };
+module.exports = { Memory, isTrulyVerified };
