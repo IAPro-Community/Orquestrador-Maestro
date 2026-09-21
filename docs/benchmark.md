@@ -283,9 +283,14 @@ A run passes the evidence gate when all of the following are true
 2. **Real execution** — `evidence.executionType === "real-execution"`
    (dry-runs never produce reports).
 3. **Container provenance** — containerized runs are accepted only with
-   recorded provenance (`environment.containerImage`); a container run without
-   it is rejected. Local (non-container) runs are not isolated and therefore
-   not claim-eligible either — official claims require `--container`.
+   daemon-anchored provenance: both `environment.containerImage` and
+   `environment.containerId` must be present. `containerId` is issued by the
+   container runtime, so a bare `container:true` flag or a user-typed image
+   alone is not enough. Additionally, `evidence.isolated` must be consistent
+   with containment (`isolated === (container === true)`): a non-container
+   run claiming `isolated:true` is rejected as forged. Local
+   (non-container) runs are therefore never claim-eligible — official claims
+   require `--container`.
 4. **Provider-reported tokens** — `tokenSource === "provider-reported"`
    (estimated or unavailable token counts are rejected).
 5. **Reproducibility** — `evidence.reproducible === true` (scenario, fixture

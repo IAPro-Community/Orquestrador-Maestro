@@ -257,7 +257,7 @@ describe('summarizeEvidence', () => {
   it('summarizes mixed evidence without contamination', () => {
     const good = {
       evidence: { publicClaimEligible: true, executionType: 'real-execution', reproducible: true, isolated: true },
-      environment: { container: true, containerImage: 'node:20-slim' },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'deadbeef1234' },
       usage: { tokenSource: 'provider-reported' },
       validation: { passed: true },
     };
@@ -272,5 +272,64 @@ describe('summarizeEvidence', () => {
     assert.equal(summary.claimEligibleRuns, 1);
     assert.equal(summary.hasMixedEvidence, true);
     assert.equal(summary.publicClaimEligible, false);
+  });
+});
+
+describe('isClaimEligibleRun hardening', () => {
+  function containerRun(overrides: Record<string, unknown> = {}) {
+    const base: Record<string, unknown> = {
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'deadbeef1234' },
+      usage: { tokenSource: 'provider-reported' },
+      validation: { passed: true },
+    };
+    return { ...base, ...overrides };
+  }
+
+  it('rejects forged non-container run claiming isolated:true', () => {
+    const run = containerRun({
+      environment: { container: false },
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects container run with empty image string', () => {
+    const run = containerRun({ environment: { container: true, containerImage: '', containerId: 'abc' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects container run without daemon-issued containerId', () => {
+    const run = containerRun({ environment: { container: true, containerImage: 'node:20-slim' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects orchestrator error-report shapes', () => {
+    const errorReport = {
+      runId: 'x',
+      scenarioId: 's',
+      condition: 'vanilla',
+      status: 'error',
+      results: { acceptanceRate: 0, criteria: [] },
+      tokens: { total: null, source: 'unavailable' },
+      timing: { startMs: 0, endMs: 1, durationMs: 1 },
+      evidence: { rawDir: '', agentOutput: '', verifierOutput: '' },
+      createdAt: new Date().toISOString(),
+    };
+    assert.equal(isClaimEligibleRun(errorReport as never), false);
+  });
+
+  it('still accepts container run with full provenance', () => {
+    assert.equal(isClaimEligibleRun(containerRun() as never), true);
   });
 });
