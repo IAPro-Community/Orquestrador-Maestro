@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { sanitizeDiagnostic } = require("../../telemetry/diagnostic-sanitizer");
 
 function sha256(value) {
   return crypto.createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
@@ -41,6 +42,7 @@ function buildProviderCheckpoint({
   const semantic = request.semanticTask || task.metadata?.semanticTask || task.metadata?.semantic || {};
   const decisions = strings(request.decisions || request.missionBrief?.userDecisions);
   const requirements = strings(semantic.requirements || request.missionBrief?.requirements);
+  const safeReason = sanitizeDiagnostic(typeof reason === "string" ? reason : "provider-failure", { maxChars: 512 });
   return Object.freeze({
     schemaVersion: 1,
     kind: "provider-checkpoint",
@@ -66,8 +68,8 @@ function buildProviderCheckpoint({
     remainingBudget: remainingBudget && typeof remainingBudget === "object"
       ? Object.freeze({ ...remainingBudget }) : null,
     failure: Object.freeze({
-      reason: typeof reason === "string" ? reason.slice(0, 512) : "provider-failure",
-      reasonHash: sha256(reason || "provider-failure")
+      reason: safeReason,
+      reasonHash: sha256(safeReason)
     }),
     createdAt: new Date().toISOString()
   });
