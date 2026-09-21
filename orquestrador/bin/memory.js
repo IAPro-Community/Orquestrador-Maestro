@@ -21,6 +21,19 @@ const SAFE_DESTINATIONS = [
   "DEV/RUNBOOKS"
 ];
 
+/**
+ * Uniform trust predicate for READS. A bare `verified:true` (legacy rows,
+ * hand-edited JSONL) has no authority: verified requires an identified
+ * verifier and a parseable verifiedAt. Write paths enforce this via
+ * resolveVerification(); every read path below must use this predicate.
+ */
+function isTrulyVerified(obs) {
+  if (!obs || obs.verified !== true) return false;
+  if (typeof obs.verifier !== "string" || obs.verifier.trim().length === 0) return false;
+  if (typeof obs.verifiedAt !== "string" || Number.isNaN(Date.parse(obs.verifiedAt))) return false;
+  return true;
+}
+
 const PROMPT_INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
   /disregard\s+(all\s+)?prior/i,
@@ -206,11 +219,15 @@ class Memory {
     const claimsVerified = observation.verified === true || observation.verified === "true";
     const verifier = typeof observation.verifier === "string" ? observation.verifier.trim() : "";
     const verifyNote = typeof observation.verifyNote === "string" ? observation.verifyNote.slice(0, 280) : "";
-    if (claimsVerified && verifier.length > 0) {
+    const hasVerifiedAt = typeof observation.verifiedAt === "string" && observation.verifiedAt.length > 0;
+    // Garbage verifiedAt downgrades to a claim; only absent (fresh record)
+    // or parseable timestamps confer authority with a verifier.
+    const verifiedAtValid = hasVerifiedAt && !Number.isNaN(Date.parse(observation.verifiedAt));
+    if (claimsVerified && verifier.length > 0 && (verifiedAtValid || !hasVerifiedAt)) {
       return {
         verified: true,
         verifier,
-        verifiedAt: observation.verifiedAt || new Date().toISOString(),
+        verifiedAt: verifiedAtValid ? observation.verifiedAt : new Date().toISOString(),
         verifyNote,
         verifiedClaimed: false
       };
@@ -332,7 +349,9 @@ class Memory {
       observations = observations.filter(obs => obs.type === query.type);
     }
     if (query.verified !== undefined) {
-      observations = observations.filter(obs => obs.verified === query.verified);
+      observations = query.verified
+        ? observations.filter(obs => isTrulyVerified(obs))
+        : observations.filter(obs => !isTrulyVerified(obs));
     }
     if (query.tags && query.tags.length > 0) {
       observations = observations.filter(obs =>
@@ -405,7 +424,9 @@ class Memory {
       observations = observations.filter(obs => obs.type === query.type);
     }
     if (query.verified !== undefined) {
-      observations = observations.filter(obs => obs.verified === query.verified);
+      observations = query.verified
+        ? observations.filter(obs => isTrulyVerified(obs))
+        : observations.filter(obs => !isTrulyVerified(obs));
     }
     if (query.search) {
       const searchTokens = this.tokenize(query.search);
@@ -472,7 +493,7 @@ class Memory {
       timestamp: obs.timestamp,
       type: obs.type,
       summary: obs.summary,
-      verified: obs.verified,
+      verified: isTrulyVerified(obs),
       verifier: obs.verifier || "",
       branch: obs.scope?.branch
     }));
@@ -481,7 +502,7 @@ class Memory {
   promote(projectId, observationId, destination, options = {}) {
     const obs = this.show(projectId, observationId);
     if (!obs) throw new Error(`Observation not found: ${observationId}`);
-    if (!obs.verified || typeof obs.verifier !== "string" || obs.verifier.trim().length === 0 || !obs.verifiedAt) {
+    if (!isTrulyVerified(obs)) {
       throw new Error("Cannot promote unverified observation (requires verified:true with verifier and verifiedAt; bare --verified claims are recorded as verifiedClaimed, not verified)");
     }
 
@@ -516,7 +537,7 @@ class Memory {
         observation: obs,
         destination,
         status: "dry-run",
-        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${(obs.files || []).join(", ")}\nTags: ${(obs.tags || []).join(", ")}\nVerified: ${obs.verified}\n`
+        content: `## ${obs.type}: ${obs.summary}\n\n${obs.details || ""}\n\nFiles: ${(obs.files || []).join(", ")}\nTags: ${(obs.tags || []).join(", ")}\nVerified: ${isTrulyVerified(obs)}\n`
       };
     }
 
@@ -571,7 +592,7 @@ class Memory {
     let verified = 0;
     for (const obs of observations) {
       byType[obs.type] = (byType[obs.type] || 0) + 1;
-      if (obs.verified) verified++;
+      if (isTrulyVerified(obs)) verified++;
     }
     return { total: observations.length, byType, verified, unverified: observations.length - verified, malformed };
   }
@@ -605,8 +626,8 @@ class Memory {
           seen.set(key, obs);
           deduped.push(obs);
         } else {
-          const existingIsVerified = existing.verified;
-          const obsIsVerified = obs.verified;
+          const existingIsVerified = isTrulyVerified(existing);
+          const obsIsVerified = isTrulyVerified(obs);
           if (obsIsVerified && !existingIsVerified) {
             const index = deduped.findIndex(d => d.id === existing.id);
             if (index !== -1) deduped[index] = obs;
@@ -683,7 +704,11 @@ class Memory {
         files: this.redactValue([...new Set(observations.flatMap(obs => obs.files || []))]),
         tags: this.redactValue([...new Set(observations.flatMap(obs => obs.tags || []))]),
         source: this.redactValue(consolidatedObs.source || {}),
-        scope: consolidatedObs.scope || firstScope,
+        // Scope is inherited from the sources, never caller-supplied: a
+        // consolidated record must not escape the visibility boundary of
+        // what it was consolidated from. taskId overrides are dropped for
+        // the same reason.
+        scope: firstScope,
         consolidatedFrom: observationIds
       };
 
@@ -705,9 +730,7 @@ class Memory {
 
       // Verified is inherited only when every source is verified with an
       // identified verifier; a bare claim never upgrades through consolidation.
-      const allSourcesVerified = observations.every(
-        o => o.verified === true && typeof o.verifier === "string" && o.verifier.trim().length > 0
-      );
+      const allSourcesVerified = observations.every(o => isTrulyVerified(o));
       const claim = this.resolveVerification(consolidatedObs);
       if (claim.verified && allSourcesVerified) {
         consolidated.verified = true;
@@ -720,8 +743,6 @@ class Memory {
           consolidated.verifiedClaimed = true;
         }
       }
-
-      if (consolidatedObs.taskId) consolidated.taskId = consolidatedObs.taskId;
 
       this.validateObservation(consolidated);
 
@@ -746,15 +767,15 @@ class Memory {
       const maxCount = options.maxCount || 1000;
 
       let filtered = observations.filter(obs => {
-        if (obs.verified) return true;
+        if (isTrulyVerified(obs)) return true;
         if (obs.scope?.promoted) return true;
         const age = (now - new Date(obs.timestamp)) / (1000 * 60 * 60 * 24);
         return age <= maxAgeDays;
       });
 
       if (filtered.length > maxCount) {
-        const verified = filtered.filter(obs => obs.verified || obs.scope?.promoted);
-        const unverified = filtered.filter(obs => !obs.verified && !obs.scope?.promoted);
+        const verified = filtered.filter(obs => isTrulyVerified(obs) || obs.scope?.promoted);
+        const unverified = filtered.filter(obs => !isTrulyVerified(obs) && !obs.scope?.promoted);
         unverified.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         const keepUnverified = Math.max(0, maxCount - verified.length);
         filtered = [...verified, ...unverified.slice(0, keepUnverified)];
@@ -783,10 +804,10 @@ class Memory {
 
       const keepVerified = options.keepVerified !== false;
       const protectedObs = keepVerified
-        ? filtered.filter(obs => obs.verified)
+        ? filtered.filter(obs => isTrulyVerified(obs))
         : [];
       const prunable = keepVerified
-        ? filtered.filter(obs => !obs.verified)
+        ? filtered.filter(obs => !isTrulyVerified(obs))
         : [...filtered];
 
       if (options.keepRecent) {
@@ -951,4 +972,4 @@ if (require.main === module) {
   process.exitCode = main();
 }
 
-module.exports = { Memory };
+module.exports = { Memory, isTrulyVerified };

@@ -614,7 +614,7 @@ function buildBrief(options) {
     let memorySection = "";
 
     try {
-      const { Memory } = require("./memory.js");
+      const { Memory, isTrulyVerified } = require("./memory.js");
       const mem = options.memory || new Memory();
       // Single source for the repository id: resolveRepositoryId() hashes a
       // sanitized/truncated path for non-git projects while
@@ -641,7 +641,7 @@ function buildBrief(options) {
         const selected = [];
 
         for (const obs of memResults) {
-          const entry = `- [${obs.verified ? "verified" : "unverified"}] ${sanitizeMemoryEntry(obs.summary)}`;
+          const entry = `- [${isTrulyVerified(obs) ? "verified" : "unverified"}] ${sanitizeMemoryEntry(obs.summary)}`;
           if (usedMemory + entry.length > budget.memoryChars) break;
           selected.push(entry);
           usedMemory += entry.length;

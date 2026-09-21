@@ -251,3 +251,120 @@ test("M13: search tolerates legacy observations without tags/files", () => {
     cleanup(tmpDir);
   }
 });
+
+test("reads: legacy bare-verified rows have no authority anywhere", () => {
+  const { tmpDir, memory } = makeMemory();
+  try {
+    const filePath = memory.getObservationsFile("legacy");
+    memory.ensureProjectDir("legacy");
+    const legacy = {
+      schemaVersion: 1,
+      id: "obs_abcdefabcdefabcd",
+      timestamp: new Date().toISOString(),
+      project: "legacy",
+      type: "discovery",
+      summary: "Legacy verified claim",
+      verified: true,
+      scope: { level: "repository", repositoryId: "repo_x" }
+    };
+    fs.writeFileSync(filePath, JSON.stringify(legacy) + "\n", "utf8");
+    assert.deepEqual(memory.search("legacy", { verified: true }), []);
+    assert.equal(memory.search("legacy", { verified: false }).length, 1);
+    assert.equal(memory.stats("legacy").verified, 0);
+    assert.equal(memory.timeline("legacy")[0].verified, false);
+    // No preferential retention: a truly-verified row survives maxCount
+    // while a bare-verified row is treated as unverified.
+    const mem2file = memory.getObservationsFile("legacy2");
+    memory.ensureProjectDir("legacy2");
+    const mk = (id, verified, extra = {}) => ({
+      schemaVersion: 1, id, timestamp: new Date().toISOString(),
+      project: "legacy2", type: "discovery", summary: "Row " + id,
+      verified, scope: { level: "repository", repositoryId: "repo_y" }, ...extra
+    });
+    const rows = [
+      mk("obs_aaaaaaaaaaaaaaaa", true, { verifier: "alice", verifiedAt: new Date().toISOString() }),
+      mk("obs_bbbbbbbbbbbbbbbb", true)
+    ];
+    fs.writeFileSync(mem2file, rows.map(o => JSON.stringify(o)).join("\n") + "\n", "utf8");
+    const kept = memory.retention("legacy2", { maxCount: 1 });
+    assert.equal(kept.retained, 1);
+    const remaining = memory.readObservations(mem2file).valid;
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].id, "obs_aaaaaaaaaaaaaaaa");
+  } finally {
+    cleanup(tmpDir);
+  }
+});
+
+test("verifiedAt garbage downgrades to claim", () => {
+  const { tmpDir, memory } = makeMemory();
+  try {
+    const obs = memory.record("p1", baseObs({
+      verified: true,
+      verifier: "alice",
+      verifiedAt: "not-a-date"
+    }));
+    assert.equal(obs.verified, false);
+    assert.equal(obs.verifiedClaimed, true);
+  } finally {
+    cleanup(tmpDir);
+  }
+});
+
+test("consolidate cannot smuggle scope or taskId", () => {
+  const { tmpDir, memory } = makeMemory();
+  try {
+    const a = memory.record("p1", baseObs({ summary: "Finding one" }));
+    const b = memory.record("p1", baseObs({ summary: "Finding two" }));
+    const firstScope = { ...a.scope };
+    const out = memory.consolidate("p1", [a.id, b.id], {
+      type: "discovery",
+      summary: "Combined",
+      scope: { level: "task", repositoryId: "repo_evil", taskId: "t-evil" },
+      taskId: "t-evil"
+    });
+    assert.deepEqual(out.scope, firstScope);
+    assert.equal(out.taskId, undefined);
+  } finally {
+    cleanup(tmpDir);
+  }
+});
+
+test("brief labels legacy bare-verified rows as unverified", () => {
+  const { tmpDir, memory } = makeMemory();
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "memory-brief-legacy-"));
+  try {
+    fs.writeFileSync(path.join(projectRoot, "AGENTS.md"), "# Contrato\n", "utf8");
+    fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
+    for (const f of ["README.md", "INDEX.md", "HANDOFF.md", "CONTEXT.md"]) {
+      fs.writeFileSync(path.join(projectRoot, "DEV", f), "# " + f + "\n", "utf8");
+    }
+    const { resolveGitContext } = require("../orquestrador/lib/git-context.js");
+    const gitCtx = resolveGitContext(projectRoot);
+    const filePath = memory.getObservationsFile(gitCtx.repositoryId);
+    memory.ensureProjectDir(gitCtx.repositoryId);
+    const legacy = {
+      schemaVersion: 1,
+      id: "obs_1234567890abcdef",
+      timestamp: new Date().toISOString(),
+      project: gitCtx.repositoryId,
+      type: "discovery",
+      summary: "Legacy cache tuning note",
+      verified: true,
+      scope: { level: "repository", repositoryId: gitCtx.repositoryId }
+    };
+    fs.writeFileSync(filePath, JSON.stringify(legacy) + "\n", "utf8");
+    const brief = buildBrief({
+      projectPath: projectRoot,
+      task: "investigate cache performance",
+      maxChars: 8000,
+      memory
+    });
+    const text = typeof brief === "string" ? brief : brief.brief || JSON.stringify(brief);
+    assert.ok(text.includes("[unverified] Legacy cache tuning note"));
+    assert.ok(!text.includes("[verified] Legacy cache tuning note"));
+  } finally {
+    cleanup(tmpDir);
+    cleanup(projectRoot);
+  }
+});

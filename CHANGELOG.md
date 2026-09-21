@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Security (memória): `--verified` sozinho não verifica mais — vira `verifiedClaimed`; `verified:true` exige `--verifier` (+ `--verify-note`) e `promote --apply` para `DEV/` exige verificador e `verifiedAt`.
+- Security (memória): o predicado vale em leitura e escrita — linhas legadas com `verified:true` sem verificador passam a contar como não verificadas em `search`, `stats`, `timeline`, `retention`/`prune`/`dedupe` e no label do brief; `verifiedAt` inválido degrada para claim; `consolidate()` herda o escopo das fontes (sem override).
 - Security (memória): gate `<private>` passa a cobrir `files/tags/source`; `consolidate()` aplica `CapturePolicy` e só herda `verified` se todas as fontes forem verificadas com verificador.
 - Security (brief): entradas de memória episódica têm tags `episodic-memory` sanitizadas (sem break-out do wrapper); `projectId` do brief usa `gitCtx.repositoryId` como fonte única (corrige seção de memória vazia em projetos não-git).
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
