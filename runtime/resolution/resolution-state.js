@@ -13,15 +13,17 @@ function isReviewBlocking(review) {
   return ["rejected", "inconclusive", "unavailable"].includes(String(review?.status || ""));
 }
 
-function deriveResolutionState({ runStatus, verification, completion, review, needsAttention = false } = {}) {
+function deriveResolutionState({ runStatus, verification, completion, review, needsAttention = false, verificationRequired = true } = {}) {
   if (runStatus === "blocked") return "blocked";
   if (["failed", "cancelled", "timed_out"].includes(runStatus)) return "failed";
   if (needsAttention) return "needs_attention";
   if (runStatus === "pending" || runStatus === "running" || !runStatus) return "running";
   if (verification?.status === "pending" || verification?.status === "running") return "verifying";
 
+  const verificationSatisfied = verification?.status === "passed"
+    || (verificationRequired === false && verification?.status === "skipped");
   const hardValidated = runStatus === "completed"
-    && verification?.status === "passed"
+    && verificationSatisfied
     && completion?.eligible === true
     && !isReviewBlocking(review);
   if (hardValidated) return "validated";
