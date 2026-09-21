@@ -145,7 +145,9 @@ export function extractMissionTokenUsage(output: string, expectedNonce?: string)
       inputTokens, outputTokens, reasoningTokens,
       cacheReadTokens: typeof parsed.cacheReadTokens === 'number' ? parsed.cacheReadTokens : null,
       cacheWriteTokens: typeof parsed.cacheWriteTokens === 'number' ? parsed.cacheWriteTokens : null,
-      total: inputTokens + outputTokens + reasoningTokens,
+      // reasoningTokens is reported separately because provider schemas do
+      // not consistently define whether it is additive to outputTokens.
+      total: inputTokens + outputTokens,
       source: TokenSource.ProviderReported, confidence: TokenConfidence.Exact,
       rawEvidenceRef: 'maestro-mission-usage-marker',
     };
