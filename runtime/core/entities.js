@@ -12,7 +12,7 @@ const {
   requiredString
 } = require("./validation");
 
-const RUN_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "cancelled", "timed_out"]);
+const RUN_STATUSES = Object.freeze(["pending", "running", "blocked", "completed", "failed", "cancelled", "timed_out"]);
 const STEP_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "skipped", "cancelled"]);
 const EXECUTION_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "cancelled", "timed_out"]);
 const VERIFICATION_STATUSES = Object.freeze(["pending", "running", "passed", "failed", "skipped"]);
