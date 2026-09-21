@@ -302,3 +302,29 @@ test("provider evidence is sanitized before durable persistence", async () => {
   assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
   assert.match(serialized, /redacted/u);
 });
+
+
+test("pre-run provider failure is anchored to the fallback run audit trail", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-pre-run-handoff-"));
+  const fallback = new Adapter("fallback", 0);
+  const app = createApp(root, [fallback]);
+
+  const outcome = await app.executeTaskWithHandoff({
+    providerId: "missing-provider",
+    providerFallbacks: ["fallback"],
+    description: "Recover from unavailable provider",
+    semanticTaskId: "pre-run-handoff",
+    semanticTask: { id: "pre-run-handoff", objective: "Recover from unavailable provider", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  assert.equal(outcome.run.providerId, "fallback");
+  assert.equal(outcome.handoff.providerSwitches, 1);
+  assert.equal(outcome.handoff.attempts[0].providerId, "missing-provider");
+  assert.equal(outcome.handoff.attempts[0].runId, null);
+
+  const artifacts = await app.listArtifacts({ runId: outcome.run.id });
+  assert.equal(artifacts.some((artifact) => artifact.type === "CHECKPOINT" && artifact.name === "provider-handoff-pre-run"), true);
+  const events = await app.store.listEvents({ runId: outcome.run.id });
+  assert.equal(events.some((event) => event.type === "provider.handoff" && event.data?.preRunFailure === true), true);
+});
