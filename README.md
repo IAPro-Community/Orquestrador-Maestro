@@ -14,6 +14,7 @@ O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini 
 
 | Você quer… | Vá direto para… |
 | --- | --- |
+| Começar do zero em 10 minutos | [Comece aqui](docs/START-HERE.md) |
 | Entender a ideia em 1 minuto | [Como funciona](#um-processo-várias-ferramentas) |
 | Instalar agora | [Comece em dois minutos](#comece-em-dois-minutos) |
 | Ver o benchmark | [Veja os números](#benchmark-veja-os-números-na-sua-máquina) |
