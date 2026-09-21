@@ -25,6 +25,12 @@ Before broad work:
 - If `DEV/WORKLOG.md` grows beyond the project's compact limit, run `orquestrador-maestro compact-worklog --project-path <project> --keep 12`.
 - For long tasks, run `orquestrador-maestro check-dev-gates --project-path <project> --max-entries 12 --strict` before declaring handoff readiness.
 
+## Adaptive Resolution (Shadow)
+
+- When the Runtime receives measured or deterministic evidence candidates, let `runtime/resolution` rank optional evidence before future context expansion.
+- V0 is advisory only: it must not block or alter the existing execution or context path.
+- Optimize observed cost to a hard validated outcome; never fabricate token, latency, evidence, or context metrics.
+
 ## Verification
 
 Before claiming completion:

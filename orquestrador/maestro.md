@@ -25,12 +25,16 @@ If the user or the project points to a private reference library outside the rep
 
 ## Token Discipline
 
+- Optimize for cost to a validated outcome, not the smallest first prompt.
+- Prefer measured or deterministic evidence signals; never invent optimizer scores or token usage.
 - Prefer compact indexes over full catalogs.
 - Avoid loading every skill directory.
 - Avoid repeating long instructions across tools.
 - Keep entrypoint files short and stable.
 - Prefer `HANDOFF.md` and `SPECS/ACTIVE.md` over replaying long chat history.
 - Keep `WORKLOG.md` short enough to be read in one pass.
+
+Adaptive Resolution remains shadow-only until benchmark evidence justifies changing execution or context acquisition behavior.
 
 ## Global Changes
 

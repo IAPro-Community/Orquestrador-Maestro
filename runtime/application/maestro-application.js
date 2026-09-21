@@ -23,6 +23,7 @@ const { resolveInteractionProfile, interactionContract } = require("../interacti
 const { parseProviderUsage } = require("../telemetry/provider-usage");
 const { extractChildAgents } = require("../telemetry/agent-topology");
 const { buildCognitiveTelemetry } = require("../telemetry/cognitive-telemetry");
+const { buildResolutionPlan, buildResolutionTelemetry } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
@@ -338,6 +339,11 @@ class MaestroApplication {
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
     const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
+    const adaptiveResolution = buildResolutionPlan({
+      cognitiveBudget,
+      evidenceCandidates: Array.isArray(request.evidenceCandidates) ? request.evidenceCandidates : [],
+      mode: request.adaptiveResolutionMode || "shadow"
+    });
     const reviewPreflight = this.governance.features.independentReview && reviewRequired(cognitiveBudget)
       && (typeof provider.supportsReadOnlyReview !== "function" || !provider.supportsReadOnlyReview())
       ? "reviewer-capability-unavailable" : null;
@@ -351,6 +357,7 @@ class MaestroApplication {
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
       cognitiveBudget,
+      adaptiveResolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
     const task = core.createTask({ id: id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
@@ -359,9 +366,24 @@ class MaestroApplication {
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
+    await this.record(run.id, "resolution.planned", {
+      mode: adaptiveResolution.mode,
+      strategy: adaptiveResolution.strategy,
+      evidenceCandidates: adaptiveResolution.evidenceAdvice.stats.inputCandidates,
+      evidenceSelected: adaptiveResolution.evidenceAdvice.stats.selectedCandidates,
+      contextBudgetOverflow: adaptiveResolution.evidenceAdvice.budgetOverflow
+    });
     if (preflightBlock) {
       const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason: preflightBlock });
-      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: blockedTelemetryValue } };
+      const blockedCognitiveTelemetry = {
+        ...blockedTelemetryValue,
+        resolution: buildResolutionTelemetry({
+          plan: adaptiveResolution,
+          cognitiveTelemetry: blockedTelemetryValue,
+          status: "blocked"
+        })
+      };
+      const blockedRun = { ...run, status: "blocked", completedAt: new Date().toISOString(), metadata: { ...run.metadata, preflightBlock, cognitiveTelemetry: blockedCognitiveTelemetry } };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
       await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
@@ -468,7 +490,15 @@ class MaestroApplication {
         status: "failed",
         childAgents: []
       });
-      await this.store.saveRun({ ...run, status: "failed", completedAt, metadata: { ...run.metadata, cognitiveTelemetry: failedTelemetry } });
+      const failedCognitiveTelemetry = {
+        ...failedTelemetry,
+        resolution: buildResolutionTelemetry({
+          plan: run.metadata?.adaptiveResolution,
+          cognitiveTelemetry: failedTelemetry,
+          status: "failed"
+        })
+      };
+      await this.store.saveRun({ ...run, status: "failed", completedAt, metadata: { ...run.metadata, cognitiveTelemetry: failedCognitiveTelemetry } });
       await this.record(run.id, "run.failed", { reason: cleanReason });
       return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
@@ -566,7 +596,18 @@ class MaestroApplication {
         childAgents,
         prompt: null
       });
-      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry: telemetry } });
+      const cognitiveTelemetry = {
+        ...telemetry,
+        resolution: buildResolutionTelemetry({
+          plan: finalRun.metadata?.adaptiveResolution,
+          cognitiveTelemetry: telemetry,
+          verification,
+          completion,
+          review,
+          status
+        })
+      };
+      await this.store.saveRun({ ...finalRun, metadata: { ...(finalRun.metadata || {}), cognitiveTelemetry } });
     }
     return { run: await this.store.getRun(run.id), verification, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
   }
