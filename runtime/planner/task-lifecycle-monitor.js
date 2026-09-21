@@ -1,5 +1,7 @@
 "use strict";
 
+const { runtimeTaskId } = require("../core/task-identity");
+
 class TaskLifecycleMonitor {
   static attach({ executor, app, graphs, store, missionId = null }) {
     if (!executor || !app || !graphs) throw new TypeError("executor, app and graphs are required");
@@ -10,7 +12,13 @@ class TaskLifecycleMonitor {
         const graphLink = await graphs.missionForTask(task.id);
         const link = missionId ? { ...(graphLink || {}), missionId } : graphLink;
         if (!link?.missionId) return;
-        await app.record(null, type, { taskId: task.id, ...link, ...extra });
+        const persistedTaskId = missionId
+          ? runtimeTaskId({ missionId, semanticTaskId: task.id }) || task.id
+          : task.id;
+        const normalizedExtra = Array.isArray(extra.blockedBy) && missionId
+          ? { ...extra, blockedBy: extra.blockedBy.map((id) => runtimeTaskId({ missionId, semanticTaskId: id }) || id) }
+          : extra;
+        await app.record(null, type, { taskId: persistedTaskId, ...link, ...normalizedExtra });
       } catch { /* observability must not interrupt execution */ }
     };
     const enqueue = (operation) => { pending = pending.then(operation).catch(() => undefined); return pending; };
@@ -23,7 +31,18 @@ class TaskLifecycleMonitor {
     });
     const unsubscribe = app.subscribe?.((event) => {
       if (event?.type !== "provider.completed" || !event.runId) return;
-      void enqueue(async () => { const run = await store?.getRun?.(event.runId); if (run?.taskId) await persist("task.verifying", { id: run.taskId }); });
+      void enqueue(async () => {
+        const run = await store?.getRun?.(event.runId);
+        if (!run?.taskId) return;
+        const task = await store?.getTask?.(run.taskId);
+        const semanticTaskId = task?.metadata?.semanticTaskId || task?.metadata?.semanticTask?.id || null;
+        const graphLink = semanticTaskId ? await graphs.missionForTask(semanticTaskId) : null;
+        await app.record(null, "task.verifying", {
+          taskId: run.taskId,
+          ...(graphLink || {}),
+          ...(missionId ? { missionId } : task?.metadata?.missionId ? { missionId: task.metadata.missionId } : {})
+        });
+      });
     });
     return Object.freeze({ detach() { for (const remove of listeners) remove(); unsubscribe?.(); } });
   }
