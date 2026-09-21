@@ -277,9 +277,13 @@ class JsonFileRunStore extends RunStore {
       stat = await fs.stat(this.lockPath);
       lock = JSON.parse(await fs.readFile(this.lockPath, "utf8"));
     } catch (error) {
-      if (error?.code === "ENOENT") return true;
+      // ENOENT means the observed owner already released its lock. Returning
+      // "stale" here is unsafe: another process may acquire a fresh lock
+      // between this check and the caller's unlink, causing that fresh owner
+      // to be deleted. Let the acquisition loop retry instead.
+      if (error?.code === "ENOENT") return false;
       // A malformed lock is removable only after the stale threshold.
-      try { stat = stat || await fs.stat(this.lockPath); } catch { return true; }
+      try { stat = stat || await fs.stat(this.lockPath); } catch { return false; }
     }
 
     const ownerPid = Number(lock?.pid);
@@ -301,6 +305,9 @@ class JsonFileRunStore extends RunStore {
       current = JSON.parse(await fs.readFile(this.lockPath, "utf8"));
     } catch (error) {
       if (error?.code === "ENOENT") return;
+      // If the lock cannot be parsed, ownership cannot be proven. Never
+      // remove it from a release path; stale-lock recovery handles it later.
+      if (error instanceof SyntaxError) return;
       throw error;
     }
     // Never unlink a lock that was replaced by another owner.
