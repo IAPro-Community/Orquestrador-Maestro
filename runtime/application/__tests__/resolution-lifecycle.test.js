@@ -10,9 +10,10 @@ const { MaestroApplication, ProviderRegistry } = require("../maestro-application
 const { JsonFileRunStore } = require("../../store");
 
 class Adapter {
-  constructor(id, exitCode = 0) {
+  constructor(id, exitCode = 0, evidence = undefined) {
     this.id = id;
     this.exitCode = exitCode;
+    this.evidence = evidence;
     this.requests = [];
   }
   async detect() { return { id: this.id, installed: true, executable: this.id }; }
@@ -30,7 +31,8 @@ class Adapter {
         stderr: this.exitCode === 0 ? "" : "provider failed",
         durationMs: 1,
         cancelled: false,
-        timedOut: false
+        timedOut: false,
+        evidence: this.evidence
       })
     };
   }
@@ -181,4 +183,39 @@ test("persisted evidence is joined into task and mission proof bundles", async (
   assert.equal(missionProof.summary.validatedTasks, 1);
   assert.equal(missionProof.summary.validated, true);
   assert.equal(missionProof.mission.resolution.state, "validated");
+});
+
+
+test("completion merges request and provider evidence and binds a semantic task without its own id", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-evidence-merge-"));
+  const provider = new Adapter("fake", 0, [{
+    type: "provider-evidence",
+    content: "provider requirement evidence",
+    acceptanceCriterion: "provider requirement",
+    producer: "provider"
+  }]);
+  const app = createApp(root, [provider]);
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "Combine evidence",
+    semanticTaskId: "combined-evidence-task",
+    semanticTask: {
+      objective: "Combine evidence",
+      acceptanceCriteria: ["request criterion"],
+      evidenceRequirements: ["provider requirement"]
+    },
+    evidence: [{
+      type: "request-evidence",
+      content: "request criterion evidence",
+      acceptanceCriterion: "request criterion",
+      producer: "request"
+    }],
+    verificationCommands: [passCommand]
+  });
+
+  assert.equal(outcome.run.metadata.resolution.outcome.state, "validated");
+  const evidence = await app.listEvidence({ taskId: "combined-evidence-task" });
+  assert.equal(evidence.length, 2);
+  assert.deepEqual(new Set(evidence.map((entry) => entry.acceptanceCriterion)), new Set(["request criterion", "provider requirement"]));
 });
