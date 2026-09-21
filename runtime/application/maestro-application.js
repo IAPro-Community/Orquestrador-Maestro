@@ -564,6 +564,24 @@ class MaestroApplication {
           providerSwitchAttempt: index
         });
         lastResult = result;
+        if (checkpoint?.kind === "provider-checkpoint" && !checkpoint.sourceRunId && result?.run?.id) {
+          const artifact = core.createArtifact({
+            id: id("checkpoint"),
+            runId: result.run.id,
+            type: "CHECKPOINT",
+            name: "provider-handoff-pre-run",
+            createdAt: new Date().toISOString(),
+            metadata: checkpoint
+          });
+          await this.store.saveArtifact(artifact);
+          await this.record(result.run.id, "provider.handoff", {
+            checkpointId: checkpoint.checkpointId,
+            fromProvider: checkpoint.providerId,
+            toProvider: providerId,
+            attempt: checkpoint.attempt,
+            preRunFailure: true
+          });
+        }
         const outcomeState = result?.run?.metadata?.resolution?.outcome?.state;
         if (result?.run?.status === "completed" && (!outcomeState || outcomeState === "validated")) {
           return Object.freeze({
