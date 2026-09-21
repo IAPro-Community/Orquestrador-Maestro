@@ -40,13 +40,17 @@ class TaskLifecycleMonitor {
       void enqueue(async () => {
         const run = await store?.getRun?.(event.runId);
         if (!run?.taskId) return;
+        if (!missionId) {
+          await persist("task.verifying", { id: run.taskId });
+          return;
+        }
         const task = await store?.getTask?.(run.taskId);
         const semanticTaskId = task?.metadata?.semanticTaskId || task?.metadata?.semanticTask?.id || null;
         const graphLink = semanticTaskId ? await graphs.missionForTask(semanticTaskId) : null;
         await app.record(null, "task.verifying", {
           taskId: run.taskId,
           ...(graphLink || {}),
-          ...(missionId ? { missionId } : task?.metadata?.missionId ? { missionId: task.metadata.missionId } : {})
+          missionId
         });
       });
     });
