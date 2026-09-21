@@ -367,7 +367,7 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
   const useContainer = Boolean(values.container);
   const image = values.image ? String(values.image) : '';
   if (useContainer && !image) {
-    return { exitCode: 1, message: 'Error: --container requires --image pointing to an image that contains this Maestro policy and OpenCode' };
+    return { exitCode: 1, message: 'Error: --container requires --image with Node.js and OpenCode; the current Maestro checkout is mounted read-only at runtime' };
   }
   if (useContainer) {
     const containerRunner = new ContainerRunner({ image });
@@ -410,7 +410,7 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
     `  Maestro control:  ${control.report.status} (${(control.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
     `  Maestro adaptive: ${treatment.report.status} (${(treatment.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
     `  Isolation: ${useContainer ? 'container' : 'local temp workspace (analysis-only for promotion)'}`,
-    '  Tokens: unavailable by design until end-to-end Maestro aggregation is complete',
+    `  Tokens: control=${control.report.tokens.total ?? 'unavailable'} adaptive=${treatment.report.tokens.total ?? 'unavailable'}`,
   ];
 
   return {

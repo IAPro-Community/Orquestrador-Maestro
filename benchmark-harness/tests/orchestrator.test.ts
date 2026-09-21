@@ -301,3 +301,17 @@ describe('adaptive benchmark integrity', () => {
     }
   });
 });
+
+
+describe('official Maestro container provenance', () => {
+  it('binds container execution to the current checkout instead of a global Maestro binary', async () => {
+    const source = await import('node:fs/promises').then((fs) =>
+      fs.readFile(new URL('../src/orchestrator/index.ts', import.meta.url), 'utf8'));
+    assert.match(source, /MAESTRO_CONTAINER_ROOT/u);
+    assert.match(source, /\/bin\/orquestrador-maestro\.js/u);
+    assert.match(source, /extraMounts/u);
+    assert.match(source, /maestroRuntimeCommit/u);
+    assert.match(source, /Official Maestro container benchmark requires a clean tracked checkout/u);
+    assert.doesNotMatch(source, /\['orquestrador-maestro', \.\.\.buildMaestroArgs/u);
+  });
+});

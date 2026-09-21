@@ -34,6 +34,8 @@ import { buildMaestroArgs } from '../drivers/maestro.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const HARNESS_ROOT = resolve(__dirname, '..', '..');
+const MAESTRO_REPO_ROOT = resolve(HARNESS_ROOT, '..');
+const MAESTRO_CONTAINER_ROOT = '/maestro-runtime';
 
 /** Orchestration options. */
 export interface OrchestrateOptions {
@@ -89,10 +91,8 @@ export async function orchestrateRun(
   } = options;
 
   // Select the appropriate driver based on condition
-  const activeDriver =
-    (condition === 'maestro' || condition === 'maestro-focus' || condition === 'maestro-adaptive') && maestroDriver
-      ? maestroDriver
-      : driver;
+  const isMaestroCondition = condition === 'maestro' || condition === 'maestro-focus' || condition === 'maestro-adaptive';
+  const activeDriver = isMaestroCondition && maestroDriver ? maestroDriver : driver;
 
   const runId = randomUUID();
   const startMs = Date.now();
@@ -119,7 +119,6 @@ export async function orchestrateRun(
     for (const key of ['MAESTRO_ADAPTIVE_POLICY_ID', 'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT', 'MAESTRO_ADAPTIVE_PAIR_ID', 'MAESTRO_BENCHMARK_MARKER_NONCE', 'MAESTRO_BENCHMARK_USAGE']) {
       delete conditionEnv[key];
     }
-    const isMaestroCondition = ['maestro', 'maestro-focus', 'maestro-adaptive'].includes(condition);
     const markerNonce = isMaestroCondition ? randomUUID() : undefined;
     if (markerNonce) {
       conditionEnv.MAESTRO_BENCHMARK_MARKER_NONCE = markerNonce;
@@ -134,6 +133,10 @@ export async function orchestrateRun(
       conditionEnv.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT = policyFingerprint;
       conditionEnv.MAESTRO_ADAPTIVE_PAIR_ID = pairId;
     }
+
+    const maestroRuntimeCommit = useContainer && isMaestroCondition
+      ? await assertCleanMaestroRuntimeCheckout()
+      : undefined;
 
     const driverOptions: DriverExecuteOptions = {
       workspace,
@@ -164,7 +167,7 @@ export async function orchestrateRun(
         workspace: '/benchmark',
       };
       const command = activeDriver.name === 'maestro'
-        ? ['orquestrador-maestro', ...buildMaestroArgs(task, containerDriverOptions)]
+        ? ['node', `${MAESTRO_CONTAINER_ROOT}/bin/orquestrador-maestro.js`, ...buildMaestroArgs(task, containerDriverOptions)]
         : ['opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task];
       const containerResult = await containerRunner.runBenchmark({
         task,
@@ -173,6 +176,9 @@ export async function orchestrateRun(
         command,
         env: { ...conditionEnv, BENCHMARK_MODEL: driverOptions.model },
         timeoutMs: driverOptions.timeoutMs,
+        extraMounts: activeDriver.name === 'maestro'
+          ? [{ host: MAESTRO_REPO_ROOT, container: MAESTRO_CONTAINER_ROOT, readonly: true }]
+          : [],
       });
       driverResult = {
         output: containerResult.output,
@@ -287,6 +293,7 @@ export async function orchestrateRun(
         version: activeDriver.version,
         config: {
           model: driverOptions.model,
+          ...(maestroRuntimeCommit ? { maestroRuntimeCommit } : {}),
           ...(adaptiveIdentityValid && adaptiveMetadata?.confirmed === true ? {
             adaptiveResolutionPolicyId: adaptiveMetadata.policyId,
             adaptiveResolutionPolicyFingerprint: adaptiveMetadata.policyFingerprint,
@@ -470,6 +477,25 @@ export async function orchestratePair(options: {
 }
 
 // --- Helpers ---
+
+async function assertCleanMaestroRuntimeCheckout(): Promise<string> {
+  const { stdout: head } = await runCmd('git', ['rev-parse', 'HEAD'], {
+    cwd: MAESTRO_REPO_ROOT,
+    timeout: 5_000,
+  });
+  const { stdout: status } = await runCmd('git', ['status', '--porcelain', '--untracked-files=no'], {
+    cwd: MAESTRO_REPO_ROOT,
+    timeout: 5_000,
+  });
+  if (status.trim()) {
+    throw new Error('Official Maestro container benchmark requires a clean tracked checkout');
+  }
+  const commit = head.trim();
+  if (!/^[a-f0-9]{40}$/u.test(commit)) {
+    throw new Error('Unable to resolve a reproducible Maestro runtime commit');
+  }
+  return commit;
+}
 
 function computeHash(input: string): string {
   return createHash('sha256').update(input).digest('hex');
