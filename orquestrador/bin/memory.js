@@ -94,7 +94,12 @@ class Memory {
 
   resolveRepositoryId(projectRoot) {
     const { resolveRepositoryId: resolveFromGitContext } = require("../lib/git-context.js");
-    return resolveFromGitContext(projectRoot);
+    // Resolve through the canonical Git root first. On Windows the caller may
+    // hold an 8.3/alternate-casing temp path while a child process receives
+    // Git's canonical toplevel path; hashing those representations directly
+    // produces different repository identities for the same repository.
+    const canonicalRoot = resolveProjectRoot(projectRoot) || path.resolve(projectRoot);
+    return resolveFromGitContext(canonicalRoot);
   }
 
   resolveScope(projectId, args, projectRoot) {
