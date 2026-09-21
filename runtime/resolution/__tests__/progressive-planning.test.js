@@ -94,7 +94,7 @@ test("parse failure does not buy more context and falls back deterministically",
   assert.equal(contextEngine.calls.length, 1);
   assert.equal(planner.fallbackCalls, 1);
   assert.equal(result.planningMode, "deterministic-fallback");
-  assert.equal(result.progressivePlanning.terminalReason, "parse-failure");
+  assert.equal(result.progressivePlanning.terminalReason, "validation-failure");
 });
 
 test("provider failure never escalates context", async () => {
