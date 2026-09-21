@@ -8,6 +8,9 @@ const EVIDENCE_LEVELS = Object.freeze({
   HARD_VALIDATED: "hard-validated"
 });
 
+const TRUSTED_TOKEN_SOURCES = Object.freeze(["provider-reported", "opencode-native"]);
+const TRUSTED_TOKEN_CONFIDENCE = "exact";
+
 function finiteOrNull(value) {
   return Number.isFinite(value) ? value : null;
 }
@@ -22,8 +25,18 @@ function acceptedFromRun(run) {
   return false;
 }
 
+function tokenEvidenceFromRun(run) {
+  const total = finiteOrNull(run?.tokens?.total);
+  const source = nonEmptyOrNull(run?.tokens?.source);
+  const confidence = nonEmptyOrNull(run?.tokens?.confidence);
+  const trusted = total !== null
+    && TRUSTED_TOKEN_SOURCES.includes(source)
+    && confidence === TRUSTED_TOKEN_CONFIDENCE;
+  return Object.freeze({ total, source, confidence, trusted });
+}
+
 function tokensFromRun(run) {
-  return finiteOrNull(run?.tokens?.total);
+  return tokenEvidenceFromRun(run).total;
 }
 
 function fixtureHashFromRun(run) {
@@ -191,15 +204,23 @@ function normalizeBenchmarkPair(baselineRun, treatmentRun, { baselineCondition, 
   if (treatmentRun?.condition !== treatmentCondition) issues.push("treatment-condition-mismatch");
   if (!nonEmptyOrNull(baselineRun?.pairId) || baselineRun.pairId !== treatmentRun?.pairId) issues.push("pair-id-mismatch");
 
+  const baselineTokens = tokenEvidenceFromRun(baselineRun);
+  const treatmentTokens = tokenEvidenceFromRun(treatmentRun);
   const baseline = Object.freeze({
     accepted: acceptedFromRun(baselineRun),
-    tokens: tokensFromRun(baselineRun),
+    tokens: baselineTokens.total,
+    tokenSource: baselineTokens.source,
+    tokenConfidence: baselineTokens.confidence,
+    tokensTrusted: baselineTokens.trusted,
     durationMs: finiteOrNull(baselineRun?.timing?.durationMs),
     status: nonEmptyOrNull(baselineRun?.status) || "unknown"
   });
   const treatment = Object.freeze({
     accepted: acceptedFromRun(treatmentRun),
-    tokens: tokensFromRun(treatmentRun),
+    tokens: treatmentTokens.total,
+    tokenSource: treatmentTokens.source,
+    tokenConfidence: treatmentTokens.confidence,
+    tokensTrusted: treatmentTokens.trusted,
     durationMs: finiteOrNull(treatmentRun?.timing?.durationMs),
     status: nonEmptyOrNull(treatmentRun?.status) || "unknown"
   });
@@ -327,6 +348,9 @@ function buildResolutionDataset({ adaptiveReports = [], benchmarkRuns = [], base
 
 module.exports = {
   EVIDENCE_LEVELS,
+  TRUSTED_TOKEN_SOURCES,
+  TRUSTED_TOKEN_CONFIDENCE,
+  tokenEvidenceFromRun,
   normalizeAdaptiveContextReport,
   normalizeAdaptivePlanningReport,
   normalizeBenchmarkPair,

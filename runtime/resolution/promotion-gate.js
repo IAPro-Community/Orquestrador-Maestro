@@ -54,8 +54,11 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
     ? Number((treatmentAcceptanceRate - baselineAcceptanceRate).toFixed(6)) : null;
 
   const bothAccepted = promotionEvidence.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted === true);
-  const tokenComparable = bothAccepted.filter((sample) =>
+  const numericallyComparable = bothAccepted.filter((sample) =>
     Number.isFinite(sample.baseline?.tokens) && Number.isFinite(sample.treatment?.tokens));
+  const tokenComparable = numericallyComparable.filter((sample) =>
+    sample.baseline?.tokensTrusted === true && sample.treatment?.tokensTrusted === true);
+  const untrustedTokenPairs = numericallyComparable.length - tokenComparable.length;
   const tokenSavings = tokenComparable.map((sample) => sample.baseline.tokens - sample.treatment.tokens);
   const relativeSavings = tokenComparable.map((sample) => sample.observed?.relativeTokenSavings).filter(Number.isFinite);
   const durationComparable = bothAccepted.filter((sample) =>
@@ -104,6 +107,8 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
       isolatedPromotionPairs: promotionEvidence.length,
       bothAcceptedPairs: bothAccepted.length,
       tokenComparablePairs: tokenComparable.length,
+      numericallyComparableTokenPairs: numericallyComparable.length,
+      untrustedTokenPairs,
       durationComparablePairs: durationComparable.length
     }),
     quality: Object.freeze({

@@ -11,7 +11,7 @@ const {
 } = require("../experiment-dataset");
 const { POLICY_IDENTITIES } = require("../policy-identity");
 
-function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 1000, taskHash = "a".repeat(64), fixtureHash = "b".repeat(64), policyIdentity = null } = {}) {
+function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 1000, tokenSource = "provider-reported", tokenConfidence = "exact", taskHash = "a".repeat(64), fixtureHash = "b".repeat(64), policyIdentity = null } = {}) {
   return {
     runId: `${condition}-run`,
     pairId,
@@ -31,7 +31,7 @@ function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 
     },
     status: accepted ? "passed" : "failed",
     results: { acceptanceRate: accepted ? 1 : 0, accepted, criteria: [] },
-    tokens: { total: tokens },
+    tokens: { total: tokens, source: tokenSource, confidence: tokenConfidence },
     timing: { durationMs: 100 },
     environment: { isolated: true, container: true }
   };
@@ -88,6 +88,8 @@ test("benchmark pairs are hard validated only when identity matches and treatmen
   assert.equal(sample.policyBound, true);
   assert.equal(sample.promotionEligible, true);
   assert.equal(sample.observed.relativeTokenSavings, 0.2);
+  assert.equal(sample.baseline.tokensTrusted, true);
+  assert.equal(sample.treatment.tokensTrusted, true);
 });
 
 test("benchmark identity mismatch is retained as invalid evidence instead of silently paired", () => {
@@ -153,4 +155,18 @@ test("non-isolated policy-bound benchmark pair is hard evidence but analysis-onl
   assert.equal(paired.samples[0].integrity.valid, true);
   assert.equal(paired.samples[0].promotionEligible, false);
   assert.equal(paired.samples[0].features.isolated, false);
+});
+
+
+test("numeric benchmark tokens with weak provenance remain analysis-only for token comparisons", () => {
+  const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const paired = pairBenchmarkRuns([
+    benchmarkRun({ condition: "maestro", tokens: 1000, tokenSource: "tokenizer-estimated", tokenConfidence: "estimated" }),
+    benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity })
+  ]);
+  const sample = paired.samples[0];
+  assert.equal(sample.baseline.tokens, 1000);
+  assert.equal(sample.baseline.tokensTrusted, false);
+  assert.equal(sample.treatment.tokensTrusted, true);
+  assert.equal(sample.observed.tokenSavings, 200);
 });
