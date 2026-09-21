@@ -6,7 +6,7 @@ const { EVIDENCE_LEVELS } = require("../experiment-dataset");
 const { POLICY_IDENTITIES } = require("../policy-identity");
 const { evaluatePromotionGate } = require("../promotion-gate");
 
-function sample(index, { baselineAccepted = true, treatmentAccepted = true, baselineTokens = 1000, treatmentTokens = 800, baselineTokensTrusted = true, treatmentTokensTrusted = true, integrity = true, policyBound = true } = {}) {
+function sample(index, { baselineAccepted = true, treatmentAccepted = true, baselineTokens = 1000, treatmentTokens = 800, baselineTokensTrusted = true, treatmentTokensTrusted = true, integrity = true, policyBound = true, treatmentResolution = null } = {}) {
   const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
   return {
     schemaVersion: 1,
@@ -19,7 +19,7 @@ function sample(index, { baselineAccepted = true, treatmentAccepted = true, base
     integrity: { valid: integrity, issues: integrity ? [] : ["taskHash-mismatch"] },
     baseline: { accepted: baselineAccepted, tokens: baselineTokens, tokenSource: "provider-reported", tokenConfidence: "exact", tokensTrusted: baselineTokensTrusted, durationMs: 100 },
     treatment: { accepted: treatmentAccepted, tokens: treatmentTokens, tokenSource: "provider-reported", tokenConfidence: "exact", tokensTrusted: treatmentTokensTrusted, durationMs: 90 },
-    features: { isolated: true, container: true },
+    features: { isolated: true, container: true, treatmentResolution },
     observed: { relativeTokenSavings: baselineTokens > 0 && Number.isFinite(treatmentTokens) ? (baselineTokens - treatmentTokens) / baselineTokens : null },
     promotionEligible: policyBound && integrity
   };
@@ -105,4 +105,32 @@ test("numeric but untrusted token provenance cannot satisfy the token-comparable
   assert.equal(result.evidence.tokenComparablePairs, 17);
   assert.equal(result.evidence.untrustedTokenPairs, 3);
   assert.ok(result.blockers.includes("token-comparable-pairs-below-minimum:17/20"));
+});
+
+
+test("promotion report exposes mission validation and efficiency rates without changing gate criteria", () => {
+  const samples = Array.from({ length: 20 }, (_, index) => sample(index, {
+    treatmentResolution: {
+      state: "validated",
+      taskCount: 2,
+      validatedTaskCount: 2,
+      firstPassValidatedTaskCount: index < 10 ? 2 : 1,
+      automaticRetries: index < 5 ? 1 : 0,
+      escalations: index < 4 ? 1 : 0,
+      providerSwitches: index < 2 ? 1 : 0,
+      tokensToValidatedOutcome: 800 + index
+    }
+  }));
+  const result = evaluatePromotionGate(
+    { samples },
+    { candidatePolicyFingerprint: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.fingerprint }
+  );
+  assert.equal(result.promotionReady, true);
+  assert.equal(result.operational.observedMissions, 20);
+  assert.equal(result.operational.missionValidationRate, 1);
+  assert.equal(result.operational.firstPassTaskValidationRate, 0.75);
+  assert.equal(result.operational.retryMissionRate, 0.25);
+  assert.equal(result.operational.escalationMissionRate, 0.2);
+  assert.equal(result.operational.providerSwitchMissionRate, 0.1);
+  assert.equal(result.operational.medianTokensToValidatedOutcome, 809.5);
 });
