@@ -510,7 +510,7 @@ try {
     it("should not allow infrastructure runs to be claim-eligible", () => {
       const infraRun = {
         evidence: { executionType: "infrastructure", publicClaimEligible: false, reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(infraRun), "Infrastructure run should not be claim-eligible");
@@ -520,7 +520,7 @@ try {
       const realRun = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
         environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: true }
       };
       assert.ok(isClaimEligibleRun(realRun), "Real execution run should be claim-eligible");
@@ -538,7 +538,7 @@ try {
     it("should block runs with publicClaimEligible undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined publicClaimEligible should not be eligible");
@@ -547,7 +547,7 @@ try {
     it("should block runs with reproducible undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, isolated: true },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined reproducible should not be eligible");
@@ -556,7 +556,7 @@ try {
     it("should block runs with isolated undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined isolated should not be eligible");
@@ -565,7 +565,7 @@ try {
     it("should block runs with failed validation", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported" },
+        usage: { tokenSource: "provider-reported", confidence: "exact" },
         validation: { passed: false }
       };
       assert.ok(!isClaimEligibleRun(run), "Failed validation should not be eligible");
