@@ -238,6 +238,7 @@ export async function orchestrateRun(
       policyFingerprint?: string;
       pairId?: string;
     } | undefined;
+    const missionResolution = driverResult.metadata?.missionResolution as BenchmarkRunReport["resolution"] | undefined;
     const adaptiveIdentityValid = condition !== 'maestro-adaptive'
       || (
         adaptiveMetadata?.confirmed === true
@@ -338,6 +339,7 @@ export async function orchestrateRun(
       tokens,
       usage: { tokenSource: tokens.source, confidence: tokens.confidence },
       validation: { passed: validationPassed },
+      ...(missionResolution ? { resolution: missionResolution } : {}),
       toolUsage: driverResult.toolUsage ?? null,
       timing: {
         startMs,
