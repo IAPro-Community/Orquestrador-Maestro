@@ -7,7 +7,7 @@ const FAMILIES_TYPES = Object.freeze({
   "plan.*": Object.freeze(["plan.approved", "plan.auto_approved", "plan.rejected", "plan.persisted", "plan.revised", "batch.question.asked", "batch.question.answered"]),
   "task.*": Object.freeze([
     "task.ready", "task.started", "task.verifying", "task.failed", "task.blocked", "task.completed",
-    "run.created", "run.started", "run.cancel_requested", "run.completed", "run.failed", "run.attachPty", "run.output",
+    "run.created", "run.started", "run.cancel_requested", "run.completed", "run.failed", "run.blocked", "run.attachPty", "run.output",
     "artifact.created", "evidence.created",
     "resolution.planned", "outcome.validated", "outcome.revoked", "outcome.revalidated",
     "budget.reserved", "budget.committed", "budget.released",
