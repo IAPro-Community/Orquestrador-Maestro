@@ -21,7 +21,7 @@
 - Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20+ de verdade.
 - Fix: extensão VS Code (`extensions/vscode-maestro/`) passa a ir no pacote npm (`files[]`).
 - Chore: novo `npm run validate:paths` para `scripts/validate-git-paths.js` (antes órfão); deps menores (`tsx` 4.23.15, `@types/node` 22.20.4).
-- Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE`.
+- Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE` e troca `curl|bash` por baixar-inspecionar-executar.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 

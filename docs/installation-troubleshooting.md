@@ -19,16 +19,20 @@ O `-Check` deve terminar sem ações diferentes de `ok`. A política mantém ape
 
 Use uma sessão normal do usuário. Não use `sudo`, `su`, root nem PowerShell como Administrador.
 
-macOS e Linux:
+macOS e Linux (baixe, inspecione e só então execute — nunca encane saída remota direto no shell):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+less /tmp/bootstrap-install.sh
+bash /tmp/bootstrap-install.sh
 ```
 
-Windows PowerShell:
+Windows PowerShell (mesma regra: salvar, ler, executar):
 
 ```powershell
-irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 -OutFile $env:TEMP/bootstrap-install.ps1
+notepad $env:TEMP/bootstrap-install.ps1
+& $env:TEMP/bootstrap-install.ps1
 ```
 
 O bootstrap exige Node.js 20 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
@@ -56,7 +60,8 @@ npm uninstall -g @iapro/orquestrador-maestro-cli
 rm -rf -- "$HOME/.orquestrador" "$HOME/.orquestrador-public-backups"
 
 # 5. Faça uma instalação limpa e verifique o resultado.
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+bash /tmp/bootstrap-install.sh
 orquestrador-maestro verify
 ```
 
