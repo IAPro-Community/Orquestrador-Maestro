@@ -353,6 +353,85 @@
           "type": "boolean"
         }
       }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "taskCount",
+        "validatedTaskCount",
+        "failedTaskCount",
+        "blockedTaskCount",
+        "needsAttentionTaskCount"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "validated",
+            "needs_attention",
+            "blocked",
+            "failed",
+            "running"
+          ]
+        },
+        "taskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validatedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "firstPassValidatedTaskCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "failedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blockedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "needsAttentionTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "providerSwitches": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "automaticRetries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "escalations": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tokensToValidatedOutcome": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
     }
   }
 }
