@@ -61,6 +61,8 @@ Options:
   --output <path>                Report output path
   --format <markdown|json|csv|both|all>  Report format (default: both)
   --image <image>                Docker image for container mode
+  --network <none|bridge>         Container network mode (default: none)
+  --pass-env <NAME>               Forward one host env var by name (repeatable)
   --dry-run                      Validate scenario without executing
   --parallel <N>                 Run N scenarios in parallel (default: 1)
   --profile <official|ci>        Predefined configuration profile
@@ -345,6 +347,8 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
       timeout: { type: 'string', default: '300000' },
       container: { type: 'boolean', default: false },
       image: { type: 'string' },
+      network: { type: 'string', default: 'none' },
+      'pass-env': { type: 'string', multiple: true },
     },
     strict: false,
   });
@@ -376,6 +380,28 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
     }
   }
 
+  const networkMode = String(values.network ?? 'none');
+  if (!['none', 'bridge'].includes(networkMode)) {
+    return { exitCode: 1, message: 'Error: --network must be none or bridge' };
+  }
+  const requestedEnvNames = Array.isArray(values['pass-env'])
+    ? values['pass-env'].map(String)
+    : values['pass-env'] ? [String(values['pass-env'])] : [];
+  const forwardedEnv: Record<string, string> = {};
+  for (const name of [...new Set(requestedEnvNames)].sort()) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      return { exitCode: 1, message: `Error: invalid --pass-env name '${name}'` };
+    }
+    if (/^(?:MAESTRO_|BENCHMARK_)/u.test(name)) {
+      return { exitCode: 1, message: `Error: internal benchmark variable '${name}' cannot be forwarded with --pass-env` };
+    }
+    const value = process.env[name];
+    if (typeof value !== 'string' || value.length === 0) {
+      return { exitCode: 1, message: `Error: --pass-env ${name} is not set in the host environment` };
+    }
+    forwardedEnv[name] = value;
+  }
+
   const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
@@ -395,7 +421,10 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
     model,
     timeoutMs,
     pairId,
+    networkMode: networkMode as 'none' | 'bridge',
+    forwardedEnvNames: Object.keys(forwardedEnv).sort(),
     env: {
+      ...forwardedEnv,
       BENCHMARK_ADAPTIVE_POLICY_ID: policyId,
       BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: policyFingerprint,
       ...(useContainer ? { BENCHMARK_IMAGE: image } : {}),
@@ -409,7 +438,8 @@ async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
     `Adaptive pair: ${scenario.id} (${pairId})`,
     `  Maestro control:  ${control.report.status} (${(control.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
     `  Maestro adaptive: ${treatment.report.status} (${(treatment.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
-    `  Isolation: ${useContainer ? 'container' : 'local temp workspace (analysis-only for promotion)'}`,
+    `  Isolation: ${useContainer ? `container network=${networkMode}` : 'local temp workspace (analysis-only for promotion)'}`,
+    `  Forwarded env names: ${Object.keys(forwardedEnv).length ? Object.keys(forwardedEnv).sort().join(', ') : 'none'}`,
     `  Tokens: control=${control.report.tokens.total ?? 'unavailable'} adaptive=${treatment.report.tokens.total ?? 'unavailable'}`,
   ];
 

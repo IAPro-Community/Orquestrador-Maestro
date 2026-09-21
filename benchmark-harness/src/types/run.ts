@@ -49,6 +49,8 @@ export interface RunEnvironment {
   containerId?: string;
   /** Container network mode, if applicable. */
   networkMode?: 'none' | 'bridge' | 'host';
+  /** Names only (never values) of host env vars explicitly forwarded to the container. */
+  forwardedEnvNames?: string[];
   /** Container CPU limit, if applicable. */
   cpuLimit?: number;
   /** Container memory limit, if applicable. */

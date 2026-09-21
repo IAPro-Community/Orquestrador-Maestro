@@ -61,6 +61,10 @@ export interface OrchestrateOptions {
   pairId?: string;
   /** Replicate number within a pair (0-indexed). */
   replicate?: number;
+  /** Explicit container network mode. */
+  networkMode?: 'none' | 'bridge';
+  /** Names only of explicitly forwarded host environment variables. */
+  forwardedEnvNames?: string[];
 }
 
 /** Single run result. */
@@ -88,6 +92,8 @@ export async function orchestrateRun(
     model: overrideModel,
     pairId,
     replicate,
+    networkMode = 'none',
+    forwardedEnvNames = [],
   } = options;
 
   // Select the appropriate driver based on condition
@@ -176,6 +182,7 @@ export async function orchestrateRun(
         command,
         env: { ...conditionEnv, BENCHMARK_MODEL: driverOptions.model },
         timeoutMs: driverOptions.timeoutMs,
+        networkMode,
         extraMounts: activeDriver.name === 'maestro'
           ? [{ host: MAESTRO_REPO_ROOT, container: MAESTRO_CONTAINER_ROOT, readonly: true }]
           : [],
@@ -199,6 +206,8 @@ export async function orchestrateRun(
         isolated: true,
         containerImage: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim',
         containerId: containerResult.containerId,
+        networkMode,
+        forwardedEnvNames: [...forwardedEnvNames].sort(),
       };
     } else {
       driverResult = await activeDriver.execute(task, driverOptions);

@@ -24,16 +24,19 @@ function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 
     driver: {
       name: "driver-1",
       version: "1",
-      config: policyIdentity ? {
-        adaptiveResolutionPolicyId: policyIdentity.id,
-        adaptiveResolutionPolicyFingerprint: policyIdentity.fingerprint
-      } : {}
+      config: {
+        maestroRuntimeCommit: "c".repeat(40),
+        ...(policyIdentity ? {
+          adaptiveResolutionPolicyId: policyIdentity.id,
+          adaptiveResolutionPolicyFingerprint: policyIdentity.fingerprint
+        } : {})
+      }
     },
     status: accepted ? "passed" : "failed",
     results: { acceptanceRate: accepted ? 1 : 0, accepted, criteria: [] },
     tokens: { total: tokens, source: tokenSource, confidence: tokenConfidence },
     timing: { durationMs: 100 },
-    environment: { isolated: true, container: true }
+    environment: { isolated: true, container: true, networkMode: "bridge", forwardedEnvNames: ["OPENAI_API_KEY"] }
   };
 }
 
@@ -169,4 +172,26 @@ test("numeric benchmark tokens with weak provenance remain analysis-only for tok
   assert.equal(sample.baseline.tokensTrusted, false);
   assert.equal(sample.treatment.tokensTrusted, true);
   assert.equal(sample.observed.tokenSavings, 200);
+});
+
+
+test("hard benchmark pair integrity includes runtime commit, network mode, and forwarded env names", () => {
+  const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const control = benchmarkRun({ condition: "maestro", tokens: 1000 });
+  const treatment = benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity });
+
+  treatment.driver.config.maestroRuntimeCommit = "d".repeat(40);
+  let sample = pairBenchmarkRuns([control, treatment]).samples[0];
+  assert.equal(sample.integrity.valid, false);
+  assert.ok(sample.integrity.issues.includes("maestroRuntimeCommit-mismatch"));
+
+  treatment.driver.config.maestroRuntimeCommit = control.driver.config.maestroRuntimeCommit;
+  treatment.environment.networkMode = "none";
+  sample = pairBenchmarkRuns([control, treatment]).samples[0];
+  assert.ok(sample.integrity.issues.includes("networkMode-mismatch"));
+
+  treatment.environment.networkMode = control.environment.networkMode;
+  treatment.environment.forwardedEnvNames = ["ANTHROPIC_API_KEY"];
+  sample = pairBenchmarkRuns([control, treatment]).samples[0];
+  assert.ok(sample.integrity.issues.includes("forwardedEnvNames-mismatch"));
 });

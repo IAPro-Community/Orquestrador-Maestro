@@ -179,6 +179,12 @@ function normalizeAdaptivePlanningReport(report = {}) {
   });
 }
 
+function normalizedStringList(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === "string").map((item) => item.trim()).filter(Boolean).sort()
+    : [];
+}
+
 function benchmarkIdentityIssues(baselineRun, treatmentRun) {
   const issues = [];
   const comparableFields = [
@@ -187,13 +193,22 @@ function benchmarkIdentityIssues(baselineRun, treatmentRun) {
     ["fixtureHash", fixtureHashFromRun(baselineRun), fixtureHashFromRun(treatmentRun)],
     ["model", nonEmptyOrNull(baselineRun?.model), nonEmptyOrNull(treatmentRun?.model)],
     ["provider", nonEmptyOrNull(baselineRun?.provider), nonEmptyOrNull(treatmentRun?.provider)],
-    ["driver", nonEmptyOrNull(baselineRun?.driver?.name), nonEmptyOrNull(treatmentRun?.driver?.name)]
+    ["driver", nonEmptyOrNull(baselineRun?.driver?.name), nonEmptyOrNull(treatmentRun?.driver?.name)],
+    ["maestroRuntimeCommit", nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit), nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit)],
+    ["networkMode", nonEmptyOrNull(baselineRun?.environment?.networkMode), nonEmptyOrNull(treatmentRun?.environment?.networkMode)],
+    ["forwardedEnvNames", JSON.stringify(normalizedStringList(baselineRun?.environment?.forwardedEnvNames)), JSON.stringify(normalizedStringList(treatmentRun?.environment?.forwardedEnvNames))]
   ];
   for (const [name, left, right] of comparableFields) {
     if (left && right && left !== right) issues.push(`${name}-mismatch`);
   }
   if (baselineRun?.status === "benchmark-integrity-violation" || treatmentRun?.status === "benchmark-integrity-violation") {
     issues.push("benchmark-integrity-violation");
+  }
+  const isolatedPair = treatmentRun?.environment?.isolated === true && baselineRun?.environment?.isolated === true;
+  if (isolatedPair) {
+    if (!nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit) || !nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit)) {
+      issues.push("maestroRuntimeCommit-missing");
+    }
   }
   return issues;
 }
@@ -250,7 +265,10 @@ function normalizeBenchmarkPair(baselineRun, treatmentRun, { baselineCondition, 
       treatmentCondition,
       fixtureHash: fixtureHashFromRun(treatmentRun) || fixtureHashFromRun(baselineRun),
       isolated: isolatedPair,
-      container: containerPair
+      container: containerPair,
+      maestroRuntimeCommit: nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit) || nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit),
+      networkMode: nonEmptyOrNull(treatmentRun?.environment?.networkMode) || nonEmptyOrNull(baselineRun?.environment?.networkMode),
+      forwardedEnvNames: Object.freeze(normalizedStringList(treatmentRun?.environment?.forwardedEnvNames))
     }),
     observed: observedMetrics(baseline, treatment),
     promotionEligible: Boolean(policyFingerprint) && integrity.valid && isolatedPair
