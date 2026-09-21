@@ -294,6 +294,7 @@ describe('adaptive benchmark integrity', () => {
         },
       });
       assert.equal(result.report.status, 'benchmark-integrity-violation');
+      assert.equal(result.report.evidence.publicClaimEligible, false);
       assert.equal(result.report.failureType, 'adaptive-policy-unconfirmed-or-mismatched');
       assert.equal(result.report.driver.config?.adaptiveResolutionPolicyFingerprint, undefined);
     } finally {
