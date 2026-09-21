@@ -443,9 +443,13 @@ class MaestroApplication {
     await this.record(run.id, "resolution.planned", {
       mode: resolution.mode,
       strategy: resolution.strategy,
+      budgetTier: resolution.budget.tier,
+      contextTokens: resolution.budget.contextTokens,
       evidenceCandidates: resolution.evidence.candidates,
       evidenceSelected: resolution.evidence.selected.length,
-      contextBudgetOverflow: resolution.evidence.budgetOverflow
+      contextBudgetOverflow: resolution.evidence.budgetOverflow,
+      escalationCount: resolution.escalation.count,
+      escalationMax: resolution.escalation.max
     });
     await this.record(run.id, "budget.reserved", {
       reservationId: resolution.budget.reservation.id,
