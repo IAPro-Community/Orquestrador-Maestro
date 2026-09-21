@@ -145,7 +145,7 @@ function normalizeProviderAttempts(request = {}) {
     seen.add(providerId);
     const model = index === 0 && typeof value !== "object"
       ? request.model
-      : typeof value === "object" && typeof value.model === "string" && value.model.trim()
+      : value && typeof value === "object" && typeof value.model === "string" && value.model.trim()
         ? value.model.trim()
         : undefined;
     attempts.push(Object.freeze({ providerId, model }));
