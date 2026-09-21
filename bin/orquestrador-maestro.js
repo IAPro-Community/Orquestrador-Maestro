@@ -1747,6 +1747,15 @@ async function handleGoCommand(args, planningOnly = false) {
   }
 
   // Fase 4: Planejamento semântico
+  // Create the canonical Mission before planning so the TaskGraph, approvals,
+  // attention records, runtime Tasks and Proof Bundle share one missionId.
+  const mission = await app.createMission({
+    workspacePath,
+    objective: approvedBrief.objective,
+    status: "planning",
+    startedAt: new Date().toISOString(),
+    metadata: { missionBriefId: approvedBrief.id }
+  });
   updateTitle("Montando plano de engenharia...");
   s.start("Montando plano de engenharia");
 
@@ -1788,7 +1797,7 @@ async function handleGoCommand(args, planningOnly = false) {
       planner,
       intent: description,
       missionBrief: approvedBrief,
-      missionId: approvedBrief.id,
+      missionId: mission.id,
       resolvedSkills: resolved.allSkills,
       experiment: { authorized: true, pairId: adaptivePairId, startStrategy: "targeted" },
       workspacePath
@@ -1806,7 +1815,7 @@ async function handleGoCommand(args, planningOnly = false) {
   } else {
     planResult = await planner.plan({
       missionBrief: approvedBrief,
-      missionId: approvedBrief.id,
+      missionId: mission.id,
       taskRelevantContext: relevantContext,
       resolvedSkills: resolved.allSkills,
       allowFallback: true,
@@ -1855,14 +1864,15 @@ async function handleGoCommand(args, planningOnly = false) {
     }, { autoFallbackAllowed: false });
 
     if (!autoEval.approved) {
-      await persistenceHooks.onRejected({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
-      await app.attentionProducers.humanApprovalRequest({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, evalResult: autoEval, projectId: project.id });
+      await persistenceHooks.onRejected({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
+      await app.attentionProducers.humanApprovalRequest({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, evalResult: autoEval, projectId: project.id });
+      await app.updateMission(mission.id, { status: "blocked", metadata: { ...(mission.metadata || {}), approvalBlock: autoEval.reason } });
       p.cancel(`Execução automática rejeitada: ${autoEval.reason}`);
       return 1;
     }
-    await persistenceHooks.onApproved({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
+    await persistenceHooks.onApproved({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
     if (planningOnly) {
-      await app.createMission({ workspacePath, objective: approvedBrief.objective, status: "awaiting_approval", startedAt: new Date().toISOString() });
+      await app.updateMission(mission.id, { status: "awaiting_approval" });
       s.stop("Plano aprovado");
       updateTitle("Plano aprovado");
       p.outro("◆ Plano de engenharia aprovado — nenhuma execução será realizada (modo plan)");
@@ -1882,14 +1892,15 @@ async function handleGoCommand(args, planningOnly = false) {
       });
 
       if (p.isCancel(action) || action === "cancelar") {
+        await app.updateMission(mission.id, { status: "cancelled", completedAt: new Date().toISOString() });
         p.cancel("Operação cancelada pelo usuário.");
         return 0;
       } else if (action === "aprovar") {
         const humanApproval = PlanApprovalGate.recordHumanApproval({ taskGraphId: planResult.taskGraph.id, userDecision: "approved" });
-        await persistenceHooks.onApproved({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: humanApproval });
+        await persistenceHooks.onApproved({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: humanApproval });
         planApproved = true;
         if (planningOnly) {
-          await app.createMission({ workspacePath, objective: approvedBrief.objective, status: "awaiting_approval", startedAt: new Date().toISOString() });
+          await app.updateMission(mission.id, { status: "awaiting_approval" });
           s.stop("Plano aprovado");
           updateTitle("Plano aprovado");
           p.outro("◆ Plano de engenharia aprovado — nenhuma execução será realizada (modo plan)");
@@ -1902,6 +1913,7 @@ async function handleGoCommand(args, planningOnly = false) {
         }).join("\n\n");
         p.note(details, "Detalhes das Tarefas");
       } else if (action === "refinar") {
+        await app.updateMission(mission.id, { status: "cancelled", completedAt: new Date().toISOString(), metadata: { ...(mission.metadata || {}), reason: "refinement-requested" } });
         p.cancel("Retornando ao refinamento de missão.");
         return 0;
       }
@@ -1910,7 +1922,7 @@ async function handleGoCommand(args, planningOnly = false) {
 
   // Fase 5: Execução
   updateTitle("Executando tarefas...");
-  const mission = await app.createMission({ workspacePath, objective: spec.answers?.intent || description, status: "running", startedAt: new Date().toISOString() });
+  await app.updateMission(mission.id, { status: "running" });
   const executor = new LaneExecutor({
     application: app,
     maxParallel: parseInt(options.maxParallel, 10) || 3,
