@@ -134,6 +134,7 @@ class JsonFileRunStore extends RunStore {
   async listTasks(filters) { return this._list("tasks", filters); }
   async listRuns(filters = {}) {
     await this.initialize();
+    await this._reloadIfChanged();
     let runs = this._state.runs;
     if (filters.projectId) {
       const taskIds = new Set(this._state.tasks.filter((task) => task.projectId === filters.projectId).map((task) => task.id));
