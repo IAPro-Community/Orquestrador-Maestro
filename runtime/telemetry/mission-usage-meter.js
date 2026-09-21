@@ -60,7 +60,7 @@ class MissionUsageMeter {
   record({ adapter, request, completed }) {
     const usage = this.parseUsage({ providerId: adapter?.id, stdout: completed?.stdout, stderr: completed?.stderr, model: request?.model });
     const tokenInput = numeric(usage?.tokenInput), tokenOutput = numeric(usage?.tokenOutput);
-    const freshInvocation = !request?.sessionId && request?.continue !== true;
+    const freshInvocation = request?.freshSession === true || (!request?.sessionId && request?.continue !== true);
     const complete = usage?.usageComplete === true && freshInvocation && tokenInput !== null && tokenOutput !== null;
     this.records.push(Object.freeze({
       providerId: adapter?.id || "unknown", complete, freshInvocation,
