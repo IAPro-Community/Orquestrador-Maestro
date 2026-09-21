@@ -69,3 +69,22 @@ test("LaneExecutor marks a task completed only for a completed run", async () =>
   const result = await executor.execute([task("task-1")], "mission-1");
   assert.equal(result["task-1"].status, "completed");
 });
+
+
+test("LaneExecutor rejects completed runs whose canonical outcome is not validated", async () => {
+  const app = {
+    async getMission() { return { projectId: "project-1" }; },
+    async executeRun() {
+      return {
+        run: {
+          status: "completed",
+          metadata: { resolution: { outcome: { state: "needs_attention" } } }
+        }
+      };
+    }
+  };
+  const executor = new LaneExecutor({ application: app, maxParallel: 1 });
+  const result = await executor.execute([task("task-1")], "mission-1");
+  assert.equal(result["task-1"].status, "failed");
+  assert.equal(result["task-1"].error, "resolution outcome: needs_attention");
+});
