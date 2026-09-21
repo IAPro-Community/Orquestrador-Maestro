@@ -494,6 +494,16 @@ class Memory {
 
     metrics.visible = observations.length;
 
+    // A task-scoped query may still consume branch/repository observations
+    // that have no task identity, but it must never leak observations that
+    // explicitly belong to another task.
+    if (query.taskId) {
+      observations = observations.filter(obs => {
+        const observationTaskId = obs.taskId || obs.scope?.taskId || null;
+        return observationTaskId === null || observationTaskId === query.taskId;
+      });
+    }
+
     if (query.type) {
       observations = observations.filter(obs => obs.type === query.type);
     }
