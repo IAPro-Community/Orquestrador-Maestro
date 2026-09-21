@@ -116,6 +116,9 @@ function buildCognitiveTelemetry({
   prompt = null,
   contextDigests = null,
   sessionResumed = null,
+  automaticRetries = 0,
+  escalations = 0,
+  providerSwitches = 0,
   reviewCalls: reviewCallsOverride = null,
   traceId: existingTraceId = null,
   spanId: existingSpanId = null
@@ -174,7 +177,10 @@ function buildCognitiveTelemetry({
     primaryCalls,
     reviewCalls,
     toolCalls: primary.toolCalls,
-    automaticRetries: 0,
+    automaticRetries: Number.isInteger(automaticRetries) && automaticRetries >= 0 ? automaticRetries : null,
+    retryScope: "maestro",
+    escalations: Number.isInteger(escalations) && escalations >= 0 ? escalations : null,
+    providerSwitches: Number.isInteger(providerSwitches) && providerSwitches >= 0 ? providerSwitches : null,
     // Skills economy (existing fields preserved).
     skillsRequested, skillsResolved, skillsLoaded,
     maxSkills: budget?.maxSkills ?? null,
