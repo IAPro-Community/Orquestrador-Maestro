@@ -91,6 +91,15 @@ class LaneExecutor extends EventEmitter {
             interactionProfile: this.interactionProfile
           })
             .then((result) => {
+              const runStatus = result?.run?.status;
+              if (runStatus !== "completed") {
+                const reason = result?.run?.metadata?.preflightBlock
+                  || result?.review?.reason
+                  || result?.governanceBlocking?.[0]
+                  || `run finished with status: ${runStatus || "unknown"}`;
+                markFailed(task, reason);
+                return;
+              }
               results[task.id] = { status: "completed", result };
               completed.add(task.id);
               this.emit("task.completed", task);
