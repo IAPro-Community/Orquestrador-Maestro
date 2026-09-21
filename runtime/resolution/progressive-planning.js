@@ -1,5 +1,7 @@
 "use strict";
 
+const { classifyResolutionFailure, shouldEscalateContext } = require("./escalation/classifier");
+
 const STRATEGIES = Object.freeze(["targeted", "balanced", "deep"]);
 
 function normalizeProgressivePlanningExperiment(experiment = {}) {
@@ -20,7 +22,7 @@ function strategySequence(startStrategy) {
 }
 
 function isContextEscalationFailure(error) {
-  return error?.code === "STRUCTURED_OUTPUT_FAILED" && error?.failureKind === "validation";
+  return shouldEscalateContext(classifyResolutionFailure(error));
 }
 
 function aggregatePlanningTelemetry(attempts, { fallbackUsed = false, terminalReason = null } = {}) {
@@ -159,13 +161,12 @@ async function planProgressively({
         planningTelemetry: error?.planningTelemetry || null
       }));
 
-      if (isContextEscalationFailure(error)) {
-        terminalReason = "validation-insufficient-context";
+      const classifiedReason = classifyResolutionFailure(error);
+      if (shouldEscalateContext(classifiedReason)) {
+        terminalReason = classifiedReason;
         continue;
       }
-      if (error?.code === "PROVIDER_EXECUTION_FAILED") terminalReason = "provider-failure";
-      else if (error?.failureKind === "parse" || error?.failureKind === "structure") terminalReason = `${error.failureKind}-failure`;
-      else throw error;
+      terminalReason = classifiedReason;
       break;
     }
   }
