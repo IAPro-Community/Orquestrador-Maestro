@@ -810,8 +810,8 @@ class MaestroApplication {
       verificationId: verification.id
     });
     const completionTask = request.semanticTask || { id: task.id, acceptanceCriteria: [] };
-    const completion = isTaskCompletionEligible(completionTask, { evidence: producedEvidence, verification, qualityFindings, deterministic: true });
-    const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: request.evidence || result.evidence, sessionWarnings: this.governanceWarnings });
+    const completion = isTaskCompletionEligible(completionTask, { evidence: persistedEvidence, verification, qualityFindings, deterministic: true });
+    const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: persistedEvidence, sessionWarnings: this.governanceWarnings });
     this.governanceNotices = [...governance.warnings, ...governance.recommendations];
     const strictGate = governance.mode === "strict";
     const hasCriticalFinding = qualityFindings.some((finding) => finding?.blocking || ["BLOCKER", "HIGH"].includes(String(finding?.severity || "").toUpperCase()));
