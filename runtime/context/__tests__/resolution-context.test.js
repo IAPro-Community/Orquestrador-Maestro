@@ -62,3 +62,17 @@ test("context enforce fails closed without explicit promotion authorization", as
     /RESOLUTION_ENFORCE_NOT_READY/u
   );
 });
+
+
+test("context enforce blocks when required evidence alone exceeds the hard budget", async () => {
+  const engine = new ContextEngine({ workspacePath: process.cwd(), semanticRanker: null });
+  engine._discoverFacts = async () => [
+    item("critical.auth", "x".repeat(8000), { relevance: 1 })
+  ];
+
+  await assert.rejects(
+    engine.buildContext("auth", 1000, { resolutionMode: "enforce", enforceAuthorized: true }),
+    (error) => error?.code === "RESOLUTION_REQUIRED_CONTEXT_OVERFLOW"
+      && error.requiredEstimatedTokens > error.contextTokenBudget
+  );
+});
