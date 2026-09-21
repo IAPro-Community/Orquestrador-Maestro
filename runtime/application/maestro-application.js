@@ -5,6 +5,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const path = require("node:path");
 const core = require("../core");
+const { runtimeTaskId, semanticTaskIdOf } = require("../core/task-identity");
 const { diff, snapshot } = require("../git/monitor");
 const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("../providers");
 const { getPolicy, getProfile } = require("../profiles");
@@ -45,17 +46,6 @@ const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
 
-function canonicalRuntimeTaskId({ missionId, semanticTaskId, semanticTask } = {}) {
-  const semanticId = typeof semanticTaskId === "string" && semanticTaskId.trim()
-    ? semanticTaskId.trim()
-    : typeof semanticTask?.id === "string" && semanticTask.id.trim()
-      ? semanticTask.id.trim()
-      : null;
-  if (!semanticId) return id("task");
-  if (typeof missionId !== "string" || !missionId.trim()) return semanticId;
-  const digest = crypto.createHash("sha256").update(`${missionId.trim()}\0${semanticId}`, "utf8").digest("hex").slice(0, 24);
-  return `task-${digest}`;
-}
 
 // Ephemeral provider stream vs durable telemetry contract:
 // - provider.started / provider.output / provider.completed carry raw chunks
@@ -456,11 +446,7 @@ class MaestroApplication {
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
     const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
-    const semanticTaskId = (typeof request.semanticTaskId === "string" && request.semanticTaskId.trim())
-      ? request.semanticTaskId.trim()
-      : (typeof request.semanticTask?.id === "string" && request.semanticTask.id.trim())
-        ? request.semanticTask.id.trim()
-        : null;
+    const semanticTaskId = semanticTaskIdOf(request);
     const semanticTask = request.semanticTask || {
       id: semanticTaskId || undefined,
       objective: request.description,
@@ -501,7 +487,7 @@ class MaestroApplication {
       resolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
-    const task = core.createTask({ id: canonicalRuntimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
+    const task = core.createTask({ id: runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
