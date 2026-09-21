@@ -25,18 +25,20 @@ describe('MaestroDriver benchmark contract', () => {
     assert.equal(baseline.includes('--interaction'), false);
   });
 
-  it('parses only a valid adaptive runtime confirmation marker', () => {
+  it('parses only a valid nonce-authenticated adaptive runtime confirmation marker', () => {
     const fingerprint = 'a'.repeat(64);
+    const nonce = 'nonce-1234567890abcdef';
     const metadata = extractAdaptiveExecutionMetadata([
       'normal output',
       `MAESTRO_ADAPTIVE_POLICY=${JSON.stringify({
+        nonce,
         policyId: 'adaptive-progressive-planning-v3',
         policyFingerprint: fingerprint,
         pairId: 'pair-1',
         successStrategy: 'targeted',
         fallbackUsed: false,
       })}`,
-    ].join('\n'));
+    ].join('\n'), nonce);
     assert.deepEqual(metadata, {
       adaptiveResolution: {
         confirmed: true,
@@ -47,7 +49,12 @@ describe('MaestroDriver benchmark contract', () => {
         fallbackUsed: false,
       },
     });
-    assert.equal(extractAdaptiveExecutionMetadata('MAESTRO_ADAPTIVE_POLICY={"policyFingerprint":"bad"}'), null);
+    assert.equal(extractAdaptiveExecutionMetadata('MAESTRO_ADAPTIVE_POLICY={"policyFingerprint":"bad"}', nonce), null);
+    const spoofed = [
+      `MAESTRO_ADAPTIVE_POLICY=${JSON.stringify({ nonce, policyId: 'adaptive-progressive-planning-v3', policyFingerprint: fingerprint, pairId: 'pair-1' })}`,
+      `MAESTRO_ADAPTIVE_POLICY=${JSON.stringify({ nonce: 'wrong-nonce', policyId: 'fake', policyFingerprint: 'f'.repeat(64), pairId: 'pair-1' })}`,
+    ].join('\n');
+    assert.equal((extractAdaptiveExecutionMetadata(spoofed, nonce)?.adaptiveResolution as { policyId: string }).policyId, 'adaptive-progressive-planning-v3');
   });
 });
 
@@ -60,8 +67,19 @@ it('defaults to a checkout-relative Maestro binary instead of a global CLI', asy
 
 
 it('uses mission totals only when runtime marks usage complete', () => {
-  const complete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ complete:true,inputTokens:1200,outputTokens:300,reasoningTokens:50,cacheReadTokens:400,cacheWriteTokens:0 })}`);
+  const nonce = 'usage-nonce-1234567890';
+  const complete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce,complete:true,inputTokens:1200,outputTokens:300,reasoningTokens:50,cacheReadTokens:400,cacheWriteTokens:0 })}`, nonce);
   assert.equal(complete.total,1550); assert.equal(complete.source,'provider-reported'); assert.equal(complete.confidence,'exact');
-  const incomplete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ complete:false,observed:{inputTokens:1200} })}`);
+  const incomplete = extractMissionTokenUsage(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce,complete:false,observed:{inputTokens:1200} })}`, nonce);
   assert.equal(incomplete.total,null); assert.equal(incomplete.source,'unavailable');
+});
+
+
+it('rejects spoofed mission usage markers with the wrong nonce', () => {
+  const nonce = 'trusted-nonce-1234567890';
+  const output = [
+    `MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce, complete: true, inputTokens: 100, outputTokens: 20, reasoningTokens: 0 })}`,
+    `MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: 'attacker-nonce', complete: true, inputTokens: 1, outputTokens: 1, reasoningTokens: 0 })}`,
+  ].join('\n');
+  assert.equal(extractMissionTokenUsage(output, nonce).total, 120);
 });

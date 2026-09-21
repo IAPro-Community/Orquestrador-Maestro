@@ -116,8 +116,14 @@ export async function orchestrateRun(
 
     // 6. Run the agent
     const conditionEnv: Record<string, string> = { ...env };
-    for (const key of ['MAESTRO_ADAPTIVE_POLICY_ID', 'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT', 'MAESTRO_ADAPTIVE_PAIR_ID']) {
+    for (const key of ['MAESTRO_ADAPTIVE_POLICY_ID', 'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT', 'MAESTRO_ADAPTIVE_PAIR_ID', 'MAESTRO_BENCHMARK_MARKER_NONCE', 'MAESTRO_BENCHMARK_USAGE']) {
       delete conditionEnv[key];
+    }
+    const isMaestroCondition = ['maestro', 'maestro-focus', 'maestro-adaptive'].includes(condition);
+    const markerNonce = isMaestroCondition ? randomUUID() : undefined;
+    if (markerNonce) {
+      conditionEnv.MAESTRO_BENCHMARK_MARKER_NONCE = markerNonce;
+      conditionEnv.MAESTRO_BENCHMARK_USAGE = '1';
     }
     if (condition === 'maestro-adaptive') {
       const policyId = env.BENCHMARK_ADAPTIVE_POLICY_ID ?? process.env.BENCHMARK_ADAPTIVE_POLICY_ID;
@@ -171,12 +177,12 @@ export async function orchestrateRun(
       driverResult = {
         output: containerResult.output,
         exitCode: containerResult.exitCode,
-        tokens: null,
+        tokens: activeDriver.extractTokenUsage?.(containerResult.output, { markerNonce }) ?? createUnavailableTokens(),
         durationMs: containerResult.durationMs,
         sessionFile: '',
         agentOutput: containerResult.output,
         toolUsage: null,
-        metadata: activeDriver.extractMetadata?.(containerResult.output) ?? null,
+        metadata: activeDriver.extractMetadata?.(containerResult.output, { markerNonce }) ?? null,
       };
       // Record container provenance
       environment = {

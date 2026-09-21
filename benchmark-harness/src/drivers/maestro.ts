@@ -10,7 +10,7 @@
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import type { AgentDriver, DriverExecuteOptions, DriverResult } from '../types/driver.js';
+import type { AgentDriver, DriverExecuteOptions, DriverExtractionContext, DriverResult } from '../types/driver.js';
 import type { TokenUsage } from '../types/tokens.js';
 import { TokenConfidence, TokenSource } from '../types/tokens.js';
 import { createUnavailableTokens } from '../utils/tokens.js';
@@ -46,12 +46,25 @@ export function buildMaestroArgs(
   return args;
 }
 
-export function extractAdaptiveExecutionMetadata(output: string): Record<string, unknown> | null {
+function findAuthenticatedMarker(output: string, prefix: string, expectedNonce?: string): Record<string, unknown> | null {
   const lines = String(output || '').split(/\r?\n/u).reverse();
-  const line = lines.find((entry) => entry.startsWith(ADAPTIVE_MARKER));
-  if (!line) return null;
+  for (const line of lines) {
+    if (!line.startsWith(prefix)) continue;
+    try {
+      const parsed = JSON.parse(line.slice(prefix.length)) as Record<string, unknown>;
+      if (expectedNonce && parsed.nonce !== expectedNonce) continue;
+      return parsed;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+export function extractAdaptiveExecutionMetadata(output: string, expectedNonce?: string): Record<string, unknown> | null {
+  const parsed = findAuthenticatedMarker(output, ADAPTIVE_MARKER, expectedNonce);
+  if (!parsed) return null;
   try {
-    const parsed = JSON.parse(line.slice(ADAPTIVE_MARKER.length)) as Record<string, unknown>;
     if (
       typeof parsed.policyId !== 'string'
       || typeof parsed.policyFingerprint !== 'string'
@@ -72,11 +85,10 @@ export function extractAdaptiveExecutionMetadata(output: string): Record<string,
   }
 }
 
-export function extractMissionTokenUsage(output: string): TokenUsage {
-  const line = String(output || '').split(/\r?\n/u).reverse().find((entry) => entry.startsWith(MISSION_USAGE_MARKER));
-  if (!line) return createUnavailableTokens();
+export function extractMissionTokenUsage(output: string, expectedNonce?: string): TokenUsage {
+  const parsed = findAuthenticatedMarker(output, MISSION_USAGE_MARKER, expectedNonce);
+  if (!parsed) return createUnavailableTokens();
   try {
-    const parsed = JSON.parse(line.slice(MISSION_USAGE_MARKER.length)) as Record<string, unknown>;
     if (parsed.complete !== true) return createUnavailableTokens();
     const inputTokens = typeof parsed.inputTokens === 'number' ? parsed.inputTokens : null;
     const outputTokens = typeof parsed.outputTokens === 'number' ? parsed.outputTokens : null;
@@ -127,8 +139,12 @@ export class MaestroDriver implements AgentDriver {
     });
   }
 
-  extractMetadata(output: string): Record<string, unknown> | null {
-    return extractAdaptiveExecutionMetadata(output);
+  extractMetadata(output: string, context?: DriverExtractionContext): Record<string, unknown> | null {
+    return extractAdaptiveExecutionMetadata(output, context?.markerNonce);
+  }
+
+  extractTokenUsage(output: string, context?: DriverExtractionContext): TokenUsage {
+    return extractMissionTokenUsage(output, context?.markerNonce);
   }
 
   async execute(task: string, options: DriverExecuteOptions): Promise<DriverResult> {
@@ -197,12 +213,12 @@ export class MaestroDriver implements AgentDriver {
     return {
       output,
       exitCode,
-      tokens: extractMissionTokenUsage(output),
+      tokens: this.extractTokenUsage(output, { markerNonce: options.env?.MAESTRO_BENCHMARK_MARKER_NONCE }),
       durationMs: Date.now() - startMs,
       sessionFile: '',
       agentOutput,
       toolUsage: null,
-      metadata: this.extractMetadata(output),
+      metadata: this.extractMetadata(output, { markerNonce: options.env?.MAESTRO_BENCHMARK_MARKER_NONCE }),
     };
   }
 }

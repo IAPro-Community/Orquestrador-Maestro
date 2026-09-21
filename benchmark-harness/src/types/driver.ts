@@ -37,6 +37,12 @@ export interface ToolUsage {
   filesDeleted: number;
 }
 
+/** Context for parsing already-captured driver output without re-execution. */
+export interface DriverExtractionContext {
+  /** Per-run nonce used to authenticate benchmark-only runtime markers. */
+  markerNonce?: string;
+}
+
 /** Result returned by {@link AgentDriver.execute}. */
 export interface DriverResult {
   /** Combined stdout + stderr output. */
@@ -98,5 +104,7 @@ export interface AgentDriver {
   getTokenUsage?(sessionFile: string): Promise<TokenUsage | null>;
 
   /** Parse structured metadata from already-captured execution output. */
-  extractMetadata?(output: string): Record<string, unknown> | null;
+  extractMetadata?(output: string, context?: DriverExtractionContext): Record<string, unknown> | null;
+  /** Parse token usage from already-captured execution output. */
+  extractTokenUsage?(output: string, context?: DriverExtractionContext): TokenUsage | null;
 }

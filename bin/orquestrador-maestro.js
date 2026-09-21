@@ -1639,8 +1639,12 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const workspacePath = path.resolve(options.projectPath || process.cwd());
   const app = await createRuntimeApplication(workspacePath);
+  const benchmarkMarkerNonce = process.env.MAESTRO_BENCHMARK_MARKER_NONCE || "";
   let missionUsageMeter = null;
   if (process.env.MAESTRO_BENCHMARK_USAGE === "1") {
+    if (!/^[A-Za-z0-9-]{16,128}$/u.test(benchmarkMarkerNonce)) {
+      throw new Error("BENCHMARK_MARKER_NONCE_INVALID: benchmark token metering requires an authenticated marker nonce");
+    }
     const { MissionUsageMeter } = require(path.join(rootDir, "runtime", "telemetry", "mission-usage-meter"));
     missionUsageMeter = new MissionUsageMeter();
     missionUsageMeter.instrumentRegistry(app.providers);
@@ -1780,7 +1784,9 @@ async function handleGoCommand(args, planningOnly = false) {
       workspacePath
     });
 
+    if (!benchmarkMarkerNonce) throw new Error("BENCHMARK_MARKER_NONCE_REQUIRED: adaptive benchmark confirmation requires a nonce");
     console.log(`MAESTRO_ADAPTIVE_POLICY=${JSON.stringify({
+      nonce: benchmarkMarkerNonce,
       policyId: expected.id,
       policyFingerprint: expected.fingerprint,
       pairId: adaptivePairId,
@@ -1926,7 +1932,7 @@ async function handleGoCommand(args, planningOnly = false) {
   const failures = Object.values(results).filter((r) => r.status === "failed");
 
   if (missionUsageMeter) {
-    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify(missionUsageMeter.snapshot())}`);
+    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsageMeter.snapshot() })}`);
   }
 
   if (failures.length) {
