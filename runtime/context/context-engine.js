@@ -245,6 +245,13 @@ class ContextEngine {
       tokenBudget: maxTokens
     });
     const rankingApplied = resolutionMode === "enforce" && options.enforceAuthorized === true;
+    if (rankingApplied && evidenceAdvice.budgetOverflow === true) {
+      const error = new Error("RESOLUTION_REQUIRED_CONTEXT_OVERFLOW: required context exceeds the configured context budget");
+      error.code = "RESOLUTION_REQUIRED_CONTEXT_OVERFLOW";
+      error.requiredEstimatedTokens = evidenceAdvice.estimatedSelectedTokens;
+      error.contextTokenBudget = maxTokens;
+      throw error;
+    }
     const rankedPrimary = rankingApplied
       ? evidenceAdvice.selected.map((entry) => itemByCandidateId.get(entry.id)).filter(Boolean)
       : primary;
