@@ -24,7 +24,8 @@ class UsageAdapter {
     this.prompts.push(request.prompt);
     const stdout = [
       JSON.stringify({ type: "thread.started", thread_id: "thread-resolution" }),
-      JSON.stringify({ type: "turn.completed", usage: { input_tokens: 500, cached_input_tokens: 100, output_tokens: 120 } })
+      JSON.stringify({ type: "turn.completed", usage: { input_tokens: 500, cached_input_tokens: 100, output_tokens: 120 } }),
+      JSON.stringify({ type: "thread.completed", thread_id: "thread-resolution", usage: { input_tokens: 500, cached_input_tokens: 100, output_tokens: 120 } })
     ].join("\n");
     return {
       pid: 1,
