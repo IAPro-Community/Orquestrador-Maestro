@@ -333,6 +333,72 @@ function Uninstall-MappedDirectory {
   Remove-EmptyParentsUnderRoot -Path $DestinationDir -Root $HomePath
 }
 
+function Get-ManagedMirrorNames {
+  param([string]$SourceRoot)
+  try {
+    $names = @{}
+    $manifestPath = Join-Path $SourceRoot "SKILLS_MANIFEST.json"
+    if (Test-Path -LiteralPath $manifestPath) {
+      $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      foreach ($prop in $manifest.skills.PSObject.Properties) {
+        if ($prop.Value.mirrorEverywhere -eq $true) { $names[$prop.Name] = $true }
+      }
+    }
+    $policyPath = Join-Path $SourceRoot "SKILL_INSTALL_POLICY.json"
+    if (Test-Path -LiteralPath $policyPath) {
+      $policy = Get-Content -LiteralPath $policyPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      foreach ($prop in $policy.nativeRoots.PSObject.Properties) {
+        foreach ($dir in @($prop.Value.allowDirectories)) { $names[$dir] = $true }
+      }
+    }
+    $names["orquestrador-maestro"] = $true
+    if ($names.Count -gt 0) { return @($names.Keys | Sort-Object) }
+  } catch { }
+  return @(
+    ".system", "ask-claude", "ask-gemini", "autopilot", "cancel", "code-review",
+    "deep-interview", "doctor", "orquestrador-maestro", "plan", "ralplan", "ralph",
+    "security-review", "skill-adr", "skill-ai-orchestration", "skill-frontend-excellence",
+    "skill-multiagent-orchestration", "skill-preflight", "skill-quality-gate",
+    "skill-release-engineering", "skill-repo-health", "skill-research-and-synthesis",
+    "skill-saas-factory", "skill-saas-security-scan", "skill-systematic-debugging",
+    "skill-verification-before-completion", "skill-webapp-testing", "team",
+    "ultrawork", "web-clone", "worker"
+  )
+}
+
+function Get-SyncMirrorSpecs {
+  return @(
+    @{ Program = "codex"; Relative = ".codex\skills"; LabelPrefix = ".codex__skills" },
+    @{ Program = "opencode"; Relative = ".opencode\skills"; LabelPrefix = ".opencode__skills" },
+    @{ Program = "agents"; Relative = ".agents\skills"; LabelPrefix = ".agents__skills" },
+    @{ Program = "claude"; Relative = ".claude\skills"; LabelPrefix = ".claude__skills" },
+    @{ Program = "cursor"; Relative = ".cursor\skills"; LabelPrefix = ".cursor__skills" },
+    @{ Program = "gemini"; Relative = ".gemini\skills"; LabelPrefix = ".gemini__skills" },
+    @{ Program = "windsurf"; Relative = ".windsurf\skills"; LabelPrefix = ".windsurf__skills" },
+    @{ Program = "antigravity"; Relative = ".antigravity-skills\skills"; LabelPrefix = ".antigravity-skills__skills" }
+  )
+}
+
+function Test-SyncMirrorSelected {
+  param([string]$Program)
+  if ($SelectedComponents.Count -eq 0) { return $true }
+  if ($SelectedComponents -contains "all") { return $true }
+  $normalized = $Program.ToLowerInvariant()
+  if ($SelectedComponents -contains $normalized) { return $true }
+  if ($normalized -eq "agents" -and $SelectedComponents -contains "freebuff") { return $true }
+  return $false
+}
+
+function Uninstall-SyncedMirrorDirectory {
+  param([string]$DestinationDir, [string]$Label)
+  if (-not (Test-Path -LiteralPath $DestinationDir)) { return }
+  if (-not (Test-PathUnderRoot -Path $DestinationDir -Root $HomePath)) {
+    throw "Refusing to uninstall synced mirror outside home: $DestinationDir"
+  }
+  Backup-Path -Path $DestinationDir -Label $Label
+  Remove-Item -LiteralPath $DestinationDir -Recurse -Force
+}
+
 if (-not (Test-Path -LiteralPath $SourceOrquestrador)) {
   throw "Missing generated snapshot: $SourceOrquestrador. Run scripts\sync-from-local.ps1 first."
 }
@@ -437,6 +503,36 @@ if ($InstallToolProfiles) {
 if ($ListTargets -or $DryRun) {
   $mode = if ($Uninstall) { "uninstall-plan" } elseif ($DryRun) { "dry-run" } else { "list" }
   Write-InstallPlan -CoreTargets $coreTargets -DirectoryTargets $extraTargets.ToArray() -FileTargets $extraFileTargets.ToArray() -Mode $mode
+  if ($DryRun -and -not $Uninstall) {
+    Write-Output "Planned post-copy steps (not executed in dry-run):"
+    $logsDisplay = if ($VerbosePaths) { Join-Path $TargetOrquestrador "logs" } else { "$TargetOrquestradorName\logs" }
+    Write-Output "- Would create logs directory: $logsDisplay"
+    if ($SkipSkillSync) {
+      Write-Output "- Would skip skill sync (-SkipSkillSync specified)."
+    } else {
+      $syncDetail = "sync-skills.ps1 -Apply -HomePath <home>"
+      if ($SelectedComponents.Count -gt 0) { $syncDetail += " -Only $($SelectedComponents -join ',')" }
+      Write-Output "- Would run skill sync: $syncDetail"
+    }
+    $dryRunDiscoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
+    if (Test-Path -LiteralPath $dryRunDiscoveryScript) {
+      Write-Output "- Would run skill discovery: node scripts\discover-skills.js -> $TargetOrquestradorName\SKILLS_DISCOVERY.json"
+    }
+  }
+  if ($DryRun -and $Uninstall) {
+    $dryRunManagedNames = Get-ManagedMirrorNames -SourceRoot $SourceOrquestrador
+    foreach ($spec in Get-SyncMirrorSpecs) {
+      if (-not (Test-SyncMirrorSelected -Program $spec.Program)) { continue }
+      $dryRunMirrorRoot = Join-Path $HomePath $spec.Relative
+      foreach ($managedName in $dryRunManagedNames) {
+        $dryRunCandidate = Join-Path $dryRunMirrorRoot $managedName
+        if (Test-Path -LiteralPath $dryRunCandidate) {
+          $dryRunDisplay = if ($VerbosePaths) { $dryRunCandidate } else { "$($spec.LabelPrefix)__$managedName" }
+          Write-Output "- Would remove synced mirror: $dryRunDisplay"
+        }
+      }
+    }
+  }
   if ($DryRun -or $ListTargets) {
     return
   }
@@ -444,8 +540,8 @@ if ($ListTargets -or $DryRun) {
 
 if ($Uninstall) {
   if ($includeCore) {
-    Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
-    Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
+    Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
+    Backup-Path -Path $TargetAgents -Label "AGENTS.md"
   }
   foreach ($target in $extraTargets) {
     Backup-MappedDirectory -SourceDir $target.Source -DestinationDir $target.Destination -Label $target.Label
@@ -477,6 +573,19 @@ if ($Uninstall) {
       Remove-Item -LiteralPath $target.Destination -Force
     }
   }
+  $managedMirrorNames = Get-ManagedMirrorNames -SourceRoot $SourceOrquestrador
+  foreach ($spec in Get-SyncMirrorSpecs) {
+    if (-not (Test-SyncMirrorSelected -Program $spec.Program)) { continue }
+    $mirrorRoot = Join-Path $HomePath $spec.Relative
+    if (-not (Test-Path -LiteralPath $mirrorRoot)) { continue }
+    foreach ($managedName in $managedMirrorNames) {
+      $candidate = Join-Path $mirrorRoot $managedName
+      if (Test-Path -LiteralPath $candidate) {
+        Uninstall-SyncedMirrorDirectory -DestinationDir $candidate -Label "$($spec.LabelPrefix)__$managedName"
+      }
+    }
+    Remove-EmptyParentsUnderRoot -Path $mirrorRoot -Root $HomePath
+  }
 
   [pscustomobject]@{
     HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
@@ -488,8 +597,8 @@ if ($Uninstall) {
   return
 }
 
-Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
-Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
+Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
+Backup-Path -Path $TargetAgents -Label "AGENTS.md"
 $backedUpExtraTargets = @{}
 foreach ($target in $extraTargets) {
   $key = [System.IO.Path]::GetFullPath($target.Destination).ToLowerInvariant()

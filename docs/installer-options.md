@@ -50,7 +50,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `-SkipCommunitySkills` | Não copia a biblioteca comunitária para raízes de compatibilidade. |
 | `-SkipSkillSync` | Não roda o sincronizador de skills ao final. |
 | `-Only <id>` | Limita extras a um componente simbólico, mantendo o core. |
-| `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup. |
+| `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup; lista como etapas planejadas a criação de `logs`, o sync de skills e a descoberta (sem executar). |
 | `-ListTargets` | Lista os alvos que seriam tratados. |
 | `-Uninstall` | Remove de forma conservadora os arquivos mapeados pelo snapshot. |
 | `-NonInteractive` | Reservado para automação; não altera o comportamento atual porque o instalador já não pergunta. |
@@ -67,7 +67,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--skip-community-skills` | Não copia a biblioteca comunitária para `.orquestrador/skill-library/community-skills`. |
 | `--skip-skill-sync` | Não roda sync ao final. |
 | `--only ID` | Limita extras a um componente simbólico. |
-| `--dry-run` | Mostra o plano sem efeitos colaterais. |
+| `--dry-run` | Mostra o plano sem efeitos colaterais; lista como etapas planejadas a criação de `logs`, o `chmod +x`, o sync de skills e a descoberta (sem executar). |
 | `--list-targets` | Lista alvos planejados. |
 | `--uninstall` | Remove arquivos mapeados pelo snapshot e preserva backups. |
 | `--non-interactive` | Reservado para automação. |
@@ -138,7 +138,9 @@ O uninstall não aceita caminhos arbitrários. Ele usa apenas os alvos conhecido
 Comportamento:
 
 - remove `.orquestrador` e `AGENTS.md` do home informado;
+- faz backup recursivo completo do core antes de remover (preserva arquivos gerados como `logs/`, `SKILLS_DISCOVERY.json` e offloads);
 - em diretórios compartilhados, remove apenas arquivos que existem no snapshot público;
+- reverte os espelhos criados por `sync --apply` (remove apenas diretórios gerenciados sob o manifesto/política, nunca arquivos do usuário fora das raízes gerenciadas);
 - cria backup antes de remover quando o destino existe;
 - recusa remover algo fora do home informado;
 - não remove credenciais, logins, caches, OAuth, projetos ou configs fora dos alvos mapeados.
