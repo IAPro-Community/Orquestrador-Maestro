@@ -69,7 +69,9 @@ function evaluateEvidenceAgainstPrompt({ plan, promptManifest } = {}) {
     });
   }
 
-  const selected = Array.isArray(plan?.evidenceAdvice?.selected) ? plan.evidenceAdvice.selected : [];
+  const selected = Array.isArray(plan?.evidence?.selected)
+    ? plan.evidence.selected
+    : Array.isArray(plan?.evidenceAdvice?.selected) ? plan.evidenceAdvice.selected : [];
   const comparable = selected.filter((item) => typeof item.contentHash === "string" && /^[a-f0-9]{64}$/u.test(item.contentHash));
   const selectedHashes = new Set(comparable.map((item) => item.contentHash));
   const promptHashes = new Set((promptManifest.items || []).map((item) => item.contentHash));
@@ -84,7 +86,7 @@ function evaluateEvidenceAgainstPrompt({ plan, promptManifest } = {}) {
     selectedNovel: comparable.length - selectedAlreadyPresent,
     recommendationOverlapRate: comparable.length > 0 ? Number((selectedAlreadyPresent / comparable.length).toFixed(4)) : null,
     promptCoverageRate: promptManifest.itemCount > 0 ? Number((promptItemsMatched / promptManifest.itemCount).toFixed(4)) : null,
-    recommendedEstimatedTokens: plan?.evidenceAdvice?.estimatedSelectedTokens ?? 0,
+    recommendedEstimatedTokens: plan?.evidence?.estimatedSelectedTokens ?? plan?.evidenceAdvice?.estimatedSelectedTokens ?? 0,
     maestroPromptEstimatedTokens: promptManifest.estimatedPromptTokens,
     maestroPromptBytes: promptManifest.promptBytes,
     limitation: "Overlap compares candidate SHA-256 digests only with Maestro-authored prompt sections. Provider/system context and tool-side hidden context are outside this measurement."
