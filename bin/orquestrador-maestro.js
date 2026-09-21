@@ -1985,9 +1985,25 @@ async function handleGoCommand(args, planningOnly = false) {
   });
 
   s.start("Inicializando execução...");
-  const results = await executor.execute(tasks, mission.id);
-  lifecycleMonitor.detach();
-  s.stop("Execução concluída");
+  let results;
+  try {
+    results = await executor.execute(tasks, mission.id);
+    s.stop("Execução concluída");
+  } catch (error) {
+    await app.updateMission(mission.id, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      metadata: {
+        ...(mission.metadata || {}),
+        failureStage: "execution",
+        failureCode: typeof error?.code === "string" ? error.code : "EXECUTION_FAILED"
+      }
+    });
+    s.stop("Execução interrompida");
+    throw error;
+  } finally {
+    lifecycleMonitor.detach();
+  }
 
   const { deriveMissionResolution } = require(path.join(rootDir, "runtime", "resolution"));
   const missionCompletedAt = new Date().toISOString();
