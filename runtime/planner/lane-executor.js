@@ -43,7 +43,7 @@ class LaneExecutor extends EventEmitter {
       this.emit("task.failed", { ...task, error: errorMessage });
     };
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const checkNext = () => {
         if (pending.length === 0 && running.size === 0) return resolve(results);
 
