@@ -45,6 +45,18 @@ const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
 
+function canonicalRuntimeTaskId({ missionId, semanticTaskId, semanticTask } = {}) {
+  const semanticId = typeof semanticTaskId === "string" && semanticTaskId.trim()
+    ? semanticTaskId.trim()
+    : typeof semanticTask?.id === "string" && semanticTask.id.trim()
+      ? semanticTask.id.trim()
+      : null;
+  if (!semanticId) return id("task");
+  if (typeof missionId !== "string" || !missionId.trim()) return semanticId;
+  const digest = crypto.createHash("sha256").update(`${missionId.trim()}\0${semanticId}`, "utf8").digest("hex").slice(0, 24);
+  return `task-${digest}`;
+}
+
 // Ephemeral provider stream vs durable telemetry contract:
 // - provider.started / provider.output / provider.completed carry raw chunks
 //   and live in memory for UI/subscribers only; they are NEVER persisted.
@@ -110,13 +122,35 @@ function blockedTelemetry({ budget, projectId, workspacePath, reason, skillsRequ
 
 
 function evidenceText(value) {
-  if (typeof value === "string" && value.trim()) return value;
-  try {
-    const serialized = JSON.stringify(value);
-    return serialized && serialized !== "{}" ? serialized : "evidence";
-  } catch {
-    return "evidence";
+  let text;
+  if (typeof value === "string" && value.trim()) text = value;
+  else {
+    try {
+      const serialized = JSON.stringify(value);
+      text = serialized && serialized !== "{}" ? serialized : "evidence";
+    } catch {
+      text = "evidence";
+    }
   }
+  return sanitizeDiagnostic(text, { maxChars: 4000 });
+}
+
+function sanitizeEvidenceMetadata(value, depth = 0) {
+  if (value === null || value === undefined) return value ?? null;
+  if (depth >= 5) return "[truncated]";
+  if (typeof value === "string") return sanitizeDiagnostic(value, { maxChars: 1000 });
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.slice(0, 50).map((item) => sanitizeEvidenceMetadata(item, depth + 1));
+  if (typeof value !== "object") return sanitizeDiagnostic(String(value), { maxChars: 1000 });
+  const sanitized = {};
+  for (const [key, item] of Object.entries(value).slice(0, 50)) {
+    if (["__proto__", "prototype", "constructor"].includes(key)) continue;
+    sanitized[key.slice(0, 128)] = sanitizeEvidenceMetadata(item, depth + 1);
+  }
+  const serialized = JSON.stringify(sanitized);
+  return serialized.length <= 12000
+    ? sanitized
+    : { truncated: true, summary: sanitizeDiagnostic(serialized, { maxChars: 8000 }) };
 }
 
 function criterionText(value) {
@@ -422,8 +456,13 @@ class MaestroApplication {
     const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
     const projectId = request.projectId || projectIdForPath(workspacePath);
     const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
+    const semanticTaskId = (typeof request.semanticTaskId === "string" && request.semanticTaskId.trim())
+      ? request.semanticTaskId.trim()
+      : (typeof request.semanticTask?.id === "string" && request.semanticTask.id.trim())
+        ? request.semanticTask.id.trim()
+        : null;
     const semanticTask = request.semanticTask || {
-      id: request.semanticTaskId || undefined,
+      id: semanticTaskId || undefined,
       objective: request.description,
       acceptanceCriteria: [],
       evidenceRequirements: []
@@ -455,14 +494,14 @@ class MaestroApplication {
     const preflightBlock = reviewPreflight || approvalPreflight;
     const taskMetadata = {
       ...(request.missionId ? { missionId: request.missionId } : {}),
-      ...(request.semanticTaskId ? { semanticTaskId: request.semanticTaskId } : {}),
+      ...(semanticTaskId ? { semanticTaskId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
       cognitiveBudget,
       resolution,
       ...(preflightBlock ? { preflightBlock } : {})
     };
-    const task = core.createTask({ id: request.semanticTaskId || request.semanticTask?.id || id("task"), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
+    const task = core.createTask({ id: canonicalRuntimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }), description: request.description, projectId, createdAt: new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
@@ -594,7 +633,12 @@ class MaestroApplication {
         }
       } catch (error) {
         lastError = error;
-        const failureClass = classifyResolutionFailure({ code: error?.code || "PROVIDER_EXECUTION_FAILED", failureKind: "provider" });
+        const failureClass = classifyResolutionFailure({
+          code: error?.code,
+          reason: error?.message,
+          failureKind: error?.failureKind,
+          blockerCodes: error?.blockerCodes
+        });
         attempts.push(Object.freeze({ providerId, model: model || null, runId: null, status: "failed", failureClass }));
         if (failureClass !== "provider-failure" || index >= providerAttempts.length - 1 || index >= maxSwitches) throw error;
         checkpoint = buildProviderCheckpoint({
@@ -811,7 +855,7 @@ class MaestroApplication {
       verificationId: verification.id
     });
     const completionTask = request.semanticTask
-      ? { ...request.semanticTask, id: request.semanticTask.id || task.id }
+      ? { ...request.semanticTask, id: task.id }
       : { id: task.id, acceptanceCriteria: [] };
     const completion = isTaskCompletionEligible(completionTask, { evidence: persistedEvidence, verification, qualityFindings, deterministic: true });
     const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: persistedEvidence, sessionWarnings: this.governanceWarnings });
@@ -978,7 +1022,7 @@ class MaestroApplication {
         verificationId,
         createdAt: new Date().toISOString(),
         metadata: entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
-          ? entry.metadata : undefined,
+          ? sanitizeEvidenceMetadata(entry.metadata) : undefined,
         confidence
       });
       await this.store.saveEvidence(record);
