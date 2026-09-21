@@ -296,7 +296,13 @@ export async function orchestrateRun(
     const trustedExactTokens =
       (tokens.source === TokenSource.ProviderReported || tokens.source === TokenSource.OpenCodeNative)
       && tokens.confidence === TokenConfidence.Exact;
-    const publicClaimEligible = validationPassed && trustedExactTokens && reproducible && isolated;
+    const publicClaimEligible = status === 'passed'
+      && adaptiveIdentityValid
+      && integrityResult.valid
+      && validationPassed
+      && trustedExactTokens
+      && reproducible
+      && isolated;
 
     const report: BenchmarkRunReport = {
       runId,
