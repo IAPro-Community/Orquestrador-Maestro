@@ -125,6 +125,34 @@ function criterionText(value) {
   return undefined;
 }
 
+function normalizeProviderAttempts(request = {}) {
+  const raw = [
+    { providerId: request.providerId || "codex", model: request.model },
+    ...(Array.isArray(request.providerFallbacks) ? request.providerFallbacks : [])
+  ];
+  const seen = new Set();
+  const attempts = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    const value = raw[index];
+    const providerId = typeof value === "string"
+      ? value.trim()
+      : typeof value?.providerId === "string"
+        ? value.providerId.trim()
+        : typeof value?.id === "string"
+          ? value.id.trim()
+          : "";
+    if (!providerId || seen.has(providerId)) continue;
+    seen.add(providerId);
+    const model = index === 0 && typeof value !== "object"
+      ? request.model
+      : typeof value === "object" && typeof value.model === "string" && value.model.trim()
+        ? value.model.trim()
+        : undefined;
+    attempts.push(Object.freeze({ providerId, model }));
+  }
+  return Object.freeze(attempts);
+}
+
 function listSourceFiles(workspacePath, relativePath = "") {
   const directory = path.join(workspacePath, relativePath);
   if (!fs.existsSync(directory)) return [];
@@ -485,12 +513,9 @@ class MaestroApplication {
   }
 
   async executeTaskWithHandoff(request = {}) {
-    const providers = [request.providerId || "codex", ...(Array.isArray(request.providerFallbacks) ? request.providerFallbacks : [])]
-      .filter((value) => typeof value === "string" && value.trim())
-      .map((value) => value.trim())
-      .filter((value, index, all) => all.indexOf(value) === index);
+    const providerAttempts = normalizeProviderAttempts(request);
     const maxSwitches = request.maxProviderSwitches === undefined
-      ? Math.max(0, providers.length - 1)
+      ? Math.max(0, providerAttempts.length - 1)
       : request.maxProviderSwitches;
     if (!Number.isInteger(maxSwitches) || maxSwitches < 0 || maxSwitches > 10) {
       throw new TypeError("maxProviderSwitches must be an integer between 0 and 10");
@@ -501,12 +526,13 @@ class MaestroApplication {
     let lastResult = null;
     let lastError = null;
 
-    for (let index = 0; index < providers.length && index <= maxSwitches; index += 1) {
-      const providerId = providers[index];
+    for (let index = 0; index < providerAttempts.length && index <= maxSwitches; index += 1) {
+      const { providerId, model } = providerAttempts[index];
       try {
         const result = await this.executeRun({
           ...request,
           providerId,
+          model,
           providerFallbacks: undefined,
           maxProviderSwitches: undefined,
           handoffCheckpoint: checkpoint,
@@ -520,7 +546,7 @@ class MaestroApplication {
             handoff: Object.freeze({
               switched: attempts.length > 0,
               providerSwitches: attempts.length,
-              attempts: Object.freeze([...attempts, Object.freeze({ providerId, runId: result.run.id, status: "validated" })])
+              attempts: Object.freeze([...attempts, Object.freeze({ providerId, model: model || null, runId: result.run.id, status: "validated" })])
             })
           });
         }
@@ -530,8 +556,8 @@ class MaestroApplication {
           reason: result?.run?.metadata?.resolution?.outcome?.reason,
           failureKind: result?.failureKind
         });
-        attempts.push(Object.freeze({ providerId, runId: result?.run?.id || null, status: outcomeState || result?.run?.status || "failed", failureClass }));
-        if (failureClass !== "provider-failure" || index >= providers.length - 1 || index >= maxSwitches) {
+        attempts.push(Object.freeze({ providerId, model: model || null, runId: result?.run?.id || null, status: outcomeState || result?.run?.status || "failed", failureClass }));
+        if (failureClass !== "provider-failure" || index >= providerAttempts.length - 1 || index >= maxSwitches) {
           return Object.freeze({ ...result, handoff: Object.freeze({ switched: attempts.length > 1, providerSwitches: Math.max(0, attempts.length - 1), attempts: Object.freeze(attempts) }) });
         }
 
@@ -562,15 +588,15 @@ class MaestroApplication {
           await this.record(result.run.id, "provider.handoff", {
             checkpointId: checkpoint.checkpointId,
             fromProvider: providerId,
-            toProvider: providers[index + 1],
+            toProvider: providerAttempts[index + 1]?.providerId || null,
             attempt: index + 1
           });
         }
       } catch (error) {
         lastError = error;
         const failureClass = classifyResolutionFailure({ code: error?.code || "PROVIDER_EXECUTION_FAILED", failureKind: "provider" });
-        attempts.push(Object.freeze({ providerId, runId: null, status: "failed", failureClass }));
-        if (failureClass !== "provider-failure" || index >= providers.length - 1 || index >= maxSwitches) throw error;
+        attempts.push(Object.freeze({ providerId, model: model || null, runId: null, status: "failed", failureClass }));
+        if (failureClass !== "provider-failure" || index >= providerAttempts.length - 1 || index >= maxSwitches) throw error;
         checkpoint = buildProviderCheckpoint({
           task: request.semanticTask || {},
           request,
@@ -1129,4 +1155,4 @@ class MaestroApplication {
   }
 }
 
-module.exports = { MaestroApplication, ProviderRegistry, projectIdForPath };
+module.exports = { MaestroApplication, ProviderRegistry, projectIdForPath, normalizeProviderAttempts };
