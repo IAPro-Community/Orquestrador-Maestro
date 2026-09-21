@@ -11,7 +11,7 @@ const {
 } = require("../experiment-dataset");
 const { POLICY_IDENTITIES } = require("../policy-identity");
 
-function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 1000, tokenSource = "provider-reported", tokenConfidence = "exact", taskHash = "a".repeat(64), fixtureHash = "b".repeat(64), policyIdentity = null } = {}) {
+function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 1000, tokenSource = "provider-reported", tokenConfidence = "exact", taskHash = "a".repeat(64), fixtureHash = "b".repeat(64), policyIdentity = null, resolution = undefined } = {}) {
   return {
     runId: `${condition}-run`,
     pairId,
@@ -36,6 +36,7 @@ function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 
     results: { acceptanceRate: accepted ? 1 : 0, accepted, criteria: [] },
     tokens: { total: tokens, source: tokenSource, confidence: tokenConfidence },
     timing: { durationMs: 100 },
+    ...(resolution ? { resolution } : {}),
     environment: { isolated: true, container: true, networkMode: "bridge", forwardedEnvNames: ["OPENAI_API_KEY"] }
   };
 }
@@ -194,4 +195,28 @@ test("hard benchmark pair integrity includes runtime commit, network mode, and f
   treatment.environment.forwardedEnvNames = ["ANTHROPIC_API_KEY"];
   sample = pairBenchmarkRuns([control, treatment]).samples[0];
   assert.ok(sample.integrity.issues.includes("forwardedEnvNames-mismatch"));
+});
+
+
+test("hard benchmark evidence keeps authenticated mission resolution counters without raw content", () => {
+  const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const resolution = {
+    state: "validated",
+    taskCount: 2,
+    validatedTaskCount: 2,
+    firstPassValidatedTaskCount: 1,
+    automaticRetries: 1,
+    escalations: 1,
+    providerSwitches: 0,
+    tokensToValidatedOutcome: 800
+  };
+  const sample = pairBenchmarkRuns([
+    benchmarkRun({ condition: "maestro", tokens: 1000, resolution: { ...resolution, tokensToValidatedOutcome: 1000 } }),
+    benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity, resolution })
+  ]).samples[0];
+
+  assert.equal(sample.features.treatmentResolution.state, "validated");
+  assert.equal(sample.features.treatmentResolution.firstPassValidatedTaskCount, 1);
+  assert.equal(sample.features.treatmentResolution.automaticRetries, 1);
+  assert.equal(sample.features.treatmentResolution.tokensToValidatedOutcome, 800);
 });
