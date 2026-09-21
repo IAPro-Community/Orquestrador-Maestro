@@ -168,12 +168,16 @@ test("persisted evidence is joined into task and mission proof bundles", async (
   });
 
   assert.equal(outcome.run.metadata.resolution.outcome.state, "validated");
-  const evidence = await app.listEvidence({ taskId: "proof-task" });
+  const persistedTaskId = outcome.run.taskId;
+  assert.notEqual(persistedTaskId, "proof-task");
+  const persistedTask = await app.getTask(persistedTaskId);
+  assert.equal(persistedTask.metadata.semanticTaskId, "proof-task");
+  const evidence = await app.listEvidence({ taskId: persistedTaskId });
   assert.equal(evidence.length, 1);
   assert.equal(evidence[0].runId, outcome.run.id);
   assert.equal(evidence[0].verificationId, outcome.verification.id);
 
-  const taskProof = await app.getTaskProofBundle("proof-task");
+  const taskProof = await app.getTaskProofBundle(persistedTaskId);
   assert.equal(taskProof.latestOutcome.state, "validated");
   assert.equal(taskProof.evidence.length, 1);
   assert.equal(taskProof.runs[0].verifications[0].status, "passed");
@@ -218,4 +222,83 @@ test("completion merges request and provider evidence and binds a semantic task 
   const evidence = await app.listEvidence({ taskId: "combined-evidence-task" });
   assert.equal(evidence.length, 2);
   assert.deepEqual(new Set(evidence.map((entry) => entry.acceptanceCriterion)), new Set(["request criterion", "provider requirement"]));
+});
+
+
+test("same semantic task id remains isolated across missions", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-mission-task-identity-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const firstMission = await app.createMission({ workspacePath: root, objective: "First mission", status: "running" });
+  const secondMission = await app.createMission({ workspacePath: root, objective: "Second mission", status: "running" });
+  const request = {
+    providerId: "fake",
+    description: "Shared planner task",
+    semanticTaskId: "task-1",
+    semanticTask: { id: "task-1", objective: "Shared planner task", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  };
+
+  const first = await app.executeRun({ ...request, missionId: firstMission.id });
+  const second = await app.executeRun({ ...request, missionId: secondMission.id });
+
+  assert.notEqual(first.run.taskId, second.run.taskId);
+  assert.notEqual(first.run.taskId, "task-1");
+  assert.notEqual(second.run.taskId, "task-1");
+  assert.equal((await app.getTask(first.run.taskId)).metadata.semanticTaskId, "task-1");
+  assert.equal((await app.getTask(second.run.taskId)).metadata.semanticTaskId, "task-1");
+
+  const firstProof = await app.getMissionProofBundle(firstMission.id);
+  const secondProof = await app.getMissionProofBundle(secondMission.id);
+  assert.deepEqual(firstProof.tasks.map((bundle) => bundle.task.id), [first.run.taskId]);
+  assert.deepEqual(secondProof.tasks.map((bundle) => bundle.task.id), [second.run.taskId]);
+});
+
+test("pre-execution policy errors never trigger provider fallback", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-no-policy-handoff-"));
+  const primary = new Adapter("primary", 0);
+  const fallback = new Adapter("fallback", 0);
+  const app = createApp(root, [primary, fallback]);
+
+  await assert.rejects(
+    app.executeTaskWithHandoff({
+      providerId: "primary",
+      providerFallbacks: ["fallback"],
+      description: "Unauthorized enforce task",
+      semanticTaskId: "policy-task",
+      semanticTask: { id: "policy-task", objective: "Unauthorized enforce task", acceptanceCriteria: [] },
+      resolutionMode: "enforce"
+    }),
+    /RESOLUTION_ENFORCE_NOT_READY/u
+  );
+
+  assert.equal(primary.requests.length, 0);
+  assert.equal(fallback.requests.length, 0);
+});
+
+test("provider evidence is sanitized before durable persistence", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-evidence-redaction-"));
+  const token = "ghp_" + "A".repeat(40);
+  const provider = new Adapter("fake", 0, [{
+    type: "provider-evidence",
+    content: `provider diagnostic Bearer ${token} at /home/alice/private/repo`,
+    producer: "provider",
+    metadata: { authorization: `Bearer ${token}`, path: "/home/alice/private/repo" }
+  }]);
+  const app = createApp(root, [provider]);
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "Persist safe evidence",
+    semanticTaskId: "safe-evidence",
+    semanticTask: { id: "safe-evidence", objective: "Persist safe evidence", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  const persisted = await app.listEvidence({ taskId: outcome.run.taskId });
+  const serialized = JSON.stringify(persisted);
+  assert.equal(persisted.length, 1);
+  assert.doesNotMatch(serialized, new RegExp(token, "u"));
+  assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
+  assert.match(serialized, /redacted/u);
 });
