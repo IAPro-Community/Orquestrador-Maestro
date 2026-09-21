@@ -16,6 +16,7 @@ function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 
     runId: `${condition}-run`,
     pairId,
     scenarioId: "scenario-1",
+    scenarioHash: "d".repeat(64),
     condition,
     model: "model-1",
     provider: "provider-1",
@@ -37,7 +38,7 @@ function benchmarkRun({ pairId = "pair-1", condition, accepted = true, tokens = 
     tokens: { total: tokens, source: tokenSource, confidence: tokenConfidence },
     timing: { durationMs: 100 },
     ...(resolution ? { resolution } : {}),
-    environment: { isolated: true, container: true, networkMode: "bridge", forwardedEnvNames: ["OPENAI_API_KEY"] }
+    environment: { isolated: true, container: true, containerImage: "node:20-slim", networkMode: "bridge", forwardedEnvNames: ["OPENAI_API_KEY"] }
   };
 }
 
@@ -219,4 +220,19 @@ test("hard benchmark evidence keeps authenticated mission resolution counters wi
   assert.equal(sample.features.treatmentResolution.firstPassValidatedTaskCount, 1);
   assert.equal(sample.features.treatmentResolution.automaticRetries, 1);
   assert.equal(sample.features.treatmentResolution.tokensToValidatedOutcome, 800);
+});
+
+
+test("promotion evidence fails closed when paired identity fields are missing", () => {
+  const identity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const control = benchmarkRun({ condition: "maestro", tokens: 1000 });
+  const treatment = benchmarkRun({ condition: "maestro-adaptive", tokens: 800, policyIdentity: identity });
+  delete control.model;
+  delete treatment.environment.containerImage;
+
+  const sample = pairBenchmarkRuns([control, treatment]).samples[0];
+  assert.equal(sample.integrity.valid, false);
+  assert.ok(sample.integrity.issues.includes("model-missing"));
+  assert.ok(sample.integrity.issues.includes("containerImage-missing"));
+  assert.equal(sample.promotionEligible, false);
 });
