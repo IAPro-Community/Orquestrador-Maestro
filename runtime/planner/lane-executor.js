@@ -92,10 +92,12 @@ class LaneExecutor extends EventEmitter {
           })
             .then((result) => {
               const runStatus = result?.run?.status;
-              if (runStatus !== "completed") {
+              const resolutionState = result?.run?.metadata?.resolution?.outcome?.state;
+              if (runStatus !== "completed" || (resolutionState && resolutionState !== "validated")) {
                 const reason = result?.run?.metadata?.preflightBlock
                   || result?.review?.reason
                   || result?.governanceBlocking?.[0]
+                  || (resolutionState && resolutionState !== "validated" ? `resolution outcome: ${resolutionState}` : null)
                   || `run finished with status: ${runStatus || "unknown"}`;
                 markFailed(task, reason);
                 return;
