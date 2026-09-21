@@ -178,6 +178,7 @@ describe('preserveRawEvidence', () => {
 describe('isClaimEligibleRun', () => {
   function eligibleRun(overrides: Record<string, unknown> = {}) {
     const base: Record<string, unknown> = {
+      status: 'passed',
       evidence: {
         publicClaimEligible: true,
         executionType: 'real-execution',
@@ -233,6 +234,11 @@ describe('isClaimEligibleRun', () => {
     assert.equal(isClaimEligibleRun(run as never), false);
   });
 
+  it('rejects integrity-violation status even if all other flags claim eligibility', () => {
+    const run = eligibleRun({ status: 'benchmark-integrity-violation' });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
   it('rejects failed validation', () => {
     const run = eligibleRun({ validation: { passed: false } });
     assert.equal(isClaimEligibleRun(run as never), false);
@@ -266,12 +272,14 @@ describe('isClaimEligibleRun', () => {
 describe('summarizeEvidence', () => {
   it('summarizes mixed evidence without contamination', () => {
     const good = {
+      status: 'passed',
       evidence: { publicClaimEligible: true, executionType: 'real-execution', reproducible: true, isolated: true },
       environment: { container: true, containerImage: 'node:20-slim', containerId: 'deadbeef1234' },
       usage: { tokenSource: 'provider-reported', confidence: 'exact' },
       validation: { passed: true },
     };
     const bad = {
+      status: 'failed',
       evidence: { publicClaimEligible: false, executionType: 'synthetic', reproducible: true, isolated: true },
       environment: { container: false },
       usage: { tokenSource: 'unavailable' },
@@ -288,6 +296,7 @@ describe('summarizeEvidence', () => {
 describe('isClaimEligibleRun hardening', () => {
   function containerRun(overrides: Record<string, unknown> = {}) {
     const base: Record<string, unknown> = {
+      status: 'passed',
       evidence: {
         publicClaimEligible: true,
         executionType: 'real-execution',
