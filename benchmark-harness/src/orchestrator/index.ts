@@ -22,6 +22,7 @@ import type { BenchmarkScenario } from '../types/scenario.js';
 import type { BenchmarkRunReport, RunStatus, Condition } from '../types/run.js';
 import type { AgentDriver, DriverExecuteOptions } from '../types/driver.js';
 import type { TokenUsage } from '../types/tokens.js';
+import { TokenSource, TokenConfidence } from '../types/tokens.js';
 import { createUnavailableTokens } from '../utils/tokens.js';
 import { hashFixture, copyFixtureToTemp } from '../fixtures/index.js';
 import { verifyAcceptanceSuite } from '../verifier/index.js';
@@ -287,6 +288,15 @@ export async function orchestrateRun(
 
     // 11. Build run report
     const endMs = Date.now();
+    const tokens = driverResult.tokens ?? createUnavailableTokens();
+    const reproducible = Boolean(scenario.integrity?.scenarioHash && fixtureHash && taskHash);
+    const isolated = useContainer;
+    const validationPassed = verifierResult.passed;
+    const trustedExactTokens =
+      (tokens.source === TokenSource.ProviderReported || tokens.source === TokenSource.OpenCodeNative)
+      && tokens.confidence === TokenConfidence.Exact;
+    const publicClaimEligible = validationPassed && trustedExactTokens && reproducible && isolated;
+
     const report: BenchmarkRunReport = {
       runId,
       scenarioId: scenario.id,
@@ -325,7 +335,9 @@ export async function orchestrateRun(
           output: sanitizeSecrets(c.output),
         })),
       },
-      tokens: driverResult.tokens ?? createUnavailableTokens(),
+      tokens,
+      usage: { tokenSource: tokens.source, confidence: tokens.confidence },
+      validation: { passed: validationPassed },
       toolUsage: driverResult.toolUsage ?? null,
       timing: {
         startMs,
@@ -341,6 +353,10 @@ export async function orchestrateRun(
         filesChanged,
         gitDiff,
         sessionFile: driverResult.sessionFile,
+        executionType: 'real-execution',
+        reproducible,
+        isolated,
+        publicClaimEligible,
       },
       createdAt: new Date().toISOString(),
     };
@@ -426,6 +442,7 @@ export async function orchestratePair(options: {
   evidenceBase: string;
   model?: string;
   pairId?: string;
+  useContainer?: boolean;
   vanillaEnv?: Record<string, string>;
   maestroEnv?: Record<string, string>;
   vanillaTimeoutMs?: number;
@@ -446,7 +463,7 @@ export async function orchestratePair(options: {
     condition: 'vanilla',
     driver: vanillaDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: true,
+    useContainer: options.useContainer ?? true,
     model: options.model,
     env: options.vanillaEnv,
     timeoutMs: options.vanillaTimeoutMs,
@@ -460,7 +477,7 @@ export async function orchestratePair(options: {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: true,
+    useContainer: options.useContainer ?? true,
     model: options.model,
     env: options.maestroEnv,
     timeoutMs: options.maestroTimeoutMs,
@@ -474,7 +491,7 @@ export async function orchestratePair(options: {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: true,
+    useContainer: options.useContainer ?? true,
     model: options.model,
     env: options.maestroFocusEnv ?? { ...options.maestroEnv, MAESTRO_INTERACTION_PROFILE: 'focus' },
     timeoutMs: options.maestroFocusTimeoutMs ?? options.maestroTimeoutMs,

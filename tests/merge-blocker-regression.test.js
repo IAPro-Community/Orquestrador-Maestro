@@ -125,7 +125,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true,
+          verified: true, verifier: "test",
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -157,7 +157,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Old verified",
-        verified: true,
+        verified: true, verifier: "test",
         timestamp: new Date(Date.now() - 86400000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -186,7 +186,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true,
+        verified: true, verifier: "test",
         timestamp: new Date(Date.now() - 2000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -217,7 +217,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true,
+          verified: true, verifier: "test",
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -250,7 +250,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true,
+        verified: true, verifier: "test",
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
 
@@ -519,6 +519,7 @@ try {
     it("should allow real-execution runs to be claim-eligible", () => {
       const realRun = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+        environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
         usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
@@ -594,6 +595,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -630,6 +632,7 @@ try {
           usage: { inputTokens: 100, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         },
         {
@@ -637,6 +640,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -662,6 +666,7 @@ try {
           usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
+          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];

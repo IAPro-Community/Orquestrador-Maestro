@@ -13,6 +13,7 @@
     "codex/prompts/",
     "codex/skills/",
     "docs/",
+    "extensions/vscode-maestro/",
     "home/AGENTS.md",
     "install.ps1",
     "install.sh",
@@ -55,6 +56,7 @@
     "test": "node scripts/run-tests.js",
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
+    "validate:paths": "node scripts/validate-git-paths.js",
     "verify:pr": "node scripts/verify-pr.js",
     "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1",
     "bench:list": "node --import tsx benchmark-harness/src/cli/index.ts list --dir benchmark-harness/scenarios",
@@ -107,13 +109,13 @@
     "node-pty": "^1.1.0"
   },
   "dependencies": {
-    "@clack/prompts": "0.11.0",
-    "@xterm/headless": "^5.5.0",
+    "@clack/prompts": "^1.8.1",
+    "@xterm/headless": "^6.0.0",
     "node-notifier": "10.0.1",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.6.2",
     "typescript": "^5.9.3",
     "uuid": "11.1.1"
   },

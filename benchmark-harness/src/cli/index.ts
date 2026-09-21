@@ -287,6 +287,8 @@ async function handlePair(args: string[]): Promise<CLIResult> {
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
+      container: { type: 'boolean', default: true },
+      'no-container': { type: 'boolean', default: false },
     },
     strict: false,
   });
@@ -308,6 +310,15 @@ async function handlePair(args: string[]): Promise<CLIResult> {
   const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
+  const useContainer = values['no-container'] ? false : values.container !== false;
+  const pairImage = String(values.image ?? 'node:20-slim');
+  if (useContainer) {
+    const containerRunner = new ContainerRunner({ image: pairImage });
+    if (!(await containerRunner.isDockerAvailable())) {
+      return { exitCode: 1, message: 'Docker is required for container mode but is not available (use --no-container for local analysis-only runs)' };
+    }
+  }
+
   const vanillaDriver = new OpenCodeDriver({ version: '0.1.0' });
   const maestroDriver = new MaestroDriver({
     binaryPath: process.env.BENCHMARK_MAESTRO_BINARY,
@@ -318,6 +329,10 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: evidenceDir,
+    useContainer,
+    vanillaEnv: { BENCHMARK_IMAGE: pairImage },
+    maestroEnv: { BENCHMARK_IMAGE: pairImage },
+    maestroFocusEnv: { BENCHMARK_IMAGE: pairImage, MAESTRO_INTERACTION_PROFILE: 'focus' },
     model: String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash'),
     vanillaTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
     maestroTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),

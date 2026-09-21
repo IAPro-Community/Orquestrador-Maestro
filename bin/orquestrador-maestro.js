@@ -75,8 +75,6 @@ Uso:
   orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
   orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
-  orquestrador-maestro runtime [--project-path PATH]
-  orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro governance <status|set> [opcoes]
   orquestrador-maestro interaction <list|get|set|reset> [opcoes]
   orquestrador-maestro status [--json] [--task-id ID] [--lockfile PATH] [--project-path PATH]

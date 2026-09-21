@@ -182,7 +182,7 @@ class ContextEngine {
     }
 
     const { primary, duplicates } = deduplicateBriefCoveredDevItems(items);
-    let budgetedItems = ContextBudget.applyBudget(primary, maxTokens, { intent });
+    let budgetedItems = ContextBudget.applyBudget(primary, maxTokens, { intent, ensureOne: false });
     const briefSelected = budgetedItems.some((item) => item.key === "context.brief");
 
     if (!briefSelected && duplicates.length > 0) {
@@ -191,6 +191,7 @@ class ContextEngine {
     }
 
     const estimatedTokens = ContextBudget.estimateContextTokens(intent, budgetedItems);
+    const budgetOverrun = budgetedItems.overBudget === true;
     const serializedContext = ContextBudget.serialize({ intent, items: budgetedItems });
     const contextDigest = crypto.createHash("sha256").update(serializedContext, "utf8").digest("hex");
     const briefItem = budgetedItems.find((item) => item.key === "context.brief");
@@ -212,6 +213,7 @@ class ContextEngine {
     this.lastBuildMetrics = Object.freeze({
       version: 1,
       estimatedTokens,
+      budgetOverrun,
       contextDigest,
       maxTokens,
       discoveredItems: items.length,

@@ -107,6 +107,12 @@
         },
         "memoryLimit": {
           "type": "string"
+        },
+        "forwardedEnvNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -285,6 +291,18 @@
         },
         "sessionFile": {
           "type": "string"
+        },
+        "executionType": {
+          "type": "string"
+        },
+        "reproducible": {
+          "type": "boolean"
+        },
+        "isolated": {
+          "type": "boolean"
+        },
+        "publicClaimEligible": {
+          "type": "boolean"
         }
       }
     },
@@ -316,6 +334,25 @@
         "object",
         "null"
       ]
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "tokenSource": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }

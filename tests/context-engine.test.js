@@ -212,3 +212,19 @@ test("deep authority expansion may change selected digests but may not drop requ
   };
   assert.equal(evaluateBriefAuthorityCoverage(root, missing, baseline, { requireDigestEquality: false }).safe, false);
 });
+
+
+test("ContextBudget exposes overBudget while retaining the highest-priority item by default", () => {
+  const huge = { key: "critical.only", value: "x".repeat(12000), kind: "FACT", confidence: 1, relevance: 1, sources: [] };
+  const selected = ContextBudget.applyBudget([huge], 10, { intent: "tiny" });
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].key, "critical.only");
+  assert.equal(selected.overBudget, true);
+});
+
+test("ContextBudget strict mode permits an explicit fallback instead of forced overflow", () => {
+  const huge = { key: "context.brief", value: { content: "x".repeat(12000) }, kind: "FACT", confidence: 1, relevance: 1, sources: [] };
+  const selected = ContextBudget.applyBudget([huge], 10, { intent: "tiny", ensureOne: false });
+  assert.equal(selected.length, 0);
+  assert.equal(selected.overBudget, false);
+});
