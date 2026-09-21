@@ -3,14 +3,20 @@
 const { runtimeTaskId } = require("../core/task-identity");
 
 class TaskLifecycleMonitor {
-  static attach({ executor, app, graphs, store, missionId = null }) {
+  static attach({ executor, app, graphs, store, missionId = null, projectId = null, graphId = null }) {
     if (!executor || !app || !graphs) throw new TypeError("executor, app and graphs are required");
     const listeners = [];
     let pending = Promise.resolve();
     const persist = async (type, task, extra = {}) => {
       try {
         const graphLink = await graphs.missionForTask(task.id);
-        const link = missionId ? { ...(graphLink || {}), missionId } : graphLink;
+        const link = missionId
+          ? {
+              ...(projectId ? { projectId } : graphLink?.projectId ? { projectId: graphLink.projectId } : {}),
+              missionId,
+              ...(graphId ? { graphId } : {})
+            }
+          : graphLink;
         if (!link?.missionId) return;
         const persistedTaskId = missionId
           ? runtimeTaskId({ missionId, semanticTaskId: task.id }) || task.id
