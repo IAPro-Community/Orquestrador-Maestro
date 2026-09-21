@@ -798,18 +798,21 @@ class MaestroApplication {
         return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });
       }).flat()
       : [];
+    const evidenceEntries = (value) => Array.isArray(value) ? value : value ? [value] : [];
+    const producedEvidence = [...evidenceEntries(request.evidence), ...evidenceEntries(result.evidence)];
     let review = Object.freeze({ status: "disabled", verdict: "not-requested", calls: 0 });
     if (this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
-      review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: request.evidence || result.evidence });
+      review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: producedEvidence });
     }
-    const producedEvidence = request.evidence || result.evidence;
     const persistedEvidence = await this._persistProducedEvidence({
       evidence: producedEvidence,
       taskId: task.id,
       runId: run.id,
       verificationId: verification.id
     });
-    const completionTask = request.semanticTask || { id: task.id, acceptanceCriteria: [] };
+    const completionTask = request.semanticTask
+      ? { ...request.semanticTask, id: request.semanticTask.id || task.id }
+      : { id: task.id, acceptanceCriteria: [] };
     const completion = isTaskCompletionEligible(completionTask, { evidence: persistedEvidence, verification, qualityFindings, deterministic: true });
     const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: persistedEvidence, sessionWarnings: this.governanceWarnings });
     this.governanceNotices = [...governance.warnings, ...governance.recommendations];
