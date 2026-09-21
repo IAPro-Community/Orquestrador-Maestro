@@ -209,33 +209,47 @@ function normalizedStringList(value) {
 
 function benchmarkIdentityIssues(baselineRun, treatmentRun) {
   const issues = [];
-  const comparableFields = [
+  const requiredComparableFields = [
     ["scenarioId", nonEmptyOrNull(baselineRun?.scenarioId), nonEmptyOrNull(treatmentRun?.scenarioId)],
     ["scenarioHash", nonEmptyOrNull(baselineRun?.scenarioHash), nonEmptyOrNull(treatmentRun?.scenarioHash)],
     ["taskHash", nonEmptyOrNull(baselineRun?.taskHash), nonEmptyOrNull(treatmentRun?.taskHash)],
     ["fixtureHash", fixtureHashFromRun(baselineRun), fixtureHashFromRun(treatmentRun)],
     ["model", nonEmptyOrNull(baselineRun?.model), nonEmptyOrNull(treatmentRun?.model)],
     ["provider", nonEmptyOrNull(baselineRun?.provider), nonEmptyOrNull(treatmentRun?.provider)],
-    ["driver", nonEmptyOrNull(baselineRun?.driver?.name), nonEmptyOrNull(treatmentRun?.driver?.name)],
+    ["driver", nonEmptyOrNull(baselineRun?.driver?.name), nonEmptyOrNull(treatmentRun?.driver?.name)]
+  ];
+  for (const [name, left, right] of requiredComparableFields) {
+    if (!left || !right) issues.push(`${name}-missing`);
+    else if (left !== right) issues.push(`${name}-mismatch`);
+  }
+
+  const isolatedPair = treatmentRun?.environment?.isolated === true && baselineRun?.environment?.isolated === true;
+  const containerPair = treatmentRun?.environment?.container === true && baselineRun?.environment?.container === true;
+  const environmentComparableFields = [
     ["maestroRuntimeCommit", nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit), nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit)],
-    ["containerImage", nonEmptyOrNull(baselineRun?.environment?.containerImage), nonEmptyOrNull(treatmentRun?.environment?.containerImage)],
     ["networkMode", nonEmptyOrNull(baselineRun?.environment?.networkMode), nonEmptyOrNull(treatmentRun?.environment?.networkMode)],
     ["forwardedEnvNames",
       Array.isArray(baselineRun?.environment?.forwardedEnvNames) ? JSON.stringify(normalizedStringList(baselineRun.environment.forwardedEnvNames)) : null,
       Array.isArray(treatmentRun?.environment?.forwardedEnvNames) ? JSON.stringify(normalizedStringList(treatmentRun.environment.forwardedEnvNames)) : null]
   ];
-  for (const [name, left, right] of comparableFields) {
-    if (!left || !right) issues.push(`${name}-missing`);
-    else if (left !== right) issues.push(`${name}-mismatch`);
+  if (containerPair) {
+    environmentComparableFields.push([
+      "containerImage",
+      nonEmptyOrNull(baselineRun?.environment?.containerImage),
+      nonEmptyOrNull(treatmentRun?.environment?.containerImage)
+    ]);
   }
+  for (const [name, left, right] of environmentComparableFields) {
+    if (isolatedPair) {
+      if (!left || !right) issues.push(`${name}-missing`);
+      else if (left !== right) issues.push(`${name}-mismatch`);
+    } else if (left && right && left !== right) {
+      issues.push(`${name}-mismatch`);
+    }
+  }
+
   if (baselineRun?.status === "benchmark-integrity-violation" || treatmentRun?.status === "benchmark-integrity-violation") {
     issues.push("benchmark-integrity-violation");
-  }
-  const isolatedPair = treatmentRun?.environment?.isolated === true && baselineRun?.environment?.isolated === true;
-  if (isolatedPair) {
-    if (!nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit) || !nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit)) {
-      issues.push("maestroRuntimeCommit-missing");
-    }
   }
   return issues;
 }
