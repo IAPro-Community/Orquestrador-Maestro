@@ -8,6 +8,10 @@
 - Fix (contexto): `ContextBudget` aplica o teto a críticos (ordem de prioridade mantida, nunca vazio) e mede objetos via JSON; `SemanticRanker` com `providerId` configurável e `localOnly` fail-closed (LOCAL_ONLY_VIOLATION).
 - Security (memória): gate `<private>` passa a cobrir `files/tags/source`; `consolidate()` aplica `CapturePolicy` e só herda `verified` se todas as fontes forem verificadas com verificador.
 - Security (brief): entradas de memória episódica têm tags `episodic-memory` sanitizadas (sem break-out do wrapper); `projectId` do brief usa `gitCtx.repositoryId` como fonte única (corrige seção de memória vazia em projetos não-git).
+- Benchmark (evidence gate): `run-report.json` passa a registrar `evidence.{executionType,reproducible,isolated,publicClaimEligible}`, `validation.passed` e `usage.tokenSource`; `isClaimEligibleRun` exige proveniência ancorada (imagem + `containerId` do daemon) e consistência `isolated===container`; `orchestratePair`/`pair` respeitam `--container` (padrão: com container).
+- Benchmark: removidos 11 `.js` compilados versionados em `benchmark-harness/src/` (sombra do `.ts`); `.gitignore` bloqueia `src/**/*.js`.
+- CLI: `--help` sem linhas duplicadas (`runtime`, `tui`) + teste anti-duplicata.
+- Docs: `docs/benchmark.md §9.5` reescrito para espelhar `isClaimEligibleRun`.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 

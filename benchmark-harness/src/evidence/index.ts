@@ -180,8 +180,11 @@ interface ClaimEligibleInput {
   } | null;
   environment?: {
     container?: boolean;
+    containerImage?: string;
+    containerId?: string;
   } | null;
   usage?: { tokenSource?: string } | null;
+  tokens?: { tokenSource?: string } | null;
   driverResult?: { usage?: { tokenSource?: string } | null } | null;
   validation?: { passed?: boolean } | null;
   status?: string;
@@ -197,17 +200,27 @@ interface ClaimEligibleInput {
  * Requirements (all must be true):
  * - `evidence.publicClaimEligible` is true
  * - `evidence.executionType` is "real-execution"
- * - `environment.container` is not true
- * - Token source is "provider-reported"
+ * - container runs are accepted only with daemon-anchored provenance:
+ *   both `environment.containerImage` and `environment.containerId` must be
+ *   present (`containerId` is issued by the container runtime, not user
+ *   input, so a bare `container:true` flag or a user-typed image alone
+ *   is not enough)
+ * - isolation must be consistent with containment: `evidence.isolated`
+ *   must equal `environment.container === true` (a non-container run
+ *   claiming `isolated:true` is rejected as forged)
+ * - Token source is "provider-reported" (read from `usage`, `tokens`,
+ *   or `driverResult.usage`, in that order)
  * - `evidence.reproducible` is true
- * - `evidence.isolated` is true
  * - `validation.passed` is true
  */
 export function isClaimEligibleRun(run: ClaimEligibleInput): boolean {
   if (!run?.evidence?.publicClaimEligible) return false;
   if (run.evidence.executionType !== 'real-execution') return false;
-  if (run.environment?.container === true) return false;
-  const tokenSource = run.usage?.tokenSource ?? run.driverResult?.usage?.tokenSource;
+  const container = run.environment?.container === true;
+  if (container && (!run.environment?.containerImage || !run.environment?.containerId)) return false;
+  if (run.evidence.isolated !== container) return false;
+  const tokenSource =
+    run.usage?.tokenSource ?? run.tokens?.tokenSource ?? run.driverResult?.usage?.tokenSource;
   if (tokenSource !== 'provider-reported') return false;
   if (run.evidence.reproducible !== true) return false;
   if (run.evidence.isolated !== true) return false;
