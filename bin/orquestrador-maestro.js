@@ -1954,42 +1954,55 @@ async function handleGoCommand(args, planningOnly = false) {
   lifecycleMonitor.detach();
   s.stop("Execução concluída");
 
-  const failures = Object.values(results).filter((r) => r.status === "failed");
-  const missionStatus = failures.length > 0 ? "failed" : "completed";
+  const { deriveMissionResolution } = require(path.join(rootDir, "runtime", "resolution"));
   const missionCompletedAt = new Date().toISOString();
+  const missionResolution = deriveMissionResolution(results, {
+    objective: mission.objective,
+    now: missionCompletedAt
+  });
+  const missionStatus = missionResolution.status;
   const missionUsage = missionUsageMeter.snapshot();
   const missionCognitiveTelemetry = Object.freeze({
     schemaVersion: 1,
     scope: "mission",
     usage: missionUsage,
-    taskCount: Object.keys(results).length,
-    validatedTaskCount: Object.values(results).filter((entry) => entry.status === "completed").length,
-    failedTaskCount: failures.length,
+    taskCount: missionResolution.summary.tasks,
+    validatedTaskCount: missionResolution.summary.validatedTasks,
+    failedTaskCount: missionResolution.summary.failedTasks,
+    blockedTaskCount: missionResolution.summary.blockedTasks,
+    needsAttentionTaskCount: missionResolution.summary.needsAttentionTasks,
     providerSwitches: Object.values(results).reduce((sum, entry) => sum + (entry?.result?.handoff?.providerSwitches || 0), 0),
-    tokensToValidatedOutcome: missionStatus === "completed" && missionUsage.complete === true ? missionUsage.totalTokens : null,
+    tokensToValidatedOutcome: missionResolution.state === "validated" && missionUsage.complete === true ? missionUsage.totalTokens : null,
     tokenMetricCompleteness: missionUsage.complete === true ? "complete" : "unavailable"
   });
   await app.updateMission(mission.id, {
     status: missionStatus,
-    completedAt: missionCompletedAt,
-    metadata: { ...(mission.metadata || {}), cognitiveTelemetry: missionCognitiveTelemetry }
+    completedAt: ["completed", "failed", "blocked"].includes(missionStatus) ? missionCompletedAt : undefined,
+    metadata: {
+      ...(mission.metadata || {}),
+      resolution: missionResolution,
+      cognitiveTelemetry: missionCognitiveTelemetry
+    }
   });
 
   if (benchmarkUsageRequested) {
     console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsage })}`);
   }
 
-  if (failures.length) {
-    updateTitle("Concluído (com falhas)");
-    notifier.notify({ title: "Maestro CLI", message: "Missão concluída com algumas falhas.", sound: true });
-    p.outro("◆ Missão parcialmente concluída (houve falhas)");
+  if (missionResolution.state !== "validated") {
+    updateTitle(missionResolution.state === "failed" ? "Concluído (com falhas)" : "Atenção necessária");
+    const reason = missionResolution.state === "failed"
+      ? "Missão concluída com falhas."
+      : "Missão interrompida: existem tarefas não validadas.";
+    notifier.notify({ title: "Maestro CLI", message: reason, sound: true });
+    p.outro(`◆ Missão não validada (${missionResolution.state}): ${missionResolution.reason}`);
     return 1;
-  } else {
-    updateTitle("Concluído!");
-    notifier.notify({ title: "Maestro CLI", message: "Missão concluída com sucesso! 🚀", sound: true });
-    p.outro("◆ Missão concluída com sucesso! 🚀");
-    return 0;
   }
+
+  updateTitle("Concluído!");
+  notifier.notify({ title: "Maestro CLI", message: "Missão validada com sucesso! 🚀", sound: true });
+  p.outro("◆ Missão validada com sucesso! 🚀");
+  return 0;
 }
 
 async function handleContextCommand(args) {
