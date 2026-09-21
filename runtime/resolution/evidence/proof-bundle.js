@@ -1,6 +1,7 @@
 "use strict";
 
 const { deriveMissionResolutionFromTaskStates } = require("../resolution-state");
+const { runtimeTaskId } = require("../../core/task-identity");
 
 function sortByTime(values = []) {
   return [...values].sort((a, b) => String(a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.createdAt || b.startedAt || b.completedAt || "")));
@@ -84,7 +85,21 @@ async function buildMissionProofBundle({ store, missionId } = {}) {
   if (typeof missionId !== "string" || !missionId.trim()) throw new TypeError("missionId is required");
   const mission = await store.getMission(missionId);
   if (!mission) return null;
-  const tasks = (await store.listTasks({})).filter((task) => task.metadata?.missionId === missionId);
+  const missionTasks = (await store.listTasks({})).filter((task) => task.metadata?.missionId === missionId);
+  // Stores created before mission-scoped runtime IDs may contain both the
+  // semantic graph placeholder and the later runtime Task. Collapse both to
+  // one logical task and prefer the canonical mission-scoped identity.
+  const groupedTasks = new Map();
+  for (const task of missionTasks) {
+    const semanticTaskId = task.metadata?.semanticTaskId
+      || task.metadata?.semanticTask?.id
+      || task.metadata?.semantic?.id
+      || task.id;
+    const canonicalId = runtimeTaskId({ missionId, semanticTaskId });
+    const current = groupedTasks.get(semanticTaskId);
+    if (!current || task.id === canonicalId) groupedTasks.set(semanticTaskId, task);
+  }
+  const tasks = [...groupedTasks.values()];
   const bundles = [];
   for (const task of tasks) {
     const bundle = await buildTaskProofBundle({ store, taskId: task.id });
