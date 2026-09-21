@@ -5,10 +5,10 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { RunStore } = require("./run-store");
 
-const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention"]);
+const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention"]);
 
 function emptyState() {
-  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [] };
+  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [] };
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -73,6 +73,7 @@ class JsonFileRunStore extends RunStore {
   async saveStep(step) { return this._save("steps", step); }
   async saveExecution(execution) { return this._save("executions", execution); }
   async saveArtifact(artifact) { return this._save("artifacts", artifact); }
+  async saveEvidence(evidence) { return this._save("evidence", evidence); }
   async saveVerification(verification) { return this._save("verifications", verification); }
   async saveTerminal(terminal) { return this._save("terminals", terminal); }
 
@@ -112,6 +113,7 @@ class JsonFileRunStore extends RunStore {
   async getStep(id) { return this._get("steps", id); }
   async getExecution(id) { return this._get("executions", id); }
   async getArtifact(id) { return this._get("artifacts", id); }
+  async getEvidence(id) { return this._get("evidence", id); }
   async getVerification(id) { return this._get("verifications", id); }
   async getTerminal(id) { return this._get("terminals", id); }
 
@@ -146,6 +148,7 @@ class JsonFileRunStore extends RunStore {
   async listExecutions(filters) { return this._list("executions", filters); }
   async listEvents(filters) { return this._list("events", filters); }
   async listArtifacts(filters) { return this._list("artifacts", filters); }
+  async listEvidence(filters) { return this._list("evidence", filters, ["taskId", "verificationId", "type"]); }
   async listVerifications(filters) { return this._list("verifications", filters); }
   async listTerminals(filters) { return this._list("terminals", filters, ["projectId", "kind", "backend", "status", "providerId"]); }
   async listTaskGraphs(filters) { return this._list("taskGraphs", filters, ["missionId", "status"]); }
@@ -315,6 +318,7 @@ class JsonFileRunStore extends RunStore {
     // Older runtime files stay readable and receive it on their next mutation.
     if (!Array.isArray(state.missions)) state.missions = [];
     if (!Array.isArray(state.terminals)) state.terminals = [];
+    if (!Array.isArray(state.evidence)) state.evidence = [];
     if (!Array.isArray(state.projectSnapshots)) state.projectSnapshots = [];
     if (!Array.isArray(state.intentSessions)) state.intentSessions = [];
     if (!Array.isArray(state.missionBriefs)) state.missionBriefs = [];
