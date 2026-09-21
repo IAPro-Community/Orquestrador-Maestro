@@ -54,6 +54,7 @@ class MissionUsageMeter {
       return Object.freeze({ ...handle, result, cancel: typeof handle.cancel === "function" ? () => handle.cancel() : undefined });
     };
     this.wrappedAdapters.set(adapter, wrapped);
+    this.wrappedAdapters.set(wrapped, wrapped);
     return wrapped;
   }
   record({ adapter, request, completed }) {
@@ -72,7 +73,7 @@ class MissionUsageMeter {
   snapshot() {
     const completeRecords = this.records.filter((r) => r.complete), incomplete = this.records.filter((r) => !r.complete);
     const sum = (key) => completeRecords.reduce((total, r) => total + (numeric(r[key]) ?? 0), 0);
-    const complete = this.records.length > 0 && incomplete.length === 0;
+    const complete = incomplete.length === 0;
     const input = sum("tokenInput"), output = sum("tokenOutput"), reasoning = sum("reasoningTokens");
     return Object.freeze({
       schemaVersion: 1, complete, invocationCount: this.records.length,
@@ -82,9 +83,13 @@ class MissionUsageMeter {
       cacheWriteTokens: complete ? sum("cachedOutputTokens") : null,
       totalTokens: complete ? input + output + reasoning : null,
       modelCalls: complete ? sum("modelCalls") : null,
-      observed: Object.freeze({ inputTokens: completeRecords.length ? input : null, outputTokens: completeRecords.length ? output : null, reasoningTokens: completeRecords.length ? reasoning : null }),
+      observed: Object.freeze({
+        inputTokens: complete ? input : completeRecords.length ? input : null,
+        outputTokens: complete ? output : completeRecords.length ? output : null,
+        reasoningTokens: complete ? reasoning : completeRecords.length ? reasoning : null
+      }),
       incompleteReasons: Object.freeze([...new Set(incomplete.map((r) => r.reason).filter(Boolean))]),
-      limitation: "Mission totals are available only when every provider invocation exposed complete fresh-session usage."
+      limitation: "Mission totals are available only when every observed provider invocation exposed complete fresh-session usage; zero observed invocations is an exact zero."
     });
   }
 }

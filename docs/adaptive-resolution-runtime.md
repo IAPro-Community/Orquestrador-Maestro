@@ -265,7 +265,9 @@ Completeness is fail-closed:
 - a handle without an observable result promise makes the mission incomplete;
 - a rejected provider result makes the mission incomplete;
 - resumed/continued sessions are not blindly added to fresh-session totals;
-- OpenCode `task` subagents make root-session usage incomplete unless step usage for each child session is explicitly present in the observed stream.
+- OpenCode `task` subagents make root-session usage incomplete unless step usage for each child session is explicitly present in the observed stream;
+- repeated instrumentation of the same provider registry is idempotent;
+- a mission with zero provider invocations is an exact zero-token mission, not an unavailable measurement.
 
 Observed partial counters remain available for diagnosis, but `totalTokens` stays `null` whenever any invocation is incomplete. This prevents root-session OpenCode tokens from being presented as end-to-end mission cost when an unobserved child agent may have consumed additional tokens.
 

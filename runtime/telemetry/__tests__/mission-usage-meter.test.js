@@ -55,3 +55,26 @@ test("unobservable provider handle is recorded as incomplete", async () => {
   assert.equal(snapshot.invocationCount, 1);
   assert.deepEqual(snapshot.incompleteReasons, ["provider-result-unobservable"]);
 });
+
+
+test("zero provider invocations is an exact zero-token mission", () => {
+  const meter = new MissionUsageMeter();
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, true);
+  assert.equal(snapshot.invocationCount, 0);
+  assert.equal(snapshot.totalTokens, 0);
+  assert.equal(snapshot.modelCalls, 0);
+  assert.deepEqual(snapshot.observed, { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 });
+});
+
+test("instrumenting the same registry twice does not double-count an invocation", async () => {
+  const meter = new MissionUsageMeter();
+  const registry = { adapters: new Map([["opencode", adapter([step(10, 2)])]]) };
+  meter.instrumentRegistry(registry);
+  meter.instrumentRegistry(registry);
+  await (await registry.adapters.get("opencode").execute({ prompt: "once" })).result;
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, true);
+  assert.equal(snapshot.invocationCount, 1);
+  assert.equal(snapshot.totalTokens, 12);
+});
