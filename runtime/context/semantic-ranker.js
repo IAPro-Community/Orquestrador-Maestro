@@ -20,12 +20,16 @@ class SemanticRanker {
 
   /**
    * Enriches the deterministic context facts.
-   * NEVER transforms an INFERENCE into a FACT.
-   * Returns a map of key -> { relevance, inference, confidence } or similar.
+   * NEVER transforms an INFERENCE into a FACT, never invents new facts.
+   *
+   * Local deterministic scoring: token overlap between the intent and each
+   * fact (key + value) maps to a relevance in [0.3, 1]. Zero overlap
+   * demotes (0.3) but never drops — dropping is the budget's job.
+   * Fully local: no provider call, no I/O.
    *
    * @param {string} intent - The user's raw intent.
    * @param {Array} facts - The deterministically discovered facts.
-   * @returns {Promise<Object>} Map of enriched data or empty object if failed.
+   * @returns {Promise<Object>} Map of key -> { relevance }.
    */
   async rankAndEnrich(intent, facts) {
     // Fail closed and loud: policy violation must throw, never silently
@@ -34,18 +38,39 @@ class SemanticRanker {
       throw new Error("LOCAL_ONLY_VIOLATION: Remote provider/model not permitted under localOnly policy");
     }
     try {
-      const provider = this.app.providers.get(this.providerId);
-      if (!provider) return {};
-
-      // In M1, we simulate or make a very lightweight call.
-      // If it times out or crashes, we catch and return {} so we don't break the engine.
-
-      // MOCK implementation for M1 baseline. A real implementation would parse JSON from the LLM.
-      // We return an empty object to represent that no inferences were made, preserving deterministic facts.
-      return {};
+      const intentTokens = new Set(SemanticRanker.tokenize(intent));
+      const enrichment = {};
+      for (const fact of Array.isArray(facts) ? facts : []) {
+        if (!fact || typeof fact.key !== "string") continue;
+        const text = `${fact.key.replace(/[._-]+/g, " ")} ${SemanticRanker.factText(fact.value)}`;
+        const factTokens = new Set(SemanticRanker.tokenize(text));
+        let overlap = 0;
+        for (const token of intentTokens) {
+          if (factTokens.has(token)) overlap++;
+        }
+        const ratio = intentTokens.size > 0 ? overlap / intentTokens.size : 0;
+        enrichment[fact.key] = { relevance: Math.round((0.3 + 0.7 * Math.min(1, ratio)) * 100) / 100 };
+      }
+      return enrichment;
     } catch (e) {
       // Semantic enrichment failed, but we must not crash the deterministic flow.
       return {};
+    }
+  }
+
+  static tokenize(value) {
+    return String(value || "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/u)
+      .filter(token => token.length >= 3);
+  }
+
+  static factText(value) {
+    if (typeof value === "string") return value.slice(0, 2000);
+    try {
+      return (JSON.stringify(value) ?? "").slice(0, 2000);
+    } catch {
+      return "";
     }
   }
 }

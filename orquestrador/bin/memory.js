@@ -295,7 +295,46 @@ class Memory {
     return { valid, malformed, malformedLines };
   }
 
+  /**
+   * Per-project capture policy (`DEV/memory-policy.json`):
+   * `{ "capture": false }` opts the project out of new captures;
+   * `{ "excludedPaths": [...] }` drops matching files from records.
+   * Absent file means defaults (capture on). A malformed file throws
+   * (fail closed: a privacy file must not be silently ignored).
+   */
+  loadProjectPolicy(projectRoot) {
+    const defaults = { capture: true, excludedPaths: [] };
+    if (!projectRoot) return defaults;
+    const policyPath = path.join(path.resolve(projectRoot), "DEV", "memory-policy.json");
+    if (!fs.existsSync(policyPath)) return defaults;
+    const parsed = JSON.parse(fs.readFileSync(policyPath, "utf8"));
+    return {
+      capture: parsed.capture !== false,
+      excludedPaths: Array.isArray(parsed.excludedPaths)
+        ? parsed.excludedPaths.filter(p => typeof p === "string")
+        : []
+    };
+  }
+
+  applyPolicyFile(observation, policy) {
+    if (!policy) return observation;
+    if (policy.capture === false) return null;
+    const excluded = policy.excludedPaths || [];
+    if (excluded.length === 0 || !Array.isArray(observation.files)) return observation;
+    return {
+      ...observation,
+      files: observation.files.filter(f => !excluded.some(x => String(f).includes(x)))
+    };
+  }
+
   record(projectId, observation, options = {}) {
+    // Per-project policy file first: opted-out projects capture nothing.
+    const filePolicy = options.policy
+      || (options.projectRoot ? this.loadProjectPolicy(options.projectRoot) : null);
+    if (filePolicy) {
+      if (filePolicy.capture === false) return null;
+      observation = this.applyPolicyFile(observation, filePolicy) || observation;
+    }
     const privateFields = [
       observation.summary,
       observation.details,
@@ -690,7 +729,8 @@ class Memory {
     });
   }
 
-  consolidate(projectId, observationIds, consolidatedObs) {
+  consolidate(projectId, observationIds, consolidatedObs, options = {}) {
+    if (options.policy && options.policy.capture === false) return null;
     const filePath = this.getObservationsFile(projectId);
     const lockPath = getLockPath(filePath);
 
@@ -876,6 +916,62 @@ class Memory {
     });
   }
 
+  exportData(projectId) {
+    const filePath = this.getObservationsFile(projectId);
+    const { valid: observations, malformed } = this.readObservations(filePath);
+    return {
+      format: "maestro-memory-export/v1",
+      project: projectId,
+      exportedAt: new Date().toISOString(),
+      malformed,
+      observations
+    };
+  }
+
+  importData(projectId, payload, options = {}) {
+    const list = typeof payload === "string" ? JSON.parse(payload).observations ?? JSON.parse(payload) : payload.observations ?? payload;
+    if (!Array.isArray(list)) throw new Error("Import payload must be an array or an export object with observations[]");
+    const filePath = this.getObservationsFile(projectId);
+    const lockPath = getLockPath(filePath);
+    return withLock(lockPath, () => {
+      this.ensureProjectDir(projectId);
+      const { valid: existing } = this.readObservations(filePath);
+      const knownIds = new Set(existing.map(o => o.id));
+      let imported = 0;
+      const rejected = [];
+      const accepted = [];
+      list.forEach((raw, index) => {
+        try {
+          const candidate = {
+            ...raw,
+            project: projectId,
+            // Imported rows never inherit trust: verification must be
+            // re-earned in this repository, never copied across.
+            verified: false,
+            verifier: "",
+            verifiedAt: null,
+            verifiedClaimed: Boolean(raw.verified || raw.verifiedClaimed)
+          };
+          this.validateObservation(candidate);
+          if (knownIds.has(candidate.id)) {
+            rejected.push({ index, reason: "duplicate id" });
+            return;
+          }
+          knownIds.add(candidate.id);
+          accepted.push(candidate);
+          imported++;
+        } catch (err) {
+          rejected.push({ index, reason: err.message });
+        }
+      });
+      if (accepted.length > 0 && !options.dryRun) {
+        const lines = accepted.map(o => JSON.stringify(o));
+        fs.appendFileSync(filePath, lines.join("\n") + "\n", { encoding: "utf8", mode: 0o600 });
+      }
+      return { imported: options.dryRun ? 0 : imported, candidates: accepted.length, rejected };
+    });
+  }
+
   prune(projectId, options = {}) {
     const filePath = this.getObservationsFile(projectId);
     const lockPath = getLockPath(filePath);
@@ -914,7 +1010,9 @@ Uso:
   memory record [--project PATH] --type TYPE --summary TEXT [opcoes]
   memory search [--project PATH] [--search TEXT] [--type TYPE] [--verified] [--unverified]
   memory show [--project PATH] --id ID
-  memory forget [--project PATH] --id ID
+  memory forget [--project PATH] --id ID [--force]
+  memory export [--project PATH] [--output FILE]
+  memory import [--project PATH] --input FILE [--dry-run]
   memory timeline [--project PATH] [--limit N]
   memory promote [--project PATH] --id ID --destination PATH [--apply]
   memory stats [--project PATH]
@@ -940,6 +1038,10 @@ Flags:
   --to DATE          Data final
   --limit N          Limite de resultados
   --id ID            ID da observation
+  --force            Confirmar operacao destrutiva (forget de linha verificada)
+  --output FILE      Arquivo de destino do export (padrao: stdout)
+  --input FILE       Arquivo de origem do import
+  --dry-run          Validar import sem escrever
   --branch BRANCH    Filtrar por branch
   --scope LEVEL      Escopo: repository, branch, workspace, commit, task
   --destination PATH Destino para promocao (DEV/CONTEXT.md, DEV/DECISIONS.md, DEV/ARCHITECTURE.md)
@@ -1045,6 +1147,30 @@ function main() {
       const tl = memory.timeline(project, { limit: memory.getArgNumber(rest, "--limit") || 50 });
       console.log(JSON.stringify(tl, null, 2));
       return 0;
+    }
+    case "export": {
+      const out = memory.getArg(rest, "--output");
+      const data = memory.exportData(project);
+      const text = JSON.stringify(data, null, 2);
+      if (out) {
+        fs.writeFileSync(path.resolve(out), text + "\n", "utf8");
+      } else {
+        console.log(text);
+      }
+      return 0;
+    }
+    case "import": {
+      const input = memory.getArg(rest, "--input");
+      if (!input) { console.error("--input required"); return 1; }
+      try {
+        const payload = fs.readFileSync(path.resolve(input), "utf8");
+        const result = memory.importData(project, payload, { dryRun: rest.includes("--dry-run") });
+        console.log(JSON.stringify(result, null, 2));
+        return result.rejected.length > 0 && !rest.includes("--dry-run") ? 2 : 0;
+      } catch (err) {
+        console.error(`import failed: ${err.message}`);
+        return 1;
+      }
     }
     case "promote": {
       const id = memory.getArg(rest, "--id");

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Deps: `@clack/prompts` 1.x, `@xterm/headless` 6, `@types/node` 26, `tsx` 4.23.15 (TypeScript 7 revertido: 176 erros; `uuid` 14 irrelevante — só transitivo).
+- Memória: `export`/`import` com revalidação e sem herança de confiança; opt-out por projeto via `DEV/memory-policy.json` (`capture`, `excludedPaths`).
+- Contexto: `SemanticRanker` com scoring determinístico local (overlap de tokens, sem inventar fatos) e `localOnly` fail-closed.
 - Security (memória): `--verified` sozinho não verifica mais — vira `verifiedClaimed`; `verified:true` exige `--verifier` (+ `--verify-note`) e `promote --apply` para `DEV/` exige verificador e `verifiedAt`.
 - Security (memória): o predicado vale em leitura e escrita — linhas legadas com `verified:true` sem verificador passam a contar como não verificadas em `search`, `stats`, `timeline`, `retention`/`prune`/`dedupe` e no label do brief; `verifiedAt` inválido degrada para claim; `consolidate()` herda o escopo das fontes (sem override).
 - Security (memória): redação cobre segredos nus (AKIA, glpat-, gho-/ghu-, EC/OPENSSH, AIza); injeção checada em todos os campos (throw explícito); `consolidate()` com policy; `forget --id`; teto de 4000 em `details`; adapters com default-deny e `record()` resiliente.

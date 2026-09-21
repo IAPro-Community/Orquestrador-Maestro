@@ -35,6 +35,18 @@ node orquestrador/bin/memory.js stats \
   --project meu-projeto
 ```
 
+### Exportar e importar (backup/restore; import nunca herda `verified`)
+```bash
+node orquestrador/bin/memory.js export --project meu-projeto --output backup.json
+node orquestrador/bin/memory.js import --project outro-projeto --input backup.json --dry-run
+```
+
+### Opt-out por projeto (`DEV/memory-policy.json`)
+```json
+{ "capture": false, "excludedPaths": ["secrets/"] }
+```
+`capture: false` bloqueia novas capturas; `excludedPaths` remove arquivos casados do registro.
+
 ## 2. Testar Benchmark
 
 Os comandos atuais usam `benchmark-harness/` (os paths `benchmarks/benchmark.js` e `benchmarks/real-benchmark.js` não existem mais neste repo).

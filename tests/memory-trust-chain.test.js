@@ -570,3 +570,106 @@ test("forget refuses verified rows without force", () => {
     cleanup(tmpDir);
   }
 });
+
+test("export/import round-trips without inheriting trust", () => {
+  const { tmpDir, memory } = makeMemory();
+  try {
+    const verified = memory.record("p1", baseObs({ summary: "Verified note", verified: true, verifier: "alice" }));
+    const plain = memory.record("p1", baseObs({ summary: "Plain note", files: ["a.ts"] }));
+    const dump = memory.exportData("p1");
+    assert.equal(dump.format, "maestro-memory-export/v1");
+    assert.equal(dump.observations.length, 2);
+    const dry = memory.importData("p2", JSON.stringify(dump), { dryRun: true });
+    assert.equal(dry.imported, 0);
+    assert.equal(dry.candidates, 2);
+    const res = memory.importData("p2", JSON.stringify(dump));
+    assert.equal(res.imported, 2);
+    assert.deepEqual(res.rejected, []);
+    const back = memory.search("p2", {});
+    assert.equal(back.length, 2);
+    assert.ok(back.every(o => o.verified === false), "trust is re-earned, never copied");
+    assert.ok(back.some(o => o.verifiedClaimed === true));
+    const dup = memory.importData("p2", JSON.stringify(dump));
+    assert.equal(dup.imported, 0);
+    assert.equal(dup.rejected.length, 2);
+    void verified; void plain;
+  } finally {
+    cleanup(tmpDir);
+  }
+});
+
+test("import rejects malformed rows with reasons", () => {
+  const { tmpDir, memory } = makeMemory();
+  try {
+    const res = memory.importData("p1", JSON.stringify({ observations: [
+      { schemaVersion: 1, id: "obs_dddddddddddddddd", timestamp: new Date().toISOString(), project: "p1", type: "discovery", summary: "Ok", scope: { level: "repository", repositoryId: "r" } },
+      { schemaVersion: 1, id: "bad", project: "p1", type: "nope", summary: "" }
+    ] }));
+    assert.equal(res.imported, 1);
+    assert.equal(res.rejected.length, 1);
+    assert.equal(res.rejected[0].index, 1);
+  } finally {
+    cleanup(tmpDir);
+  }
+});
+
+test("DEV/memory-policy.json opts out capture and filters paths", () => {
+  const { tmpDir, memory } = makeMemory();
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "memory-policy-"));
+  try {
+    fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectRoot, "DEV", "memory-policy.json"),
+      JSON.stringify({ capture: true, excludedPaths: ["secrets/"] }),
+      "utf8"
+    );
+    const policy = memory.loadProjectPolicy(projectRoot);
+    assert.equal(policy.capture, true);
+    const obs = memory.record("p1", baseObs({ summary: "With files", files: ["src/a.ts", "secrets/k.ts"] }), { projectRoot });
+    assert.deepEqual(obs.files, ["src/a.ts"]);
+    fs.writeFileSync(
+      path.join(projectRoot, "DEV", "memory-policy.json"),
+      JSON.stringify({ capture: false }),
+      "utf8"
+    );
+    assert.equal(memory.record("p1", baseObs({ summary: "Blocked" }), { projectRoot }), null);
+    fs.writeFileSync(path.join(projectRoot, "DEV", "memory-policy.json"), "{oops", "utf8");
+    assert.throws(() => memory.loadProjectPolicy(projectRoot), SyntaxError);
+  } finally {
+    cleanup(tmpDir);
+    cleanup(projectRoot);
+  }
+});
+
+test("ranker scores by overlap deterministically, never invents", async () => {
+  const { SemanticRanker } = require("../runtime/context/semantic-ranker.js");
+  const ranker = new SemanticRanker({ providers: { get: () => { throw new Error("must not call provider"); } } }, {});
+  const out = await ranker.rankAndEnrich("fix authentication token bug", [
+    { key: "auth.token", value: "rotates authentication token", kind: "FACT" },
+    { key: "ui.color", value: "blue button", kind: "FACT" }
+  ]);
+  assert.ok(out["auth.token"].relevance > out["ui.color"].relevance);
+  assert.ok(out["auth.token"].relevance <= 1 && out["ui.color"].relevance >= 0.3);
+  assert.equal(out.newInferences, undefined);
+  const again = await ranker.rankAndEnrich("fix authentication token bug", [
+    { key: "auth.token", value: "rotates authentication token", kind: "FACT" }
+  ]);
+  assert.deepEqual(again, { "auth.token": out["auth.token"] });
+});
+
+test("engine applies real ranker without promoting INFERENCE to FACT", async () => {
+  const { ContextEngine } = require("../runtime/context/context-engine.js");
+  const { SemanticRanker } = require("../runtime/context/semantic-ranker.js");
+  const engine = new ContextEngine({
+    workspacePath: "/tmp",
+    semanticRanker: new SemanticRanker({ providers: { get: () => null } }, {})
+  });
+  engine._discoverFacts = async () => [
+    { key: "auth.bug", value: "token refresh fails", kind: "INFERENCE", confidence: 0.4, relevance: 0.5, sources: [] }
+  ];
+  const result = await engine.buildContext("investigate authentication token failure", 8000);
+  const item = result.items.find(i => i.key === "auth.bug");
+  assert.ok(item);
+  assert.equal(item.kind, "INFERENCE");
+  assert.ok(item.relevance >= 0.3 && item.relevance <= 1);
+});
