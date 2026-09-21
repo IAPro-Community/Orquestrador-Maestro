@@ -148,7 +148,7 @@ class JsonFileRunStore extends RunStore {
   async listExecutions(filters) { return this._list("executions", filters); }
   async listEvents(filters) { return this._list("events", filters); }
   async listArtifacts(filters) { return this._list("artifacts", filters); }
-  async listEvidence(filters) { return this._list("evidence", filters, ["taskId", "verificationId", "type"]); }
+  async listEvidence(filters) { return this._list("evidence", filters, ["taskId", "runId", "artifactId", "verificationId", "type"]); }
   async listVerifications(filters) { return this._list("verifications", filters); }
   async listTerminals(filters) { return this._list("terminals", filters, ["projectId", "kind", "backend", "status", "providerId"]); }
   async listTaskGraphs(filters) { return this._list("taskGraphs", filters, ["missionId", "status"]); }
