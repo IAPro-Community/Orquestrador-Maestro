@@ -10,6 +10,7 @@ module.exports = {
   ...require("./escalation/controller"),
   ...require("./evidence-ranker"),
   ...require("./evidence/signal-extractor"),
+  ...require("./evidence/proof-bundle"),
   ...require("./prompt-manifest"),
   ...require("./context-experiment"),
   ...require("./progressive-planning"),
