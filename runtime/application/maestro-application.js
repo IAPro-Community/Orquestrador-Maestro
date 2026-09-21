@@ -445,9 +445,20 @@ class MaestroApplication {
     if (requiredSkills.length > cognitiveBudget.maxSkills) {
       const completedAt = new Date().toISOString();
       const reason = `BUDGET_CONFLICT: ${requiredSkills.length} required skills exceed maxSkills=${cognitiveBudget.maxSkills}`;
+      const blockedResolution = finalizeResolution({ contract: run.metadata.resolution, runStatus: "blocked", reason, now: completedAt });
+      const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length });
+      const blockedCognitiveTelemetry = {
+        ...blockedTelemetryValue,
+        resolution: buildResolutionTelemetry({ plan: blockedResolution, cognitiveTelemetry: blockedTelemetryValue, status: "blocked" })
+      };
       await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { reason } });
       await this.store.saveStep({ ...step, status: "failed", completedAt });
-      await this.store.saveRun({ ...run, status: "blocked", completedAt, metadata: { ...run.metadata, preflightBlock: "budget-conflict", cognitiveTelemetry: blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length }) } });
+      await this.store.saveRun({
+        ...run,
+        status: "blocked",
+        completedAt,
+        metadata: { ...run.metadata, preflightBlock: "budget-conflict", resolution: blockedResolution, cognitiveTelemetry: blockedCognitiveTelemetry }
+      });
       await this.record(run.id, "run.blocked", { reason });
       return { run: await this.store.getRun(run.id), verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: "budget-conflict" }, execution: null, governanceWarnings: [], governanceBlocking: [reason], recommendations: [] };
     }
