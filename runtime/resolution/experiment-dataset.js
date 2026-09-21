@@ -211,17 +211,22 @@ function benchmarkIdentityIssues(baselineRun, treatmentRun) {
   const issues = [];
   const comparableFields = [
     ["scenarioId", nonEmptyOrNull(baselineRun?.scenarioId), nonEmptyOrNull(treatmentRun?.scenarioId)],
+    ["scenarioHash", nonEmptyOrNull(baselineRun?.scenarioHash), nonEmptyOrNull(treatmentRun?.scenarioHash)],
     ["taskHash", nonEmptyOrNull(baselineRun?.taskHash), nonEmptyOrNull(treatmentRun?.taskHash)],
     ["fixtureHash", fixtureHashFromRun(baselineRun), fixtureHashFromRun(treatmentRun)],
     ["model", nonEmptyOrNull(baselineRun?.model), nonEmptyOrNull(treatmentRun?.model)],
     ["provider", nonEmptyOrNull(baselineRun?.provider), nonEmptyOrNull(treatmentRun?.provider)],
     ["driver", nonEmptyOrNull(baselineRun?.driver?.name), nonEmptyOrNull(treatmentRun?.driver?.name)],
     ["maestroRuntimeCommit", nonEmptyOrNull(baselineRun?.driver?.config?.maestroRuntimeCommit), nonEmptyOrNull(treatmentRun?.driver?.config?.maestroRuntimeCommit)],
+    ["containerImage", nonEmptyOrNull(baselineRun?.environment?.containerImage), nonEmptyOrNull(treatmentRun?.environment?.containerImage)],
     ["networkMode", nonEmptyOrNull(baselineRun?.environment?.networkMode), nonEmptyOrNull(treatmentRun?.environment?.networkMode)],
-    ["forwardedEnvNames", JSON.stringify(normalizedStringList(baselineRun?.environment?.forwardedEnvNames)), JSON.stringify(normalizedStringList(treatmentRun?.environment?.forwardedEnvNames))]
+    ["forwardedEnvNames",
+      Array.isArray(baselineRun?.environment?.forwardedEnvNames) ? JSON.stringify(normalizedStringList(baselineRun.environment.forwardedEnvNames)) : null,
+      Array.isArray(treatmentRun?.environment?.forwardedEnvNames) ? JSON.stringify(normalizedStringList(treatmentRun.environment.forwardedEnvNames)) : null]
   ];
   for (const [name, left, right] of comparableFields) {
-    if (left && right && left !== right) issues.push(`${name}-mismatch`);
+    if (!left || !right) issues.push(`${name}-missing`);
+    else if (left !== right) issues.push(`${name}-mismatch`);
   }
   if (baselineRun?.status === "benchmark-integrity-violation" || treatmentRun?.status === "benchmark-integrity-violation") {
     issues.push("benchmark-integrity-violation");
