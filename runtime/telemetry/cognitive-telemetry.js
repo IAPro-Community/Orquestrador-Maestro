@@ -40,7 +40,7 @@ function spanId() {
 
 function normalizeUsage(usage) {
   if (!usage || typeof usage !== "object") {
-    return { tokenInput: null, tokenOutput: null, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, tokenSource: "unavailable", usageScope: "unknown", provider: "unknown", model: "unknown", sessionId: null, tool: "unknown" };
+    return { tokenInput: null, tokenOutput: null, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, tokenSource: "unavailable", usageScope: "unknown", usageComplete: false, provider: "unknown", model: "unknown", sessionId: null, tool: "unknown" };
   }
   return {
     tokenInput: usage.tokenInput ?? null,
@@ -52,6 +52,7 @@ function normalizeUsage(usage) {
     toolCalls: usage.toolCalls ?? null,
     tokenSource: usage.tokenSource || "unavailable",
     usageScope: usage.usageScope || "unknown",
+    usageComplete: usage.usageComplete === true,
     provider: usage.provider || "unknown",
     model: usage.model || "unknown",
     sessionId: usage.sessionId || null,
@@ -144,6 +145,11 @@ function buildCognitiveTelemetry({
   // availability: a review that ran but exposed no token usage still counts 1.
   const reviewCalls = Number.isInteger(reviewCallsOverride) ? reviewCallsOverride
     : review ? (review.modelCalls > 0 ? 1 : 0) : 0;
+  const primaryUsageComplete = primary.usageComplete === true
+    && Number.isFinite(primary.tokenInput) && Number.isFinite(primary.tokenOutput);
+  const reviewUsageComplete = reviewCalls === 0
+    || (review?.usageComplete === true && Number.isFinite(review.tokenInput) && Number.isFinite(review.tokenOutput));
+  const usageComplete = primaryUsageComplete && reviewUsageComplete;
   const amplification = amplificationMetrics({ primaryInput: primary.tokenInput, primaryScope: primary.usageScope, childAgents });
   // Context duplication groundwork: hashes only, never content.
   const promptHash = typeof prompt === "string" && prompt.length > 0 ? sha256Hex(prompt).slice(0, 32) : null;
@@ -173,6 +179,7 @@ function buildCognitiveTelemetry({
     reasoningTokens: primary.reasoningTokens ?? null,
     tokenSource,
     usageScope,
+    usageComplete,
     modelCalls,
     primaryCalls,
     reviewCalls,
