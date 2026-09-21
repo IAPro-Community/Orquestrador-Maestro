@@ -78,3 +78,14 @@ test("instrumenting the same registry twice does not double-count an invocation"
   assert.equal(snapshot.invocationCount, 1);
   assert.equal(snapshot.totalTokens, 12);
 });
+
+
+test("explicit fresh named sessions are safe to aggregate", async () => {
+  const meter = new MissionUsageMeter();
+  const registry = { adapters: new Map([["opencode", adapter([step(80, 20)])]]) };
+  meter.instrumentRegistry(registry);
+  await (await registry.adapters.get("opencode").execute({ prompt: "review", sessionId: "review-new", freshSession: true })).result;
+  const snapshot = meter.snapshot();
+  assert.equal(snapshot.complete, true);
+  assert.equal(snapshot.totalTokens, 100);
+});
