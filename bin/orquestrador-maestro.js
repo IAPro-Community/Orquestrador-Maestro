@@ -823,13 +823,23 @@ async function handleRunCommand(args) {
     if (!cancelled) throw new Error(`Run ativo nao encontrado: ${runId}`);
     console.log(`Cancelamento solicitado para ${runId}.`); return 0;
   }
-  const options = parseRuntimeArgs(args, ["--provider", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox", "--interaction"]);
+  const options = parseRuntimeArgs(args, ["--provider", "--fallback-providers", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox", "--interaction", "--resolution-mode"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error("Informe a tarefa: maestro run [opcoes] \"tarefa\"");
-  const outcome = await (await createRuntimeApplication(options.projectPath)).executeRun({
-    description, providerId: options.provider, profileId: options.profile, policyId: options.policy,
-    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent, sandbox: options.sandbox, interactionProfile: options.interaction
-  });
+  const app = await createRuntimeApplication(options.projectPath);
+  const providerFallbacks = String(options.fallbackProviders || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const resolutionMode = options.resolutionMode || "shadow";
+  if (!["shadow", "advisory"].includes(resolutionMode)) {
+    throw new Error("--resolution-mode aceita apenas shadow ou advisory; enforce permanece bloqueado pelo promotion gate.");
+  }
+  const request = {
+    description, providerId: options.provider, providerFallbacks, profileId: options.profile, policyId: options.policy,
+    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent,
+    sandbox: options.sandbox, interactionProfile: options.interaction, resolutionMode
+  };
+  const outcome = providerFallbacks.length > 0
+    ? await app.executeTaskWithHandoff(request)
+    : await app.executeRun(request);
   console.log(JSON.stringify({ run: outcome.run, verification: outcome.verification, changes: outcome.changes }, null, 2));
   return outcome.run.status === "completed" ? 0 : 1;
 }
@@ -1620,7 +1630,7 @@ function handleVersionCommand(args) {
 }
 
 async function handleGoCommand(args, planningOnly = false) {
-  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--interviewer", "--model", "--max-cost", "--max-parallel", "--profile", "--interaction"], ["--auto", "--plan"]);
+  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--fallback-providers", "--interviewer", "--model", "--max-cost", "--max-parallel", "--profile", "--interaction", "--resolution-mode"], ["--auto", "--plan"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error('Informe a intenção: orquestrador-maestro go "tarefa"');
 
@@ -1638,14 +1648,16 @@ async function handleGoCommand(args, planningOnly = false) {
   const workspacePath = path.resolve(options.projectPath || process.cwd());
   const app = await createRuntimeApplication(workspacePath);
   const benchmarkMarkerNonce = process.env.MAESTRO_BENCHMARK_MARKER_NONCE || "";
-  let missionUsageMeter = null;
-  if (process.env.MAESTRO_BENCHMARK_USAGE === "1") {
-    if (!/^[A-Za-z0-9-]{16,128}$/u.test(benchmarkMarkerNonce)) {
-      throw new Error("BENCHMARK_MARKER_NONCE_INVALID: benchmark token metering requires an authenticated marker nonce");
-    }
-    const { MissionUsageMeter } = require(path.join(rootDir, "runtime", "telemetry", "mission-usage-meter"));
-    missionUsageMeter = new MissionUsageMeter();
-    missionUsageMeter.instrumentRegistry(app.providers);
+  const benchmarkUsageRequested = process.env.MAESTRO_BENCHMARK_USAGE === "1";
+  if (benchmarkUsageRequested && !/^[A-Za-z0-9-]{16,128}$/u.test(benchmarkMarkerNonce)) {
+    throw new Error("BENCHMARK_MARKER_NONCE_INVALID: benchmark token metering requires an authenticated marker nonce");
+  }
+  const { MissionUsageMeter } = require(path.join(rootDir, "runtime", "telemetry", "mission-usage-meter"));
+  const missionUsageMeter = new MissionUsageMeter();
+  missionUsageMeter.instrumentRegistry(app.providers);
+  const resolutionMode = options.resolutionMode || "shadow";
+  if (!["shadow", "advisory"].includes(resolutionMode)) {
+    throw new Error("--resolution-mode aceita apenas shadow ou advisory; enforce permanece bloqueado pelo promotion gate.");
   }
 
   const p = require("@clack/prompts");
@@ -1682,7 +1694,7 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const semanticRanker = new SemanticRanker(app, { localOnly: false });
   const contextEngine = new ContextEngine({ workspacePath, semanticRanker });
-  const relevantContext = await contextEngine.buildContext(description);
+  const relevantContext = await contextEngine.buildContext(description, 8000, { resolutionMode });
 
   s.stop(`Codebase explorada. Itens relevantes encontrados: ${relevantContext.items.length}`);
 
@@ -1816,7 +1828,16 @@ async function handleGoCommand(args, planningOnly = false) {
     })
   });
 
-  const executionTarget = { providerId: selectedProviderId, model: selectedModel };
+  const explicitFallbackProviders = String(options.fallbackProviders || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index && value !== selectedProviderId);
+  const executionTarget = {
+    providerId: selectedProviderId,
+    model: selectedModel,
+    providerFallbacks: explicitFallbackProviders
+  };
   let tasks = planResult.taskGraph.tasks.map((st) =>
     LegacyExecutionProjection.projectTask(st.metadata?.semantic || st, { executionTarget })
   );
@@ -1890,7 +1911,13 @@ async function handleGoCommand(args, planningOnly = false) {
   // Fase 5: Execução
   updateTitle("Executando tarefas...");
   const mission = await app.createMission({ workspacePath, objective: spec.answers?.intent || description, status: "running", startedAt: new Date().toISOString() });
-  const executor = new LaneExecutor({ application: app, maxParallel: parseInt(options.maxParallel, 10) || 3, executionProfile: options.profile, interactionProfile: options.interaction });
+  const executor = new LaneExecutor({
+    application: app,
+    maxParallel: parseInt(options.maxParallel, 10) || 3,
+    executionProfile: options.profile,
+    interactionProfile: options.interaction,
+    resolutionMode
+  });
   const { TaskLifecycleMonitor } = require(path.join(rootDir, "runtime", "planner", "task-lifecycle-monitor"));
   const lifecycleMonitor = TaskLifecycleMonitor.attach({ executor, app, graphs, store: app.store });
 
@@ -1929,10 +1956,27 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const failures = Object.values(results).filter((r) => r.status === "failed");
   const missionStatus = failures.length > 0 ? "failed" : "completed";
-  await app.updateMission(mission.id, { status: missionStatus, completedAt: new Date().toISOString() });
+  const missionCompletedAt = new Date().toISOString();
+  const missionUsage = missionUsageMeter.snapshot();
+  const missionCognitiveTelemetry = Object.freeze({
+    schemaVersion: 1,
+    scope: "mission",
+    usage: missionUsage,
+    taskCount: Object.keys(results).length,
+    validatedTaskCount: Object.values(results).filter((entry) => entry.status === "completed").length,
+    failedTaskCount: failures.length,
+    providerSwitches: Object.values(results).reduce((sum, entry) => sum + (entry?.result?.handoff?.providerSwitches || 0), 0),
+    tokensToValidatedOutcome: missionStatus === "completed" && missionUsage.complete === true ? missionUsage.totalTokens : null,
+    tokenMetricCompleteness: missionUsage.complete === true ? "complete" : "unavailable"
+  });
+  await app.updateMission(mission.id, {
+    status: missionStatus,
+    completedAt: missionCompletedAt,
+    metadata: { ...(mission.metadata || {}), cognitiveTelemetry: missionCognitiveTelemetry }
+  });
 
-  if (missionUsageMeter) {
-    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsageMeter.snapshot() })}`);
+  if (benchmarkUsageRequested) {
+    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({ nonce: benchmarkMarkerNonce, ...missionUsage })}`);
   }
 
   if (failures.length) {
