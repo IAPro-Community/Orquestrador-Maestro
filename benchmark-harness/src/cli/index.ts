@@ -271,6 +271,7 @@ async function handlePair(args: string[]): Promise<CLIResult> {
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
+      container: { type: 'boolean', default: true },
     },
     strict: false,
   });
@@ -292,6 +293,14 @@ async function handlePair(args: string[]): Promise<CLIResult> {
   const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
+  const useContainer = values.container !== false;
+  if (useContainer) {
+    const containerRunner = new ContainerRunner({ image: String(values.image ?? 'node:20-slim') });
+    if (!(await containerRunner.isDockerAvailable())) {
+      return { exitCode: 1, message: 'Docker is required for container mode but is not available (use --no-container for local runs, which are not claim-eligible)' };
+    }
+  }
+
   const vanillaDriver = new OpenCodeDriver({ version: '0.1.0' });
   const maestroDriver = new MaestroDriver({ version: '0.3.0' });
   const pair = await orchestratePair({
@@ -299,6 +308,7 @@ async function handlePair(args: string[]): Promise<CLIResult> {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: evidenceDir,
+    useContainer,
     model: String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash'),
     vanillaTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
     maestroTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),

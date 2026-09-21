@@ -274,13 +274,28 @@ For fixtures with ESLint or similar, hidden tests may include lint assertions. T
 
 ### 9.5 Evidence Gate
 
-A run passes the evidence gate when all of the following are true (`benchmark-harness/src/evidence/index.ts:198-242`):
+A run passes the evidence gate when all of the following are true
+(`isClaimEligibleRun` in `benchmark-harness/src/evidence/index.ts`):
 
-1. **Hidden tests pass** — `testsPassed === testsTotal && testsTotal > 0`
-2. **Exit code matches** — `validationExitCode === expectedExitCode`
-3. **Driver exit code matches** — `driverResult.exitCode === expectedExitCode`
+1. **Pipeline assertion** — `evidence.publicClaimEligible === true` (set by the
+   orchestrator only when validation passed, tokens are provider-reported,
+   inputs are reproducible and the run was isolated).
+2. **Real execution** — `evidence.executionType === "real-execution"`
+   (dry-runs never produce reports).
+3. **Container provenance** — containerized runs are accepted only with
+   recorded provenance (`environment.containerImage`); a container run without
+   it is rejected. Local (non-container) runs are not isolated and therefore
+   not claim-eligible either — official claims require `--container`.
+4. **Provider-reported tokens** — `tokenSource === "provider-reported"`
+   (estimated or unavailable token counts are rejected).
+5. **Reproducibility** — `evidence.reproducible === true` (scenario, fixture
+   and task hashes recorded).
+6. **Isolation** — `evidence.isolated === true`.
+7. **Validation passed** — `validation.passed === true` (hidden acceptance suite).
 
 Runs that fail the evidence gate are flagged with `publicClaimEligible: false`.
+`evidence.reproducible`/`isolated`/`executionType` are written by the
+orchestrator into `run-report.json`; the gate re-validates them independently.
 
 ---
 

@@ -180,8 +180,11 @@ interface ClaimEligibleInput {
   } | null;
   environment?: {
     container?: boolean;
+    containerImage?: string;
+    containerId?: string;
   } | null;
   usage?: { tokenSource?: string } | null;
+  tokens?: { tokenSource?: string } | null;
   driverResult?: { usage?: { tokenSource?: string } | null } | null;
   validation?: { passed?: boolean } | null;
   status?: string;
@@ -197,8 +200,10 @@ interface ClaimEligibleInput {
  * Requirements (all must be true):
  * - `evidence.publicClaimEligible` is true
  * - `evidence.executionType` is "real-execution"
- * - `environment.container` is not true
- * - Token source is "provider-reported"
+ * - container runs are accepted only with recorded provenance
+ *   (`environment.containerImage`); container without provenance is rejected
+ * - Token source is "provider-reported" (read from `usage`, `tokens`,
+ *   or `driverResult.usage`, in that order)
  * - `evidence.reproducible` is true
  * - `evidence.isolated` is true
  * - `validation.passed` is true
@@ -206,8 +211,9 @@ interface ClaimEligibleInput {
 export function isClaimEligibleRun(run: ClaimEligibleInput): boolean {
   if (!run?.evidence?.publicClaimEligible) return false;
   if (run.evidence.executionType !== 'real-execution') return false;
-  if (run.environment?.container === true) return false;
-  const tokenSource = run.usage?.tokenSource ?? run.driverResult?.usage?.tokenSource;
+  if (run.environment?.container === true && !run.environment?.containerImage) return false;
+  const tokenSource =
+    run.usage?.tokenSource ?? run.tokens?.tokenSource ?? run.driverResult?.usage?.tokenSource;
   if (tokenSource !== 'provider-reported') return false;
   if (run.evidence.reproducible !== true) return false;
   if (run.evidence.isolated !== true) return false;

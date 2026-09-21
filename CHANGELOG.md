@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Benchmark (evidence gate): `run-report.json` passa a registrar `evidence.{executionType,reproducible,isolated,publicClaimEligible}`, `validation.passed` e `usage.tokenSource`; `isClaimEligibleRun` aceita container com proveniência (`containerImage`) e lê `tokens.tokenSource`; `orchestratePair`/`pair` respeitam `--container` (padrão: com container).
+- Benchmark: removidos 11 `.js` compilados versionados em `benchmark-harness/src/` (sombra do `.ts`); `.gitignore` bloqueia `src/**/*.js`.
+- CLI: `--help` sem linhas duplicadas (`runtime`, `tui`) + teste anti-duplicata.
+- Docs: `docs/benchmark.md §9.5` reescrito para espelhar `isClaimEligibleRun`.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 

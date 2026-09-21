@@ -6,6 +6,8 @@ import {
   createEvidenceDir,
   preserveRawEvidence,
   sanitizeSecrets,
+  isClaimEligibleRun,
+  summarizeEvidence,
 } from '../src/evidence/index.js';
 
 const TMP = join('/tmp', 'evidence-test-' + Date.now());
@@ -170,5 +172,105 @@ describe('preserveRawEvidence', () => {
     assert.equal(meta.verifierExitCode, 2);
     assert.equal(meta.sessionFile, '/tmp/sess.json');
     assert.ok(meta.capturedAt);
+  });
+});
+
+describe('isClaimEligibleRun', () => {
+  function eligibleRun(overrides: Record<string, unknown> = {}) {
+    const base: Record<string, unknown> = {
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'abc123' },
+      usage: { tokenSource: 'provider-reported' },
+      validation: { passed: true },
+    };
+    return { ...base, ...overrides };
+  }
+
+  it('accepts a fully eligible container run with provenance', () => {
+    assert.equal(isClaimEligibleRun(eligibleRun() as never), true);
+  });
+
+  it('accepts report-shaped token source via tokens', () => {
+    const run = eligibleRun({ usage: undefined, tokens: { tokenSource: 'provider-reported' } });
+    assert.equal(isClaimEligibleRun(run as never), true);
+  });
+
+  it('rejects container runs without provenance', () => {
+    const run = eligibleRun({ environment: { container: true } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects non-container runs (not isolated by policy)', () => {
+    const run = eligibleRun({
+      environment: { container: false },
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: false,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects estimated token sources', () => {
+    const run = eligibleRun({ usage: { tokenSource: 'tokenizer-estimated' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects failed validation', () => {
+    const run = eligibleRun({ validation: { passed: false } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects synthetic execution', () => {
+    const run = eligibleRun({
+      evidence: {
+        publicClaimEligible: false,
+        executionType: 'synthetic',
+        reproducible: true,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects missing reproducibility', () => {
+    const run = eligibleRun({
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: false,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+});
+
+describe('summarizeEvidence', () => {
+  it('summarizes mixed evidence without contamination', () => {
+    const good = {
+      evidence: { publicClaimEligible: true, executionType: 'real-execution', reproducible: true, isolated: true },
+      environment: { container: true, containerImage: 'node:20-slim' },
+      usage: { tokenSource: 'provider-reported' },
+      validation: { passed: true },
+    };
+    const bad = {
+      evidence: { publicClaimEligible: false, executionType: 'synthetic', reproducible: true, isolated: true },
+      environment: { container: false },
+      usage: { tokenSource: 'unavailable' },
+      validation: { passed: false },
+    };
+    const summary = summarizeEvidence([good, bad] as never[]);
+    assert.equal(summary.totalRuns, 2);
+    assert.equal(summary.claimEligibleRuns, 1);
+    assert.equal(summary.hasMixedEvidence, true);
+    assert.equal(summary.publicClaimEligible, false);
   });
 });

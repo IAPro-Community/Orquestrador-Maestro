@@ -115,12 +115,10 @@ Uso:
   orquestrador-maestro terminal close <id> [--project-path PATH]
   orquestrador-maestro terminal start [--project-path PATH] -- <comando> [argumentos]
   orquestrador-maestro terminal stop <id> [--project-path PATH]
-  orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
-  orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
   orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]

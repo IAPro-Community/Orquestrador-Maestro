@@ -113,6 +113,14 @@ export interface RunEvidence {
   gitDiff?: string;
   /** Path to the agent session file. */
   sessionFile?: string;
+  /** How the run was executed (e.g. 'real-execution'). */
+  executionType?: string;
+  /** True when scenario/fixture/task hashes were recorded (reproducible inputs). */
+  reproducible?: boolean;
+  /** True when the run executed in an isolated environment (container). */
+  isolated?: boolean;
+  /** Pipeline assertion of public-claim eligibility (re-checked by isClaimEligibleRun). */
+  publicClaimEligible?: boolean;
 }
 
 /** Complete report for a single benchmark run. */
@@ -151,6 +159,10 @@ export interface BenchmarkRunReport {
   results: RunResults;
   /** Token usage. */
   tokens: TokenUsage;
+  /** Token provenance shortcut (mirrors tokens.tokenSource for the evidence gate). */
+  usage?: { tokenSource?: string };
+  /** Explicit validation outcome (mirrors results.accepted for the evidence gate). */
+  validation?: { passed?: boolean };
   /** Tool usage statistics (null if unavailable). */
   toolUsage?: import('../types/driver.js').ToolUsage | null;
   /** Wall-clock timing. */
