@@ -2,11 +2,13 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const fs = require("node:fs/promises");
 const path = require("node:path");
 const { MaestroApplication } = require("../runtime/application/maestro-application");
 const { ContextEngine } = require("../runtime/context/context-engine");
 const { SemanticPlanner } = require("../runtime/planner/semantic-planner");
 const { planProgressively, summarizePlanningPair } = require("../runtime/resolution/progressive-planning");
+const { POLICY_IDENTITIES } = require("../runtime/resolution/policy-identity");
 
 function parseArgs(argv) {
   const options = {
@@ -17,6 +19,7 @@ function parseArgs(argv) {
     maxTokens: 8000,
     startStrategy: "targeted",
     controlRetries: 3,
+    out: null,
     execute: false,
     json: false
   };
@@ -33,6 +36,7 @@ function parseArgs(argv) {
     else if (arg === "--max-tokens") options.maxTokens = Number.parseInt(next, 10);
     else if (arg === "--start-strategy") options.startStrategy = next;
     else if (arg === "--control-retries") options.controlRetries = Number.parseInt(next, 10);
+    else if (arg === "--out") options.out = next;
     else throw new Error(`Unknown parameter: ${arg}`);
     index += 1;
   }
@@ -50,6 +54,7 @@ async function main(argv = process.argv.slice(2)) {
   const workspacePath = path.resolve(options.projectPath);
   const app = await new MaestroApplication({ projectRoot: workspacePath }).initialize();
   const pairId = `planning-${crypto.randomUUID()}`;
+  const taskHash = crypto.createHash("sha256").update(options.task, "utf8").digest("hex");
   const missionBrief = { id: pairId, objective: options.task, requirements: [], constraints: [], userDecisions: [] };
   const plannerTarget = { providerId: options.provider, model: options.model, local: options.provider === "opencode" };
   const providerOptions = { sandbox: "read-only", permissionMode: "read-only" };
@@ -91,11 +96,15 @@ async function main(argv = process.argv.slice(2)) {
   });
 
   const report = {
-    projectPath: "[redacted]",
-    task: options.task,
+    schemaVersion: 1,
+    kind: "adaptive-planning-benchmark",
+    policyId: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.id,
+    policyFingerprint: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.fingerprint,
+    pairId,
+    taskHash,
+    taskBytes: Buffer.byteLength(options.task, "utf8"),
     provider: options.provider,
     model: options.model,
-    pairId,
     control: {
       planningMode: control.planningMode,
       planningTelemetry: control.planningTelemetry,
@@ -108,6 +117,12 @@ async function main(argv = process.argv.slice(2)) {
     },
     summary: summarizePlanningPair({ control, treatment })
   };
+
+  if (options.out) {
+    const outPath = path.resolve(options.out);
+    await fs.mkdir(path.dirname(outPath), { recursive: true });
+    await fs.writeFile(outPath, JSON.stringify(report, null, 2) + "\n", { encoding: "utf8", mode: 0o600 });
+  }
 
   if (options.json) console.log(JSON.stringify(report, null, 2));
   else {

@@ -34,7 +34,7 @@ If the user or the project points to a private reference library outside the rep
 - Prefer `HANDOFF.md` and `SPECS/ACTIVE.md` over replaying long chat history.
 - Keep `WORKLOG.md` short enough to be read in one pass.
 
-Adaptive Resolution remains shadow-only for normal execution. Prompt observation is hash-only and covers only context authored by Maestro; provider/system context remains explicitly out of scope. ContextEngine and progressive-planning experiments require explicit authorization. Context reduction must fall back to the current briefing baseline when required authority coverage is lost; larger context is purchased only after a planner validation failure, never merely because a retry is available.
+Adaptive Resolution remains shadow-only for normal execution. Prompt observation is hash-only and covers only context authored by Maestro; provider/system context remains explicitly out of scope. ContextEngine and progressive-planning experiments require explicit authorization. Context reduction must fall back to the current briefing baseline when required authority coverage is lost; larger context is purchased only after a planner validation failure, never merely because a retry is available. No learned policy is active. Promotion readiness requires policy-bound hard-validated benchmark pairs; context/planner microbenchmarks alone cannot change Runtime defaults.
 
 ## Global Changes
 

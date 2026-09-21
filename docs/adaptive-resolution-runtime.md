@@ -2,7 +2,7 @@
 
 ## Status
 
-Experimental V3, progressive planning experiment; normal Runtime execution remains shadow-only.
+Experimental V4, evidence dataset and promotion gate; no learned policy is active and normal Runtime execution remains shadow-only.
 
 This branch extends the current JavaScript Runtime. It does not introduce a second RunStore, a second cognitive-budget system, or a competing governance layer.
 
@@ -185,6 +185,53 @@ node scripts/adaptive-planning-benchmark.js \
 
 The script requests read-only provider execution and reports control versus progressive model calls, provider tokens when exposed, estimated prompt tokens, strategy reached, and fallback use. These metrics are descriptive; a valid TaskGraph is not proof of equivalent downstream implementation quality.
 
+## V4 Evidence Dataset and Promotion Gate
+
+V4 deliberately does **not** train a model yet. It first creates a reproducible evidence boundary for any future learned policy.
+
+Three evidence levels are normalized into one privacy-safe dataset:
+
+- `context-estimate`: V2 context-size experiments. Useful for budget behavior, never sufficient for production promotion.
+- `planner-validated`: V3 progressive-planning experiments. Useful for retry/escalation behavior, never sufficient for production promotion.
+- `hard-validated`: paired benchmark runs evaluated by the external verifier. This is the only evidence level eligible for promotion.
+
+Dataset rows contain hashes, policy fingerprints, conditions, acceptance booleans, token/duration measurements, strategy metadata, and integrity diagnostics. Raw task text, provider output, source code, absolute paths, git diffs, and verifier output are not copied into the dataset.
+
+Promotion evidence is also **policy-bound**. A generic Maestro benchmark cannot prove Adaptive Resolution V3. Each known policy has a human-readable `policyId` and a SHA-256 `policyFingerprint` computed from a canonical policy contract (strategy sequence, escalation rules, budget envelopes, authority gates, and fallback semantics). The treatment run must carry that fingerprint; otherwise the hard-validated pair remains useful benchmark evidence but cannot promote that policy. The normalized dataset itself also receives a deterministic SHA-256 fingerprint, so a gate decision can be tied to the exact evidence rows evaluated.
+
+The default promotion gate is conservative:
+
+- at least 20 policy-bound hard-validated pairs, matching the repository's planned official benchmark sample floor;
+- at least 20 pairs where both sides passed and provider token totals are comparable;
+- no aggregate acceptance-rate regression;
+- positive median token savings;
+- no integrity-invalid pairs.
+
+The gate only emits `PROMOTION_READY` or `HOLD`. It never changes Runtime configuration.
+
+V2/V3 benchmark reports can now be persisted explicitly with `--out`; their report objects omit raw task text and store only `taskHash` plus byte count. Example:
+
+```bash
+node scripts/adaptive-planning-benchmark.js \
+  --project-path . \
+  --task "current objective" \
+  --provider opencode \
+  --execute \
+  --out .maestro/adaptive/planning-pair.json
+```
+
+To build/evaluate a derived dataset without model calls:
+
+```bash
+node scripts/adaptive-resolution-evaluate.js \
+  --report .maestro/adaptive/planning-pair.json \
+  --benchmark-evidence benchmark-harness/evidence \
+  --candidate-policy adaptive-progressive-planning-v3 \
+  --out .maestro/adaptive/evaluation.json
+```
+
+The evaluator accepts a known policy ID as an alias but resolves it to the contract SHA-256 before gating. Until hard-validated benchmark runs are explicitly bound to the resulting V3 fingerprint, the expected result is `HOLD`. That is intentional: planner-level token savings are not enough evidence to change production defaults.
+
 ## Experimental Boundary
 
 Normal Maestro execution remains non-enforcing:
@@ -234,6 +281,10 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 - `runtime/resolution/progressive-planning.js`: validation-driven context escalation and paired planning metrics.
 - `scripts/adaptive-planning-benchmark.js`: opt-in live control/treatment planner benchmark.
 - `runtime/planner/semantic-planner.js`: bounded-attempt diagnostics and privacy-safe planning usage telemetry.
+- `runtime/resolution/policy-identity.js`: canonical policy descriptors, IDs, and SHA-256 policy fingerprints.
+- `runtime/resolution/experiment-dataset.js`: privacy-safe normalization of V2/V3 and hard benchmark evidence plus a deterministic dataset fingerprint.
+- `runtime/resolution/promotion-gate.js`: policy-bound hard-evidence promotion readiness.
+- `scripts/adaptive-resolution-evaluate.js`: offline dataset/gate evaluator; no provider calls.
 - `runtime/resolution/adaptive-resolution.js`: budget mapping, shadow plan, outcome telemetry, aggregation.
 - `runtime/resolution/__tests__/adaptive-resolution.test.js`: deterministic unit tests.
 - `runtime/resolution/__tests__/application-integration.test.js`: integration contract with the existing application/runtime.
@@ -246,6 +297,7 @@ Exact end-to-end TTVO still requires instrumentation at the real context acquisi
 2. **V1 — evidence evaluation:** implemented for the Maestro-authored prompt surface; compare ranked evidence hashes against prompt manifests and validated outcomes.
 3. **V2 — progressive context experiment:** implemented on ContextEngine with real serialization accounting, manifest-based deduplication, authority gates, and paired brief budgets.
 4. **V3 — progressive escalation:** implemented as an explicit experiment: one planning call per unique context, validation-driven escalation, duplicate-context skipping, and deterministic fallback.
-5. **V4 — learned policy:** next only after paired V2/V3 data shows which decisions are stable enough to learn without regressing validated outcomes.
+5. **V4 — evidence dataset + promotion gate:** implemented; weak evidence is retained for analysis but only policy-bound hard-validated pairs can make a candidate promotion-ready.
+6. **V5 — learned policy:** not started. Training begins only after the V4 gate has enough policy-bound evidence to define labels and rollback criteria without guessing.
 
-A learned model is not the starting point. The dataset and rollback criteria come first.
+A learned model is intentionally not the current Runtime dependency.
