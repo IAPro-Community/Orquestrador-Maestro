@@ -28,6 +28,53 @@ export interface AdaptiveExecutionMetadata {
   fallbackUsed: boolean;
 }
 
+export interface MissionResolutionMetrics {
+  state: string;
+  taskCount: number;
+  validatedTaskCount: number;
+  firstPassValidatedTaskCount: number | null;
+  failedTaskCount: number;
+  blockedTaskCount: number;
+  needsAttentionTaskCount: number;
+  providerSwitches: number | null;
+  automaticRetries: number | null;
+  escalations: number | null;
+  tokensToValidatedOutcome: number | null;
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : null;
+}
+
+export function extractMissionResolutionMetrics(output: string, expectedNonce?: string): MissionResolutionMetrics | null {
+  const parsed = findAuthenticatedMarker(output, MISSION_USAGE_MARKER, expectedNonce);
+  const resolution = parsed?.resolution;
+  if (!resolution || typeof resolution !== 'object' || Array.isArray(resolution)) return null;
+  const record = resolution as Record<string, unknown>;
+  const state = typeof record.state === 'string' ? record.state : '';
+  const taskCount = nonNegativeInteger(record.taskCount);
+  const validatedTaskCount = nonNegativeInteger(record.validatedTaskCount);
+  const failedTaskCount = nonNegativeInteger(record.failedTaskCount);
+  const blockedTaskCount = nonNegativeInteger(record.blockedTaskCount);
+  const needsAttentionTaskCount = nonNegativeInteger(record.needsAttentionTaskCount);
+  if (!state || taskCount === null || validatedTaskCount === null || failedTaskCount === null || blockedTaskCount === null || needsAttentionTaskCount === null) {
+    return null;
+  }
+  return {
+    state,
+    taskCount,
+    validatedTaskCount,
+    firstPassValidatedTaskCount: nonNegativeInteger(record.firstPassValidatedTaskCount),
+    failedTaskCount,
+    blockedTaskCount,
+    needsAttentionTaskCount,
+    providerSwitches: nonNegativeInteger(record.providerSwitches),
+    automaticRetries: nonNegativeInteger(record.automaticRetries),
+    escalations: nonNegativeInteger(record.escalations),
+    tokensToValidatedOutcome: nonNegativeInteger(record.tokensToValidatedOutcome),
+  };
+}
+
 export function buildMaestroArgs(
   task: string,
   options: Pick<DriverExecuteOptions, 'workspace' | 'model' | 'condition'>,
@@ -140,7 +187,13 @@ export class MaestroDriver implements AgentDriver {
   }
 
   extractMetadata(output: string, context?: DriverExtractionContext): Record<string, unknown> | null {
-    return extractAdaptiveExecutionMetadata(output, context?.markerNonce);
+    const adaptive = extractAdaptiveExecutionMetadata(output, context?.markerNonce);
+    const missionResolution = extractMissionResolutionMetrics(output, context?.markerNonce);
+    if (!adaptive && !missionResolution) return null;
+    return {
+      ...(adaptive || {}),
+      ...(missionResolution ? { missionResolution } : {}),
+    };
   }
 
   extractTokenUsage(output: string, context?: DriverExtractionContext): TokenUsage {
