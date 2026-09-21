@@ -6,7 +6,8 @@ const {
   createResolution,
   finalizeResolution,
   resolutionProjection,
-  deriveResolutionPolicy
+  deriveResolutionPolicy,
+  buildProviderCheckpoint
 } = require("..");
 
 test("canonical resolution derives strategy from the existing cognitive budget", () => {
@@ -73,4 +74,18 @@ test("resolution projection never upgrades completed to validated without eviden
     status: "completed",
     metadata: { resolution: { outcome: { state: "validated" }, strategy: "balanced", mode: "shadow" } }
   }).state, "validated");
+});
+
+
+test("provider checkpoint sanitizes durable failure diagnostics", () => {
+  const token = "ghp_" + "B".repeat(40);
+  const checkpoint = buildProviderCheckpoint({
+    task: { id: "task-1" },
+    providerId: "fake",
+    reason: `Authorization: Bearer ${token} /home/alice/private`
+  });
+  const serialized = JSON.stringify(checkpoint);
+  assert.doesNotMatch(serialized, new RegExp(token, "u"));
+  assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
+  assert.match(checkpoint.failure.reason, /redacted/u);
 });
