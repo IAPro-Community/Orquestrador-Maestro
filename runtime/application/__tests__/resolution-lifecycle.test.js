@@ -405,3 +405,44 @@ test("resolved planner skill reaches the provider prompt after runtime compactio
   assert.match(provider.requests[0].prompt, /skills[/\\]skill-testing[/\\]SKILL\.md/u);
   assert.match(provider.requests[0].prompt, /do not load unrelated skills/u);
 });
+
+
+test("mission proof preserves dependency-blocked tasks that never created a Run", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-proof-blocked-no-run-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const mission = await app.createMission({ workspacePath: root, objective: "Blocked proof", status: "blocked" });
+  const { runtimeTaskId } = require("../../core/task-identity");
+  const taskId = runtimeTaskId({ missionId: mission.id, semanticTaskId: "task-2" });
+
+  await app.store.saveTask({
+    id: taskId,
+    projectId: mission.projectId,
+    description: "Blocked dependent task",
+    metadata: {
+      missionId: mission.id,
+      semanticTaskId: "task-2",
+      semanticTask: { id: "task-2", objective: "Blocked dependent task" }
+    }
+  });
+  await app.store.appendEvent({
+    id: "event-blocked-task-2",
+    type: "task.blocked",
+    occurredAt: new Date().toISOString(),
+    data: {
+      taskId,
+      missionId: mission.id,
+      reason: "FAILED_DEPENDENCY",
+      blockedBy: [runtimeTaskId({ missionId: mission.id, semanticTaskId: "task-1" })]
+    }
+  });
+
+  const proof = await app.getMissionProofBundle(mission.id);
+  assert.equal(proof.tasks.length, 1);
+  assert.equal(proof.tasks[0].runs.length, 0);
+  assert.equal(proof.tasks[0].latestOutcome, null);
+  assert.equal(proof.tasks[0].effectiveState, "blocked");
+  assert.equal(proof.tasks[0].lifecycleEvents.at(-1).type, "task.blocked");
+  assert.equal(proof.mission.resolution.state, "blocked");
+  assert.equal(proof.summary.blockedTasks, 1);
+});
