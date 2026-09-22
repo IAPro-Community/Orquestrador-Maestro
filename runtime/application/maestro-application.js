@@ -5,7 +5,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const path = require("node:path");
 const core = require("../core");
-const { runtimeTaskId, semanticTaskIdOf } = require("../core/task-identity");
+const { runtimeTaskId, semanticTaskIdOf, storedTaskSemanticId } = require("../core/task-identity");
 const { diff, snapshot } = require("../git/monitor");
 const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("../providers");
 const { getPolicy, getProfile } = require("../profiles");
@@ -310,8 +310,20 @@ class MaestroApplication {
   async getTask(taskId) { return this.store.getTask(taskId); }
   async listTasks(filters) { return this.store.listTasks(filters); }
   async getTaskOutcomeHistory(taskId) {
-    const runs = await this.store.listRuns({ taskId });
-    return Object.freeze(runs
+    const task = await this.store.getTask(taskId);
+    const ids = new Set([taskId]);
+    const missionId = task?.metadata?.missionId || null;
+    const semanticTaskId = task ? storedTaskSemanticId(task) : null;
+    if (missionId && semanticTaskId) {
+      for (const candidate of await this.store.listTasks({})) {
+        if (candidate?.metadata?.missionId === missionId && storedTaskSemanticId(candidate) === semanticTaskId) {
+          ids.add(candidate.id);
+        }
+      }
+    }
+    const runs = (await Promise.all([...ids].map((id) => this.store.listRuns({ taskId: id })))).flat();
+    const uniqueRuns = [...new Map(runs.map((run) => [run.id, run])).values()];
+    return Object.freeze(uniqueRuns
       .filter((run) => run.metadata?.resolution?.outcome)
       .sort((a, b) => String(a.completedAt || a.startedAt || "").localeCompare(String(b.completedAt || b.startedAt || "")))
       .map((run) => Object.freeze({
