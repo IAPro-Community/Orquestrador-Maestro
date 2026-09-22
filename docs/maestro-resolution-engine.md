@@ -196,8 +196,10 @@ A provider failure can create a provider-neutral checkpoint containing:
 - files changed;
 - Evidence references;
 - Verification and Review summaries;
-- remaining budget;
+- previous-attempt budget snapshot;
 - failure reason and hash.
+
+The checkpoint budget is currently informational. Provider switching is bounded by `maxProviderSwitches`, but a hard aggregate token budget across multiple provider Runs is not yet enforced.
 
 The next provider starts a fresh Run for the same semantic Task.
 
@@ -217,6 +219,8 @@ Resolution budget accounting uses:
 reserve → commit
 reserve → release
 ```
+
+Reservations are Run-scoped. Mission-wide and cross-provider aggregate budget enforcement remains a follow-up; telemetry reports the aggregate observation without pretending it is a hard reservation.
 
 Observed dimensions are kept separate:
 
