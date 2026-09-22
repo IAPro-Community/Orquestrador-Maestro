@@ -636,3 +636,30 @@ test("identified child agent violates a solo contract and prevents validated out
   const events = await app.store.listEvents({ runId: outcome.run.id });
   assert.equal(events.some((event) => event.type === "delegation.violation"), true);
 });
+
+
+test("run without verifier cannot validate unless not-applicable is explicit", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-verification-applicability-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const base = {
+    providerId: "fake",
+    description: "Inspect repository",
+    semanticTaskId: "inspect-task",
+    semanticTask: { id: "inspect-task", objective: "Inspect repository", acceptanceCriteria: [] },
+    verificationCommands: []
+  };
+
+  const implicit = await app.executeRun(base);
+  assert.equal(implicit.verification.status, "skipped");
+  assert.equal(implicit.verification.metadata.applicability, "unspecified");
+  assert.equal(implicit.run.metadata.resolution.outcome.state, "needs_attention");
+
+  const explicit = await app.executeRun({
+    ...base,
+    verificationNotApplicable: true,
+    verificationNotApplicableReason: "read-only inspection has no executable project gate"
+  });
+  assert.equal(explicit.verification.metadata.applicability, "not_applicable");
+  assert.equal(explicit.run.metadata.resolution.outcome.state, "validated");
+});

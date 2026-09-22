@@ -964,14 +964,31 @@ class MaestroApplication {
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: durableChangeArtifactMetadata(before, changes) });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
     const commands = request.verificationCommands || this.inferProjectVerification(workspacePath);
-    const verification = await this.verification.verify({ id: id("verification"), runId: run.id, commands, cwd: workspacePath, timeoutMs: policy.timeoutMs });
+    const verificationApplicability = request.verificationNotApplicable === true
+      || request.semanticTask?.verification?.applicability === "not_applicable";
+    const verificationReason = request.verificationNotApplicableReason
+      || request.semanticTask?.verification?.reason
+      || null;
+    const verification = await this.verification.verify({
+      id: id("verification"),
+      runId: run.id,
+      commands,
+      cwd: workspacePath,
+      timeoutMs: policy.timeoutMs,
+      notApplicable: verificationApplicability,
+      notApplicableReason: verificationReason
+    });
     await this.store.saveVerification(verification);
     const verificationEventType = verification.status === "passed"
       ? "verification.completed"
       : verification.status === "skipped"
         ? "verification.skipped"
         : "verification.failed";
-    await this.record(run.id, verificationEventType, { verificationId: verification.id, status: verification.status });
+    await this.record(run.id, verificationEventType, {
+      verificationId: verification.id,
+      status: verification.status,
+      applicability: verification.metadata?.applicability || null
+    });
     const qualityReview = request.qualityReview === true || profile.id === "guided-engineering";
     const allSourceFiles = listSourceFiles(workspacePath);
     const gitChangedFiles = changes.available ? changes.changedFiles : [];

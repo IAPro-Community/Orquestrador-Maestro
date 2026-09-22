@@ -47,19 +47,28 @@ test("completed tasks with explicit acceptance criteria need passed verification
   assert.equal(validated.outcome.state, "validated");
 });
 
-test("tasks without explicit validators may validate when verification is not applicable", () => {
+test("skipped verification is not enough to validate unless not-applicable is explicit", () => {
   const contract = createResolution({
     task: { id: "task-1", objective: "inspect repository", acceptanceCriteria: [] },
     cognitiveBudget: { id: "LEAN", tier: "lean", contextTokens: 4000 }
   });
-  const validated = finalizeResolution({
+  const implicitSkip = finalizeResolution({
     contract,
     runStatus: "completed",
-    verification: { status: "skipped" },
+    verification: { status: "skipped", metadata: { applicability: "unspecified" } },
     completion: { eligible: true },
     review: { status: "disabled" }
   });
-  assert.equal(validated.outcome.state, "validated");
+  assert.equal(implicitSkip.outcome.state, "needs_attention");
+
+  const explicitlyNotApplicable = finalizeResolution({
+    contract,
+    runStatus: "completed",
+    verification: { status: "skipped", metadata: { applicability: "not_applicable" } },
+    completion: { eligible: true },
+    review: { status: "disabled" }
+  });
+  assert.equal(explicitlyNotApplicable.outcome.state, "validated");
 });
 
 test("enforce mode is fail-closed without an explicit promotion authorization", () => {

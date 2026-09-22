@@ -39,3 +39,28 @@ test("verification redacts secrets and local paths before persistence", async ()
   assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
   assert.match(serialized, /redacted/u);
 });
+
+
+test("empty verification is skipped but only explicitly marked not-applicable on request", async () => {
+  const engine = new VerificationEngine();
+  const unspecified = await engine.verify({
+    id: "verification-empty",
+    runId: "run-empty",
+    commands: [],
+    cwd: process.cwd()
+  });
+  assert.equal(unspecified.status, "skipped");
+  assert.equal(unspecified.metadata.applicability, "unspecified");
+
+  const notApplicable = await engine.verify({
+    id: "verification-na",
+    runId: "run-na",
+    commands: [],
+    cwd: process.cwd(),
+    notApplicable: true,
+    notApplicableReason: "read-only analysis"
+  });
+  assert.equal(notApplicable.status, "skipped");
+  assert.equal(notApplicable.metadata.applicability, "not_applicable");
+  assert.equal(notApplicable.metadata.reason, "read-only analysis");
+});

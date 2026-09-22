@@ -20,8 +20,10 @@ function deriveResolutionState({ runStatus, verification, completion, review, ne
   if (runStatus === "pending" || runStatus === "running" || !runStatus) return "running";
   if (verification?.status === "pending" || verification?.status === "running") return "verifying";
 
+  const verificationExplicitlyNotApplicable = verification?.status === "skipped"
+    && verification?.metadata?.applicability === "not_applicable";
   const verificationSatisfied = verification?.status === "passed"
-    || (verificationRequired === false && verification?.status === "skipped");
+    || (verificationRequired === false && verificationExplicitlyNotApplicable);
   const hardValidated = runStatus === "completed"
     && verificationSatisfied
     && completion?.eligible === true

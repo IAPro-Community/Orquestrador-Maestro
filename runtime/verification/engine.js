@@ -52,7 +52,7 @@ function pathLikeNode(value) {
 }
 
 class VerificationEngine {
-  async verify({ id, runId, commands, cwd, timeoutMs }) {
+  async verify({ id, runId, commands, cwd, timeoutMs, notApplicable = false, notApplicableReason = null }) {
     const checks = [];
     for (const entry of commands || []) {
       const result = await runCommand(entry.command, { cwd, timeoutMs: entry.timeoutMs || timeoutMs });
@@ -70,7 +70,13 @@ class VerificationEngine {
       runId,
       status: checks.length === 0 ? "skipped" : checks.some((check) => check.exitCode !== 0) ? "failed" : "passed",
       checks,
-      completedAt: new Date().toISOString()
+      completedAt: new Date().toISOString(),
+      metadata: checks.length === 0 ? {
+        applicability: notApplicable === true ? "not_applicable" : "unspecified",
+        ...(notApplicable === true && typeof notApplicableReason === "string" && notApplicableReason.trim()
+          ? { reason: sanitizeDiagnostic(notApplicableReason.trim(), { maxChars: 512 }) }
+          : {})
+      } : undefined
     });
   }
 }
