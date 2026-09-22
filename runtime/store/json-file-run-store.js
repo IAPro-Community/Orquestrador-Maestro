@@ -256,20 +256,17 @@ class JsonFileRunStore extends RunStore {
         return async () => this._releaseFileLock(token);
       } catch (error) {
         // On Windows, opening an existing/contended lock with "wx" may
-        // surface as EPERM instead of EEXIST. Treat EPERM as contention only
-        // when the lock path can actually be observed; otherwise preserve the
-        // real permission error.
+        // surface as EPERM instead of EEXIST. A concurrent unlink/create can
+        // also make the follow-up stat() return EPERM for the same transient
+        // sharing violation. Treat those Windows EPERM races as contention;
+        // preserve EACCES and unrelated failures as real permission errors.
         let contended = error?.code === "EEXIST";
         if (!contended && error?.code === "EPERM" && process.platform === "win32") {
-          // Windows can return EPERM for an existing lock or for the tiny
-          // create/delete race where the file disappears before inspection.
-          // A second permission error is a real ACL problem and must surface
-          // immediately instead of being disguised as a lock timeout.
           try {
             await fs.stat(this.lockPath);
             contended = true;
           } catch (statError) {
-            if (statError?.code === "ENOENT") contended = true;
+            if (statError?.code === "ENOENT" || statError?.code === "EPERM") contended = true;
             else throw error;
           }
         }
