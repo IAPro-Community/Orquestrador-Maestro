@@ -21,3 +21,25 @@ test("F4.2 mapeia ready/started/completed/failed/blocked/verifying com missionId
   assert.deepEqual(recorded.find((event) => event.type === "task.blocked").data.blockedBy, ["a"]);
   attached.detach();
 });
+
+
+test("task lifecycle persistence redacts secrets and local paths from failures", async () => {
+  const executor = new EventEmitter();
+  const recorded = [];
+  const app = { record: async (_runId, type, data) => recorded.push({ type, data }), subscribe: () => () => {} };
+  const graphs = { missionForTask: async () => ({ missionId: "m1", projectId: "p1", graphId: "g1" }) };
+  const store = { getRun: async () => null };
+  const attached = TaskLifecycleMonitor.attach({ executor, app, graphs, store, missionId: "m1", projectId: "p1", graphId: "g1" });
+  const token = "ghp_" + "C".repeat(40);
+
+  executor.emit("task.failed", { id: "a", error: `Bearer ${token} failed at /home/alice/private/repo` });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const failure = recorded.find((event) => event.type === "task.failed");
+  assert.ok(failure);
+  const serialized = JSON.stringify(failure.data);
+  assert.doesNotMatch(serialized, new RegExp(token, "u"));
+  assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
+  assert.match(serialized, /redacted/u);
+  attached.detach();
+});
