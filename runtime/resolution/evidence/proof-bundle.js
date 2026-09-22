@@ -7,6 +7,20 @@ function sortByTime(values = []) {
   return [...values].sort((a, b) => String(a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.createdAt || b.startedAt || b.completedAt || "")));
 }
 
+function taskLifecycleState(events = []) {
+  const latest = sortByTime(events).slice().reverse().find((event) => String(event?.type || "").startsWith("task."));
+  if (!latest) return null;
+  if (latest.type === "task.blocked") return "blocked";
+  if (latest.type === "task.failed") return "failed";
+  if (latest.type === "task.verifying") return "verifying";
+  if (latest.type === "task.started" || latest.type === "task.ready") return "running";
+  // task.completed is emitted after a validated Run in the canonical path.
+  // If that Run is absent, do not manufacture validation from the lifecycle
+  // event alone; surface attention instead.
+  if (latest.type === "task.completed") return "needs_attention";
+  return null;
+}
+
 async function buildTaskProofBundle({ store, taskId } = {}) {
   if (!store || typeof store.getTask !== "function") throw new TypeError("RunStore is required");
   if (typeof taskId !== "string" || !taskId.trim()) throw new TypeError("taskId is required");
@@ -15,6 +29,8 @@ async function buildTaskProofBundle({ store, taskId } = {}) {
   if (!task) return null;
   const runs = sortByTime(await store.listRuns({ taskId }));
   const evidence = sortByTime(await store.listEvidence({ taskId }));
+  const lifecycleEvents = sortByTime((await store.listEvents({}))
+    .filter((event) => event?.data?.taskId === taskId && String(event.type || "").startsWith("task.")));
   const runBundles = [];
 
   for (const run of runs) {
@@ -76,7 +92,16 @@ async function buildTaskProofBundle({ store, taskId } = {}) {
     }),
     runs: Object.freeze(runBundles),
     evidence: Object.freeze(evidence),
-    latestOutcome: runs.length ? runs[runs.length - 1].metadata?.resolution?.outcome || null : null
+    lifecycleEvents: Object.freeze(lifecycleEvents.map((event) => Object.freeze({
+      id: event.id,
+      type: event.type,
+      occurredAt: event.occurredAt,
+      data: event.data || {}
+    }))),
+    latestOutcome: runs.length ? runs[runs.length - 1].metadata?.resolution?.outcome || null : null,
+    effectiveState: runs.length
+      ? runs[runs.length - 1].metadata?.resolution?.outcome?.state || "needs_attention"
+      : taskLifecycleState(lifecycleEvents) || "needs_attention"
   });
 }
 
@@ -108,7 +133,7 @@ async function buildMissionProofBundle({ store, missionId } = {}) {
   const derivedResolution = deriveMissionResolutionFromTaskStates(
     bundles.map((bundle) => ({
       taskId: bundle.task.id,
-      state: bundle.latestOutcome?.state || "needs_attention"
+      state: bundle.effectiveState || bundle.latestOutcome?.state || "needs_attention"
     })),
     { objective: mission.objective }
   );
