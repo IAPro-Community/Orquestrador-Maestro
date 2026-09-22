@@ -34,3 +34,22 @@ test("T1.2 aceita envelope RuntimeEvent v2 real com payload.data e contexto no t
   assert.equal(action.payload.id, "m1");
   assert.equal(action.payload.projectId, "p1");
 });
+
+
+test("TUI normaliza eventos de Resolution como atualização da Task sem perder runId", () => {
+  const action = normalizeEvent({
+    version: 2,
+    epoch: "ep-1",
+    seq: 2,
+    type: "resolution.planned",
+    taskId: "t-resolution",
+    runId: "r-resolution",
+    timestamp: new Date(0).toISOString(),
+    payload: { data: { strategy: "targeted", budgetTier: "lean", evidenceSelected: 2 } }
+  });
+  assert.equal(action.kind, undefined);
+  assert.equal(action.family, "task");
+  assert.equal(action.payload.taskId, "t-resolution");
+  assert.equal(action.payload.runId, "r-resolution");
+  assert.equal(action.payload.strategy, "targeted");
+});

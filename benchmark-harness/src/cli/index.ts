@@ -19,6 +19,7 @@ const __dirname = dirname(__filename);
 const CLI_HARNESS_ROOT = resolve(__dirname, '..', '..');
 import { parseArgs } from 'node:util';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import { loadScenario, loadAllScenarios } from '../scenarios/loader.js';
 import { validateScenario } from '../scenarios/index.js';
@@ -40,7 +41,8 @@ Benchmark Harness v3 — Maestro vs Vanilla
 
 Usage:
   benchmark run      --scenario <path> [options]    Run a benchmark
-  benchmark pair     --scenario <path> [options]    Run paired comparison
+  benchmark pair     --scenario <path> [options]    Run vanilla/maestro/focus comparison
+  benchmark adaptive-pair --scenario <path> [options] Run Maestro control vs Adaptive V3
   benchmark report   --evidence <dir> [options]     Generate report
   benchmark list     --dir <path>                   List scenarios
   benchmark validate [--scenario <path>]            Validate one or all scenarios
@@ -51,7 +53,7 @@ Usage:
   benchmark --help                                  Show this help
 
 Options:
-  --condition <vanilla|maestro|maestro-focus>  Condition to run (default: vanilla)
+  --condition <vanilla|maestro|maestro-focus|maestro-adaptive>  Condition to run (default: vanilla)
   --container                    Run in container (mandatory for official)
   --evidence <dir>               Evidence output directory
   --model <name>                 Model identifier
@@ -59,6 +61,8 @@ Options:
   --output <path>                Report output path
   --format <markdown|json|csv|both|all>  Report format (default: both)
   --image <image>                Docker image for container mode
+  --network <none|bridge>         Container network mode (default: none)
+  --pass-env <NAME>               Forward one host env var by name (repeatable)
   --dry-run                      Validate scenario without executing
   --parallel <N>                 Run N scenarios in parallel (default: 1)
   --profile <official|ci>        Predefined configuration profile
@@ -86,6 +90,8 @@ async function main(): Promise<CLIResult> {
       return handleRun(args.slice(1));
     case 'pair':
       return handlePair(args.slice(1));
+    case 'adaptive-pair':
+      return handleAdaptivePair(args.slice(1));
     case 'report':
       return handleReport(args.slice(1));
     case 'list':
@@ -122,6 +128,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
       filter: { type: 'string' },
       resume: { type: 'string' },
       runs: { type: 'string', default: '1' },
+      'pair-id': { type: 'string' },
     },
     strict: false,
   });
@@ -135,9 +142,13 @@ async function handleRun(args: string[]): Promise<CLIResult> {
     return { exitCode: 1, message: 'Error: --scenario is required' };
   }
 
-  const condition = String(values.condition ?? 'vanilla') as 'vanilla' | 'maestro' | 'maestro-focus';
-  if (!['vanilla', 'maestro', 'maestro-focus'].includes(condition)) {
-    return { exitCode: 1, message: `Error: --condition must be 'vanilla', 'maestro' or 'maestro-focus', got '${condition}'` };
+  const condition = String(values.condition ?? 'vanilla') as 'vanilla' | 'maestro' | 'maestro-focus' | 'maestro-adaptive';
+  if (!['vanilla', 'maestro', 'maestro-focus', 'maestro-adaptive'].includes(condition)) {
+    return { exitCode: 1, message: `Error: unsupported --condition '${condition}'` };
+  }
+  const requestedPairId = values['pair-id'] ? String(values['pair-id']) : undefined;
+  if (condition === 'maestro-adaptive' && !requestedPairId) {
+    return { exitCode: 1, message: 'Error: maestro-adaptive requires --pair-id for matched hard evidence' };
   }
 
   // Load and validate scenario
@@ -200,7 +211,10 @@ async function handleRun(args: string[]): Promise<CLIResult> {
 
   const driver = condition === 'vanilla'
     ? new OpenCodeDriver({ version: '0.1.0' })
-    : new MaestroDriver({ version: '0.3.0' });
+    : new MaestroDriver({
+    binaryPath: process.env.BENCHMARK_MAESTRO_BINARY,
+    version: process.env.BENCHMARK_MAESTRO_VERSION ?? 'unknown',
+  });
   const results: Array<{ success: boolean; report: BenchmarkRunReport; error?: string }> = [];
 
   if (parallel > 1) {
@@ -218,6 +232,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
             useContainer,
             model: effectiveModel,
             timeoutMs: effectiveTimeout,
+            pairId: requestedPairId,
           }),
         ),
       );
@@ -234,6 +249,7 @@ async function handleRun(args: string[]): Promise<CLIResult> {
         useContainer,
         model: effectiveModel,
         timeoutMs: effectiveTimeout,
+        pairId: requestedPairId,
       });
       results.push(result);
     }
@@ -271,6 +287,8 @@ async function handlePair(args: string[]): Promise<CLIResult> {
       model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
       timeout: { type: 'string', default: '300000' },
       image: { type: 'string', default: 'node:20-slim' },
+      container: { type: 'boolean', default: true },
+      'no-container': { type: 'boolean', default: false },
     },
     strict: false,
   });
@@ -292,13 +310,29 @@ async function handlePair(args: string[]): Promise<CLIResult> {
   const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   await mkdir(evidenceDir, { recursive: true });
 
+  const useContainer = values['no-container'] ? false : values.container !== false;
+  const pairImage = String(values.image ?? 'node:20-slim');
+  if (useContainer) {
+    const containerRunner = new ContainerRunner({ image: pairImage });
+    if (!(await containerRunner.isDockerAvailable())) {
+      return { exitCode: 1, message: 'Docker is required for container mode but is not available (use --no-container for local analysis-only runs)' };
+    }
+  }
+
   const vanillaDriver = new OpenCodeDriver({ version: '0.1.0' });
-  const maestroDriver = new MaestroDriver({ version: '0.3.0' });
+  const maestroDriver = new MaestroDriver({
+    binaryPath: process.env.BENCHMARK_MAESTRO_BINARY,
+    version: process.env.BENCHMARK_MAESTRO_VERSION ?? 'unknown',
+  });
   const pair = await orchestratePair({
     scenario,
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: evidenceDir,
+    useContainer,
+    vanillaEnv: { BENCHMARK_IMAGE: pairImage },
+    maestroEnv: { BENCHMARK_IMAGE: pairImage },
+    maestroFocusEnv: { BENCHMARK_IMAGE: pairImage, MAESTRO_INTERACTION_PROFILE: 'focus' },
     model: String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash'),
     vanillaTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
     maestroTimeoutMs: parseInt(String(values.timeout ?? '300000'), 10),
@@ -314,6 +348,118 @@ async function handlePair(args: string[]): Promise<CLIResult> {
 
   return {
     exitCode: pair.vanilla.success && pair.maestro.success ? 0 : 1,
+    message: lines.join('\n'),
+  };
+}
+
+async function handleAdaptivePair(args: string[]): Promise<CLIResult> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      scenario: { type: 'string' },
+      evidence: { type: 'string', default: join(CLI_HARNESS_ROOT, 'evidence') },
+      model: { type: 'string', default: process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash' },
+      timeout: { type: 'string', default: '300000' },
+      container: { type: 'boolean', default: false },
+      image: { type: 'string' },
+      network: { type: 'string', default: 'none' },
+      'pass-env': { type: 'string', multiple: true },
+    },
+    strict: false,
+  });
+
+  const scenarioPath = String(values.scenario ?? '');
+  if (!scenarioPath) return { exitCode: 1, message: 'Error: --scenario is required' };
+
+  const policyId = process.env.BENCHMARK_ADAPTIVE_POLICY_ID;
+  const policyFingerprint = process.env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT;
+  if (!policyId || !policyFingerprint) {
+    return { exitCode: 1, message: 'Error: adaptive-pair must be launched through orquestrador-maestro benchmark so canonical policy identity is available' };
+  }
+
+  const scenario = await loadScenario(resolve(scenarioPath));
+  const validation = validateScenario(scenario);
+  if (!validation.valid) {
+    return { exitCode: 1, message: `Invalid scenario:\n${validation.errors.join('\n')}` };
+  }
+
+  const useContainer = Boolean(values.container);
+  const image = values.image ? String(values.image) : '';
+  if (useContainer && !image) {
+    return { exitCode: 1, message: 'Error: --container requires --image with Node.js and OpenCode; the current Maestro checkout is mounted read-only at runtime' };
+  }
+  if (useContainer) {
+    const containerRunner = new ContainerRunner({ image });
+    if (!await containerRunner.isDockerAvailable()) {
+      return { exitCode: 1, message: 'Error: Docker is required for --container adaptive-pair' };
+    }
+  }
+
+  const networkMode = String(values.network ?? 'none');
+  if (!['none', 'bridge'].includes(networkMode)) {
+    return { exitCode: 1, message: 'Error: --network must be none or bridge' };
+  }
+  const requestedEnvNames = Array.isArray(values['pass-env'])
+    ? values['pass-env'].map(String)
+    : values['pass-env'] ? [String(values['pass-env'])] : [];
+  const forwardedEnv: Record<string, string> = {};
+  for (const name of [...new Set(requestedEnvNames)].sort()) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
+      return { exitCode: 1, message: `Error: invalid --pass-env name '${name}'` };
+    }
+    if (/^(?:MAESTRO_|BENCHMARK_)/u.test(name)) {
+      return { exitCode: 1, message: `Error: internal benchmark variable '${name}' cannot be forwarded with --pass-env` };
+    }
+    const value = process.env[name];
+    if (typeof value !== 'string' || value.length === 0) {
+      return { exitCode: 1, message: `Error: --pass-env ${name} is not set in the host environment` };
+    }
+    forwardedEnv[name] = value;
+  }
+
+  const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
+  await mkdir(evidenceDir, { recursive: true });
+
+  const model = String(values.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash');
+  const timeoutMs = parseInt(String(values.timeout ?? '300000'), 10);
+  const pairId = `adaptive-${randomUUID()}`;
+  const maestroDriver = new MaestroDriver({
+    binaryPath: process.env.BENCHMARK_MAESTRO_BINARY,
+    version: process.env.BENCHMARK_MAESTRO_VERSION ?? 'unknown',
+  });
+  const shared = {
+    scenario,
+    driver: maestroDriver,
+    maestroDriver,
+    evidenceBase: evidenceDir,
+    useContainer,
+    model,
+    timeoutMs,
+    pairId,
+    networkMode: networkMode as 'none' | 'bridge',
+    forwardedEnvNames: Object.keys(forwardedEnv).sort(),
+    env: {
+      ...forwardedEnv,
+      BENCHMARK_ADAPTIVE_POLICY_ID: policyId,
+      BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: policyFingerprint,
+      ...(useContainer ? { BENCHMARK_IMAGE: image } : {}),
+    },
+  };
+
+  const control = await orchestrateRun({ ...shared, condition: 'maestro', replicate: 0 });
+  const treatment = await orchestrateRun({ ...shared, condition: 'maestro-adaptive', replicate: 1 });
+
+  const lines = [
+    `Adaptive pair: ${scenario.id} (${pairId})`,
+    `  Maestro control:  ${control.report.status} (${(control.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
+    `  Maestro adaptive: ${treatment.report.status} (${(treatment.report.results.acceptanceRate * 100).toFixed(1)}% acceptance)`,
+    `  Isolation: ${useContainer ? `container network=${networkMode}` : 'local temp workspace (analysis-only for promotion)'}`,
+    `  Forwarded env names: ${Object.keys(forwardedEnv).length ? Object.keys(forwardedEnv).sort().join(', ') : 'none'}`,
+    `  Tokens: control=${control.report.tokens.total ?? 'unavailable'} adaptive=${treatment.report.tokens.total ?? 'unavailable'}`,
+  ];
+
+  return {
+    exitCode: control.success && treatment.success ? 0 : 1,
     message: lines.join('\n'),
   };
 }

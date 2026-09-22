@@ -6,11 +6,15 @@
     "packageVersion": "0.4.4",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
-    "surfaces": ["protocol", "runtime", "cockpit"]
+    "surfaces": [
+      "protocol",
+      "runtime",
+      "cockpit"
+    ]
   },
   "sources": {
-    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json (version 2, 52 skills canônicas)",
-    "skillsRouter": "orquestrador/SKILLS_ROUTER.json (version 2, 75 skills públicas, 10 capabilityRoutes)",
+    "skillsManifest": "orquestrador/SKILLS_MANIFEST.json",
+    "skillsRouter": "orquestrador/SKILLS_ROUTER.json",
     "skillExecutionProfiles": "orquestrador/SKILL_EXECUTION_PROFILES.json",
     "interactionProfiles": "orquestrador/INTERACTION_PROFILES.json",
     "workflowSchemas": "orquestrador/WORKFLOW_SCHEMAS.json",
@@ -25,9 +29,17 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["AGENTS.md", "home/AGENTS.md", "orquestrador/PROGRAM_ENTRYPOINTS.json"],
-      "testEvidence": ["tests/installer-contract.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "AGENTS.md",
+        "home/AGENTS.md",
+        "orquestrador/PROGRAM_ENTRYPOINTS.json"
+      ],
+      "testEvidence": [
+        "tests/installer-contract.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Programs leem AGENTS.md/regras/maestro via entrypoints nativos (ver PROGRAM_ENTRYPOINTS.json)."
     },
@@ -37,9 +49,17 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["runtime/context/context-engine.js", "orquestrador/bin/health-check.js"],
-      "testEvidence": ["tests/cognitive-budget-benchmark.test.js"],
-      "documentation": ["docs/context-economy.md", "docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/context/context-engine.js",
+        "orquestrador/bin/health-check.js"
+      ],
+      "testEvidence": [
+        "tests/cognitive-budget-benchmark.test.js"
+      ],
+      "documentation": [
+        "docs/context-economy.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Brief compacto, budget determinístico em caracteres, sem carregar DEV/ inteira."
     },
@@ -49,9 +69,17 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["orquestrador/bin/memory.js", "orquestrador/bin/check-dev-gates.sh"],
-      "testEvidence": ["tests/memory-retention.test.js"],
-      "documentation": ["docs/project-dev-hierarchy.md", "docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "orquestrador/bin/memory.js",
+        "orquestrador/bin/check-dev-gates.sh"
+      ],
+      "testEvidence": [
+        "tests/memory-retention.test.js"
+      ],
+      "documentation": [
+        "docs/project-dev-hierarchy.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Curadoria humana; promoção só via memory promote --apply com verified:true."
     },
@@ -61,9 +89,15 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["orquestrador/bin/memory.js (record/search/show/timeline/stats/promote/dedupe/retention/prune/consolidate)"],
-      "testEvidence": ["tests/memory-retention.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "orquestrador/bin/memory.js (record/search/show/timeline/stats/promote/dedupe/retention/prune/consolidate)"
+      ],
+      "testEvidence": [
+        "tests/memory-retention.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "JSONL por repositório sob ~/.orquestrador-maestro/memory, redigido, retenção 90d/1000."
     },
@@ -73,9 +107,20 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["orquestrador/SKILLS_MANIFEST.json", "orquestrador/SKILLS_ROUTER.json", "orquestrador/SKILL_ALIASES.json", "orquestrador/SKILL_CHAINS.json"],
-      "testEvidence": ["tests/frontend-excellence.test.js", "scripts/skill-catalog.js validate"],
-      "documentation": ["docs/skills/README.md", "docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "orquestrador/SKILLS_MANIFEST.json",
+        "orquestrador/SKILLS_ROUTER.json",
+        "orquestrador/SKILL_ALIASES.json",
+        "orquestrador/SKILL_CHAINS.json"
+      ],
+      "testEvidence": [
+        "tests/frontend-excellence.test.js",
+        "scripts/skill-catalog.js validate"
+      ],
+      "documentation": [
+        "docs/skills/README.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "52 skills canônicas e 75 skills públicas únicas no catálogo versionado; o pacote não conta caches nem cópias de outras raízes."
     },
@@ -85,9 +130,16 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["orquestrador/SKILL_EXECUTION_PROFILES.json", "orquestrador/INTERACTION_PROFILES.json"],
-      "testEvidence": ["tests/orchestration-contracts.test.js"],
-      "documentation": ["docs/product/GLOSSARY.md"],
+      "implementationEvidence": [
+        "orquestrador/SKILL_EXECUTION_PROFILES.json",
+        "orquestrador/INTERACTION_PROFILES.json"
+      ],
+      "testEvidence": [
+        "tests/orchestration-contracts.test.js"
+      ],
+      "documentation": [
+        "docs/product/GLOSSARY.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "fast/standard/guided-engineering/deep/multiagent/phase-loop/saas/security; default/focus."
     },
@@ -97,9 +149,16 @@
       "category": "protocol",
       "status": "stable",
       "surface": "protocol",
-      "implementationEvidence": ["runtime/governance/", "runtime/application/maestro-application.js (review read-only)"],
-      "testEvidence": ["tests/governance-hardening.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/governance/",
+        "runtime/application/maestro-application.js (review read-only)"
+      ],
+      "testEvidence": [
+        "tests/governance-hardening.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Review independente re-executa no mesmo provider; só Codex suporta read-only review."
     },
@@ -109,9 +168,21 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/providers/codex-adapter.js", "runtime/providers/claude-adapter.js", "runtime/providers/opencode-adapter.js", "runtime/providers/agy-adapter.js", "runtime/providers/process-execution.js"],
-      "testEvidence": ["runtime/providers/__tests__/adapters.test.js", "runtime/providers/__tests__/provider-output.test.js"],
-      "documentation": ["docs/architecture/MAESTRO_PROVIDER_ADAPTERS.md", "docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/providers/codex-adapter.js",
+        "runtime/providers/claude-adapter.js",
+        "runtime/providers/opencode-adapter.js",
+        "runtime/providers/agy-adapter.js",
+        "runtime/providers/process-execution.js"
+      ],
+      "testEvidence": [
+        "runtime/providers/__tests__/adapters.test.js",
+        "runtime/providers/__tests__/provider-output.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_PROVIDER_ADAPTERS.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Runtime providers derivados dos adapters em runtime/providers/. agy é o CLI agy, não o IDE Antigravity."
     },
@@ -121,9 +192,16 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/application/maestro-application.js", "runtime/store/json-file-run-store.js"],
-      "testEvidence": ["tests/hardening.test.js"],
-      "documentation": ["docs/architecture/MAESTRO_RUNTIME.md"],
+      "implementationEvidence": [
+        "runtime/application/maestro-application.js",
+        "runtime/store/json-file-run-store.js"
+      ],
+      "testEvidence": [
+        "tests/hardening.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_RUNTIME.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "RunStore JSON atômico v1, permissões 0600/0700; SQLite é plano futuro sem quebrar legado."
     },
@@ -133,9 +211,15 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/verification/engine.js (safe-list lint/typecheck/test/build)"],
-      "testEvidence": ["runtime/verification/__tests__/engine.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/verification/engine.js (safe-list lint/typecheck/test/build)"
+      ],
+      "testEvidence": [
+        "runtime/verification/__tests__/engine.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Saída durável sanitizada e truncada; comando raw só em memória."
     },
@@ -145,9 +229,17 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/workspaces/manager.js", "runtime/application/maestro-application.js (createTerminalSession, isolation==worktree)"],
-      "testEvidence": ["runtime/workspaces/__tests__/manager.test.js", "tests/e2e-isolation.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/workspaces/manager.js",
+        "runtime/application/maestro-application.js (createTerminalSession, isolation==worktree)"
+      ],
+      "testEvidence": [
+        "runtime/workspaces/__tests__/manager.test.js",
+        "tests/e2e-isolation.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Limitações: sem merge automático de volta; limpeza manual; não copia ignored/stash/.git."
     },
@@ -157,9 +249,20 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/terminals/pty-session-manager.js", "runtime/terminals/session-manager.js", "runtime/terminals/terminal-manager.js", "runtime/runs/run-terminal-bridge.js"],
-      "testEvidence": ["tests/f8-pty-contract.test.js", "tests/f8-run-terminal-bridge.test.js", "runtime/terminals/__tests__/terminal-durable-privacy.test.js"],
-      "documentation": ["docs/architecture/MAESTRO_COCKPIT.md"],
+      "implementationEvidence": [
+        "runtime/terminals/pty-session-manager.js",
+        "runtime/terminals/session-manager.js",
+        "runtime/terminals/terminal-manager.js",
+        "runtime/runs/run-terminal-bridge.js"
+      ],
+      "testEvidence": [
+        "tests/f8-pty-contract.test.js",
+        "tests/f8-run-terminal-bridge.test.js",
+        "runtime/terminals/__tests__/terminal-durable-privacy.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_COCKPIT.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Limitações: node-pty opcional (PTY_UNAVAILABLE); output integral só em memória; store recebe só metadados sanitizados."
     },
@@ -169,9 +272,15 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["orquestrador/lib/git-context.js"],
-      "testEvidence": ["tests/orchestration-contracts.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "orquestrador/lib/git-context.js"
+      ],
+      "testEvidence": [
+        "tests/orchestration-contracts.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Somente leitura (repositoryId/branch/headCommit/remote); usado para telemetria e escopo de memória."
     },
@@ -181,9 +290,19 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/telemetry/provider-usage.js", "runtime/telemetry/cognitive-telemetry.js", "runtime/telemetry/agent-topology.js", "bin/orquestrador-maestro.js (handleUsageCommand)"],
-      "testEvidence": ["runtime/telemetry/__tests__/durable-privacy.test.js", "runtime/telemetry/__tests__/failed-run-privacy.test.js"],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/telemetry/provider-usage.js",
+        "runtime/telemetry/cognitive-telemetry.js",
+        "runtime/telemetry/agent-topology.js",
+        "bin/orquestrador-maestro.js (handleUsageCommand)"
+      ],
+      "testEvidence": [
+        "runtime/telemetry/__tests__/durable-privacy.test.js",
+        "runtime/telemetry/__tests__/failed-run-privacy.test.js"
+      ],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Local-first em runs.json; valores ausentes ficam null/unavailable, nunca 0 inventado. Não é FinOps/controle financeiro."
     },
@@ -193,9 +312,17 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["bin/orquestrador-maestro.js (defaultTelemetryConfig enabled:false, consentVersion:2, sendTelemetry exige endpoint+chave)"],
-      "testEvidence": ["tests/telemetry.test.js"],
-      "documentation": ["docs/privacy-model.md", "docs/telemetry-processing-record.md", "docs/npm-package.md"],
+      "implementationEvidence": [
+        "bin/orquestrador-maestro.js (defaultTelemetryConfig enabled:false, consentVersion:2, sendTelemetry exige endpoint+chave)"
+      ],
+      "testEvidence": [
+        "tests/telemetry.test.js"
+      ],
+      "documentation": [
+        "docs/privacy-model.md",
+        "docs/telemetry-processing-record.md",
+        "docs/npm-package.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Desabilitada por padrão (opt-in explícito via telemetry enable). Payload mínimo: comando, flags sem valores, versão, plataforma, exit code, anonymousId, data (dia)."
     },
@@ -205,9 +332,20 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["benchmark-harness/src/cli/index.ts", "benchmark-harness/src/orchestrator/index.ts", "benchmark-harness/src/verifier/index.ts", "benchmark-harness/src/evidence/index.ts", "benchmark-harness/scenarios/"],
-      "testEvidence": ["benchmark-harness/tests/"],
-      "documentation": ["docs/benchmark.md", "benchmark-harness/docs/"],
+      "implementationEvidence": [
+        "benchmark-harness/src/cli/index.ts",
+        "benchmark-harness/src/orchestrator/index.ts",
+        "benchmark-harness/src/verifier/index.ts",
+        "benchmark-harness/src/evidence/index.ts",
+        "benchmark-harness/scenarios/"
+      ],
+      "testEvidence": [
+        "benchmark-harness/tests/"
+      ],
+      "documentation": [
+        "docs/benchmark.md",
+        "benchmark-harness/docs/"
+      ],
       "publicClaimAllowed": true,
       "notes": "Drivers maestro e opencode. Claim público exige N>=20 pareados, execução real, tokenSource provider-reported, isolamento e reprodutibilidade. Sem números de marketing no repo."
     },
@@ -217,9 +355,17 @@
       "category": "runtime",
       "status": "stable",
       "surface": "runtime",
-      "implementationEvidence": ["runtime/bridge/bridge.js (PROTOCOL_VERSION=1)", "runtime/protocol/protocol-v2.js (PROTOCOL_VERSION=2)", "runtime/bridge/socket-server.js"],
-      "testEvidence": ["runtime/bridge/__tests__/bridge.test.js"],
-      "documentation": ["docs/architecture/MAESTRO_INTEGRATION_API.md"],
+      "implementationEvidence": [
+        "runtime/bridge/bridge.js (PROTOCOL_VERSION=1)",
+        "runtime/protocol/protocol-v2.js (PROTOCOL_VERSION=2)",
+        "runtime/bridge/socket-server.js"
+      ],
+      "testEvidence": [
+        "runtime/bridge/__tests__/bridge.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_INTEGRATION_API.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "v1 JSON-RPC sobre stdio coexiste com protocolo v2 de eventos; doc da API cobre v1 e omite métodos v2 (divergência registrada)."
     },
@@ -229,9 +375,18 @@
       "category": "cockpit",
       "status": "stable",
       "surface": "cockpit",
-      "implementationEvidence": ["runtime/tui/views/cockpit-view.ts", "runtime/tui/views/cockpit-model.ts", "runtime/attention/"],
-      "testEvidence": ["runtime/tui/__tests__/tui-cockpit.test.ts"],
-      "documentation": ["docs/architecture/MAESTRO_COCKPIT.md", "docs/product/PRODUCT_SPEC.md"],
+      "implementationEvidence": [
+        "runtime/tui/views/cockpit-view.ts",
+        "runtime/tui/views/cockpit-model.ts",
+        "runtime/attention/"
+      ],
+      "testEvidence": [
+        "runtime/tui/__tests__/tui-cockpit.test.ts"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_COCKPIT.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "4 layouts por largura; 5 seções canônicas. Cockpit é uma superfície do produto, não o produto inteiro. Polish responsivo em evolução."
     },
@@ -241,11 +396,102 @@
       "category": "cockpit",
       "status": "stable",
       "surface": "cockpit",
-      "implementationEvidence": ["extensions/vscode-maestro/extension.js (BridgeClient sobre bridge --stdio)"],
-      "testEvidence": ["runtime/bridge/__tests__/bridge.test.js (cobertura indireta)"],
-      "documentation": ["docs/architecture/MAESTRO_VSCODE_EXTENSION.md"],
+      "implementationEvidence": [
+        "extensions/vscode-maestro/extension.js (BridgeClient sobre bridge --stdio)"
+      ],
+      "testEvidence": [
+        "runtime/bridge/__tests__/bridge.test.js (cobertura indireta)"
+      ],
+      "documentation": [
+        "docs/architecture/MAESTRO_VSCODE_EXTENSION.md"
+      ],
       "publicClaimAllowed": true,
       "notes": "Cliente puro: sem discovery/execução/store próprios; sem streaming/approvals em v1."
+    },
+    {
+      "id": "resolution-engine",
+      "name": "Maestro Resolution Engine",
+      "category": "runtime",
+      "status": "stable",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/resolution/resolution-contract.js",
+        "runtime/resolution/resolution-engine.js",
+        "runtime/resolution/resolution-state.js",
+        "runtime/resolution/resolution-policy.js",
+        "runtime/application/maestro-application.js"
+      ],
+      "testEvidence": [
+        "runtime/resolution/__tests__/resolution-engine.test.js",
+        "runtime/resolution/__tests__/mission-resolution.test.js",
+        "runtime/application/__tests__/resolution-lifecycle.test.js"
+      ],
+      "documentation": [
+        "docs/maestro-resolution-engine.md",
+        "docs/product/PRODUCT_SPEC.md"
+      ],
+      "publicClaimAllowed": true,
+      "notes": "Contrato canônico em run.metadata.resolution; shadow/advisory são superfícies normais. Completion de processo não equivale a Validated Outcome."
+    },
+    {
+      "id": "resolution-evidence-proof",
+      "name": "Evidence persistida e Proof Bundle",
+      "category": "runtime",
+      "status": "stable",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/resolution/evidence/proof-bundle.js",
+        "runtime/store/json-file-run-store.js",
+        "runtime/application/maestro-application.js"
+      ],
+      "testEvidence": [
+        "runtime/application/__tests__/resolution-lifecycle.test.js",
+        "runtime/bridge/__tests__/bridge.test.js"
+      ],
+      "documentation": [
+        "docs/maestro-resolution-engine.md"
+      ],
+      "publicClaimAllowed": true,
+      "notes": "Task/Mission Proof Bundles são projeções do RunStore existente; Evidence só é persistida quando realmente produzida, sem cobertura inventada."
+    },
+    {
+      "id": "provider-handoff",
+      "name": "Handoff explícito entre providers",
+      "category": "runtime",
+      "status": "stable",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/resolution/checkpoint/provider-checkpoint.js",
+        "runtime/application/maestro-application.js"
+      ],
+      "testEvidence": [
+        "runtime/application/__tests__/resolution-lifecycle.test.js"
+      ],
+      "documentation": [
+        "docs/maestro-resolution-engine.md"
+      ],
+      "publicClaimAllowed": true,
+      "notes": "Somente provider-failure pode acionar fallback; checkpoint é provider-neutral, bounded e preserva a mesma Task em Runs distintos. Fallback por ID usa o modelo default do provider salvo override explícito."
+    },
+    {
+      "id": "resolution-enforce",
+      "name": "Resolution policy enforce",
+      "category": "runtime",
+      "status": "planned",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/resolution/resolution-policy.js",
+        "runtime/resolution/promotion-gate.js"
+      ],
+      "testEvidence": [
+        "runtime/resolution/__tests__/promotion-gate.test.js",
+        "runtime/context/__tests__/resolution-context.test.js"
+      ],
+      "documentation": [
+        "docs/maestro-resolution-engine.md"
+      ],
+      "publicClaimAllowed": false,
+      "notes": "Guarded implementation exists, but normal CLI intentionally blocks enforce. Activation requires explicit authorization after policy-bound hard benchmark evidence reaches the promotion gate."
     },
     {
       "id": "third-party-runtime",
@@ -255,7 +501,9 @@
       "surface": "runtime",
       "implementationEvidence": [],
       "testEvidence": [],
-      "documentation": ["docs/product/PRODUCT_SPEC.md"],
+      "documentation": [
+        "docs/product/PRODUCT_SPEC.md"
+      ],
       "publicClaimAllowed": false,
       "notes": "Planejado, não implementado. Possuem contrato/integração, mas nenhum adapter em runtime/providers/ nem driver de benchmark. Não vender como Runtime Provider."
     }
@@ -269,9 +517,17 @@
       "integrated": true,
       "runtimeProvider": true,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.codex"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "orquestrador/adapters/index.js"],
-      "runtimeEvidence": ["runtime/providers/codex-adapter.js", "runtime/providers/__tests__/adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.codex"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "orquestrador/adapters/index.js"
+      ],
+      "runtimeEvidence": [
+        "runtime/providers/codex-adapter.js",
+        "runtime/providers/__tests__/adapters.test.js"
+      ],
       "notes": "Headless sim; único com supportsReadOnlyReview=true."
     },
     {
@@ -282,9 +538,17 @@
       "integrated": true,
       "runtimeProvider": true,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.claude"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "orquestrador/adapters/index.js"],
-      "runtimeEvidence": ["runtime/providers/claude-adapter.js", "runtime/providers/__tests__/adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.claude"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "orquestrador/adapters/index.js"
+      ],
+      "runtimeEvidence": [
+        "runtime/providers/claude-adapter.js",
+        "runtime/providers/__tests__/adapters.test.js"
+      ],
       "notes": "Headless sim; review independente indisponível (falls back)."
     },
     {
@@ -295,9 +559,17 @@
       "integrated": true,
       "runtimeProvider": true,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.opencode"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "orquestrador/adapters/index.js"],
-      "runtimeEvidence": ["runtime/providers/opencode-adapter.js", "benchmark-harness/src/drivers/opencode.ts"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.opencode"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "orquestrador/adapters/index.js"
+      ],
+      "runtimeEvidence": [
+        "runtime/providers/opencode-adapter.js",
+        "benchmark-harness/src/drivers/opencode.ts"
+      ],
       "notes": "Headless sim; único com driver próprio no benchmark harness."
     },
     {
@@ -308,9 +580,15 @@
       "integrated": true,
       "runtimeProvider": true,
       "experimental": false,
-      "entrypoints": ["runtime/providers/agy-adapter.js", "bin/orquestrador-maestro.js (terminal agent)"],
+      "entrypoints": [
+        "runtime/providers/agy-adapter.js",
+        "bin/orquestrador-maestro.js (terminal agent)"
+      ],
       "integrationEvidence": [],
-      "runtimeEvidence": ["runtime/providers/agy-adapter.js", "runtime/providers/__tests__/adapters.test.js"],
+      "runtimeEvidence": [
+        "runtime/providers/agy-adapter.js",
+        "runtime/providers/__tests__/adapters.test.js"
+      ],
       "notes": "É o CLI agy, NÃO o IDE Antigravity. Sem entrada em TOOL_ADAPTERS/PROGRAM_ENTRYPOINTS."
     },
     {
@@ -321,8 +599,14 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.freebuff", "orquestrador/TOOL_ADAPTERS.json: adapters.freebuff"],
-      "integrationEvidence": ["orquestrador/adapters/index.js (FreebuffAdapter tool_call/tool_result/subagent_*)", "tests/adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.freebuff",
+        "orquestrador/TOOL_ADAPTERS.json: adapters.freebuff"
+      ],
+      "integrationEvidence": [
+        "orquestrador/adapters/index.js (FreebuffAdapter tool_call/tool_result/subagent_*)",
+        "tests/adapters.test.js"
+      ],
       "runtimeEvidence": [],
       "notes": "Camadas: contrato compartilhado + skills .agents/skills + event-adapter de memória. Sem execução runtime e sem headless estável — uso interativo. Não é Runtime Provider."
     },
@@ -334,8 +618,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.cursor"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "tool-profiles/cursor/"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.cursor"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "tool-profiles/cursor/"
+      ],
       "runtimeEvidence": [],
       "notes": "IDE interativo; contrato + config, sem execução pelo Runtime."
     },
@@ -347,8 +636,12 @@
       "integrated": false,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.gemini"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.gemini"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js"
+      ],
       "runtimeEvidence": [],
       "notes": "Integração parcial (sem skillTargets); execução runtime planejada, não implementada."
     },
@@ -360,8 +653,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.windsurf"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "tool-profiles/windsurf/"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.windsurf"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "tool-profiles/windsurf/"
+      ],
       "runtimeEvidence": [],
       "notes": "Cascade/global-rules interativo; sem execução pelo Runtime."
     },
@@ -373,8 +671,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.antigravity"],
-      "integrationEvidence": ["orquestrador/lib/tool-registry.js", "tool-profiles/antigravity/"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.antigravity"
+      ],
+      "integrationEvidence": [
+        "orquestrador/lib/tool-registry.js",
+        "tool-profiles/antigravity/"
+      ],
       "runtimeEvidence": [],
       "notes": "NÃO confundir com o provider agy (CLI distinto). Sem execução pelo Runtime."
     },
@@ -386,8 +689,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.mimo"],
-      "integrationEvidence": ["scripts/install.sh"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.mimo"
+      ],
+      "integrationEvidence": [
+        "scripts/install.sh"
+      ],
       "runtimeEvidence": [],
       "notes": "Instalação + skills compartilhadas; CLI própria."
     },
@@ -399,8 +706,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.kimi"],
-      "integrationEvidence": ["scripts/install.sh"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.kimi"
+      ],
+      "integrationEvidence": [
+        "scripts/install.sh"
+      ],
       "runtimeEvidence": [],
       "notes": "Instalação + skills compartilhadas; CLI própria."
     },
@@ -412,8 +723,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/PROGRAM_ENTRYPOINTS.json: programs.grok"],
-      "integrationEvidence": ["scripts/install.sh"],
+      "entrypoints": [
+        "orquestrador/PROGRAM_ENTRYPOINTS.json: programs.grok"
+      ],
+      "integrationEvidence": [
+        "scripts/install.sh"
+      ],
       "runtimeEvidence": [],
       "notes": "Instalação + skills compartilhadas; CLI própria."
     },
@@ -425,8 +740,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.junie"],
-      "integrationEvidence": ["orquestrador/bin/tool-adapters.js (render --dry-run/--apply)", "tests/tool-adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.junie"
+      ],
+      "integrationEvidence": [
+        "orquestrador/bin/tool-adapters.js (render --dry-run/--apply)",
+        "tests/tool-adapters.test.js"
+      ],
       "runtimeEvidence": [],
       "notes": "Adapter declarativo com render seguro; sem execução pelo Runtime."
     },
@@ -438,8 +758,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.goose"],
-      "integrationEvidence": ["orquestrador/bin/tool-adapters.js (render)", "tests/tool-adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.goose"
+      ],
+      "integrationEvidence": [
+        "orquestrador/bin/tool-adapters.js (render)",
+        "tests/tool-adapters.test.js"
+      ],
       "runtimeEvidence": [],
       "notes": "Adapter declarativo com render seguro; sem execução pelo Runtime."
     },
@@ -451,8 +776,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.openhands"],
-      "integrationEvidence": ["orquestrador/bin/tool-adapters.js (render)", "tests/tool-adapters.test.js"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.openhands"
+      ],
+      "integrationEvidence": [
+        "orquestrador/bin/tool-adapters.js (render)",
+        "tests/tool-adapters.test.js"
+      ],
       "runtimeEvidence": [],
       "notes": "Adapter declarativo com render seguro; sem execução pelo Runtime."
     },
@@ -464,8 +794,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.continue"],
-      "integrationEvidence": ["docs/tool-profiles.md (bootstrap .continue/rules)"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.continue"
+      ],
+      "integrationEvidence": [
+        "docs/tool-profiles.md (bootstrap .continue/rules)"
+      ],
       "runtimeEvidence": [],
       "notes": "Bootstrap de workspace; render ainda não disponível."
     },
@@ -477,8 +811,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.cline"],
-      "integrationEvidence": ["docs/tool-profiles.md (bootstrap .clinerules)"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.cline"
+      ],
+      "integrationEvidence": [
+        "docs/tool-profiles.md (bootstrap .clinerules)"
+      ],
       "runtimeEvidence": [],
       "notes": "Bootstrap de workspace; render ainda não disponível."
     },
@@ -490,8 +828,13 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.copilot"],
-      "integrationEvidence": ["docs/tool-profiles.md (bootstrap .github/)", "orquestrador/blueprints/project/"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.copilot"
+      ],
+      "integrationEvidence": [
+        "docs/tool-profiles.md (bootstrap .github/)",
+        "orquestrador/blueprints/project/"
+      ],
       "runtimeEvidence": [],
       "notes": "Bootstrap de projeto; sem execução pelo Runtime."
     },
@@ -503,8 +846,12 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.ollama"],
-      "integrationEvidence": ["docs/tool-profiles.md"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.ollama"
+      ],
+      "integrationEvidence": [
+        "docs/tool-profiles.md"
+      ],
       "runtimeEvidence": [],
       "notes": "Provedor local de modelos (OpenAI-compatible API); não é provider de execução do Runtime."
     },
@@ -516,16 +863,33 @@
       "integrated": true,
       "runtimeProvider": false,
       "experimental": false,
-      "entrypoints": ["orquestrador/TOOL_ADAPTERS.json: adapters.lm-studio"],
-      "integrationEvidence": ["docs/tool-profiles.md"],
+      "entrypoints": [
+        "orquestrador/TOOL_ADAPTERS.json: adapters.lm-studio"
+      ],
+      "integrationEvidence": [
+        "docs/tool-profiles.md"
+      ],
       "runtimeEvidence": [],
       "notes": "Provedor local de modelos; não é provider de execução do Runtime."
     }
   ],
-  "runtimeProviders": ["codex", "claude", "opencode", "agy"],
-  "surfaces": ["protocol", "runtime", "cockpit"],
+  "runtimeProviders": [
+    "codex",
+    "claude",
+    "opencode",
+    "agy"
+  ],
+  "surfaces": [
+    "protocol",
+    "runtime",
+    "cockpit"
+  ],
   "enums": {
-    "capabilityStatus": ["stable", "experimental", "planned"],
+    "capabilityStatus": [
+      "stable",
+      "experimental",
+      "planned"
+    ],
     "taxonomyInvariant": "runtimeProvider => integrated => compatible",
     "claimRule": "publicClaimAllowed=false significa: não vender como capability atual em README, landing ou SPEC."
   }

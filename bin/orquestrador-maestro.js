@@ -75,8 +75,6 @@ Uso:
   orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
   orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
-  orquestrador-maestro runtime [--project-path PATH]
-  orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro governance <status|set> [opcoes]
   orquestrador-maestro interaction <list|get|set|reset> [opcoes]
   orquestrador-maestro status [--json] [--task-id ID] [--lockfile PATH] [--project-path PATH]
@@ -94,8 +92,8 @@ Uso:
   orquestrador-maestro benchmark validate <scenario>
   orquestrador-maestro benchmark run [scenario] [opcoes]
   orquestrador-maestro run [--provider ID] [--profile ID] [--policy ID] [--workspace PATH] "tarefa"
-  orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
-  orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
+  orquestrador-maestro go [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
+  orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
   orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
@@ -255,6 +253,7 @@ function translateArgs(args, defs, target) {
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd || rootDir,
+    env: options.env || process.env,
     stdio: "inherit",
     shell: false
   });
@@ -717,12 +716,12 @@ function runBenchmarkCommand(args) {
   if (subcommand === "list" && !rest.some((arg) => arg === "--dir" || arg.startsWith("--dir="))) {
     forwarded.push("--dir", path.join(rootDir, "benchmark-harness", "scenarios"));
   }
-  if (subcommand === "run") {
+  if (subcommand === "run" || subcommand === "pair" || subcommand === "adaptive-pair") {
     const scenario = getArg(rest, "--scenario");
-    const condition = getArg(rest, "--condition");
+    const condition = subcommand === "run" ? getArg(rest, "--condition") : null;
     if (scenario) forwarded.push("--scenario", resolveBenchmarkScenario(scenario));
     for (let index = 0; index < rest.length; index += 1) {
-      if (rest[index] === "--scenario" || rest[index] === "--condition") { index += 1; continue; }
+      if (rest[index] === "--scenario" || (subcommand === "run" && rest[index] === "--condition")) { index += 1; continue; }
       forwarded.push(rest[index]);
     }
     if (condition) forwarded.push("--condition", condition);
@@ -731,7 +730,17 @@ function runBenchmarkCommand(args) {
     if (scenario) forwarded.push("--scenario", resolveBenchmarkScenario(scenario));
     forwarded.push(...rest.filter((arg, index) => !(arg === scenario && index === rest.indexOf(scenario))));
   } else forwarded.push(...rest);
-  return run(process.execPath, ["--import", "tsx", path.join(rootDir, "benchmark-harness", "src", "cli", "index.ts"), ...forwarded], { cwd: rootDir });
+
+  const { POLICY_IDENTITIES } = require(path.join(rootDir, "runtime", "resolution", "policy-identity"));
+  const adaptiveIdentity = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+  const benchmarkEnv = {
+    ...process.env,
+    BENCHMARK_ADAPTIVE_POLICY_ID: adaptiveIdentity.id,
+    BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: adaptiveIdentity.fingerprint,
+    BENCHMARK_MAESTRO_VERSION: packageJson.version,
+    BENCHMARK_MAESTRO_BINARY: path.join(rootDir, "bin", "orquestrador-maestro.js")
+  };
+  return run(process.execPath, ["--import", "tsx", path.join(rootDir, "benchmark-harness", "src", "cli", "index.ts"), ...forwarded], { cwd: rootDir, env: benchmarkEnv });
 }
 
 function parseRuntimeArgs(args, allowed = [], booleanFlags = []) {
@@ -814,13 +823,23 @@ async function handleRunCommand(args) {
     if (!cancelled) throw new Error(`Run ativo nao encontrado: ${runId}`);
     console.log(`Cancelamento solicitado para ${runId}.`); return 0;
   }
-  const options = parseRuntimeArgs(args, ["--provider", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox", "--interaction"]);
+  const options = parseRuntimeArgs(args, ["--provider", "--fallback-providers", "--profile", "--policy", "--workspace", "--project-path", "--model", "--mode", "--agent", "--sandbox", "--interaction", "--resolution-mode"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error("Informe a tarefa: maestro run [opcoes] \"tarefa\"");
-  const outcome = await (await createRuntimeApplication(options.projectPath)).executeRun({
-    description, providerId: options.provider, profileId: options.profile, policyId: options.policy,
-    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent, sandbox: options.sandbox, interactionProfile: options.interaction
-  });
+  const app = await createRuntimeApplication(options.projectPath);
+  const providerFallbacks = String(options.fallbackProviders || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const resolutionMode = options.resolutionMode || "shadow";
+  if (!["shadow", "advisory"].includes(resolutionMode)) {
+    throw new Error("--resolution-mode aceita apenas shadow ou advisory; enforce permanece bloqueado pelo promotion gate.");
+  }
+  const request = {
+    description, providerId: options.provider, providerFallbacks, profileId: options.profile, policyId: options.policy,
+    workspacePath: options.workspace || options.projectPath, model: options.model, mode: options.mode, agent: options.agent,
+    sandbox: options.sandbox, interactionProfile: options.interaction, resolutionMode
+  };
+  const outcome = providerFallbacks.length > 0
+    ? await app.executeTaskWithHandoff(request)
+    : await app.executeRun(request);
   console.log(JSON.stringify({ run: outcome.run, verification: outcome.verification, changes: outcome.changes }, null, 2));
   return outcome.run.status === "completed" ? 0 : 1;
 }
@@ -1611,7 +1630,7 @@ function handleVersionCommand(args) {
 }
 
 async function handleGoCommand(args, planningOnly = false) {
-  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--interviewer", "--max-cost", "--max-parallel", "--profile", "--interaction"], ["--auto", "--plan"]);
+  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--fallback-providers", "--interviewer", "--model", "--max-cost", "--max-parallel", "--profile", "--interaction", "--resolution-mode"], ["--auto", "--plan"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error('Informe a intenção: orquestrador-maestro go "tarefa"');
 
@@ -1628,6 +1647,18 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const workspacePath = path.resolve(options.projectPath || process.cwd());
   const app = await createRuntimeApplication(workspacePath);
+  const benchmarkMarkerNonce = process.env.MAESTRO_BENCHMARK_MARKER_NONCE || "";
+  const benchmarkUsageRequested = process.env.MAESTRO_BENCHMARK_USAGE === "1";
+  if (benchmarkUsageRequested && !/^[A-Za-z0-9-]{16,128}$/u.test(benchmarkMarkerNonce)) {
+    throw new Error("BENCHMARK_MARKER_NONCE_INVALID: benchmark token metering requires an authenticated marker nonce");
+  }
+  const { MissionUsageMeter } = require(path.join(rootDir, "runtime", "telemetry", "mission-usage-meter"));
+  const missionUsageMeter = new MissionUsageMeter();
+  missionUsageMeter.instrumentRegistry(app.providers);
+  const resolutionMode = options.resolutionMode || "shadow";
+  if (!["shadow", "advisory"].includes(resolutionMode)) {
+    throw new Error("--resolution-mode aceita apenas shadow ou advisory; enforce permanece bloqueado pelo promotion gate.");
+  }
 
   const p = require("@clack/prompts");
   const notifier = require("node-notifier");
@@ -1663,7 +1694,7 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const semanticRanker = new SemanticRanker(app, { localOnly: false });
   const contextEngine = new ContextEngine({ workspacePath, semanticRanker });
-  const relevantContext = await contextEngine.buildContext(description);
+  const relevantContext = await contextEngine.buildContext(description, 8000, { resolutionMode });
 
   s.stop(`Codebase explorada. Itens relevantes encontrados: ${relevantContext.items.length}`);
 
@@ -1728,19 +1759,84 @@ async function handleGoCommand(args, planningOnly = false) {
     throw new Error("MISSING_EXECUTION_TARGET: No installed provider available for execution");
   }
 
+  const selectedModel = options.model || "default";
   const planner = new SemanticPlanner({
     application: app,
-    plannerTarget: { providerId: selectedProviderId, model: "default", local: selectedProviderId === "opencode" },
+    plannerTarget: { providerId: selectedProviderId, model: selectedModel, local: selectedProviderId === "opencode" },
     localOnly: selectedProviderId === "opencode"
   });
 
-  const planResult = await planner.plan({
-    missionBrief: approvedBrief,
-    missionId: approvedBrief.id,
-    taskRelevantContext: relevantContext,
-    resolvedSkills: resolved.allSkills,
-    allowFallback: true
+  // Create the canonical Mission only after the execution target is known, but
+  // before planning, so TaskGraph, approvals, runtime Tasks and Proof share one
+  // missionId without leaving orphan planning Missions on provider discovery failure.
+  const mission = await app.createMission({
+    workspacePath,
+    objective: approvedBrief.objective,
+    status: "planning",
+    startedAt: new Date().toISOString(),
+    metadata: { missionBriefId: approvedBrief.id }
   });
+
+  const adaptivePolicyId = process.env.MAESTRO_ADAPTIVE_POLICY_ID || "";
+  const adaptivePolicyFingerprint = process.env.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT || "";
+  const adaptivePairId = process.env.MAESTRO_ADAPTIVE_PAIR_ID || "";
+  const adaptiveRequested = Boolean(adaptivePolicyId || adaptivePolicyFingerprint || adaptivePairId);
+  let planResult;
+
+  try {
+  if (adaptiveRequested) {
+    const { POLICY_IDENTITIES } = require(path.join(rootDir, "runtime", "resolution", "policy-identity"));
+    const { planProgressively } = require(path.join(rootDir, "runtime", "resolution", "progressive-planning"));
+    const expected = POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3;
+    if (adaptivePolicyId !== expected.id || adaptivePolicyFingerprint !== expected.fingerprint) {
+      throw new Error("ADAPTIVE_POLICY_IDENTITY_MISMATCH: benchmark policy identity does not match the runtime V3 contract");
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(adaptivePairId)) {
+      throw new Error("ADAPTIVE_PAIR_ID_INVALID: a non-sensitive benchmark pairId is required");
+    }
+
+    planResult = await planProgressively({
+      contextEngine,
+      planner,
+      intent: description,
+      missionBrief: approvedBrief,
+      missionId: mission.id,
+      resolvedSkills: resolved.allSkills,
+      experiment: { authorized: true, pairId: adaptivePairId, startStrategy: "targeted" },
+      workspacePath
+    });
+
+    if (!benchmarkMarkerNonce) throw new Error("BENCHMARK_MARKER_NONCE_REQUIRED: adaptive benchmark confirmation requires a nonce");
+    console.log(`MAESTRO_ADAPTIVE_POLICY=${JSON.stringify({
+      nonce: benchmarkMarkerNonce,
+      policyId: expected.id,
+      policyFingerprint: expected.fingerprint,
+      pairId: adaptivePairId,
+      successStrategy: planResult.progressivePlanning?.successStrategy || null,
+      fallbackUsed: planResult.progressivePlanning?.fallbackUsed === true
+    })}`);
+  } else {
+    planResult = await planner.plan({
+      missionBrief: approvedBrief,
+      missionId: mission.id,
+      taskRelevantContext: relevantContext,
+      resolvedSkills: resolved.allSkills,
+      allowFallback: true,
+      workspacePath
+    });
+  }
+  } catch (error) {
+    await app.updateMission(mission.id, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      metadata: {
+        ...(mission.metadata || {}),
+        failureStage: "planning",
+        failureCode: typeof error?.code === "string" ? error.code : "PLANNING_FAILED"
+      }
+    });
+    throw error;
+  }
 
   const { TaskGraphPersistence } = require(path.join(rootDir, "runtime", "planner", "task-graph-persistence"));
   const { PlanPersistenceHooks } = require(path.join(rootDir, "runtime", "planner", "plan-persistence-hooks"));
@@ -1756,7 +1852,16 @@ async function handleGoCommand(args, planningOnly = false) {
     })
   });
 
-  const executionTarget = { providerId: selectedProviderId, model: "default" };
+  const explicitFallbackProviders = String(options.fallbackProviders || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index && value !== selectedProviderId);
+  const executionTarget = {
+    providerId: selectedProviderId,
+    model: selectedModel,
+    providerFallbacks: explicitFallbackProviders
+  };
   let tasks = planResult.taskGraph.tasks.map((st) =>
     LegacyExecutionProjection.projectTask(st.metadata?.semantic || st, { executionTarget })
   );
@@ -1774,14 +1879,15 @@ async function handleGoCommand(args, planningOnly = false) {
     }, { autoFallbackAllowed: false });
 
     if (!autoEval.approved) {
-      await persistenceHooks.onRejected({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
-      await app.attentionProducers.humanApprovalRequest({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, evalResult: autoEval, projectId: project.id });
+      await persistenceHooks.onRejected({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
+      await app.attentionProducers.humanApprovalRequest({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, evalResult: autoEval, projectId: project.id });
+      await app.updateMission(mission.id, { status: "blocked", metadata: { ...(mission.metadata || {}), approvalBlock: autoEval.reason } });
       p.cancel(`Execução automática rejeitada: ${autoEval.reason}`);
       return 1;
     }
-    await persistenceHooks.onApproved({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
+    await persistenceHooks.onApproved({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: autoEval });
     if (planningOnly) {
-      await app.createMission({ workspacePath, objective: approvedBrief.objective, status: "awaiting_approval", startedAt: new Date().toISOString() });
+      await app.updateMission(mission.id, { status: "awaiting_approval" });
       s.stop("Plano aprovado");
       updateTitle("Plano aprovado");
       p.outro("◆ Plano de engenharia aprovado — nenhuma execução será realizada (modo plan)");
@@ -1801,14 +1907,15 @@ async function handleGoCommand(args, planningOnly = false) {
       });
 
       if (p.isCancel(action) || action === "cancelar") {
+        await app.updateMission(mission.id, { status: "cancelled", completedAt: new Date().toISOString() });
         p.cancel("Operação cancelada pelo usuário.");
         return 0;
       } else if (action === "aprovar") {
         const humanApproval = PlanApprovalGate.recordHumanApproval({ taskGraphId: planResult.taskGraph.id, userDecision: "approved" });
-        await persistenceHooks.onApproved({ missionId: approvedBrief.id, taskGraphId: planResult.taskGraph.id, approval: humanApproval });
+        await persistenceHooks.onApproved({ missionId: mission.id, taskGraphId: planResult.taskGraph.id, approval: humanApproval });
         planApproved = true;
         if (planningOnly) {
-          await app.createMission({ workspacePath, objective: approvedBrief.objective, status: "awaiting_approval", startedAt: new Date().toISOString() });
+          await app.updateMission(mission.id, { status: "awaiting_approval" });
           s.stop("Plano aprovado");
           updateTitle("Plano aprovado");
           p.outro("◆ Plano de engenharia aprovado — nenhuma execução será realizada (modo plan)");
@@ -1821,6 +1928,7 @@ async function handleGoCommand(args, planningOnly = false) {
         }).join("\n\n");
         p.note(details, "Detalhes das Tarefas");
       } else if (action === "refinar") {
+        await app.updateMission(mission.id, { status: "cancelled", completedAt: new Date().toISOString(), metadata: { ...(mission.metadata || {}), reason: "refinement-requested" } });
         p.cancel("Retornando ao refinamento de missão.");
         return 0;
       }
@@ -1829,10 +1937,24 @@ async function handleGoCommand(args, planningOnly = false) {
 
   // Fase 5: Execução
   updateTitle("Executando tarefas...");
-  const mission = await app.createMission({ workspacePath, objective: spec.answers?.intent || description, status: "running", startedAt: new Date().toISOString() });
-  const executor = new LaneExecutor({ application: app, maxParallel: parseInt(options.maxParallel, 10) || 3, executionProfile: options.profile, interactionProfile: options.interaction });
+  await app.updateMission(mission.id, { status: "running" });
+  const executor = new LaneExecutor({
+    application: app,
+    maxParallel: parseInt(options.maxParallel, 10) || 3,
+    executionProfile: options.profile,
+    interactionProfile: options.interaction,
+    resolutionMode
+  });
   const { TaskLifecycleMonitor } = require(path.join(rootDir, "runtime", "planner", "task-lifecycle-monitor"));
-  const lifecycleMonitor = TaskLifecycleMonitor.attach({ executor, app, graphs, store: app.store });
+  const lifecycleMonitor = TaskLifecycleMonitor.attach({
+    executor,
+    app,
+    graphs,
+    store: app.store,
+    missionId: mission.id,
+    projectId: project.id,
+    graphId: planResult.taskGraph.id
+  });
 
   const runningTasks = new Set();
   const updateSpinner = () => {
@@ -1863,23 +1985,122 @@ async function handleGoCommand(args, planningOnly = false) {
   });
 
   s.start("Inicializando execução...");
-  const results = await executor.execute(tasks, mission.id);
-  lifecycleMonitor.detach();
-  s.stop("Execução concluída");
-
-  const failures = Object.values(results).filter((r) => r.status === "failed");
-
-  if (failures.length) {
-    updateTitle("Concluído (com falhas)");
-    notifier.notify({ title: "Maestro CLI", message: "Missão concluída com algumas falhas.", sound: true });
-    p.outro("◆ Missão parcialmente concluída (houve falhas)");
-    return 1;
-  } else {
-    updateTitle("Concluído!");
-    notifier.notify({ title: "Maestro CLI", message: "Missão concluída com sucesso! 🚀", sound: true });
-    p.outro("◆ Missão concluída com sucesso! 🚀");
-    return 0;
+  let results;
+  try {
+    results = await executor.execute(tasks, mission.id);
+    s.stop("Execução concluída");
+  } catch (error) {
+    await app.updateMission(mission.id, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      metadata: {
+        ...(mission.metadata || {}),
+        failureStage: "execution",
+        failureCode: typeof error?.code === "string" ? error.code : "EXECUTION_FAILED"
+      }
+    });
+    s.stop("Execução interrompida");
+    throw error;
+  } finally {
+    lifecycleMonitor.detach();
   }
+
+  const { deriveMissionResolution } = require(path.join(rootDir, "runtime", "resolution"));
+  const missionCompletedAt = new Date().toISOString();
+  const missionResolution = deriveMissionResolution(results, {
+    objective: mission.objective,
+    now: missionCompletedAt
+  });
+  const missionStatus = missionResolution.status;
+  const missionUsage = missionUsageMeter.snapshot();
+  const resultEntries = Object.values(results);
+  const telemetryValues = resultEntries.map((entry) => entry?.result?.run?.metadata?.cognitiveTelemetry || null);
+  const numericAggregate = (field) => telemetryValues.length > 0 && telemetryValues.every((value) => Number.isInteger(value?.[field]))
+    ? telemetryValues.reduce((sum, value) => sum + value[field], 0)
+    : null;
+  const providerSwitches = resultEntries.reduce((sum, entry) => sum + (entry?.result?.handoff?.providerSwitches || 0), 0);
+  const automaticRetries = numericAggregate("automaticRetries");
+  const escalations = resultEntries.length > 0 && resultEntries.every((entry) => Number.isInteger(entry?.result?.run?.metadata?.resolution?.escalation?.count))
+    ? resultEntries.reduce((sum, entry) => sum + entry.result.run.metadata.resolution.escalation.count, 0)
+    : null;
+  const firstPassKnown = resultEntries.every((entry) => {
+    const run = entry?.result?.run;
+    return entry?.resolutionState === "validated" || run?.metadata?.resolution?.outcome?.state === "validated"
+      ? Number.isInteger(entry?.result?.handoff?.providerSwitches ?? 0)
+        && Number.isInteger(run?.metadata?.cognitiveTelemetry?.automaticRetries)
+        && Number.isInteger(run?.metadata?.resolution?.escalation?.count)
+      : true;
+  });
+  const firstPassValidatedTaskCount = firstPassKnown
+    ? resultEntries.filter((entry) => {
+      const run = entry?.result?.run;
+      const validated = entry?.resolutionState === "validated" || run?.metadata?.resolution?.outcome?.state === "validated";
+      return validated
+        && (entry?.result?.handoff?.providerSwitches || 0) === 0
+        && run.metadata.cognitiveTelemetry.automaticRetries === 0
+        && run.metadata.resolution.escalation.count === 0;
+    }).length
+    : null;
+  const missionCognitiveTelemetry = Object.freeze({
+    schemaVersion: 1,
+    scope: "mission",
+    usage: missionUsage,
+    taskCount: missionResolution.summary.tasks,
+    validatedTaskCount: missionResolution.summary.validatedTasks,
+    firstPassValidatedTaskCount,
+    failedTaskCount: missionResolution.summary.failedTasks,
+    blockedTaskCount: missionResolution.summary.blockedTasks,
+    needsAttentionTaskCount: missionResolution.summary.needsAttentionTasks,
+    providerSwitches,
+    automaticRetries,
+    escalations,
+    tokensToValidatedOutcome: missionResolution.state === "validated" && missionUsage.complete === true ? missionUsage.totalTokens : null,
+    tokenMetricCompleteness: missionUsage.complete === true ? "complete" : "unavailable"
+  });
+  await app.updateMission(mission.id, {
+    status: missionStatus,
+    completedAt: ["completed", "failed", "blocked"].includes(missionStatus) ? missionCompletedAt : undefined,
+    metadata: {
+      ...(mission.metadata || {}),
+      resolution: missionResolution,
+      cognitiveTelemetry: missionCognitiveTelemetry
+    }
+  });
+
+  if (benchmarkUsageRequested) {
+    console.log(`MAESTRO_MISSION_USAGE=${JSON.stringify({
+      nonce: benchmarkMarkerNonce,
+      ...missionUsage,
+      resolution: {
+        state: missionResolution.state,
+        taskCount: missionResolution.summary.tasks,
+        validatedTaskCount: missionResolution.summary.validatedTasks,
+        firstPassValidatedTaskCount,
+        failedTaskCount: missionResolution.summary.failedTasks,
+        blockedTaskCount: missionResolution.summary.blockedTasks,
+        needsAttentionTaskCount: missionResolution.summary.needsAttentionTasks,
+        providerSwitches,
+        automaticRetries,
+        escalations,
+        tokensToValidatedOutcome: missionCognitiveTelemetry.tokensToValidatedOutcome
+      }
+    })}`);
+  }
+
+  if (missionResolution.state !== "validated") {
+    updateTitle(missionResolution.state === "failed" ? "Concluído (com falhas)" : "Atenção necessária");
+    const reason = missionResolution.state === "failed"
+      ? "Missão concluída com falhas."
+      : "Missão interrompida: existem tarefas não validadas.";
+    notifier.notify({ title: "Maestro CLI", message: reason, sound: true });
+    p.outro(`◆ Missão não validada (${missionResolution.state}): ${missionResolution.reason}`);
+    return 1;
+  }
+
+  updateTitle("Concluído!");
+  notifier.notify({ title: "Maestro CLI", message: "Missão validada com sucesso! 🚀", sound: true });
+  p.outro("◆ Missão validada com sucesso! 🚀");
+  return 0;
 }
 
 async function handleContextCommand(args) {
