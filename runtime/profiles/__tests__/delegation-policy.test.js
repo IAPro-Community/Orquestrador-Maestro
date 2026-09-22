@@ -23,7 +23,12 @@ test("routine git operations remain solo even under multiagent policy", () => {
     "git commit -m fix",
     "faça um commit dessas alterações",
     "git status",
-    "commit these changes"
+    "commit these changes",
+    "faça o commit",
+    "faz o commit",
+    "commita essas alterações",
+    "commitar as mudanças",
+    "suba o push"
   ]) {
     const contract = deriveDelegationContract({ description, policyId: "multiagent" });
     assert.equal(contract.allowSubagents, false, description);
