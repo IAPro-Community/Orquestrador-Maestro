@@ -7,7 +7,8 @@ const {
   finalizeResolution,
   resolutionProjection,
   deriveResolutionPolicy,
-  buildProviderCheckpoint
+  buildProviderCheckpoint,
+  isValidatedRunSuccess
 } = require("..");
 
 test("canonical resolution derives strategy from the existing cognitive budget", () => {
@@ -76,6 +77,26 @@ test("resolution projection never upgrades completed to validated without eviden
   }).state, "validated");
 });
 
+
+test("run success requires validated Resolution outcome while preserving legacy completed runs", () => {
+  assert.equal(isValidatedRunSuccess({ status: "completed", metadata: {} }), true);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "validated" } } }
+  }), true);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "needs_attention" } } }
+  }), false);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "blocked" } } }
+  }), false);
+  assert.equal(isValidatedRunSuccess({
+    status: "failed",
+    metadata: { resolution: { outcome: { state: "failed" } } }
+  }), false);
+});
 
 test("provider checkpoint sanitizes all durable continuation context", () => {
   const token = "ghp_" + "B".repeat(40);
