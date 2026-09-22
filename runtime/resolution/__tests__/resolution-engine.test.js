@@ -77,15 +77,28 @@ test("resolution projection never upgrades completed to validated without eviden
 });
 
 
-test("provider checkpoint sanitizes durable failure diagnostics", () => {
+test("provider checkpoint sanitizes all durable continuation context", () => {
   const token = "ghp_" + "B".repeat(40);
   const checkpoint = buildProviderCheckpoint({
     task: { id: "task-1" },
+    request: {
+      description: `Fix auth using ${token} from /home/alice/private`,
+      semanticTask: {
+        id: "task-1",
+        objective: `Objective ${token}`,
+        requirements: [`Read /home/alice/private with ${token}`]
+      },
+      decisions: [`Keep ${token}`]
+    },
     providerId: "fake",
-    reason: `Authorization: Bearer ${token} /home/alice/private`
+    reason: `Authorization: Bearer ${token} /home/alice/private`,
+    changes: { changedFiles: ["/home/alice/private/app.js"] }
   });
   const serialized = JSON.stringify(checkpoint);
   assert.doesNotMatch(serialized, new RegExp(token, "u"));
   assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
   assert.match(checkpoint.failure.reason, /redacted/u);
+  assert.match(checkpoint.objective, /redacted/u);
+  assert.match(checkpoint.requirements[0], /redacted/u);
+  assert.match(checkpoint.decisions[0], /redacted/u);
 });
