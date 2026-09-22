@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Compat: requisito mínimo do runtime explicitado como Node.js 20.12+, alinhado ao `@clack/prompts` 1.x e evitando instalações que passariam no `engines` mas falhariam em runtime.
+
 - Deps: `@clack/prompts` 1.x, `@xterm/headless` 6, `@types/node` 26, `tsx` 4.23.15 (TypeScript 7 revertido: 176 erros; `uuid` 14 irrelevante — só transitivo).
 - Memória: `export`/`import` com revalidação e sem herança de confiança; opt-out por projeto via `DEV/memory-policy.json` (`capture`, `excludedPaths`).
 - Contexto: `SemanticRanker` com scoring determinístico local (overlap de tokens, sem inventar fatos) e `localOnly` fail-closed.
