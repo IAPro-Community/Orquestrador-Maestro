@@ -6,6 +6,7 @@ const DEFAULT_PROMOTION_POLICY = Object.freeze({
   minHardValidatedPairs: 20,
   minTokenComparablePairs: 20,
   maxAcceptanceRateRegression: 0,
+  maxQualityRegressions: 0,
   requirePositiveMedianTokenSavings: true,
   requirePairIntegrity: true,
   requirePolicyBinding: true,
@@ -34,6 +35,9 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
   }
   if (!Number.isFinite(merged.maxAcceptanceRateRegression) || merged.maxAcceptanceRateRegression < 0 || merged.maxAcceptanceRateRegression > 1) {
     throw new TypeError("maxAcceptanceRateRegression must be between 0 and 1");
+  }
+  if (!Number.isInteger(merged.maxQualityRegressions) || merged.maxQualityRegressions < 0) {
+    throw new TypeError("maxQualityRegressions must be a non-negative integer");
   }
 
   const candidate = dataset.samples.filter((sample) =>
@@ -90,6 +94,9 @@ function evaluatePromotionGate(dataset, { candidatePolicyFingerprint, policy = D
 
   const qualityRegressions = promotionEvidence.filter((sample) => sample.baseline?.accepted === true && sample.treatment?.accepted !== true).length;
   const qualityImprovements = promotionEvidence.filter((sample) => sample.baseline?.accepted !== true && sample.treatment?.accepted === true).length;
+  if (qualityRegressions > merged.maxQualityRegressions) {
+    blockers.push(`quality-regressions:${qualityRegressions}/${merged.maxQualityRegressions}`);
+  }
 
   const resolutionObserved = promotionEvidence
     .map((sample) => sample.features?.treatmentResolution)
