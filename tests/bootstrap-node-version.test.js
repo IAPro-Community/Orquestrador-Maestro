@@ -16,7 +16,7 @@ test("bootstrap installers enforce the package Node 20.19 minimum", () => {
   assert.equal(pkg.engines.node, ">=20.19.0");
   assert.match(sh, /major === 20 && minor >= 19/u);
   assert.match(sh, /Node\.js 20\.19 ou superior/u);
-  assert.match(ps, /\$nodeMajor -eq 20 -and \$nodeMinor -lt 12/u);
+  assert.match(ps, /\$nodeMajor -eq 20 -and \$nodeMinor -lt 19/u);
   assert.match(ps, /Node\.js 20\.19 ou superior/u);
   assert.match(readme, /Node\.js 20\.19 ou superior/u);
 });
