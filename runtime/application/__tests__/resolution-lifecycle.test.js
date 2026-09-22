@@ -552,3 +552,27 @@ test("legacy semantic-task Runs remain visible in outcome history and Mission Pr
   assert.equal(proof.tasks.length, 1);
   assert.deepEqual(proof.tasks[0].runs.map((entry) => entry.runId), ["legacy-run", outcome.run.id]);
 });
+
+
+test("Run creation preserves an existing project workspace binding", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-project-scope-root-"));
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-project-scope-other-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const registered = await app.registerProject({ projectPath: root });
+
+  await assert.rejects(
+    app.executeRun({
+      providerId: "fake",
+      projectId: registered.id,
+      workspacePath: other,
+      description: "Project scope check",
+      semanticTaskId: "project-scope-task",
+      semanticTask: { id: "project-scope-task", objective: "Project scope check", acceptanceCriteria: [] }
+    }),
+    (error) => error?.code === "PROJECT_SCOPE_MISMATCH"
+  );
+
+  const after = await app.getProject(registered.id);
+  assert.equal(path.resolve(after.path), path.resolve(root));
+});
