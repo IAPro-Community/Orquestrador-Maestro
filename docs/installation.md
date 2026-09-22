@@ -4,7 +4,7 @@ Instale o Maestro no seu usuário e passe a usar o mesmo processo em ferramentas
 
 ## Caminho mais curto
 
-Com Node.js 20 ou superior:
+Com Node.js 20.19 ou superior:
 
 ```bash
 npm install -g @iapro/orquestrador-maestro-cli@latest

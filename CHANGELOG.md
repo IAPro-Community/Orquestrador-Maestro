@@ -5,8 +5,8 @@
 - Orquestração: execução passa a ser solo por padrão; apenas o perfil explícito `multiagent` permite fan-out. Operações mecânicas de Git/VCS continuam solo mesmo sob solicitação de perfil multiagente, e child agents identificados em contrato solo geram `delegation.violation` e impedem `validated`.
 - Resolution: `verification.skipped` deixa de ser publicado como falha e não conta mais como prova por omissão: somente um skip explicitamente marcado como `not_applicable` pode satisfazer uma Task sem validators/DoD verificável. O estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
 - Benchmark: OpenCode usado pelos workflows oficiais fica fixado em `opencode-ai@1.18.31` enquanto o driver permanecer no contrato JSONL v1; upgrades de geração exigem revisão explícita do driver.
-- CI: o piso declarado do runtime passa a ser testado diretamente com Node.js 20.12.2 em vez de um Node 20.x flutuante.
-- Compat: requisito mínimo do runtime explicitado como Node.js 20.12+, alinhado ao `@clack/prompts` 1.x e evitando instalações que passariam no `engines` mas falhariam em runtime.
+- CI: o piso declarado do runtime passa a ser testado diretamente com Node.js 20.19.0 em vez de um Node 20.x flutuante.
+- Compat: requisito mínimo do runtime corrigido para Node.js 20.19+. O pacote é CommonJS e consome `@clack/prompts` ESM; 20.19 é o primeiro Node 20 em que `require(ESM)` fica habilitado por padrão, evitando instalações aceitas pelo `engines` mas incompatíveis em runtime.
 
 - Deps: `@clack/prompts` 1.x, `@xterm/headless` 6, `@types/node` 26, `tsx` 4.23.15 (TypeScript 7 revertido: 176 erros; `uuid` 14 irrelevante — só transitivo).
 - Memória: `export`/`import` com revalidação e sem herança de confiança; opt-out por projeto via `DEV/memory-policy.json` (`capture`, `excludedPaths`).
@@ -24,7 +24,7 @@
 - Skills: snapshot Codex publicado passa a incluir `skill-frontend-excellence` (Nativa, estava ausente), `skill-watch-evidence` e `skill-melhorar-ux-ui-por-referencia`; `skill-impeccable` ressincronizado com a fonte canônica.
 - Skills: `skill-catalog validate` agora falha se skill `mirrorEverywhere` estiver fora do snapshot `codex/skills` + novo `tests/skill-snapshot.test.js`.
 - Install: `--dry-run` passa a listar sync/discovery/chmod/logs planejados em vez de omitir; uninstall reverte mirrors do `sync --apply`, faz backup integral no Windows (antes: só mapeados) e `Copy-ManagedDirectory` recusa destino fora da raiz.
-- Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20.12+ de verdade.
+- Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20.19+ de verdade.
 - Fix: extensão VS Code (`extensions/vscode-maestro/`) passa a ir no pacote npm (`files[]`).
 - Chore: novo `npm run validate:paths` para `scripts/validate-git-paths.js` (antes órfão); `tsx` atualizado para 4.23.15.
 - Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE` e troca `curl|bash` por baixar-inspecionar-executar.

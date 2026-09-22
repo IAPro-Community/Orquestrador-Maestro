@@ -4,7 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 $package = "@iapro/orquestrador-maestro-cli"
 $packageVersion = "0.4.4"
-$bootstrapVersion = "2026.09.22.1"
+$bootstrapVersion = "2026.09.22.2"
 Write-Host "Orquestrador Maestro bootstrap $bootstrapVersion"
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
@@ -20,8 +20,8 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) 
 $nodeVersionParts = (& node -p "process.versions.node").Trim().Split(".")
 $nodeMajor = [int]$nodeVersionParts[0]
 $nodeMinor = [int]$nodeVersionParts[1]
-if ($nodeMajor -lt 20 -or ($nodeMajor -eq 20 -and $nodeMinor -lt 12)) {
-  throw "Node.js 20.12 ou superior é necessário. Versão atual: $(& node --version)."
+if ($nodeMajor -lt 20 -or ($nodeMajor -eq 20 -and $nodeMinor -lt 19)) {
+  throw "Node.js 20.19 ou superior é necessário. Versão atual: $(& node --version)."
 }
 
 $prefix = if ($env:ORQUESTRADOR_NPM_PREFIX) {
