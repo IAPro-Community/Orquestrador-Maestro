@@ -12,6 +12,7 @@ This is the compact global contract for agents on this machine.
 3. Verify before claiming completion.
 4. Prefer the smallest relevant context. Do not load full catalogs when a router/index is enough.
 5. New reusable intelligence should be saved under `{{USER_HOME}}/.orquestrador` first, then synced outward.
+6. Execute solo by default. Do not spawn subagents, task workers, swarms, or parallel model calls for routine Git/VCS operations, formatting, simple renames, one-file edits, or a single validation command. In particular, `git status`, `git diff`, `git add`, `git commit`, `git push`, and equivalent routine operations stay with the lead agent. Multiagent execution is a separate explicit decision and requires genuinely independent, non-overlapping workstreams.
 
 ## Command Hierarchy
 
