@@ -6,13 +6,13 @@ This index is intentionally compact to reduce token use.
 
 Use these compact files before loading skill catalogs:
 
-`{{USER_HOME}}/.orquestrador\SKILL_EXECUTION_PROFILES.json`
+`{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json`
 
-`{{USER_HOME}}/.orquestrador\SKILL_ALIASES.json`
+`{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json`
 
-`{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json`
+`{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`
 
-`{{USER_HOME}}/.orquestrador\SKILL_CHAINS.json`
+`{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json`
 
 Open only the relevant skill files after routing.
 
@@ -20,13 +20,15 @@ Open only the relevant skill files after routing.
 
 | Purpose | Path |
 |---|---|
-| OpenCode active skills | `{{USER_HOME}}/.opencode\skills` |
-| Compatibility skills | `{{USER_HOME}}/.agents\skills` |
-| Codex skills | `{{USER_HOME}}/.codex\skills` |
-| Canonical orchestrator skills | `{{USER_HOME}}/.orquestrador\skills` |
+| OpenCode active skills | `{{USER_HOME}}/.opencode/skills` |
+| Compatibility skills | `{{USER_HOME}}/.agents/skills` |
+| Codex skills | `{{USER_HOME}}/.codex/skills` |
+| Canonical orchestrator skills | `{{USER_HOME}}/.orquestrador/skills` |
 | Global skill mirror | `{{USER_HOME}}/.global-skills` |
 
 ## Security Automation
+
+Shortcuts for frequent needs (not exhaustive — the router below has all 50+ skills):
 
 | Need | Skill |
 |---|---|
@@ -54,12 +56,14 @@ Open only the relevant skill files after routing.
 | ElevenLabs voice integration | `/skill:skill-elevenlabs-voice-cloning` |
 | Google Workspace sync | `/skill:skill-google-workspace-sync` |
 
+For anything not listed here, route via `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` (full skill list) — never assume a skill does not exist because it is absent from this shortcut table.
+
 ## Maintenance
 
 Sync:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\sync-skills.ps1 -Apply`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/sync-skills.ps1 -Apply`
 
 Doctor:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\doctor.ps1`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/doctor.ps1`

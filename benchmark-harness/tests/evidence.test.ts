@@ -6,6 +6,8 @@ import {
   createEvidenceDir,
   preserveRawEvidence,
   sanitizeSecrets,
+  isClaimEligibleRun,
+  summarizeEvidence,
 } from '../src/evidence/index.js';
 
 const TMP = join('/tmp', 'evidence-test-' + Date.now());
@@ -170,5 +172,183 @@ describe('preserveRawEvidence', () => {
     assert.equal(meta.verifierExitCode, 2);
     assert.equal(meta.sessionFile, '/tmp/sess.json');
     assert.ok(meta.capturedAt);
+  });
+});
+
+describe('isClaimEligibleRun', () => {
+  function eligibleRun(overrides: Record<string, unknown> = {}) {
+    const base: Record<string, unknown> = {
+      status: 'passed',
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'abc123' },
+      usage: { tokenSource: 'provider-reported', confidence: 'exact' },
+      validation: { passed: true },
+    };
+    return { ...base, ...overrides };
+  }
+
+  it('accepts a fully eligible container run with provenance', () => {
+    assert.equal(isClaimEligibleRun(eligibleRun() as never), true);
+  });
+
+  it('accepts report-shaped token source via tokens', () => {
+    const run = eligibleRun({ usage: undefined, tokens: { tokenSource: 'provider-reported', confidence: 'exact' } });
+    assert.equal(isClaimEligibleRun(run as never), true);
+  });
+
+  it('rejects container runs without provenance', () => {
+    const run = eligibleRun({ environment: { container: true } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects non-container runs (not isolated by policy)', () => {
+    const run = eligibleRun({
+      environment: { container: false },
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: false,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('accepts authenticated OpenCode-native exact token usage', () => {
+    const run = eligibleRun({ usage: { tokenSource: 'opencode-native', confidence: 'exact' } });
+    assert.equal(isClaimEligibleRun(run as never), true);
+  });
+
+  it('rejects trusted sources without exact confidence', () => {
+    const run = eligibleRun({ usage: { tokenSource: 'opencode-native', confidence: 'reliable' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects estimated token sources', () => {
+    const run = eligibleRun({ usage: { tokenSource: 'tokenizer-estimated', confidence: 'estimated' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects integrity-violation status even if all other flags claim eligibility', () => {
+    const run = eligibleRun({ status: 'benchmark-integrity-violation' });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects failed validation', () => {
+    const run = eligibleRun({ validation: { passed: false } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects synthetic execution', () => {
+    const run = eligibleRun({
+      evidence: {
+        publicClaimEligible: false,
+        executionType: 'synthetic',
+        reproducible: true,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects missing reproducibility', () => {
+    const run = eligibleRun({
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: false,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+});
+
+describe('summarizeEvidence', () => {
+  it('summarizes mixed evidence without contamination', () => {
+    const good = {
+      status: 'passed',
+      evidence: { publicClaimEligible: true, executionType: 'real-execution', reproducible: true, isolated: true },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'deadbeef1234' },
+      usage: { tokenSource: 'provider-reported', confidence: 'exact' },
+      validation: { passed: true },
+    };
+    const bad = {
+      status: 'failed',
+      evidence: { publicClaimEligible: false, executionType: 'synthetic', reproducible: true, isolated: true },
+      environment: { container: false },
+      usage: { tokenSource: 'unavailable' },
+      validation: { passed: false },
+    };
+    const summary = summarizeEvidence([good, bad] as never[]);
+    assert.equal(summary.totalRuns, 2);
+    assert.equal(summary.claimEligibleRuns, 1);
+    assert.equal(summary.hasMixedEvidence, true);
+    assert.equal(summary.publicClaimEligible, false);
+  });
+});
+
+describe('isClaimEligibleRun hardening', () => {
+  function containerRun(overrides: Record<string, unknown> = {}) {
+    const base: Record<string, unknown> = {
+      status: 'passed',
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+      environment: { container: true, containerImage: 'node:20-slim', containerId: 'deadbeef1234' },
+      usage: { tokenSource: 'provider-reported', confidence: 'exact' },
+      validation: { passed: true },
+    };
+    return { ...base, ...overrides };
+  }
+
+  it('rejects forged non-container run claiming isolated:true', () => {
+    const run = containerRun({
+      environment: { container: false },
+      evidence: {
+        publicClaimEligible: true,
+        executionType: 'real-execution',
+        reproducible: true,
+        isolated: true,
+      },
+    });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects container run with empty image string', () => {
+    const run = containerRun({ environment: { container: true, containerImage: '', containerId: 'abc' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects container run without daemon-issued containerId', () => {
+    const run = containerRun({ environment: { container: true, containerImage: 'node:20-slim' } });
+    assert.equal(isClaimEligibleRun(run as never), false);
+  });
+
+  it('rejects orchestrator error-report shapes', () => {
+    const errorReport = {
+      runId: 'x',
+      scenarioId: 's',
+      condition: 'vanilla',
+      status: 'error',
+      results: { acceptanceRate: 0, criteria: [] },
+      tokens: { total: null, source: 'unavailable' },
+      timing: { startMs: 0, endMs: 1, durationMs: 1 },
+      evidence: { rawDir: '', agentOutput: '', verifierOutput: '' },
+      createdAt: new Date().toISOString(),
+    };
+    assert.equal(isClaimEligibleRun(errorReport as never), false);
+  });
+
+  it('still accepts container run with full provenance', () => {
+    assert.equal(isClaimEligibleRun(containerRun() as never), true);
   });
 });

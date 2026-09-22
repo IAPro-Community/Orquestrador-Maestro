@@ -55,7 +55,9 @@ function createProtocolV2Server({ runtime, store = runtime?.store, epoch = 1, se
       else {
         const methodByType = {
           "project.inspect": "inspectProject", "projects.list": "listProjects", "missions.list": "listMissions", "mission.create": "createMission", "mission.update": "updateMission",
-          "runs.list": "listRuns", "run.create": "createRun", "run.execute": "executeRun", "run.cancel": "cancelRun",
+          "runs.list": "listRuns", "run.create": "createRun", "run.execute": "executeTaskWithHandoff", "run.cancel": "cancelRun",
+          "resolution.get": "inspectRun", "evidence.list": "listEvidence", "evidence.get": "getEvidence",
+          "proof.task": "getTaskProofBundle", "proof.mission": "getMissionProofBundle",
           "providers.list": "listProviders", "terminals.list": "listTerminalSessions", "terminal.create": "createTerminalSession",
           "terminal.close": "closeTerminalSession", "terminal.attach": "attachTerminalSession", "terminal.focus": "focusTerminalSession",
           "terminal.input": "inputTerminalSession", "terminal.resize": "resizeTerminalSession", "terminal.snapshot": "snapshotTerminalSession"
@@ -69,7 +71,12 @@ function createProtocolV2Server({ runtime, store = runtime?.store, epoch = 1, se
           if (!method || typeof runtime?.[method] !== "function") throw Object.assign(new Error("Action is deprecated"), { reason: "deprecated" });
           if (message.type === "mission.update") {
             const { missionId, ...patch } = message.payload; result = await runtime[method](missionId, patch);
-          } else if (["run.cancel"].includes(message.type)) result = await runtime[method](message.payload.runId);
+          } else if (message.type === "resolution.get") {
+            const inspection = await runtime[method](message.payload.runId); result = inspection?.resolution || null;
+          } else if (message.type === "evidence.get") result = await runtime[method](message.payload.evidenceId);
+          else if (message.type === "proof.task") result = await runtime[method](message.payload.taskId);
+          else if (message.type === "proof.mission") result = await runtime[method](message.payload.missionId);
+          else if (["run.cancel"].includes(message.type)) result = await runtime[method](message.payload.runId);
           else if (["terminal.close", "terminal.attach", "terminal.focus"].includes(message.type)) result = await runtime[method](message.payload.terminalId);
           else if (message.type === "terminal.input") result = await runtime[method](message.payload.terminalId, message.payload.input);
           else if (message.type === "terminal.resize") result = await runtime[method](message.payload.terminalId, message.payload.columns, message.payload.rows);

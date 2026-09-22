@@ -12,7 +12,7 @@ const {
   requiredString
 } = require("./validation");
 
-const RUN_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "cancelled", "timed_out"]);
+const RUN_STATUSES = Object.freeze(["pending", "running", "blocked", "completed", "failed", "cancelled", "timed_out"]);
 const STEP_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "skipped", "cancelled"]);
 const EXECUTION_STATUSES = Object.freeze(["pending", "running", "completed", "failed", "cancelled", "timed_out"]);
 const VERIFICATION_STATUSES = Object.freeze(["pending", "running", "passed", "failed", "skipped"]);
@@ -309,12 +309,16 @@ function createEvidence(input) {
   return entity("evidence", {
     id: requiredString(input.id, "evidence.id"),
     taskId: requiredString(input.taskId, "evidence.taskId"),
+    runId: optionalString(input.runId, "evidence.runId"),
+    artifactId: optionalString(input.artifactId, "evidence.artifactId"),
     type: requiredString(input.type, "evidence.type"),
     content: requiredString(input.content, "evidence.content"),
     acceptanceCriterion: optionalString(input.acceptanceCriterion, "evidence.acceptanceCriterion"),
     acceptanceCriterionId: optionalString(input.acceptanceCriterionId, "evidence.acceptanceCriterionId"),
     producer: optionalString(input.producer, "evidence.producer"),
     verificationId: optionalString(input.verificationId, "evidence.verificationId"),
+    createdAt: optionalTimestamp(input.createdAt, "evidence.createdAt"),
+    metadata: optionalObject(input.metadata, "evidence.metadata"),
     confidence
   });
 }

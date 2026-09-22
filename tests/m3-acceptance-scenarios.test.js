@@ -84,7 +84,12 @@ test("Characterization: LaneExecutor executes parallel DAG from LegacyExecutionP
   const fakeApp = {
     executeRun: async ({ description, providerId, model }) => {
       executionLog.push({ description, providerId, model });
-      return { success: true };
+      return {
+        run: {
+          status: "completed",
+          metadata: { resolution: { outcome: { state: "validated" } } }
+        }
+      };
     }
   };
 

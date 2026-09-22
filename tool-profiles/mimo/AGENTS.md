@@ -9,5 +9,7 @@ Use the shared Orquestrador Maestro contract for substantive work:
 5. In projects with `DEV/`, read the compact project documentation before task skills.
 6. Use `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` before loading skills.
 7. Keep durable project notes in `DEV/` and update `DEV/WORKLOG.md` after substantive work.
+8. Before inventing a workflow, inspect `{{USER_HOME}}/.orquestrador/SKILLS_INDEX.md` for an existing global skill.
+9. Verify before claiming completion. Do not commit or push unless the user explicitly asks.
 
 MiMo Code is responsible for its own login, model selection, sessions, and local runtime data.

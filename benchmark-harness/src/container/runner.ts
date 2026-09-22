@@ -171,6 +171,7 @@ export class ContainerRunner {
     timeoutMs: number;
     memoryLimit?: string;
     networkMode?: 'none' | 'bridge';
+    extraMounts?: Array<{ host: string; container: string; readonly?: boolean }>;
   }): Promise<ContainerRunResult> {
     const workDir = '/benchmark';
     const fixtureDir = join(workDir, 'fixture');
@@ -181,6 +182,7 @@ export class ContainerRunner {
       mounts: [
         { host: options.workspace, container: workDir },
         { host: options.fixturePath, container: fixtureDir, readonly: true },
+        ...(options.extraMounts ?? []),
       ],
       env: {
         ...options.env,

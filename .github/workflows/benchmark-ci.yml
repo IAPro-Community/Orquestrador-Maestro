@@ -20,7 +20,13 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install dependencies
+      - name: Install Maestro runtime dependencies
+        run: npm ci --omit=optional
+
+      - name: Install OpenCode CLI
+        run: npm install -g opencode@latest
+
+      - name: Install benchmark dependencies
         working-directory: benchmark-harness
         run: npm ci
 

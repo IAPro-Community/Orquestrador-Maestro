@@ -8,9 +8,9 @@
     "community"
   ],
   "counts": {
-    "sourceSkillFiles": 174,
+    "sourceSkillFiles": 177,
     "uniqueSkills": 75,
-    "shadowedDuplicates": 99,
+    "shadowedDuplicates": 102,
     "conflictingIds": 7
   },
   "skills": [

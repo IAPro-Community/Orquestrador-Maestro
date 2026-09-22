@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { JsonFileRunStore } = require("../runtime/store/json-file-run-store");
 const { TaskGraphPersistence } = require("../runtime/planner/task-graph-persistence");
+const { runtimeTaskId } = require("../runtime/core/task-identity");
 
 function tempStore() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-r3-"));
@@ -26,6 +27,9 @@ test("F4.1 persiste grafo puro, incrementa revisão e resolve vínculo de task",
   assert.equal((await store.listTaskGraphs({ missionId: "m1" })).length, 1);
   assert.equal((await graphs.getGraph("m1")).metadata.status, "approved");
   await graphs.persistTaskLinks(second);
+  const persistedTaskId = runtimeTaskId({ missionId: "m1", semanticTaskId: "t1" });
+  assert.equal(await store.getTask("t1"), undefined);
+  assert.equal((await store.getTask(persistedTaskId)).metadata.semanticTaskId, "t1");
   assert.deepEqual(await graphs.missionForTask("t1"), { missionId: "m1", projectId: "p1", graphId: "g1" });
   assert.deepEqual(await graphs.ancestryForTask("t1"), { goalId: "m1", causedByDecisionId: "decision-1", missionId: "m1", graphId: "g1" });
 });

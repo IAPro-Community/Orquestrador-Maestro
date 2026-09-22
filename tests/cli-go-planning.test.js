@@ -211,3 +211,24 @@ test("CLI bin/orquestrador-maestro.js wires SemanticPlanner and PlanApprovalGate
   assert.match(cliContent, /Inspecionar critérios de aceite/);
   assert.match(cliContent, /Refinar missão \(Retornar ao M2\)/);
 });
+
+
+test("CLI go keeps one canonical mission id across planning, graph approval, and execution", () => {
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  const handleGoStart = cliContent.indexOf("async function handleGoCommand");
+  const handleGoEnd = cliContent.indexOf("\nasync function ", handleGoStart + 1);
+  const go = cliContent.slice(handleGoStart, handleGoEnd > handleGoStart ? handleGoEnd : undefined);
+
+  assert.equal((go.match(/const mission = await app\.createMission\(/g) || []).length, 1);
+  assert.match(go, /planner\.plan\(\{[\s\S]*?missionId: mission\.id/u);
+  assert.match(go, /persistenceHooks\.onApproved\(\{ missionId: mission\.id/u);
+  assert.match(go, /executor\.execute\(tasks, mission\.id\)/u);
+  assert.doesNotMatch(go, /missionId: approvedBrief\.id/u);
+});
+
+test("CLI go finalizes canonical mission on unexpected planning or execution errors", () => {
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  assert.match(cliContent, /failureStage: "planning"/u);
+  assert.match(cliContent, /failureStage: "execution"/u);
+  assert.match(cliContent, /finally \{\s*lifecycleMonitor\.detach\(\);\s*\}/u);
+});

@@ -274,13 +274,33 @@ For fixtures with ESLint or similar, hidden tests may include lint assertions. T
 
 ### 9.5 Evidence Gate
 
-A run passes the evidence gate when all of the following are true (`benchmark-harness/src/evidence/index.ts:198-242`):
+A run passes the evidence gate when all of the following are true
+(`isClaimEligibleRun` in `benchmark-harness/src/evidence/index.ts`):
 
-1. **Hidden tests pass** — `testsPassed === testsTotal && testsTotal > 0`
-2. **Exit code matches** — `validationExitCode === expectedExitCode`
-3. **Driver exit code matches** — `driverResult.exitCode === expectedExitCode`
+1. **Pipeline assertion** — `evidence.publicClaimEligible === true` (set by the
+   orchestrator only when validation passed, tokens are provider-reported,
+   inputs are reproducible and the run was isolated).
+2. **Real execution** — `evidence.executionType === "real-execution"`
+   (dry-runs never produce reports).
+3. **Container provenance** — containerized runs are accepted only with
+   daemon-anchored provenance: both `environment.containerImage` and
+   `environment.containerId` must be present. `containerId` is issued by the
+   container runtime, so a bare `container:true` flag or a user-typed image
+   alone is not enough. Additionally, `evidence.isolated` must be consistent
+   with containment (`isolated === (container === true)`): a non-container
+   run claiming `isolated:true` is rejected as forged. Local
+   (non-container) runs are therefore never claim-eligible — official claims
+   require `--container`.
+4. **Trusted exact tokens** — source is `provider-reported` or authenticated
+   `opencode-native`, with `confidence === "exact"`.
+5. **Reproducibility** — `evidence.reproducible === true` (scenario, fixture
+   and task hashes recorded).
+6. **Isolation** — `evidence.isolated === true`.
+7. **Validation passed** — `validation.passed === true` (hidden acceptance suite).
 
 Runs that fail the evidence gate are flagged with `publicClaimEligible: false`.
+`evidence.reproducible`/`isolated`/`executionType` are written by the
+orchestrator into `run-report.json`; the gate re-validates them independently.
 
 ---
 
@@ -698,3 +718,32 @@ Every `RunResult` written to disk follows this structure:
   "note": "Adequate sample size for directional comparison"
 }
 ```
+
+## Adaptive Resolution hard-evidence condition
+
+The benchmark harness reserves `maestro-adaptive` for the policy-bound Adaptive Resolution treatment. It is not an alias for `maestro-focus`.
+
+A valid Adaptive Resolution hard-evidence pair uses the same scenario, fixture, model, driver family, and generated `pairId` for:
+
+- control: `maestro`;
+- treatment: `maestro-adaptive`.
+
+Use the top-level Maestro CLI so the runtime injects the canonical policy identity:
+
+```bash
+orquestrador-maestro benchmark adaptive-pair \
+  --scenario <scenario> \
+  --model <model>
+```
+
+The Maestro benchmark driver executes the real `go --auto` path. The treatment runtime emits a structured confirmation marker containing the canonical V3 policy ID, SHA-256 fingerprint, and pair ID. The harness copies the policy identity into `run-report.json` only when that marker matches the expected benchmark identity. Missing or mismatched confirmation is a `benchmark-integrity-violation`.
+
+End-to-end Maestro token usage is intentionally reported as unavailable until every model call in the mission can be aggregated without double counting. Consequently, these runs can establish hard validated quality evidence immediately, but the token-optimization promotion gate remains `HOLD` until comparable complete token totals exist.
+
+
+The dedicated command intentionally runs only the two conditions needed by the V4 promotion dataset. It does not run Vanilla or Maestro Focus, avoiding two unrelated model executions per adaptive pair.
+
+
+Local `adaptive-pair` runs execute the exact CLI file from the current checkout and use isolated temporary fixture workspaces, but they are **analysis-only for promotion** because they are not container-isolated. Add `--container --image <maestro-image>` only when the supplied image is known to contain the same Adaptive Resolution policy and OpenCode. The command refuses to guess a generic image.
+
+The promotion gate requires isolated policy-bound pairs in addition to verifier success. This prevents a local run from becoming production-promotion evidence merely because its acceptance checks passed.
