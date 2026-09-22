@@ -363,3 +363,44 @@ test("mission proof collapses a legacy semantic placeholder into the canonical r
   assert.equal(proof.tasks[0].task.id, outcome.run.taskId);
   assert.equal(proof.summary.validated, true);
 });
+
+
+test("resolved planner skill reaches the provider prompt after runtime compaction", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skill-prompt-"));
+  const provider = new Adapter("fake", 0);
+  const skill = Object.freeze({
+    identity: "maestro/skill-testing",
+    id: "skill-testing",
+    displayName: "Testing",
+    path: path.join(root, "skills", "skill-testing"),
+    source: "maestro",
+    verification: "maestro_verified"
+  });
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([provider]),
+    skills: { get: (key) => key === "skill-testing" || key === skill.identity ? skill : null }
+  });
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "Run the testing skill",
+    skills: ["skill-testing"],
+    semanticTaskId: "skill-task",
+    semanticTask: {
+      id: "skill-task",
+      objective: "Run the testing skill",
+      requiredSkills: ["skill-testing"],
+      complexity: "simple",
+      acceptanceCriteria: []
+    },
+    verificationCommands: [passCommand]
+  });
+
+  assert.equal(outcome.run.status, "completed");
+  assert.equal(provider.requests.length, 1);
+  assert.match(provider.requests[0].prompt, /Resolved skills:/u);
+  assert.match(provider.requests[0].prompt, /maestro\/skill-testing/u);
+  assert.match(provider.requests[0].prompt, /skills[/\\]skill-testing/u);
+});
