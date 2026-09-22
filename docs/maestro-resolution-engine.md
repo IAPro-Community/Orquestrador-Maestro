@@ -95,6 +95,8 @@ A completed process does not imply a validated Task.
 
 A Task reaches `validated` only when its applicable verification, completion/evidence requirements and review gates are satisfied.
 
+A missing verifier is not equivalent to “verification does not apply”. When no executable check exists, the runtime records `verification.status = skipped`; that skip only satisfies the Resolution Contract when the caller explicitly declares applicability as `not_applicable`. An unspecified skip leaves the outcome in `needs_attention`. Explicit acceptance criteria or validators still require real verification and cannot be bypassed by this declaration.
+
 Outcome history is append-only at the event level:
 
 - `outcome.validated`

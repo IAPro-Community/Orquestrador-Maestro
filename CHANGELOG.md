@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Orquestração: execução passa a ser solo por padrão; apenas o perfil explícito `multiagent` permite fan-out. Operações mecânicas de Git/VCS continuam solo mesmo sob solicitação de perfil multiagente, e child agents identificados em contrato solo geram `delegation.violation` e impedem `validated`.
-- Resolution: `verification.skipped` deixa de ser publicado como falha, o estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
+- Resolution: `verification.skipped` deixa de ser publicado como falha e não conta mais como prova por omissão: somente um skip explicitamente marcado como `not_applicable` pode satisfazer uma Task sem validators/DoD verificável. O estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
 - Benchmark: OpenCode usado pelos workflows oficiais fica fixado em `opencode-ai@1.18.31` enquanto o driver permanecer no contrato JSONL v1; upgrades de geração exigem revisão explícita do driver.
 - CI: o piso declarado do runtime passa a ser testado diretamente com Node.js 20.12.2 em vez de um Node 20.x flutuante.
 - Compat: requisito mínimo do runtime explicitado como Node.js 20.12+, alinhado ao `@clack/prompts` 1.x e evitando instalações que passariam no `engines` mas falhariam em runtime.
