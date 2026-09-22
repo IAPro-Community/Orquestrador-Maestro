@@ -404,3 +404,95 @@ test("resolved planner skill reaches the provider prompt after runtime compactio
   assert.match(provider.requests[0].prompt, /maestro\/skill-testing/u);
   assert.match(provider.requests[0].prompt, /skills[/\\]skill-testing/u);
 });
+
+
+test("request payload cannot self-authorize Resolution enforce mode", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-enforce-auth-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+
+  await assert.rejects(
+    app.executeRun({
+      providerId: "fake",
+      description: "Unauthorized enforce",
+      semanticTaskId: "enforce-task",
+      semanticTask: { id: "enforce-task", objective: "Unauthorized enforce", acceptanceCriteria: [] },
+      resolutionMode: "enforce",
+      resolutionEnforceAuthorized: true
+    }),
+    (error) => error?.code === "RESOLUTION_ENFORCE_NOT_READY"
+  );
+  assert.equal(provider.requests.length, 0);
+});
+
+test("Mission identity constrains execution project and workspace", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-mission-scope-root-"));
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-mission-scope-other-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const mission = await app.createMission({ workspacePath: other, objective: "Other workspace", status: "running" });
+
+  await assert.rejects(
+    app.executeRun({
+      providerId: "fake",
+      missionId: mission.id,
+      workspacePath: root,
+      description: "Wrong workspace",
+      semanticTaskId: "scope-task",
+      semanticTask: { id: "scope-task", objective: "Wrong workspace", acceptanceCriteria: [] }
+    }),
+    (error) => error?.code === "MISSION_SCOPE_MISMATCH"
+  );
+
+  await assert.rejects(
+    app.executeRun({
+      providerId: "fake",
+      missionId: "mission-does-not-exist",
+      description: "Missing mission",
+      semanticTaskId: "missing-mission-task",
+      semanticTask: { id: "missing-mission-task", objective: "Missing mission", acceptanceCriteria: [] }
+    }),
+    (error) => error?.code === "MISSION_NOT_FOUND"
+  );
+});
+
+test("durable DIFF artifact stores hashes and metadata, never raw source patches", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-diff-artifact-"));
+  const secret = "sk-proj-" + "C".repeat(40);
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ scripts: {} }), "utf8");
+  require("node:child_process").execFileSync("git", ["init"], { cwd: root });
+  require("node:child_process").execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: root });
+  require("node:child_process").execFileSync("git", ["config", "user.name", "Test"], { cwd: root });
+  fs.writeFileSync(path.join(root, "app.js"), "module.exports = 1;\n", "utf8");
+  require("node:child_process").execFileSync("git", ["add", "."], { cwd: root });
+  require("node:child_process").execFileSync("git", ["commit", "-m", "base"], { cwd: root });
+
+  class EditingAdapter extends Adapter {
+    execute(request) {
+      this.requests.push(request);
+      fs.writeFileSync(path.join(root, "app.js"), `module.exports = "${secret}";\n`, "utf8");
+      return { result: Promise.resolve({ exitCode: 0, stdout: "", stderr: "", cancelled: false, timedOut: false }) };
+    }
+  }
+
+  const provider = new EditingAdapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "Change app",
+    semanticTaskId: "diff-task",
+    semanticTask: { id: "diff-task", objective: "Change app", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  const artifacts = await app.listArtifacts({ runId: outcome.run.id });
+  const diffArtifact = artifacts.find((artifact) => artifact.type === "DIFF");
+  assert.ok(diffArtifact);
+  const serialized = JSON.stringify(diffArtifact.metadata);
+  assert.doesNotMatch(serialized, new RegExp(secret, "u"));
+  assert.equal(diffArtifact.metadata.changes.patchHashes.combined.length, 64);
+  assert.ok(diffArtifact.metadata.changes.patchBytes.combined > 0);
+  assert.equal(Object.hasOwn(diffArtifact.metadata.changes, "patch"), false);
+  assert.equal(Object.hasOwn(diffArtifact.metadata.changes, "workingTreePatch"), false);
+  assert.equal(Object.hasOwn(diffArtifact.metadata.changes, "untrackedContent"), false);
+});
