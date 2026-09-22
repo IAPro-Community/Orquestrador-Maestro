@@ -8,7 +8,7 @@ const core = require("../core");
 const { runtimeTaskId, semanticTaskIdOf, storedTaskSemanticId } = require("../core/task-identity");
 const { diff, snapshot } = require("../git/monitor");
 const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("../providers");
-const { getPolicy, getProfile } = require("../profiles");
+const { getPolicy, getProfile, deriveDelegationContract } = require("../profiles");
 const { SkillRegistry } = require("../skills/registry");
 const { JsonFileRunStore } = require("../store");
 const { TerminalManager, TerminalSessionManager } = require("../terminals");
@@ -508,6 +508,7 @@ class MaestroApplication {
     }
     const profile = getProfile(request.profileId || derivedProfileId);
     if (!policy || !profile) throw new Error("unknown execution profile or policy");
+    const delegation = deriveDelegationContract({ description: request.description, policyId: policy.id });
     const capabilities = await provider.capabilities();
     for (const capability of policy.requiredCapabilities) if (!capabilities[capability]) throw new Error(`provider ${provider.id} lacks ${capability}`);
 
@@ -583,6 +584,7 @@ class MaestroApplication {
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
       cognitiveBudget,
       resolution,
+      delegation,
       ...(preflightBlock ? { preflightBlock } : {})
     };
     const task = core.createTask({ id: taskId, description: request.description, projectId, createdAt: existingTask?.createdAt || new Date().toISOString(), metadata: taskMetadata });
@@ -828,6 +830,7 @@ class MaestroApplication {
       skills: selectedSkills.map((item) => item.skill),
       previousArtifacts: request.previousArtifacts || [],
       handoffCheckpoint: request.handoffCheckpoint || null,
+      delegation: run.metadata?.delegation || deriveDelegationContract({ description: request.description, policyId: policy.id }),
       engineeringContract,
       interaction,
       includeGovernanceContext: this.governance.mode === "strict" || request.includeGovernanceContext === true
@@ -939,6 +942,13 @@ class MaestroApplication {
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
+    let primaryChildAgents = [];
+    try {
+      primaryChildAgents = [...extractChildAgents({ providerId: provider.id, stdout: result?.stdout })];
+    } catch {
+      primaryChildAgents = [];
+    }
+    const unexpectedSubagents = run.metadata?.delegation?.allowSubagents === false && primaryChildAgents.length > 0;
     // Durable execution record carries a sanitized summary only. Full result
     // (args with prompt, stdout/stderr) stays ephemeral in memory for parsers.
     let primaryUsageSummary = null;
@@ -1001,7 +1011,10 @@ class MaestroApplication {
       verification,
       completion,
       review,
-      reason: governance.blocking[0] || (hasCriticalFinding ? "quality-finding" : reviewBlocking ? "review-blocking" : null),
+      reason: unexpectedSubagents
+        ? "delegation-contract-violated"
+        : governance.blocking[0] || (hasCriticalFinding ? "quality-finding" : reviewBlocking ? "review-blocking" : null),
+      needsAttention: unexpectedSubagents,
       now: completedAt
     });
     await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
@@ -1013,6 +1026,13 @@ class MaestroApplication {
       metadata: { ...run.metadata, resolution: finalizedResolution }
     });
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status, resolutionState: finalizedResolution.outcome.state });
+    if (unexpectedSubagents) {
+      await this.record(run.id, "delegation.violation", {
+        reason: "solo-contract-spawned-subagents",
+        observedChildAgents: primaryChildAgents.length,
+        delegation: run.metadata?.delegation || null
+      });
+    }
     await this._recordTaskOutcomeTransition(task.id, run.id, finalizedResolution.outcome);
     const finalRun = await this.store.getRun(run.id);
     if (finalRun) {
@@ -1020,13 +1040,10 @@ class MaestroApplication {
       // otherwise explicit unavailable (never 0-as-unknown). Extends the
       // existing cognitiveTelemetry object; no parallel store.
       let primaryUsage = null;
-      let childAgents = [];
+      let childAgents = [...primaryChildAgents];
       try {
         primaryUsage = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
       } catch { primaryUsage = null; }
-      try {
-        childAgents = [...extractChildAgents({ providerId: provider.id, stdout: result?.stdout })];
-      } catch { childAgents = []; }
       let reviewUsage = null;
       try {
         if (review && review.usage) reviewUsage = review.usage;
@@ -1103,8 +1120,9 @@ class MaestroApplication {
       });
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
     }
-    const failureClass = status === "completed" ? null
-      : executionStatus !== "completed" ? "provider-failure"
+    const failureClass = unexpectedSubagents ? "policy-block"
+      : status === "completed" ? null
+        : executionStatus !== "completed" ? "provider-failure"
         : governance.blocking.length > 0 ? "policy-block"
           : "validation-failure";
     return { run: await this.store.getRun(run.id), verification, evidence: persistedEvidence, qualityFindings, review, engineeringContract: executionPackage.engineeringContract, changes, execution: result, failureClass, governanceWarnings: governance.warnings, governanceBlocking: governance.blocking, recommendations: governance.recommendations };
@@ -1305,6 +1323,14 @@ class MaestroApplication {
       { id: "engineering-contract", kind: "governance", content: executionPackage.includeGovernanceContext ? JSON.stringify(executionPackage.engineeringContract) : "", text: executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "" },
       { id: "skills", kind: "skills", content: skillPaths, text: skillPaths ? `Resolved skills:\n${skillPaths}` : "" },
       { id: "handoff-checkpoint", kind: "continuation", content: executionPackage.handoffCheckpoint ? JSON.stringify(executionPackage.handoffCheckpoint) : "", text: checkpointPrompt(executionPackage.handoffCheckpoint) },
+      {
+        id: "delegation",
+        kind: "instruction",
+        content: JSON.stringify(executionPackage.delegation || {}),
+        text: executionPackage.delegation?.allowSubagents === true
+          ? `Delegation contract: MULTIAGENT permitted, maximum ${executionPackage.delegation.maxSubagents || 1} subagents. Delegate only independent workstreams with non-overlapping ownership.`
+          : "Delegation contract: SOLO. Do not spawn subagents, task workers, swarms, parallel model calls, or delegate routine git operations. Complete the task directly in this provider process."
+      },
       { id: "execution-boundary", kind: "instruction", content: "Work only within the workspace and report concrete changes.", text: "Work only within the workspace and report concrete changes." }
     ].filter((section) => Boolean(section.text));
     const prompt = sections.map((section) => section.text).join("\n\n");

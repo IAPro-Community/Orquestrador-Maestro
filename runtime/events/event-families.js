@@ -11,7 +11,7 @@ const FAMILIES_TYPES = Object.freeze({
     "artifact.created", "evidence.created",
     "resolution.planned", "outcome.validated", "outcome.revoked", "outcome.revalidated",
     "budget.reserved", "budget.committed", "budget.released",
-    "provider.handoff"
+    "provider.handoff", "delegation.violation"
   ]),
   "agent.*": Object.freeze(["agentSession.created", "agentSession.output", "agentSession.active", "agentSession.exited", "agentSession.closed", "agentSession.disconnected", "provider.started", "provider.output", "provider.completed"]),
   "terminal.*": Object.freeze(["terminal.session_created", "terminal.session_started", "terminal.session_closed", "pane.updated"]),
