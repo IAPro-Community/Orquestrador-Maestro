@@ -1,6 +1,7 @@
 "use strict";
 
 const { runtimeTaskId } = require("../core/task-identity");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 
 class TaskLifecycleMonitor {
   static attach({ executor, app, graphs, store, missionId = null, projectId = null, graphId = null }) {
@@ -21,9 +22,15 @@ class TaskLifecycleMonitor {
         const persistedTaskId = missionId
           ? runtimeTaskId({ missionId, semanticTaskId: task.id }) || task.id
           : task.id;
-        const normalizedExtra = Array.isArray(extra.blockedBy) && missionId
+        let normalizedExtra = Array.isArray(extra.blockedBy) && missionId
           ? { ...extra, blockedBy: extra.blockedBy.map((id) => runtimeTaskId({ missionId, semanticTaskId: id }) || id) }
-          : extra;
+          : { ...extra };
+        if (typeof normalizedExtra.error === "string") {
+          normalizedExtra.error = sanitizeDiagnostic(normalizedExtra.error, { maxChars: 1000 });
+        }
+        if (typeof normalizedExtra.reason === "string") {
+          normalizedExtra.reason = sanitizeDiagnostic(normalizedExtra.reason, { maxChars: 512 });
+        }
         await app.record(null, type, { taskId: persistedTaskId, ...link, ...normalizedExtra });
       } catch { /* observability must not interrupt execution */ }
     };
