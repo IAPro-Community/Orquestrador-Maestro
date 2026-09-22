@@ -242,6 +242,25 @@ class JsonFileRunStore extends RunStore {
     await this._reloadFromDisk();
   }
 
+  async _windowsLockEpermIsContention() {
+    // Windows may surface a contended exclusive create as EPERM. Distinguish
+    // that from a genuine directory ACL failure by proving we can create a
+    // sibling file in the same directory. This avoids both false failures
+    // under contention and misleading lock timeouts on real permission errors.
+    const probePath = `${this.lockPath}.${process.pid}.${crypto.randomUUID()}.probe`;
+    let handle;
+    try {
+      handle = await fs.open(probePath, "wx", 0o600);
+      return true;
+    } catch (error) {
+      if (["EPERM", "EACCES"].includes(error?.code)) return false;
+      throw error;
+    } finally {
+      try { await handle?.close(); } catch { /* best-effort */ }
+      try { await fs.unlink(probePath); } catch (error) { if (error?.code !== "ENOENT") { /* best-effort */ } }
+    }
+  }
+
   async _acquireFileLock() {
     const startedAt = Date.now();
     const token = `${process.pid}-${crypto.randomUUID()}`;
@@ -261,16 +280,22 @@ class JsonFileRunStore extends RunStore {
         // real permission error.
         let contended = error?.code === "EEXIST";
         if (!contended && error?.code === "EPERM" && process.platform === "win32") {
-          // Windows can return EPERM for an existing lock or for the tiny
-          // create/delete race where the file disappears before inspection.
-          // A second permission error is a real ACL problem and must surface
-          // immediately instead of being disguised as a lock timeout.
           try {
             await fs.stat(this.lockPath);
             contended = true;
           } catch (statError) {
-            if (statError?.code === "ENOENT") contended = true;
-            else throw error;
+            if (statError?.code === "ENOENT") {
+              // Owner released between open() and stat(); retry acquisition.
+              contended = true;
+            } else if (statError?.code === "EPERM") {
+              // Some Windows/Node combinations also deny stat() while another
+              // process owns the file. Verify the directory itself is writable
+              // before classifying the original EPERM as contention.
+              contended = await this._windowsLockEpermIsContention();
+              if (!contended) throw error;
+            } else {
+              throw error;
+            }
           }
         }
         if (!contended) throw error;
