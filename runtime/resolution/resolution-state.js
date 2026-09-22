@@ -114,6 +114,15 @@ function deriveMissionResolutionFromTaskStates(taskStates = [], { objective = nu
   });
 }
 
+function isValidatedRunSuccess(run) {
+  if (!run || run.status !== "completed") return false;
+  const resolutionState = run.metadata?.resolution?.outcome?.state;
+  // Backward compatibility: runs written before the Resolution Engine had no
+  // canonical outcome and retain the historical "completed means success"
+  // behavior. Once Resolution metadata exists, only validated is success.
+  return !resolutionState || resolutionState === "validated";
+}
+
 function deriveMissionResolution(results = {}, options = {}) {
   if (!results || typeof results !== "object" || Array.isArray(results)) {
     throw new TypeError("mission results must be an object");
@@ -131,6 +140,7 @@ module.exports = {
   transitionValidatedOutcome,
   outcomeTransitionEvent,
   normalizeMissionTaskState,
+  isValidatedRunSuccess,
   deriveMissionResolutionFromTaskStates,
   deriveMissionResolution
 };
