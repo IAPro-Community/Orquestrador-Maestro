@@ -1179,14 +1179,17 @@ class MaestroApplication {
       files: [],
       skills: executionPackage.skills
     });
-    const skillPaths = taskContext.skills.map((skill) => `- ${skill.identity}: ${skill.path}`).join("\n");
+    const skillPaths = taskContext.skills.map((skill) => {
+      const skillFile = path.join(skill.path, "SKILL.md");
+      return `- ${skill.identity}: ${skillFile}`;
+    }).join("\n");
     const sections = [
       { id: "profile", kind: "profile", content: executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.`, text: executionPackage.profile.instructions || `Act as ${executionPackage.profile.displayName}.` },
       { id: "interaction", kind: "interaction", content: interactionContract(executionPackage.interaction), text: interactionContract(executionPackage.interaction) },
       { id: "task", kind: "task", content: taskContext.description, text: `Task: ${taskContext.description}` },
       { id: "workspace", kind: "workspace", content: executionPackage.workspace.path, text: `Workspace: ${executionPackage.workspace.path}` },
       { id: "engineering-contract", kind: "governance", content: executionPackage.includeGovernanceContext ? JSON.stringify(executionPackage.engineeringContract) : "", text: executionPackage.includeGovernanceContext ? `Engineering contract: ${JSON.stringify(executionPackage.engineeringContract)}` : "" },
-      { id: "skills", kind: "skills", content: skillPaths, text: skillPaths ? `Resolved skills:\n${skillPaths}` : "" },
+      { id: "skills", kind: "skills", content: skillPaths, text: skillPaths ? `Resolved skills. Read each listed SKILL.md before executing; do not load unrelated skills:\n${skillPaths}` : "" },
       { id: "handoff-checkpoint", kind: "continuation", content: executionPackage.handoffCheckpoint ? JSON.stringify(executionPackage.handoffCheckpoint) : "", text: checkpointPrompt(executionPackage.handoffCheckpoint) },
       { id: "execution-boundary", kind: "instruction", content: "Work only within the workspace and report concrete changes.", text: "Work only within the workspace and report concrete changes." }
     ].filter((section) => Boolean(section.text));
