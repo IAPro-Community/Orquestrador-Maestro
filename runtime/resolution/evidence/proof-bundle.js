@@ -1,7 +1,7 @@
 "use strict";
 
 const { deriveMissionResolutionFromTaskStates } = require("../resolution-state");
-const { runtimeTaskId } = require("../../core/task-identity");
+const { runtimeTaskId, storedTaskSemanticId } = require("../../core/task-identity");
 
 function sortByTime(values = []) {
   return [...values].sort((a, b) => String(a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.createdAt || b.startedAt || b.completedAt || "")));
@@ -13,8 +13,18 @@ async function buildTaskProofBundle({ store, taskId } = {}) {
 
   const task = await store.getTask(taskId);
   if (!task) return null;
-  const runs = sortByTime(await store.listRuns({ taskId }));
-  const evidence = sortByTime(await store.listEvidence({ taskId }));
+  const taskIds = new Set([task.id]);
+  const missionId = task.metadata?.missionId || null;
+  const semanticTaskId = storedTaskSemanticId(task);
+  if (missionId && semanticTaskId && typeof store.listTasks === "function") {
+    for (const candidate of await store.listTasks({})) {
+      if (candidate?.metadata?.missionId === missionId && storedTaskSemanticId(candidate) === semanticTaskId) {
+        taskIds.add(candidate.id);
+      }
+    }
+  }
+  const runs = sortByTime((await Promise.all([...taskIds].map((id) => store.listRuns({ taskId: id })))).flat());
+  const evidence = sortByTime((await Promise.all([...taskIds].map((id) => store.listEvidence({ taskId: id })))).flat());
   const runBundles = [];
 
   for (const run of runs) {
