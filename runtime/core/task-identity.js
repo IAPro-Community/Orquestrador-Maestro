@@ -8,6 +8,14 @@ function semanticTaskIdOf({ semanticTaskId, semanticTask } = {}) {
   return null;
 }
 
+function storedTaskSemanticId(task = {}) {
+  return task?.metadata?.semanticTaskId
+    || task?.metadata?.semanticTask?.id
+    || task?.metadata?.semantic?.id
+    || task?.id
+    || null;
+}
+
 function runtimeTaskId({ missionId, semanticTaskId, semanticTask } = {}) {
   const semanticId = semanticTaskIdOf({ semanticTaskId, semanticTask });
   if (!semanticId) return null;
@@ -19,4 +27,4 @@ function runtimeTaskId({ missionId, semanticTaskId, semanticTask } = {}) {
   return `task-${digest}`;
 }
 
-module.exports = { runtimeTaskId, semanticTaskIdOf };
+module.exports = { runtimeTaskId, semanticTaskIdOf, storedTaskSemanticId };
