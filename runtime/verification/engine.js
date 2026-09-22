@@ -3,6 +3,7 @@
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const { createVerification, createVerificationCheck } = require("../core");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 
 const SAFE_SCRIPT_NAMES = new Set(["lint", "typecheck", "test", "tests", "build"]);
 
@@ -55,7 +56,14 @@ class VerificationEngine {
     const checks = [];
     for (const entry of commands || []) {
       const result = await runCommand(entry.command, { cwd, timeoutMs: entry.timeoutMs || timeoutMs });
-      checks.push(createVerificationCheck({ name: entry.name, command: entry.command, ...result }));
+      checks.push(createVerificationCheck({
+        name: entry.name,
+        command: sanitizeDiagnostic(entry.command, { maxChars: 2000 }),
+        exitCode: result.exitCode,
+        stdout: sanitizeDiagnostic(result.stdout || "", { maxChars: 8000 }),
+        stderr: sanitizeDiagnostic(result.stderr || "", { maxChars: 8000 }),
+        durationMs: result.durationMs
+      }));
     }
     return createVerification({
       id,
