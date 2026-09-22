@@ -60,5 +60,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Use `{{USER_HOME}}/.orquestrador/SKILLS_INDEX.md` as the global catalog before proposing a new global pattern.
 - If an existing global skill is a good fit, propose using it before implementing a parallel pattern.
 - Do not create commits or pushes automatically.
+- Work solo by default. Routine Git/VCS operations, formatting, simple renames, one-file edits, and single validation commands must be handled directly; do not spawn a worker just to run `git commit` or another mechanical command.
+- Treat depth and fan-out as separate decisions: a hard task may use deeper reasoning without subagents. Use subagents only under an explicit multiagent/team/ultrawork request or profile, and only for 2+ independent non-overlapping workstreams.
 - Treat build and lint success as the completion gate when those commands exist for the project.
 </INSTRUCTIONS>

@@ -3,6 +3,7 @@
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const { createVerification, createVerificationCheck } = require("../core");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 
 const SAFE_SCRIPT_NAMES = new Set(["lint", "typecheck", "test", "tests", "build"]);
 
@@ -51,18 +52,31 @@ function pathLikeNode(value) {
 }
 
 class VerificationEngine {
-  async verify({ id, runId, commands, cwd, timeoutMs }) {
+  async verify({ id, runId, commands, cwd, timeoutMs, notApplicable = false, notApplicableReason = null }) {
     const checks = [];
     for (const entry of commands || []) {
       const result = await runCommand(entry.command, { cwd, timeoutMs: entry.timeoutMs || timeoutMs });
-      checks.push(createVerificationCheck({ name: entry.name, command: entry.command, ...result }));
+      checks.push(createVerificationCheck({
+        name: entry.name,
+        command: sanitizeDiagnostic(entry.command, { maxChars: 2000 }),
+        exitCode: result.exitCode,
+        stdout: sanitizeDiagnostic(result.stdout || "", { maxChars: 8000 }),
+        stderr: sanitizeDiagnostic(result.stderr || "", { maxChars: 8000 }),
+        durationMs: result.durationMs
+      }));
     }
     return createVerification({
       id,
       runId,
       status: checks.length === 0 ? "skipped" : checks.some((check) => check.exitCode !== 0) ? "failed" : "passed",
       checks,
-      completedAt: new Date().toISOString()
+      completedAt: new Date().toISOString(),
+      metadata: checks.length === 0 ? {
+        applicability: notApplicable === true ? "not_applicable" : "unspecified",
+        ...(notApplicable === true && typeof notApplicableReason === "string" && notApplicableReason.trim()
+          ? { reason: sanitizeDiagnostic(notApplicableReason.trim(), { maxChars: 512 }) }
+          : {})
+      } : undefined
     });
   }
 }

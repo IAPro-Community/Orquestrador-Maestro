@@ -1,7 +1,7 @@
 # Orquestrador Rules
 
 Status: ativo
-Local: `{{USER_HOME}}/.orquestrador\rules.md`
+Local: `{{USER_HOME}}/.orquestrador/rules.md`
 
 This is the compact global contract for agents on this machine.
 
@@ -12,12 +12,13 @@ This is the compact global contract for agents on this machine.
 3. Verify before claiming completion.
 4. Prefer the smallest relevant context. Do not load full catalogs when a router/index is enough.
 5. New reusable intelligence should be saved under `{{USER_HOME}}/.orquestrador` first, then synced outward.
+6. Execute solo by default. Do not spawn subagents, task workers, swarms, or parallel model calls for routine Git/VCS operations, formatting, simple renames, one-file edits, or a single validation command. In particular, `git status`, `git diff`, `git add`, `git commit`, `git push`, and equivalent routine operations stay with the lead agent. Multiagent execution is a separate explicit decision and requires genuinely independent, non-overlapping workstreams.
 
 ## Command Hierarchy
 
-1. `{{USER_HOME}}/.orquestrador\rules.md`
-2. `{{USER_HOME}}/.orquestrador\maestro.md`
-3. `{{USER_HOME}}/.orquestrador\PERSISTENCE.md`
+1. `{{USER_HOME}}/.orquestrador/rules.md`
+2. `{{USER_HOME}}/.orquestrador/maestro.md`
+3. `{{USER_HOME}}/.orquestrador/PERSISTENCE.md`
 4. `{{USER_HOME}}/AGENTS.md`
 5. nearest project `AGENTS.md`
 6. current project `DEV/` documentation, when present
@@ -52,7 +53,7 @@ Open the pack index first. Do not bulk-load the whole library by default. Treat 
 
 ## Skill Discipline
 
-Use `{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json` before opening skill files.
+Use `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` before opening skill files.
 
 Load only the skill files needed for the task. Load long references only when the selected skill requires them.
 

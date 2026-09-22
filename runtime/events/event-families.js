@@ -5,10 +5,17 @@ const FAMILIES_TYPES = Object.freeze({
   "project.*": Object.freeze(["project.created", "project.status.changed"]),
   "mission.*": Object.freeze(["mission.created", "mission.updated"]),
   "plan.*": Object.freeze(["plan.approved", "plan.auto_approved", "plan.rejected", "plan.persisted", "plan.revised", "batch.question.asked", "batch.question.answered"]),
-  "task.*": Object.freeze(["task.ready", "task.started", "task.verifying", "task.failed", "task.blocked", "task.completed", "run.created", "run.started", "run.cancel_requested", "run.completed", "run.failed", "run.attachPty", "run.output", "artifact.created"]),
+  "task.*": Object.freeze([
+    "task.ready", "task.started", "task.verifying", "task.failed", "task.blocked", "task.completed",
+    "run.created", "run.started", "run.cancel_requested", "run.completed", "run.failed", "run.blocked", "run.attachPty", "run.output",
+    "artifact.created", "evidence.created",
+    "resolution.planned", "outcome.validated", "outcome.revoked", "outcome.revalidated",
+    "budget.reserved", "budget.committed", "budget.released",
+    "provider.handoff", "delegation.violation"
+  ]),
   "agent.*": Object.freeze(["agentSession.created", "agentSession.output", "agentSession.active", "agentSession.exited", "agentSession.closed", "agentSession.disconnected", "provider.started", "provider.output", "provider.completed"]),
   "terminal.*": Object.freeze(["terminal.session_created", "terminal.session_started", "terminal.session_closed", "pane.updated"]),
-  "verification.*": Object.freeze(["verification.completed", "verification.failed"]),
+  "verification.*": Object.freeze(["verification.completed", "verification.failed", "verification.skipped"]),
   "review.*": Object.freeze(["review.started", "review.completed", "review.failed"]),
   "attention.*": Object.freeze(["attention.created", "attention.snoozed", "attention.resolved"]),
   "skill.*": Object.freeze([])

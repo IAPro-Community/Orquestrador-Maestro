@@ -1,0 +1,138 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const test = require("node:test");
+const {
+  createResolution,
+  finalizeResolution,
+  resolutionProjection,
+  deriveResolutionPolicy,
+  buildProviderCheckpoint,
+  isValidatedRunSuccess
+} = require("..");
+
+test("canonical resolution derives strategy from the existing cognitive budget", () => {
+  const contract = createResolution({
+    task: { id: "task-1", objective: "fix", acceptanceCriteria: [] },
+    cognitiveBudget: { id: "LEAN", tier: "lean", contextTokens: 4000, maxIntelligentRetries: 0 },
+    mode: "shadow"
+  });
+  assert.equal(contract.engine, "maestro-resolution-engine");
+  assert.equal(contract.strategy, "targeted");
+  assert.equal(contract.budget.contextTokens, 4000);
+  assert.equal(contract.outcome.state, "pending");
+});
+
+test("completed tasks with explicit acceptance criteria need passed verification", () => {
+  const contract = createResolution({
+    task: { id: "task-1", objective: "fix", acceptanceCriteria: ["tests pass"] },
+    cognitiveBudget: { id: "STANDARD", tier: "standard", contextTokens: 8000 }
+  });
+  const incomplete = finalizeResolution({
+    contract,
+    runStatus: "completed",
+    verification: { status: "skipped" },
+    completion: { eligible: true },
+    review: { status: "disabled" }
+  });
+  assert.equal(incomplete.outcome.state, "needs_attention");
+
+  const validated = finalizeResolution({
+    contract,
+    runStatus: "completed",
+    verification: { status: "passed" },
+    completion: { eligible: true },
+    review: { status: "disabled" }
+  });
+  assert.equal(validated.outcome.state, "validated");
+});
+
+test("skipped verification is not enough to validate unless not-applicable is explicit", () => {
+  const contract = createResolution({
+    task: { id: "task-1", objective: "inspect repository", acceptanceCriteria: [] },
+    cognitiveBudget: { id: "LEAN", tier: "lean", contextTokens: 4000 }
+  });
+  const implicitSkip = finalizeResolution({
+    contract,
+    runStatus: "completed",
+    verification: { status: "skipped", metadata: { applicability: "unspecified" } },
+    completion: { eligible: true },
+    review: { status: "disabled" }
+  });
+  assert.equal(implicitSkip.outcome.state, "needs_attention");
+
+  const explicitlyNotApplicable = finalizeResolution({
+    contract,
+    runStatus: "completed",
+    verification: { status: "skipped", metadata: { applicability: "not_applicable" } },
+    completion: { eligible: true },
+    review: { status: "disabled" }
+  });
+  assert.equal(explicitlyNotApplicable.outcome.state, "validated");
+});
+
+test("enforce mode is fail-closed without an explicit promotion authorization", () => {
+  assert.throws(() => deriveResolutionPolicy({
+    cognitiveBudget: { id: "STANDARD", tier: "standard", contextTokens: 8000 },
+    mode: "enforce"
+  }), /RESOLUTION_ENFORCE_NOT_READY/u);
+});
+
+test("resolution projection never upgrades completed to validated without evidence", () => {
+  assert.equal(resolutionProjection({
+    status: "pending",
+    metadata: { resolution: { outcome: { state: "pending" }, strategy: "balanced", mode: "shadow" } }
+  }).state, "running");
+  assert.equal(resolutionProjection({ status: "completed", metadata: {} }).state, "needs_attention");
+  assert.equal(resolutionProjection({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "validated" }, strategy: "balanced", mode: "shadow" } }
+  }).state, "validated");
+});
+
+
+test("run success requires validated Resolution outcome while preserving legacy completed runs", () => {
+  assert.equal(isValidatedRunSuccess({ status: "completed", metadata: {} }), true);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "validated" } } }
+  }), true);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "needs_attention" } } }
+  }), false);
+  assert.equal(isValidatedRunSuccess({
+    status: "completed",
+    metadata: { resolution: { outcome: { state: "blocked" } } }
+  }), false);
+  assert.equal(isValidatedRunSuccess({
+    status: "failed",
+    metadata: { resolution: { outcome: { state: "failed" } } }
+  }), false);
+});
+
+test("provider checkpoint sanitizes all durable continuation context", () => {
+  const token = "ghp_" + "B".repeat(40);
+  const checkpoint = buildProviderCheckpoint({
+    task: { id: "task-1" },
+    request: {
+      description: `Fix auth using ${token} from /home/alice/private`,
+      semanticTask: {
+        id: "task-1",
+        objective: `Objective ${token}`,
+        requirements: [`Read /home/alice/private with ${token}`]
+      },
+      decisions: [`Keep ${token}`]
+    },
+    providerId: "fake",
+    reason: `Authorization: Bearer ${token} /home/alice/private`,
+    changes: { changedFiles: ["/home/alice/private/app.js"] }
+  });
+  const serialized = JSON.stringify(checkpoint);
+  assert.doesNotMatch(serialized, new RegExp(token, "u"));
+  assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
+  assert.match(checkpoint.failure.reason, /redacted/u);
+  assert.match(checkpoint.objective, /redacted/u);
+  assert.match(checkpoint.requirements[0], /redacted/u);
+  assert.match(checkpoint.decisions[0], /redacted/u);
+});

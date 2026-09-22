@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- Orquestração: execução passa a ser solo por padrão; apenas o perfil explícito `multiagent` permite fan-out. Operações mecânicas de Git/VCS continuam solo mesmo sob solicitação de perfil multiagente, e child agents identificados em contrato solo geram `delegation.violation` e impedem `validated`.
+- Resolution: `verification.skipped` deixa de ser publicado como falha e não conta mais como prova por omissão: somente um skip explicitamente marcado como `not_applicable` pode satisfazer uma Task sem validators/DoD verificável. O estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
+- Benchmark: OpenCode usado pelos workflows oficiais fica fixado em `opencode-ai@1.18.31` enquanto o driver permanecer no contrato JSONL v1; upgrades de geração exigem revisão explícita do driver.
+- CI: o piso declarado do runtime passa a ser testado diretamente com Node.js 20.19.0 em vez de um Node 20.x flutuante.
+- Compat: requisito mínimo do runtime corrigido para Node.js 20.19+. O pacote é CommonJS e consome `@clack/prompts` ESM; 20.19 é o primeiro Node 20 em que `require(ESM)` fica habilitado por padrão, evitando instalações aceitas pelo `engines` mas incompatíveis em runtime.
+
+- Deps: `@clack/prompts` 1.x, `@xterm/headless` 6, `@types/node` 26, `tsx` 4.23.15 (TypeScript 7 revertido: 176 erros; `uuid` 14 irrelevante — só transitivo).
+- Memória: `export`/`import` com revalidação e sem herança de confiança; opt-out por projeto via `DEV/memory-policy.json` (`capture`, `excludedPaths`).
+- Contexto: `SemanticRanker` com scoring determinístico local (overlap de tokens, sem inventar fatos) e `localOnly` fail-closed.
+- Security (memória): `--verified` sozinho não verifica mais — vira `verifiedClaimed`; `verified:true` exige `--verifier` (+ `--verify-note`) e `promote --apply` para `DEV/` exige verificador e `verifiedAt`.
+- Security (memória): o predicado vale em leitura e escrita — linhas legadas com `verified:true` sem verificador passam a contar como não verificadas em `search`, `stats`, `timeline`, `retention`/`prune`/`dedupe` e no label do brief; `verifiedAt` inválido degrada para claim; `consolidate()` herda o escopo das fontes (sem override).
+- Security (memória): redação cobre segredos nus (AKIA, glpat-, gho-/ghu-, EC/OPENSSH, AIza); injeção checada em todos os campos (throw explícito); `consolidate()` com policy; `forget --id`; teto de 4000 em `details`; adapters com default-deny e `record()` resiliente.
+- Fix (contexto): `ContextBudget` aplica o teto a críticos (ordem de prioridade mantida, nunca vazio) e mede objetos via JSON; `SemanticRanker` com `providerId` configurável e `localOnly` fail-closed (LOCAL_ONLY_VIOLATION).
+- Security (memória): gate `<private>` passa a cobrir `files/tags/source`; `consolidate()` aplica `CapturePolicy` e só herda `verified` se todas as fontes forem verificadas com verificador.
+- Security (brief): entradas de memória episódica têm tags `episodic-memory` sanitizadas (sem break-out do wrapper); `projectId` do brief usa `gitCtx.repositoryId` como fonte única (corrige seção de memória vazia em projetos não-git).
+- Benchmark (evidence gate): `run-report.json` passa a registrar `evidence.{executionType,reproducible,isolated,publicClaimEligible}`, `validation.passed` e `usage.tokenSource`; `isClaimEligibleRun` exige proveniência ancorada (imagem + `containerId` do daemon) e consistência `isolated===container`; `orchestratePair`/`pair` respeitam `--container` (padrão: com container).
+- Benchmark: removidos 11 `.js` compilados versionados em `benchmark-harness/src/` (sombra do `.ts`); `.gitignore` bloqueia `src/**/*.js`.
+- CLI: `--help` sem linhas duplicadas (`runtime`, `tui`) + teste anti-duplicata.
+- Docs: `docs/benchmark.md §9.5` reescrito para espelhar `isClaimEligibleRun`.
+- Skills: snapshot Codex publicado passa a incluir `skill-frontend-excellence` (Nativa, estava ausente), `skill-watch-evidence` e `skill-melhorar-ux-ui-por-referencia`; `skill-impeccable` ressincronizado com a fonte canônica.
+- Skills: `skill-catalog validate` agora falha se skill `mirrorEverywhere` estiver fora do snapshot `codex/skills` + novo `tests/skill-snapshot.test.js`.
+- Install: `--dry-run` passa a listar sync/discovery/chmod/logs planejados em vez de omitir; uninstall reverte mirrors do `sync --apply`, faz backup integral no Windows (antes: só mapeados) e `Copy-ManagedDirectory` recusa destino fora da raiz.
+- Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20.19+ de verdade.
+- Fix: extensão VS Code (`extensions/vscode-maestro/`) passa a ir no pacote npm (`files[]`).
+- Chore: novo `npm run validate:paths` para `scripts/validate-git-paths.js` (antes órfão); `tsx` atualizado para 4.23.15.
+- Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE` e troca `curl|bash` por baixar-inspecionar-executar.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
 
@@ -44,6 +70,11 @@ Esta versão consolida o alinhamento do produto com a implementação e fecha po
 
 - Adicionados testes para evidências, caminhos de documentação, taxonomia de capabilities, providers integrados, adapters duplicados e sufixos de comandos.
 - CI, benchmarks, security scan, empacotamento e smoke tests passaram antes e depois do merge do PR #20.
+- Documentação para iniciantes: nova jornada numerada em `docs/START-HERE.md` (entender → instalar → configurar DEV/ → primeira skill → verificar) com mapa de onde encontrar cada informação.
+- Novo exemplo guiado `docs/skills/primeira-skill.md` com `skill-repo-health` (pedido pronto, saída esperada e checklist de verificação).
+- `docs/skills/README.md`: seção “Como ler uma página de skill (para humanos)”; `docs/skills/choose.md` linka o exemplo guiado; `docs/README.md` e `README.md` apontam para o Comece aqui.
+- `QUICKTEST.md`: seção de benchmark corrigida para `benchmark-harness/` (`bench:list`/`bench:validate`); paths `benchmarks/*` removidos.
+- `orquestrador/TUTORIAL.md`: marcado como documento histórico com ponteiros para os guias atuais.
 
 ## 0.4.2 - 2026-09-20
 
@@ -68,7 +99,7 @@ Esta versão alinha a documentação de produto ao código entregue, incorpora o
 ### Verificação
 
 - Suíte completa, smoke, empacotamento, validação pública/skills, benchmarks, auditoria de dependências e scan de segurança aprovados.
-- CI pós-merge confirmado em Ubuntu, Windows e macOS com Node 20, 22 e 24.
+- CI pós-merge confirmado em Ubuntu com Node 20, 22 e 24 e em Windows/macOS com Node 20 e 24.
 
 ## 0.4.1 - 2026-09-19
 

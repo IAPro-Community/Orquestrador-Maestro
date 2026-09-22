@@ -19,19 +19,23 @@ O `-Check` deve terminar sem ações diferentes de `ok`. A política mantém ape
 
 Use uma sessão normal do usuário. Não use `sudo`, `su`, root nem PowerShell como Administrador.
 
-macOS e Linux:
+macOS e Linux (baixe, inspecione e só então execute — nunca encane saída remota direto no shell):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+less /tmp/bootstrap-install.sh
+bash /tmp/bootstrap-install.sh
 ```
 
-Windows PowerShell:
+Windows PowerShell (mesma regra: salvar, ler, executar):
 
 ```powershell
-irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 -OutFile $env:TEMP/bootstrap-install.ps1
+notepad $env:TEMP/bootstrap-install.ps1
+& $env:TEMP/bootstrap-install.ps1
 ```
 
-O bootstrap exige Node.js 20 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
+O bootstrap exige Node.js 20.19 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
 
 ## Disco cheio após uma instalação antiga no macOS
 
@@ -56,7 +60,8 @@ npm uninstall -g @iapro/orquestrador-maestro-cli
 rm -rf -- "$HOME/.orquestrador" "$HOME/.orquestrador-public-backups"
 
 # 5. Faça uma instalação limpa e verifique o resultado.
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+bash /tmp/bootstrap-install.sh
 orquestrador-maestro verify
 ```
 
@@ -162,3 +167,12 @@ model = "cheap-fast"
 Avisos como `MCP server is not logged in` pertencem à autenticação do servidor remoto, não ao Orquestrador. Faça login apenas no MCP que você pretende usar; não coloque tokens no repositório nem em arquivos de configuração publicados.
 
 Já `windows sandbox: helper_unknown_error` é uma falha do runtime/sandbox do Codex ou do terminal que o está hospedando. Ela não é corrigida por skills, agentes ou prompts do Orquestrador. Reinicie o terminal e o Codex; se persistir, execute `orquestrador-maestro doctor` e reporte o erro completo ao mantenedor do runtime.
+
+## Terminal PTY indisponível (`PTY_UNAVAILABLE`)
+
+O terminal persistente usa `node-pty`, dependência opcional que exige toolchain de compilação (Python 3 + make + g++). Sem ela, o Maestro degrada para sessões sem PTY automaticamente. Para habilitar:
+
+```bash
+npm rebuild node-pty
+orquestrador-maestro verify
+```

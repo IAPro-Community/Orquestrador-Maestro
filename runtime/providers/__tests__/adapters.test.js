@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("..");
+const { safeEnvironment } = require("../process-execution");
 const { makeTempDir, writeFile } = require("../../../tests/test-helpers");
 
 function fakeCli(root) {
@@ -125,5 +126,37 @@ test("adapters skip the --model flag when model is the \"default\" sentinel", as
     const received = JSON.parse(result.stdout.trim());
     assert.deepEqual(received.args.slice(0, expectedPrefix.length), expectedPrefix, `${Adapter.name} must not translate --model default`);
     assert.ok(!received.args.includes("--model"), `${Adapter.name} must not emit --model` );
+  }
+});
+
+
+test("provider subprocess environment strips adaptive benchmark identity and nonce", () => {
+  const previous = {
+    MAESTRO_ADAPTIVE_POLICY_ID: process.env.MAESTRO_ADAPTIVE_POLICY_ID,
+    MAESTRO_BENCHMARK_MARKER_NONCE: process.env.MAESTRO_BENCHMARK_MARKER_NONCE,
+    BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT: process.env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT
+  };
+  process.env.MAESTRO_ADAPTIVE_POLICY_ID = "secret-policy";
+  process.env.MAESTRO_BENCHMARK_MARKER_NONCE = "secret-nonce";
+  process.env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT = "secret-fingerprint";
+  try {
+    const env = safeEnvironment({
+      MAESTRO_ADAPTIVE_PAIR_ID: "pair-secret",
+      MAESTRO_BENCHMARK_USAGE: "1",
+      BENCHMARK_ADAPTIVE_POLICY_ID: "policy-secret",
+      SAFE_VALUE: "visible"
+    });
+    assert.equal(env.MAESTRO_ADAPTIVE_POLICY_ID, undefined);
+    assert.equal(env.MAESTRO_ADAPTIVE_PAIR_ID, undefined);
+    assert.equal(env.MAESTRO_BENCHMARK_MARKER_NONCE, undefined);
+    assert.equal(env.MAESTRO_BENCHMARK_USAGE, undefined);
+    assert.equal(env.BENCHMARK_ADAPTIVE_POLICY_ID, undefined);
+    assert.equal(env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT, undefined);
+    assert.equal(env.SAFE_VALUE, "visible");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 });

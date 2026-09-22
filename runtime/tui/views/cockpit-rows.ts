@@ -10,11 +10,28 @@ export function truncate(value: string, width: number): string {
 export function projectSummaryRow(state: TuiState, projectId: string): Row {
   const project = state.projectsById.byId[projectId] || { id: projectId };
   const tasks = Object.values(state.tasksById.byId).filter((task) => task.projectId === projectId);
-  const completed = tasks.filter((task) => task.status === "completed" || task.status === "done").length;
-  const running = tasks.filter((task) => task.status === "running").length;
-  const blocked = tasks.filter((task) => task.status === "blocked").length;
+  const taskState = (task: Record<string, unknown>) => String(task.state || task.resolutionState || task.status || "");
+  const completed = tasks.filter((task) => ["validated", "completed", "done"].includes(taskState(task))).length;
+  const running = tasks.filter((task) => ["running", "verifying"].includes(taskState(task))).length;
+  const blocked = tasks.filter((task) => ["blocked", "failed", "needs_attention"].includes(taskState(task))).length;
   const agents = selectActiveAgents(state, projectId).length;
   const attention = selectPendingAttention(state, projectId).length;
-  const health = selectRunsByStatus(state, "failed").some((run) => run.projectId === projectId) ? "failed" : "ok";
-  return Object.freeze({ id: projectId, fields: Object.freeze([health, formatProgress(completed, tasks.length), agents, running, blocked, attention, project.autopilotPolicy || "N/A"]) });
+  const health = tasks.some((task) => taskState(task) === "needs_attention") ? "needs_attention"
+    : tasks.some((task) => ["blocked", "failed"].includes(taskState(task))) || selectRunsByStatus(state, "failed").some((run) => run.projectId === projectId) ? "failed"
+      : tasks.length > 0 && tasks.every((task) => taskState(task) === "validated") ? "validated" : "ok";
+  const latestResolution = [...tasks].reverse().find((task) => task.strategy || task.state || task.resolutionState);
+  const verification = latestResolution
+    ? Object.values(state.verificationsById.byId).find((entry) => entry.taskId === latestResolution.id)
+    : undefined;
+  const resolution = latestResolution
+    ? [
+        String(latestResolution.state || latestResolution.resolutionState || latestResolution.status || "running"),
+        latestResolution.strategy ? String(latestResolution.strategy) : "",
+        Number.isFinite(Number(latestResolution.contextTokens)) ? `ctx ${latestResolution.contextTokens}` : "",
+        Number.isFinite(Number(latestResolution.evidenceSelected)) ? `ev ${latestResolution.evidenceSelected}/${latestResolution.evidenceCandidates ?? "?"}` : "",
+        Number.isFinite(Number(latestResolution.escalationMax)) ? `esc ${latestResolution.escalationCount ?? 0}/${latestResolution.escalationMax}` : "",
+        verification?.status ? String(verification.status) : ""
+      ].filter(Boolean).join(" · ")
+    : project.autopilotPolicy || "N/A";
+  return Object.freeze({ id: projectId, fields: Object.freeze([health, formatProgress(completed, tasks.length), agents, running, blocked, attention, resolution]) });
 }

@@ -4,7 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 $package = "@iapro/orquestrador-maestro-cli"
 $packageVersion = "0.4.4"
-$bootstrapVersion = "2026.09.20.1"
+$bootstrapVersion = "2026.09.22.2"
 Write-Host "Orquestrador Maestro bootstrap $bootstrapVersion"
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
@@ -13,13 +13,15 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command 
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-  throw "Execute o bootstrap em um PowerShell normal, sem Administrador."
+if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL) {
+  throw "Execute o bootstrap em um PowerShell normal, sem Administrador (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
 }
 
-$nodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
-if ($nodeMajor -lt 18) {
-  throw "Node.js 20 ou superior é necessário. Versão atual: $(& node --version)."
+$nodeVersionParts = (& node -p "process.versions.node").Trim().Split(".")
+$nodeMajor = [int]$nodeVersionParts[0]
+$nodeMinor = [int]$nodeVersionParts[1]
+if ($nodeMajor -lt 20 -or ($nodeMajor -eq 20 -and $nodeMinor -lt 19)) {
+  throw "Node.js 20.19 ou superior é necessário. Versão atual: $(& node --version)."
 }
 
 $prefix = if ($env:ORQUESTRADOR_NPM_PREFIX) {

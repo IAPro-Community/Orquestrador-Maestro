@@ -7,14 +7,16 @@
       "loadReferences": false,
       "allowSubagents": false,
       "validation": "lightest-meaningful",
-      "notes": "Use for small edits, quick answers, and tasks where one skill clearly matches."
+      "notes": "Use for small edits, quick answers, and tasks where one skill clearly matches.",
+      "maxSubagents": 0
     },
     "standard": {
       "maxSkills": 3,
       "loadReferences": "only-if-directly-needed",
       "allowSubagents": false,
       "validation": "task-appropriate",
-      "notes": "Default profile for most work."
+      "notes": "Default profile for most work.",
+      "maxSubagents": 0
     },
     "guided-engineering": {
       "maxSkills": 5,
@@ -23,15 +25,17 @@
       "allowSubagents": false,
       "validation": "quality-gates",
       "routingSource": "SKILLS_ROUTER.json",
-      "notes": "Use for non-trivial engineering work; select only the applicable architecture, backend, frontend, data, semantics, security, and testing capabilities."
+      "notes": "Use for non-trivial engineering work; select only the applicable architecture, backend, frontend, data, semantics, security, and testing capabilities.",
+      "maxSubagents": 0
     },
     "deep": {
       "maxSkills": 5,
-      "startSkill": "skill-multiagent-orchestration",
+      "startSkill": "skill-repo-health",
       "loadReferences": "progressive",
-      "allowSubagents": true,
+      "allowSubagents": false,
       "validation": "lint-typecheck-test-or-doctor",
-      "notes": "Use for broad changes, multi-system work, or explicit subagent requests."
+      "notes": "Use for broad or difficult work that needs deeper single-agent reasoning. Select multiagent explicitly only when independent parallel lanes are justified.",
+      "maxSubagents": 0
     },
     "multiagent": {
       "maxSkills": 5,
@@ -39,13 +43,14 @@
       "loadReferences": "progressive",
       "allowSubagents": true,
       "validation": "integration-plus-lane-verification",
-      "notes": "Use when the user asks for subagents/multiagents/team/swarm or when independent workstreams materially improve speed or review quality."
+      "notes": "Explicit fan-out profile. Use only when the user asks for multiagent/team/swarm/parallel work or the plan contains 2+ genuinely independent workstreams with non-overlapping ownership.",
+      "maxSubagents": 4
     },
     "phase-loop": {
       "maxSkills": 4,
       "startSkill": "plan",
       "loadReferences": "progressive",
-      "allowSubagents": true,
+      "allowSubagents": false,
       "validation": "phase-gates",
       "phases": [
         "discuss",
@@ -55,24 +60,27 @@
         "ship"
       ],
       "requiresExplicitAuthorization": true,
-      "notes": "Opt-in workflow for changes that benefit from explicit phase artifacts, bounded delegation, verification, and release evidence."
+      "notes": "Opt-in phase workflow. Phases remain single-agent by default; select multiagent separately when parallel lanes are explicitly justified.",
+      "maxSubagents": 0
     },
     "saas": {
       "maxSkills": 5,
       "startSkill": "skill-saas-factory",
       "loadReferences": "progressive",
-      "allowSubagents": true,
+      "allowSubagents": false,
       "validation": "project-gates-plus-security",
-      "notes": "Use when building or reviewing SaaS products, dashboards, payments, tenancy, or admin systems."
+      "notes": "Use for SaaS products and reviews. Remains single-agent by default; multiagent fan-out is a separate explicit routing decision.",
+      "maxSubagents": 0
     },
     "security": {
       "maxSkills": 4,
       "startSkill": "skill-saas-security-scan",
       "loadReferences": "progressive",
-      "allowSubagents": true,
+      "allowSubagents": false,
       "validation": "security-gates",
       "requiresExplicitAuthorization": true,
-      "notes": "Use only for owned local repos or explicitly authorized staging/preview targets."
+      "notes": "Use only for owned repos or authorized targets. Security depth does not imply multiagent fan-out; select multiagent separately when justified.",
+      "maxSubagents": 0
     }
   }
 }

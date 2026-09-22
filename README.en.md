@@ -33,7 +33,7 @@ With only a prompt, an AI can read too much, improvise its process, and call a t
 
 ## Get started in two minutes
 
-Requires Node.js 20 or later.
+Requires Node.js 20.19 or later.
 
 ```bash
 npm install -g @iapro/orquestrador-maestro-cli@latest

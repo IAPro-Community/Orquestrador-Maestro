@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        node-version: ["20.19.0", "22", "24"]
         os: [ubuntu-latest]
       fail-fast: false
     steps:
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout
@@ -104,11 +104,11 @@ jobs:
         run: npm run bench:test
 
   test-windows:
-    name: Smoke tests — Node ${{ matrix.node-version }} on Windows
+    name: Full + smoke tests — Node ${{ matrix.node-version }} on Windows
     runs-on: windows-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout
@@ -166,11 +166,11 @@ jobs:
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   test-macos:
-    name: Smoke tests — Node ${{ matrix.node-version }} on macOS
+    name: Full + smoke tests — Node ${{ matrix.node-version }} on macOS
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout
