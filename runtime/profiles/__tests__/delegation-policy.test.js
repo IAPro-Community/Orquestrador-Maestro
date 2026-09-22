@@ -35,3 +35,15 @@ test("routine git operations remain solo even under multiagent policy", () => {
     assert.equal(contract.reason, "routine-git-operation", description);
   }
 });
+
+
+test("an incidental final git step does not suppress explicitly justified multiagent work", () => {
+  for (const description of [
+    "implemente backend e frontend em paralelo e depois faça git commit",
+    "refatore os módulos independentes e ao final rode git push"
+  ]) {
+    const contract = deriveDelegationContract({ description, policyId: "multiagent" });
+    assert.equal(contract.allowSubagents, true, description);
+    assert.equal(contract.reason, "explicit-multiagent-policy", description);
+  }
+});

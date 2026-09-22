@@ -21,10 +21,11 @@ const POLICY_DEFINITIONS = Object.freeze({
 });
 
 const ROUTINE_GIT_PATTERNS = Object.freeze([
-  /\bgit\s+(?:status|diff|add|commit|push|pull|fetch|checkout|switch|branch|tag|log|show)\b/iu,
-  /\b(?:faça|faca|faz|fazer|crie|criar|gere|gerar|make|create|do)\s+(?:um\s+|uma\s+|o\s+|a\s+)?(?:git\s+)?commit\b/iu,
-  /\bcommit(?:e|ar|a)?\s+(?:these|the|estas|essas|as|os)?\s*(?:changes|mudanças|mudancas|alterações|alteracoes)?\b/iu,
-  /\b(?:suba|envie|mande|faça|faca|faz|fazer|do|make)\s+(?:o\s+|um\s+)?(?:git\s+)?push\b/iu
+  /^\s*(?:por\s+favor\s+)?git\s+(?:status|diff|add|commit|push|pull|fetch|checkout|switch|branch|tag|log|show)\b/iu,
+  /^\s*(?:por\s+favor\s+)?(?:faça|faca|faz|fazer|crie|criar|gere|gerar|make|create|do)\s+(?:um\s+|uma\s+|o\s+|a\s+)?(?:git\s+)?commit\b/iu,
+  /^\s*(?:por\s+favor\s+)?commit(?:e|ar|a)?\b/iu,
+  /^\s*(?:por\s+favor\s+)?(?:suba|envie|mande|faça|faca|faz|fazer|do|make)\s+(?:o\s+|um\s+)?(?:git\s+)?push\b/iu,
+  /^\s*(?:por\s+favor\s+)?push\b/iu
 ]);
 
 function deriveDelegationContract({ description = "", policyId = "standard" } = {}) {
