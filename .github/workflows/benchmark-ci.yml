@@ -24,7 +24,7 @@ jobs:
         run: npm ci --omit=optional
 
       - name: Install OpenCode CLI
-        run: npm install -g opencode@latest
+        run: npm install -g opencode-ai@1.18.31 # Pinned: benchmark driver currently targets the v1 JSONL contract
 
       - name: Install benchmark dependencies
         working-directory: benchmark-harness
