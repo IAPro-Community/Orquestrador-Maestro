@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### V1 Router & Design Intelligence
+
+- **Router v3:** novo roteamento sobre Skill Contract V2 com evidência explícita, aliases, positive/negative routing, capability matching, chaining lazy e explicação de seleção/rejeição.
+- **Complexity Gate:** tarefas passam por classificação determinística `MICRO | SIMPLE | STANDARD | COMPLEX | DEEP`, com budgets de skills/contexto e fan-out proibido por padrão.
+- **Shadow rollout:** `go` mantém Router v2 ativo por padrão, calcula v3 sem duplicar execução e persiste a comparação na Mission; `--router-version 3` habilita teste explícito.
+- **Context budget:** quando v3 está ativo, exploração do codebase obedece ao budget definido pelo Complexity Gate em vez de usar 8k fixos.
+- **CLI:** novo `route explain [--json] "objetivo"` expõe intenção, complexidade, skill selecionada, evidência e budget estimado de contexto.
+- **Design:** `frontend-design` passa a alias de `skill-open-design-ui`; `impeccable` mantém a skill canônica existente; adicionadas `skill-product-ux-architecture`, `skill-design-engineering-craft` e `skill-motion-design-principles`.
+- **Claude Code:** as cinco capacidades de design ficam `mirrorEverywhere` e chegam a `.claude/skills` pelo sync normal do Maestro, sem fonte canônica duplicada.
+- **Catálogo:** 56 skills Maestro canônicas e 79 skills públicas únicas, com 0 IDs conflitantes após sincronização dos mirrors.
+
+## 1.0.0-alpha.1 - 2026-09-22
+
+### V1 Skill Intelligence Foundation
+
+- **Breaking (Maestro skills):** o manifesto canônico passa para V3 e todas as 53 skills `maestro/*` passam a exigir Skill Contract V2 nativo. Não existe fallback para os campos canônicos 0.x.
+- **Compatibilidade externa preservada:** skills de biblioteca, usuário e projeto continuam aceitando seus formatos próprios e são normalizadas somente na fronteira do registry; sem routing confiável permanecem explicit-only.
+- **Fonte única:** `routing.useWhen`, `routing.doNotUseWhen`, `maturity`, `context`, `outputs` e `verification` substituem metadados canônicos duplicados como `triggers`, `status`, `workflow.validation` e campos equivalentes em `documentation`.
+- **Taxonomia:** capabilities passam a usar vocabulário controlado, já incluindo Git, CI, pull requests, issue resolution, refactoring, API design, performance, containers, Kubernetes, build tooling, developer environment e legacy modernization.
+- **Catálogo:** 53 skills Maestro classificadas explicitamente em 15 Core e 38 Domain; catálogo público passa a 76 skills únicas e 0 IDs conflitantes.
+- **Engineering Quality:** nova `skill-engineering-quality` Core detecta stack/framework/tooling antes de agir e aplica baseline multi-stack por delta para formatter, lint/static analysis, tipos/compilação, testes, build, hooks e CI, delegando UX, upgrades, debugging e E2E às skills especializadas.
+- **Product Documentation:** `skill-deep-wiki` evolui sem criar ID concorrente: passa a cobrir discovery baseado em evidência, inventário de capacidades, README/TL;DR, Quick Start, guias, API/CLI/configuração, documentação operacional, visual evidence planning, coverage e documentation drift; mirrors públicos permanecem autocontidos e sem conflito.
+- **Governança:** novo behavior harness, auditoria `skills:contract-audit:strict` e gate obrigatório no CI.
+- **Instalação:** bundle canônico é montado e validado em staging antes do swap para o destino; falha de publicação restaura o diretório anterior quando possível.
+- **CI:** stacked PRs em `feature/*` e `feat/*` passam a executar tests/benchmarks, evitando galhos intermediários sem validação completa.
+- **Planejamento:** adicionados rollout shadow/rollback, segurança do Context Compiler, progressive disclosure, coverage de capacidades do desenvolvedor e definição explícita dos contratos SemVer da 1.0.
+
 ## 0.5.0 - 2026-09-22
 
 Esta versão inaugura o Maestro Resolution Engine e consolida o hardening de execução, evidências, memória, telemetria e persistência entregue no PR #23.

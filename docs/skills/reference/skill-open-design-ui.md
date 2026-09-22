@@ -7,9 +7,9 @@ Frontend visual-system workflow for design direction, tokens, component patterns
 | --- | --- |
 | Categoria | frontend |
 | Risco | low |
-| Disponibilidade | Sob demanda |
+| Disponibilidade | Nativa |
 | Tags | frontend, open, design, ui |
-| Aliases | open design, visual qa |
+| Aliases | open design, visual qa, frontend-design, frontend design |
 
 ## Melhores casos de uso
 
@@ -17,7 +17,8 @@ Frontend visual-system workflow for design direction, tokens, component patterns
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Implementação funcional de componentes já definidos pelo design system.
+- Correção final de UX/acessibilidade sem necessidade de direção visual nova.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -35,16 +36,16 @@ Frontend visual-system workflow for design direction, tokens, component patterns
 
 | Client | Disponibilidade | Raiz/política |
 | --- | --- | --- |
-| agents | Sob demanda | .agents/skills |
-| antigravity | Sob demanda | .antigravity-skills/skills |
-| claude | Sob demanda | .claude/skills |
-| codex | Sob demanda | .codex/skills |
-| cursor | Sob demanda | .cursor/skills |
-| gemini | Sob demanda | .gemini/skills |
-| opencode | Sob demanda | .opencode/skills |
-| windsurf | Sob demanda | .windsurf/skills |
+| agents | Nativa | .agents/skills |
+| antigravity | Nativa | .antigravity-skills/skills |
+| claude | Nativa | .claude/skills |
+| codex | Nativa | .codex/skills |
+| cursor | Nativa | .cursor/skills |
+| gemini | Nativa | .gemini/skills |
+| opencode | Nativa | .opencode/skills |
+| windsurf | Nativa | .windsurf/skills |
 
-A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela não ocupa uma raiz nativa por padrão.
+A skill é sincronizada para as raízes nativas configuradas pela política de instalação.
 
 ## Recipes e chains relacionadas
 
@@ -53,6 +54,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 - Chain `skill-impeccable`
 - Chain `skill-open-design-ui`
 - Chain `skill-premium-web-experience`
+- Chain `skill-product-ux-architecture`
 - Chain `skill-saas-factory`
 
 ## Evidência mínima de conclusão

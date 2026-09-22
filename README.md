@@ -112,7 +112,7 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 
 | Se você quer… | Comece aqui |
 | --- | --- |
-| Instalar ou atualizar | [Guia de instalação](docs/installation.md) · [opções](docs/installer-options.md) |
+| Instalar ou atualizar | [Guia de instalação](docs/installation.md) · [migração para V1](docs/migration-v1.md) · [opções](docs/installer-options.md) |
 | Entender o método | [Guia operacional para IAs](docs/ai-agent-operating-guide.md) · [referência técnica](docs/orquestrador-reference.md) |
 | Reduzir custo de contexto | [Economia de contexto](docs/context-economy.md) |
 | Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) · [Resolution Engine](docs/maestro-resolution-engine.md) |

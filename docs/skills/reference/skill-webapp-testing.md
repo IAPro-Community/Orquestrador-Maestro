@@ -17,7 +17,8 @@ Testes web E2E, acessibilidade, estados e regressão visual.
 
 ## Quando não usar
 
-- Pedidos fora do domínio testing; use a skill específica quando houver uma intenção mais precisa.
+- Automação genérica de navegador que não é teste da aplicação.
+- Redesign visual ou construção de componentes.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -48,8 +49,12 @@ A skill é sincronizada para as raízes nativas configuradas pela política de i
 ## Recipes e chains relacionadas
 
 - Recipe `complete-product-frontend`: Frontend completo com Design Profile e Visual QA
+- Chain `skill-deep-wiki`
+- Chain `skill-design-engineering-craft`
+- Chain `skill-engineering-quality`
 - Chain `skill-frontend-excellence`
 - Chain `skill-impeccable`
+- Chain `skill-motion-design-principles`
 
 ## Evidência mínima de conclusão
 

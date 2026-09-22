@@ -17,7 +17,8 @@ Top-level SaaS construction and review workflow for dashboards, admin, Supabase,
 
 ## Quando não usar
 
-- Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa.
+- Mudança isolada de pagamento, RLS, dashboard ou limite quando existe uma skill especializada para o pedido.
+- Correção pequena e local que não exige coordenação do produto SaaS como um todo.
 
 ## Exemplos de pedidos reconhecidos
 

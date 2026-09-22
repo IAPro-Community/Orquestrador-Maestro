@@ -17,7 +17,8 @@ Observabilidade de agentes, custos, latência, qualidade e regressões.
 
 ## Quando não usar
 
-- Pedidos fora do domínio observability; use a skill específica quando houver uma intenção mais precisa.
+- Analytics de produto, funil ou conversão; use skill-unified-analytics.
+- Observabilidade de aplicação sem agentes/IA como foco.
 
 ## Exemplos de pedidos reconhecidos
 

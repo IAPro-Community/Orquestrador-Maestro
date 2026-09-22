@@ -20,10 +20,10 @@
     },
     "publicCatalog": {
       "path": "skill-library/PUBLIC_SKILLS_MANIFEST.json",
-      "uniqueSkills": 75,
-      "sourceSkillFiles": 177,
-      "shadowedDuplicates": 102,
-      "conflictingIds": 6
+      "uniqueSkills": 79,
+      "sourceSkillFiles": 185,
+      "shadowedDuplicates": 106,
+      "conflictingIds": 0
     },
     "toolProfiles": {
       "path": "tool-profiles",

@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Behavioral baseline for Maestro Core routing before Router v3.",
+  "cases": [
+    {
+      "id": "core-quality-gate",
+      "intent": "auditar plugin antes de adotar",
+      "expect": {
+        "primary": "skill-quality-gate",
+        "forbidden": [
+          "skill-verification-before-completion",
+          "skill-repo-health"
+        ]
+      }
+    },
+    {
+      "id": "core-repo-health",
+      "intent": "faça repo health deste projeto",
+      "expect": {
+        "primary": "skill-repo-health",
+        "forbidden": [
+          "skill-systematic-debugging"
+        ]
+      }
+    },
+    {
+      "id": "core-preflight",
+      "intent": "faça um preflight antes de implementar",
+      "expect": {
+        "primary": "skill-preflight",
+        "forbidden": [
+          "skill-multiagent-orchestration"
+        ]
+      }
+    },
+    {
+      "id": "core-debugging",
+      "intent": "investigar bug e encontrar causa raiz",
+      "expect": {
+        "primary": "skill-systematic-debugging",
+        "forbidden": [
+          "skill-repo-health",
+          "skill-deep-wiki"
+        ]
+      }
+    },
+    {
+      "id": "core-verification",
+      "intent": "validar antes de concluir a tarefa",
+      "expect": {
+        "primary": "skill-verification-before-completion",
+        "forbidden": [
+          "skill-preflight"
+        ]
+      }
+    },
+    {
+      "id": "core-release",
+      "intent": "preparar release com rollback",
+      "expect": {
+        "primary": "skill-release-engineering",
+        "forbidden": [
+          "skill-scope-control"
+        ]
+      }
+    },
+    {
+      "id": "core-database-migration",
+      "intent": "planejar migração de banco",
+      "expect": {
+        "primary": "skill-database-migrations",
+        "forbidden": [
+          "skill-supabase-rls"
+        ]
+      }
+    },
+    {
+      "id": "core-dependency-upgrade",
+      "intent": "atualizar dependencias do projeto",
+      "expect": {
+        "primary": "skill-dependency-upgrade",
+        "forbidden": [
+          "skill-release-engineering"
+        ]
+      }
+    },
+    {
+      "id": "core-incident-response",
+      "intent": "incident response para incidente em produção",
+      "expect": {
+        "primary": "skill-incident-response",
+        "forbidden": [
+          "skill-systematic-debugging"
+        ]
+      }
+    },
+    {
+      "id": "core-adr",
+      "intent": "criar ADR para decisão arquitetural",
+      "expect": {
+        "primary": "skill-adr",
+        "forbidden": [
+          "skill-deep-wiki"
+        ]
+      }
+    },
+    {
+      "id": "core-research",
+      "intent": "pesquisar e sintetizar fontes atuais",
+      "expect": {
+        "primary": "skill-research-and-synthesis",
+        "forbidden": [
+          "skill-doublecheck"
+        ]
+      }
+    },
+    {
+      "id": "core-scope-control",
+      "intent": "o diff saiu do escopo do PR",
+      "expect": {
+        "primary": "skill-scope-control",
+        "forbidden": [
+          "skill-repo-health"
+        ]
+      }
+    },
+    {
+      "id": "core-doublecheck",
+      "intent": "confira as fontes desta afirmação",
+      "expect": {
+        "primary": "skill-doublecheck",
+        "forbidden": [
+          "skill-research-and-synthesis"
+        ]
+      }
+    },
+    {
+      "id": "core-skill-development",
+      "intent": "criar uma skill nova para o Maestro",
+      "expect": {
+        "primary": "skill-skill-development",
+        "forbidden": [
+          "skill-quality-gate"
+        ]
+      }
+    },
+    {
+      "id": "core-engineering-quality",
+      "intent": "aplique boas práticas neste projeto, detecte a stack e configure lint format typecheck testes e build",
+      "expect": {
+        "primary": "skill-engineering-quality",
+        "forbidden": [
+          "skill-frontend-excellence",
+          "skill-repo-health",
+          "skill-quality-gate"
+        ],
+        "maxSkills": 2
+      }
+    },
+    {
+      "id": "domain-product-documentation",
+      "intent": "documente completamente este projeto, crie README, Quick Start e identifique documentation drift",
+      "expect": {
+        "primary": "skill-deep-wiki",
+        "forbidden": [
+          "skill-repo-health",
+          "skill-adr",
+          "skill-quality-gate"
+        ],
+        "maxSkills": 2
+      }
+    }
+  ]
+}

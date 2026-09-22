@@ -17,7 +17,7 @@ Este portal é o ponto de entrada para descobrir a capacidade certa. A documenta
 
 O Maestro separa três tipos que podem aparecer juntos no mesmo fluxo:
 
-- **Skill canônica:** registro mantido no manifesto do Orquestrador, com instruções, gatilhos, risco, compatibilidade e proveniência. É a unidade principal de roteamento.
+- **Skill canônica Maestro:** registro V3 mantido pelo Orquestrador e obrigado a implementar Skill Contract V2 nativamente, com `origin`, capabilities, `routing`, contexto, outputs, verificação, risco e proveniência. É a unidade principal de roteamento interno.
 - **Workflow OMX:** capacidade de execução do ecossistema OMX, como `plan`, `ralph`, `team` ou `ultrawork`. Pode chamar skills canônicas, mas não substitui o registro delas.
 - **Skill comunitária:** conteúdo reutilizável da biblioteca comunitária. Fica disponível sob demanda e só se torna nativa quando a política de instalação declarar isso.
 
@@ -76,3 +76,10 @@ Uma combinação recomendada deve declarar ordem, perfil, risco e evidência mí
 Toda execução deve deixar evidência proporcional ao risco: testes e build quando existirem, diff revisado, saída do scan quando autorizado, screenshot/pixel diff para mudanças visuais, migração validada para banco, ou fontes e decisão registrada para pesquisa. O [guia de escolha](choose.md) e cada página da [referência](reference/README.md) descrevem o resultado mínimo esperado.
 
 Se o baseline, a autorização ou uma ferramenta externa necessária estiver ausente, registre a limitação e pare no gate correspondente. “A skill foi roteada” não é prova de que o trabalho foi concluído.
+
+
+## Contrato V1
+
+Skills `maestro/*` não possuem fallback para o manifesto antigo. O contrato canônico usa `routing.useWhen`, `routing.doNotUseWhen`, `maturity`, `context`, `outputs` e `verification` como fontes únicas.
+
+Skills externas, de usuário ou de projeto continuam podendo usar seus formatos próprios. Elas são normalizadas na fronteira do registry e, sem routing confiável, permanecem explicit-only.

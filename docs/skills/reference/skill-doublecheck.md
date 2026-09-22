@@ -17,7 +17,8 @@ Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e 
 
 ## Quando não usar
 
-- Pedidos fora do domínio verification; use a skill específica quando houver uma intenção mais precisa.
+- Pesquisa ampla e síntese de várias fontes; use skill-research-and-synthesis.
+- Validação de código executável/testes como objetivo principal.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -49,6 +50,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Recipe `research-and-decision`: Pesquisa com fontes e decisão registrada
+- Chain `skill-deep-wiki`
 - Chain `skill-doublecheck`
 
 ## Evidência mínima de conclusão

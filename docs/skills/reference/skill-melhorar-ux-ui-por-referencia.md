@@ -18,8 +18,8 @@ Use para melhorar interfaces a partir de screenshots ou referências visuais, pr
 
 ## Quando não usar
 
-- Retoque de fotografias, artes promocionais e transcrição isolada.
-- Diagnóstico de terminal ou redesign global sem referência e sem escopo.
+- Pedido sem referência visual acessível e sem descrição suficiente da referência.
+- Retoque fotográfico, arte promocional, transcrição ou diagnóstico de terminal.
 
 ## Exemplos de pedidos reconhecidos
 

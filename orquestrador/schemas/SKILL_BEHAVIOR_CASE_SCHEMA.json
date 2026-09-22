@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orquestrador.local/schemas/skill-behavior-case.schema.json",
+  "title": "Maestro Skill Behavior Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "intent",
+    "expect"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object"
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selected": {
+          "$ref": "#/$defs/stringList"
+        },
+        "forbidden": {
+          "$ref": "#/$defs/stringList"
+        },
+        "maxSkills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complexity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maxContextTokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "minProperties": 1
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}

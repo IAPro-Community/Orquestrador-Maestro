@@ -17,7 +17,8 @@ Evolution API WhatsApp integration with webhook idempotency, queueing, consent, 
 
 ## Quando não usar
 
-- Pedidos fora do domínio communication; use a skill específica quando houver uma intenção mais precisa.
+- Planejamento de campanha Meta Ads para aquisição de leads; use skill-whatsapp-meta-ads-leads.
+- Comunicação que não usa Evolution API/WhatsApp.
 
 ## Exemplos de pedidos reconhecidos
 

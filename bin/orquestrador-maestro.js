@@ -74,7 +74,8 @@ Uso:
   orquestrador-maestro context brief [--project-path PATH] [--task TEXT] [--max-chars N] [--since COMMIT] [--json]
   orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
   orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
-  orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
+  orquestrador-maestro go|plan [--auto] [--router-version 2|3] [--complexity LEVEL] [--project-path PATH] "objetivo"
+  orquestrador-maestro route explain [--json] [--complexity LEVEL] "objetivo"
   orquestrador-maestro governance <status|set> [opcoes]
   orquestrador-maestro interaction <list|get|set|reset> [opcoes]
   orquestrador-maestro status [--json] [--task-id ID] [--lockfile PATH] [--project-path PATH]
@@ -1630,13 +1631,62 @@ function handleVersionCommand(args) {
   return 0;
 }
 
+function hasV3SkillManifest(maestroRoot) {
+  const manifestPath = path.join(maestroRoot, "SKILLS_MANIFEST.json");
+  if (!fs.existsSync(manifestPath)) return false;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return manifest.version === 3;
+  } catch {
+    return false;
+  }
+}
+
+function handleRouteCommand(args) {
+  const [subcommand = "explain", ...rest] = args;
+  if (subcommand !== "explain") {
+    throw new Error("Uso: orquestrador-maestro route explain [--json] \"objetivo\"");
+  }
+  const options = parseRuntimeArgs(rest, ["--project-path", "--complexity"], ["--json"]);
+  const description = options.values.join(" ").trim();
+  if (!description) throw new Error('Informe a intenção: orquestrador-maestro route explain "tarefa"');
+
+  const { SkillRouterV3 } = require(path.join(rootDir, "runtime", "planner", "skill-router-v3"));
+  const installedRoot = resolveMaestroRoot({ home: process.env.HOME || process.env.USERPROFILE || os.homedir() });
+  const bundledRoot = path.join(rootDir, "orquestrador");
+  const maestroRoot = hasV3SkillManifest(installedRoot) ? installedRoot : bundledRoot;
+  const router = new SkillRouterV3({ maestroRoot });
+  const workspacePath = path.resolve(options.projectPath || process.cwd());
+  const { collectRoutingSignals } = require(path.join(rootDir, "runtime", "planner", "routing-signals"));
+  const { classifyComplexity: classifyRoutingComplexity } = require(path.join(rootDir, "runtime", "planner", "complexity-gate"));
+  const preliminaryComplexity = classifyRoutingComplexity(description, {
+    overrideLevel: options.complexity || undefined
+  });
+  const routingSignals = collectRoutingSignals(workspacePath, {
+    intent: description,
+    memory: ["COMPLEX", "DEEP"].includes(preliminaryComplexity.level) ? new Memory() : null
+  });
+  const explained = router.explain(description, {
+    ...routingSignals,
+    overrideLevel: options.complexity || undefined
+  });
+
+  if (options.json) {
+    console.log(JSON.stringify(explained.result, null, 2));
+  } else {
+    console.log(explained.text);
+  }
+  return 0;
+}
+
 async function handleGoCommand(args, planningOnly = false) {
-  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--fallback-providers", "--interviewer", "--model", "--max-cost", "--max-parallel", "--profile", "--interaction", "--resolution-mode"], ["--auto", "--plan"]);
+  const options = parseRuntimeArgs(args, ["--project-path", "--provider", "--fallback-providers", "--interviewer", "--model", "--max-cost", "--max-parallel", "--profile", "--interaction", "--resolution-mode", "--router-version", "--complexity"], ["--auto", "--plan"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error('Informe a intenção: orquestrador-maestro go "tarefa"');
 
   const core = require(path.join(rootDir, "runtime", "core"));
   const { IntentRouter } = require(path.join(rootDir, "runtime", "planner", "intent-router"));
+  const { SkillRouterV3 } = require(path.join(rootDir, "runtime", "planner", "skill-router-v3"));
   const { gatherPreflight } = require(path.join(rootDir, "runtime", "planner", "context-preflight"));
   const { DynamicInterviewer } = require(path.join(rootDir, "runtime", "planner", "dynamic-interviewer"));
   const { SemanticPlanner } = require(path.join(rootDir, "runtime", "planner", "semantic-planner"));
@@ -1671,14 +1721,49 @@ async function handleGoCommand(args, planningOnly = false) {
   // Fase 1: Classificação automática via skills
   const s = p.spinner();
   s.start("Classificando intenção");
-  const router = new IntentRouter({});
-  const resolved = router.resolve(description);
+  const routerV2 = new IntentRouter({});
+  const installedRouterRoot = resolveMaestroRoot({ home: process.env.HOME || process.env.USERPROFILE || os.homedir() });
+  const bundledRouterRoot = path.join(rootDir, "orquestrador");
+  const routerV3 = new SkillRouterV3({
+    maestroRoot: hasV3SkillManifest(installedRouterRoot)
+      ? installedRouterRoot
+      : bundledRouterRoot
+  });
+  const requestedRouterVersion = String(options.routerVersion || process.env.MAESTRO_ROUTER_VERSION || "2");
+  if (!["2", "3"].includes(requestedRouterVersion)) {
+    throw new Error("--router-version aceita apenas 2 ou 3.");
+  }
+  const { evaluateRouterShadow } = require(path.join(rootDir, "runtime", "planner", "router-shadow"));
+  const { collectRoutingSignals } = require(path.join(rootDir, "runtime", "planner", "routing-signals"));
+  const { classifyComplexity: classifyRoutingComplexity } = require(path.join(rootDir, "runtime", "planner", "complexity-gate"));
+  const preliminaryComplexity = classifyRoutingComplexity(description, {
+    overrideLevel: options.complexity || undefined
+  });
+  const routingSignals = collectRoutingSignals(workspacePath, {
+    intent: description,
+    memory: ["COMPLEX", "DEEP"].includes(preliminaryComplexity.level) ? new Memory() : null
+  });
+  const routingEvaluation = evaluateRouterShadow({
+    intent: description,
+    routerV2,
+    routerV3,
+    activeVersion: requestedRouterVersion,
+    options: {
+      ...routingSignals,
+      overrideLevel: options.complexity || undefined
+    }
+  });
+  const resolvedV2 = routingEvaluation.resolvedV2;
+  const resolvedV3 = routingEvaluation.resolvedV3;
+  const resolved = routingEvaluation.resolved;
+  const routingShadow = routingEvaluation.shadow;
 
   if (resolved.primarySkill) {
     const skillsList = [resolved.primarySkill, ...resolved.chainedSkills].map(sk => sk.id).join(", ");
-    s.stop(`Intenção classificada: ${skillsList} (Profile: ${resolved.profile})`);
+    const complexityLabel = requestedRouterVersion === "3" ? `, Complexity: ${resolvedV3.complexity.level}` : "";
+    s.stop(`Intenção classificada: ${skillsList} (Router: v${requestedRouterVersion}, Profile: ${resolved.profile}${complexityLabel})`);
   } else {
-    s.stop("Nenhuma skill específica detectada — usando modo genérico");
+    s.stop(`Nenhuma skill específica detectada — usando modo genérico (Router: v${requestedRouterVersion})`);
   }
 
   // Instancia a IntentSession localmente
@@ -1695,7 +1780,10 @@ async function handleGoCommand(args, planningOnly = false) {
 
   const semanticRanker = new SemanticRanker(app, { localOnly: false });
   const contextEngine = new ContextEngine({ workspacePath, semanticRanker });
-  const relevantContext = await contextEngine.buildContext(description, 8000, { resolutionMode });
+  const routingContextBudget = requestedRouterVersion === "3"
+    ? resolvedV3.contextBudget
+    : 8000;
+  const relevantContext = await contextEngine.buildContext(description, routingContextBudget, { resolutionMode });
 
   s.stop(`Codebase explorada. Itens relevantes encontrados: ${relevantContext.items.length}`);
 
@@ -1775,7 +1863,10 @@ async function handleGoCommand(args, planningOnly = false) {
     objective: approvedBrief.objective,
     status: "planning",
     startedAt: new Date().toISOString(),
-    metadata: { missionBriefId: approvedBrief.id }
+    metadata: {
+      missionBriefId: approvedBrief.id,
+      routing: routingShadow
+    }
   });
 
   const adaptivePolicyId = process.env.MAESTRO_ADAPTIVE_POLICY_ID || "";
@@ -2635,6 +2726,10 @@ function handleTargetsCommand(args) {
 async function dispatch(command, args) {
   if (command === "go" || command === "plan") {
     return handleGoCommand(args, command === "plan");
+  }
+
+  if (command === "route") {
+    return handleRouteCommand(args);
   }
 
   if (command === "context") {

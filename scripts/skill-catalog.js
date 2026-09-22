@@ -26,6 +26,10 @@ const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_STATUSES = new Set(["canonical", "legacy", "experimental", "deprecated"]);
 const VALID_WORKFLOW_KINDS = new Set(["task", "workflow", "reference"]);
 const VALID_VALIDATION_LEVELS = new Set(["light", "standard", "strict"]);
+const VALID_ORIGINS = new Set(["maestro-core", "maestro-domain"]);
+const VALID_MATURITY = new Set(["experimental", "stable", "deprecated"]);
+const VALID_CONTEXT_COSTS = new Set(["minimal", "low", "medium", "high"]);
+const { createCanonicalSkillContract, SKILL_CAPABILITIES } = require("../runtime/skills/contract-v2");
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -53,7 +57,7 @@ function parseArgs(argv) {
       throw new Error(`Missing value for --${key}`);
     }
     index++;
-    if (key === "trigger" || key === "alias") {
+    if (["trigger", "alias", "capability", "output", "context-required", "context-useful", "context-avoid"].includes(key)) {
       args[key] = args[key] || [];
       args[key].push(value);
     } else {
@@ -138,7 +142,7 @@ function validateProvenance(value, label, issues) {
     issues.push(`${label}: must be an object`);
     return;
   }
-  const allowedKeys = new Set(["evidence", "steward", "reviewedAt", "legacyCompatible", "notes", "upstream", "version", "license"]);
+  const allowedKeys = new Set(["evidence", "steward", "reviewedAt", "notes", "upstream", "version", "license"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) issues.push(`${label}: unknown field ${key}`);
   }
@@ -146,9 +150,6 @@ function validateProvenance(value, label, issues) {
   validateString(value.steward, `${label}.steward`, issues);
   if (validateString(value.reviewedAt, `${label}.reviewedAt`, issues) && !ISO_DATE_RE.test(value.reviewedAt)) {
     issues.push(`${label}.reviewedAt: must use YYYY-MM-DD`);
-  }
-  if (Object.prototype.hasOwnProperty.call(value, "legacyCompatible")) {
-    validateBoolean(value.legacyCompatible, `${label}.legacyCompatible`, issues);
   }
   if (Object.prototype.hasOwnProperty.call(value, "notes")) {
     validateString(value.notes, `${label}.notes`, issues);
@@ -163,15 +164,15 @@ function validateDocumentation(value, label, issues) {
     issues.push(`${label}: must be an object`);
     return;
   }
-  const allowedKeys = new Set(["bestFor", "notFor", "examples", "prerequisites", "expectedEvidence"]);
+  const allowedKeys = new Set(["bestFor", "examples", "prerequisites"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) issues.push(`${label}: unknown field ${key}`);
   }
-  for (const field of ["bestFor", "notFor", "examples", "prerequisites", "expectedEvidence"]) {
+  for (const field of ["bestFor", "examples", "prerequisites"]) {
     if (!Object.prototype.hasOwnProperty.call(value, field)) {
       issues.push(`${label}: missing ${field}`);
     } else {
-      validateStringArray(value[field], `${label}.${field}`, issues, { minItems: field === "notFor" || field === "prerequisites" ? 0 : 1 });
+      validateStringArray(value[field], `${label}.${field}`, issues, { minItems: field === "prerequisites" ? 0 : 1 });
     }
   }
 }
@@ -181,7 +182,7 @@ function validateWorkflow(value, label, issues) {
     issues.push(`${label}: must be an object`);
     return;
   }
-  const allowedKeys = new Set(["entry", "kind", "validation", "referencesOptional", "legacyCompatible", "notes"]);
+  const allowedKeys = new Set(["entry", "kind", "validation", "referencesOptional", "notes"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) issues.push(`${label}: unknown field ${key}`);
   }
@@ -191,14 +192,11 @@ function validateWorkflow(value, label, issues) {
   if (validateString(value.kind, `${label}.kind`, issues)) {
     validateEnum(value.kind, VALID_WORKFLOW_KINDS, `${label}.kind`, issues);
   }
-  if (validateString(value.validation, `${label}.validation`, issues)) {
+  if (Object.prototype.hasOwnProperty.call(value, "validation") && validateString(value.validation, `${label}.validation`, issues)) {
     validateEnum(value.validation, VALID_VALIDATION_LEVELS, `${label}.validation`, issues);
   }
   if (Object.prototype.hasOwnProperty.call(value, "referencesOptional")) {
     validateBoolean(value.referencesOptional, `${label}.referencesOptional`, issues);
-  }
-  if (Object.prototype.hasOwnProperty.call(value, "legacyCompatible")) {
-    validateBoolean(value.legacyCompatible, `${label}.legacyCompatible`, issues);
   }
   if (Object.prototype.hasOwnProperty.call(value, "notes")) {
     validateString(value.notes, `${label}.notes`, issues);
@@ -224,8 +222,8 @@ function validateManifestSchemaDocument(value, issues) {
       }
     }
   }
-  if (!Number.isInteger(value.version) || value.version < 1) {
-    issues.push("manifest.version: must be an integer >= 1");
+  if (value.version !== 3) {
+    issues.push("manifest.version: must be exactly 3 for Maestro V1");
   }
   validateString(value.purpose, "manifest.purpose", issues);
   if (Object.prototype.hasOwnProperty.call(value, "defaults")) {
@@ -241,6 +239,9 @@ function validateManifestSchemaDocument(value, issues) {
       }
       if (Object.prototype.hasOwnProperty.call(value.defaults, "workflow")) {
         validateWorkflow(value.defaults.workflow, "manifest.defaults.workflow", issues);
+        if (Object.prototype.hasOwnProperty.call(value.defaults.workflow, "validation")) {
+          issues.push("manifest.defaults.workflow.validation is deprecated; use per-skill verification.level");
+        }
       }
     }
   }
@@ -336,12 +337,34 @@ function createSkill(args) {
   const source = String(args.source || "local-patterns").trim();
   const triggers = unique(args.trigger);
   const aliases = unique(args.alias);
+  const capabilities = unique(args.capability);
+  const outputs = unique(args.output);
+  const origin = String(args.origin || "maestro-domain").trim();
+  const contextRequired = unique(args["context-required"]);
+  const contextUseful = unique(args["context-useful"]);
+  const contextAvoid = unique(args["context-avoid"]).length > 0
+    ? unique(args["context-avoid"])
+    : ["unrelated-domains"];
 
   if (!description || !category || !risk) {
     throw new Error("--description, --category, and --risk are required.");
   }
   if (triggers.length === 0) {
     throw new Error("At least one --trigger is required.");
+  }
+  if (capabilities.length === 0) {
+    throw new Error("At least one --capability is required for Maestro Skill Contract V2.");
+  }
+  if (outputs.length === 0) {
+    throw new Error("At least one --output is required for Maestro Skill Contract V2.");
+  }
+  if (!VALID_ORIGINS.has(origin)) {
+    throw new Error("--origin must be maestro-core or maestro-domain.");
+  }
+  for (const capability of capabilities) {
+    if (!SKILL_CAPABILITIES.includes(capability)) {
+      throw new Error(`Unsupported capability: ${capability}`);
+    }
   }
 
   const skillDir = path.join(skillsRoot, name);
@@ -360,9 +383,23 @@ function createSkill(args) {
   const manifest = fs.existsSync(manifestPath)
     ? readJson(manifestPath)
     : {
-        version: 1,
+        version: 3,
         schema: "./SKILLS_MANIFEST_SCHEMA.json",
-        purpose: "Canonical Orquestrador skill registry.",
+        purpose: "Canonical V1 registry for Maestro-owned skills.",
+        defaults: {
+          provenance: {
+            evidence: ["orquestrador/SKILLS_ORGANIZATION.md", "docs/skill-catalog.md"],
+            steward: "orquestrador-maintainers",
+            reviewedAt: new Date().toISOString().slice(0, 10),
+            notes: "Provenance defaults for Maestro-owned Skill Contract V2 entries."
+          },
+          workflow: {
+            entry: "SKILL.md",
+            kind: "task",
+            referencesOptional: true,
+            notes: "Execution metadata for Maestro-owned skills."
+          }
+        },
         skills: {},
       };
   const reviewedAt = new Date().toISOString().slice(0, 10);
@@ -372,17 +409,35 @@ function createSkill(args) {
     risk,
     source,
     mirrorEverywhere: Boolean(args.mirrorEverywhere),
-    triggers,
     aliases,
-    status: "canonical",
+    schemaVersion: 2,
+    contractVersion: "1.0.0",
+    origin,
+    maturity: "stable",
+    capabilities,
+    routing: {
+      useWhen: triggers,
+      doNotUseWhen: [`Pedidos fora do domínio ${category}; use uma skill mais específica.`]
+    },
+    context: {
+      required: contextRequired,
+      useful: contextUseful,
+      avoid: contextAvoid
+    },
+    outputs,
+    verification: {
+      level: "standard",
+      requirements: ["Resultado solicitado demonstrado por teste, inspeção ou artefato verificável."]
+    },
+    costProfile: {
+      context: risk === "high" ? "high" : risk === "medium" ? "medium" : "low"
+    },
     tags: unique([category, ...name.replace(/^skill-/, "").split("-")]),
     routerSummary: description,
     documentation: {
       bestFor: [description],
-      notFor: [`Pedidos fora do domínio ${category}; use uma skill mais específica.`],
       examples: triggers.slice(0, 5).map((trigger) => `Use para ${trigger}.`),
-      prerequisites: [`Contexto do projeto e autorização compatíveis com o risco ${risk}.`],
-      expectedEvidence: ["Resultado solicitado demonstrado por teste, inspeção ou artefato verificável."],
+      prerequisites: [`Contexto do projeto e autorização compatíveis com o risco ${risk}.`]
     },
     provenance: {
       evidence: [`orquestrador/skills/${name}/SKILL.md`],
@@ -391,8 +446,7 @@ function createSkill(args) {
       upstream: source,
       version: "bundled",
       license: "repository-license",
-      legacyCompatible: true,
-      notes: "Metadados gerados pelo catálogo canônico.",
+      notes: "Metadados do Skill Contract V2 gerados pelo catálogo canônico.",
     },
   };
   writeJson(manifestPath, manifest);
@@ -417,12 +471,10 @@ function effectiveDocumentation(entry) {
   const documentation = isPlainObject(entry.documentation) ? entry.documentation : {};
   return {
     bestFor: list(documentation.bestFor).length > 0 ? list(documentation.bestFor) : [entry.description],
-    notFor: list(documentation.notFor),
-    examples: list(documentation.examples).length > 0 ? list(documentation.examples) : list(entry.triggers).slice(0, 5).map((trigger) => `Use para ${trigger}.`),
+    notFor: list(entry.routing?.doNotUseWhen),
+    examples: list(documentation.examples).length > 0 ? list(documentation.examples) : list(entry.routing?.useWhen).slice(0, 5).map((trigger) => `Use para ${trigger}.`),
     prerequisites: list(documentation.prerequisites),
-    expectedEvidence: list(documentation.expectedEvidence).length > 0
-      ? list(documentation.expectedEvidence)
-      : ["Resultado solicitado demonstrado por teste, inspeção ou artefato verificável."],
+    expectedEvidence: list(entry.verification?.requirements),
   };
 }
 
@@ -577,7 +629,7 @@ ${chains.length > 0 ? chains.map((chain) => `- Chain \`${chain}\``).join("\n") :
 ## Evidência mínima de conclusão
 
 ${renderList(docs.expectedEvidence)}
-${workflow ? `\nPerfil de workflow: \`${workflow.validation}\` (entrada: \`${workflow.entry}\`).` : ""}
+${workflow ? `\nPerfil de workflow: \`${entry.verification?.level}\` (entrada: \`${workflow.entry}\`).` : ""}
 
 ## Proveniência
 
@@ -674,7 +726,7 @@ function generatedRoutingDocuments(manifest) {
     routerSkills[name] = {
       ...current,
       description: entry.routerSummary || entry.description,
-      triggers: list(entry.triggers),
+      triggers: list(entry.routing?.useWhen),
       canonicalPath: `{{USER_HOME}}/.orquestrador/skills/${name}/SKILL.md`,
       codexPath: `{{USER_HOME}}/.codex/skills/${name}/SKILL.md`,
       cost: current.cost || (entry.risk === "high" ? "high" : entry.risk === "medium" ? "medium" : "low"),
@@ -792,23 +844,41 @@ function validate() {
   for (const [name, entry] of Object.entries(manifestSkills)) {
     if (normalizeSkillName(name) !== name) issues.push(`manifest:${name}: name is not normalized`);
     try {
+      createCanonicalSkillContract(name, entry);
+    } catch (error) {
+      issues.push(`manifest:${name}: ${error.message}`);
+    }
+    try {
       assertSkillName(name);
     } catch (error) {
       issues.push(`manifest:${name}: ${error.message}`);
     }
-    for (const field of ["description", "category", "risk", "source", "status"]) {
+    for (const field of ["description", "category", "risk", "source", "schemaVersion", "contractVersion", "origin", "maturity", "capabilities", "routing", "context", "outputs", "verification", "costProfile"]) {
       if (!entry[field]) issues.push(`manifest:${name}: missing ${field}`);
     }
     if (entry.risk) validateEnum(entry.risk, VALID_RISKS, `manifest:${name}.risk`, issues);
-    if (entry.status) validateEnum(entry.status, VALID_STATUSES, `manifest:${name}.status`, issues);
+    if (entry.origin) validateEnum(entry.origin, VALID_ORIGINS, `manifest:${name}.origin`, issues);
+    if (entry.maturity) validateEnum(entry.maturity, VALID_MATURITY, `manifest:${name}.maturity`, issues);
+    if (entry.costProfile?.context) validateEnum(entry.costProfile.context, VALID_CONTEXT_COSTS, `manifest:${name}.costProfile.context`, issues);
+    for (const deprecatedField of ["triggers", "status"]) {
+      if (Object.prototype.hasOwnProperty.call(entry, deprecatedField)) {
+        issues.push(`manifest:${name}: deprecated field ${deprecatedField}; use Skill Contract V2`);
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(entry.documentation || {}, "notFor")) {
+      issues.push(`manifest:${name}: documentation.notFor is deprecated; use routing.doNotUseWhen`);
+    }
+    if (Object.prototype.hasOwnProperty.call(entry.documentation || {}, "expectedEvidence")) {
+      issues.push(`manifest:${name}: documentation.expectedEvidence is deprecated; use verification.requirements`);
+    }
+    if (Object.prototype.hasOwnProperty.call(entry.workflow || {}, "validation")) {
+      issues.push(`manifest:${name}: workflow.validation is deprecated; use verification.level`);
+    }
     if (Object.prototype.hasOwnProperty.call(entry, "priority") && (!Number.isInteger(entry.priority) || entry.priority < 0)) {
       issues.push(`manifest:${name}.priority: must be an integer >= 0`);
     }
     if (Object.prototype.hasOwnProperty.call(entry, "mirrorEverywhere")) {
       validateBoolean(entry.mirrorEverywhere, `manifest:${name}.mirrorEverywhere`, issues);
-    }
-    if (Object.prototype.hasOwnProperty.call(entry, "triggers")) {
-      validateStringArray(entry.triggers, `manifest:${name}.triggers`, issues, { minItems: 1 });
     }
     if (Object.prototype.hasOwnProperty.call(entry, "aliases")) {
       validateStringArray(entry.aliases, `manifest:${name}.aliases`, issues);
@@ -871,7 +941,7 @@ function validate() {
       if (routed.description !== (entry.routerSummary || entry.description)) {
         issues.push(`router:${name}: description is stale; run skill-catalog generate`);
       }
-      if (JSON.stringify(list(routed.triggers)) !== JSON.stringify(list(entry.triggers))) {
+      if (JSON.stringify(list(routed.triggers)) !== JSON.stringify(list(entry.routing?.useWhen))) {
         issues.push(`router:${name}: triggers are stale; run skill-catalog generate`);
       }
     }
@@ -943,8 +1013,8 @@ function validate() {
     if (!Array.isArray(entry.triggers) || entry.triggers.length === 0) {
       issues.push(`router:${name}: triggers must be a non-empty array`);
     }
-    if (manifestSkills[name] && JSON.stringify(entry.triggers) !== JSON.stringify(manifestSkills[name].triggers)) {
-      issues.push(`router:${name}: triggers diverge from manifest`);
+    if (manifestSkills[name] && JSON.stringify(entry.triggers) !== JSON.stringify(manifestSkills[name].routing?.useWhen)) {
+      issues.push(`router:${name}: triggers diverge from manifest routing.useWhen`);
     }
   }
 

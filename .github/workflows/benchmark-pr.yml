@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "feat/*"
+      - "feature/*"
     paths:
       - "benchmark-harness/**"
       - "package.json"
