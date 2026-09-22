@@ -35,7 +35,7 @@ notepad $env:TEMP/bootstrap-install.ps1
 & $env:TEMP/bootstrap-install.ps1
 ```
 
-O bootstrap exige Node.js 20 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
+O bootstrap exige Node.js 20.12 ou superior, detecta um prefixo global do npm sem permissão de escrita, configura um prefixo dentro do home do usuário, atualiza o `PATH`, instala a versão estável da CLI e executa `install` e `verify`.
 
 ## Disco cheio após uma instalação antiga no macOS
 
