@@ -588,7 +588,15 @@ class MaestroApplication {
     const task = core.createTask({ id: taskId, description: request.description, projectId, createdAt: existingTask?.createdAt || new Date().toISOString(), metadata: taskMetadata });
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
-    await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
+    const existingProject = await this.store.getProject(projectId);
+    if (existingProject?.path && path.resolve(existingProject.path) !== workspacePath) {
+      const error = new Error("PROJECT_SCOPE_MISMATCH: projectId is already bound to a different workspacePath");
+      error.code = "PROJECT_SCOPE_MISMATCH";
+      throw error;
+    }
+    if (!existingProject) {
+      await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
+    }
     await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
     await this.record(run.id, "resolution.planned", {
