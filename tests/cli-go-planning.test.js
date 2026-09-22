@@ -229,6 +229,7 @@ test("CLI go keeps one canonical mission id across planning, graph approval, and
 test("CLI go finalizes canonical mission on unexpected planning or execution errors", () => {
   const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
   assert.match(cliContent, /failureStage: "planning"/u);
+  assert.match(cliContent, /failureStage: "approval"/u);
   assert.match(cliContent, /failureStage: "execution"/u);
   assert.match(cliContent, /finally \{\s*lifecycleMonitor\.detach\(\);\s*\}/u);
 });
