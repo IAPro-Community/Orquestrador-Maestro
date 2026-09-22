@@ -21,6 +21,8 @@ Use multiagents only when at least one condition is true:
 
 Keep work solo when:
 
+- The task is a routine Git/VCS operation such as status, diff, add, commit, push, pull, branch inspection, or tagging. The lead agent performs it directly; do not create a Git worker for mechanical commands.
+- The task is formatting, a simple rename, a one-file edit, or running one validation command.
 - The next step is a blocking decision or a single-file change.
 - Agents would edit the same files.
 - The task requires one continuous mental model more than parallel throughput.
@@ -82,8 +84,11 @@ Use these lanes when they match the task:
 - `designer`: UI/UX review or implementation for frontend surfaces.
 - `dependency-expert`: check external SDK docs, package versions, and integration constraints.
 - `verifier`: confirm completion claims against commands, diffs, and acceptance criteria.
+- `skill-premium-web-experience` may use these lanes for genuinely independent research, UX strategy, art direction, motion, implementation, and QA. Keep ownership disjoint and centralize the final integration; do not let multiple agents edit the same component tree simultaneously.
 
 Prefer fewer agents with better scopes over many agents with vague scopes.
+
+Treat reasoning depth and delegation as independent axes. Never select multiagent merely because a task is marked deep, complex, security-sensitive, or long-running. There must be parallelizable work.
 
 ## SaaS Default Split
 
