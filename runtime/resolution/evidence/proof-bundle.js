@@ -4,7 +4,7 @@ const { deriveMissionResolutionFromTaskStates } = require("../resolution-state")
 const { runtimeTaskId } = require("../../core/task-identity");
 
 function sortByTime(values = []) {
-  return [...values].sort((a, b) => String(a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.createdAt || b.startedAt || b.completedAt || "")));
+  return [...values].sort((a, b) => String(a.occurredAt || a.createdAt || a.startedAt || a.completedAt || "").localeCompare(String(b.occurredAt || b.createdAt || b.startedAt || b.completedAt || "")));
 }
 
 function taskLifecycleState(events = []) {
