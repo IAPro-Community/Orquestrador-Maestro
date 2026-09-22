@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <style>
+      .bg{fill:#0b1020}.title{fill:#f8fafc;font:700 32px Arial,sans-serif}.h{fill:#e2e8f0;font:700 20px Arial,sans-serif}
+      .t{fill:#d6deeb;font:16px Arial,sans-serif}.small{fill:#9aa9c0;font:14px Arial,sans-serif}
+      .card{fill:#121a2f;stroke:#2a3a60;stroke-width:2}.good{fill:#103528;stroke:#2f9e6f;stroke-width:2}
+      .neutral{fill:#17233d;stroke:#4f6b9a;stroke-width:2}.line{stroke:#32486f;stroke-width:2}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="720"/>
+  <text class="title" x="55" y="58">Failure handling and compatibility safety</text>
+  <text class="small" x="55" y="86">Different failures get different actions — no blind retry loop and no fake validation.</text>
+
+  <text class="h" x="70" y="135">Failure detected</text>
+  <text class="h" x="455" y="135">Maestro action</text>
+  <text class="h" x="835" y="135">Safety property</text>
+
+  <line class="line" x1="55" y1="155" x2="1145" y2="155"/>
+
+  <rect class="card" x="55" y="180" rx="12" width="300" height="92"/>
+  <text class="t" x="80" y="214">Provider / transport failure</text>
+  <text class="small" x="80" y="240">CLI unavailable, provider crash, transport error</text>
+  <rect class="neutral" x="405" y="180" rx="12" width="330" height="92"/>
+  <text class="t" x="430" y="214">Create checkpoint → switch provider</text>
+  <text class="small" x="430" y="240">bounded, same semantic Task</text>
+  <rect class="good" x="785" y="180" rx="12" width="360" height="92"/>
+  <text class="t" x="810" y="214">No silent restart from zero</text>
+  <text class="small" x="810" y="240">handoff is auditable and preserves evidence</text>
+
+  <rect class="card" x="55" y="292" rx="12" width="300" height="92"/>
+  <text class="t" x="80" y="326">Validation / test failure</text>
+  <text class="small" x="80" y="352">deterministic verifier says “not done”</text>
+  <rect class="neutral" x="405" y="292" rx="12" width="330" height="92"/>
+  <text class="t" x="430" y="326">Keep provider; mark needs_attention</text>
+  <text class="small" x="430" y="352">do not buy context or switch blindly</text>
+  <rect class="good" x="785" y="292" rx="12" width="360" height="92"/>
+  <text class="t" x="810" y="326">A failed test cannot become “success”</text>
+  <text class="small" x="810" y="352">Validated Outcome stays fail-closed</text>
+
+  <rect class="card" x="55" y="404" rx="12" width="300" height="92"/>
+  <text class="t" x="80" y="438">Insufficient context</text>
+  <text class="small" x="80" y="464">evidence/context truly missing</text>
+  <rect class="neutral" x="405" y="404" rx="12" width="330" height="92"/>
+  <text class="t" x="430" y="438">targeted → balanced → deep</text>
+  <text class="small" x="430" y="464">bounded escalation only</text>
+  <rect class="good" x="785" y="404" rx="12" width="360" height="92"/>
+  <text class="t" x="810" y="438">Context growth has a reason and limit</text>
+  <text class="small" x="810" y="464">required-context overflow blocks in enforce</text>
+
+  <rect class="card" x="55" y="516" rx="12" width="300" height="92"/>
+  <text class="t" x="80" y="550">Policy / human decision required</text>
+  <text class="small" x="80" y="576">approval, review, governance</text>
+  <rect class="neutral" x="405" y="516" rx="12" width="330" height="92"/>
+  <text class="t" x="430" y="550">Block or request attention</text>
+  <text class="small" x="430" y="576">no provider fallback</text>
+  <rect class="good" x="785" y="516" rx="12" width="360" height="92"/>
+  <text class="t" x="810" y="550">Policy cannot be bypassed by retry</text>
+  <text class="small" x="810" y="576">enforce remains gated, not default</text>
+
+  <rect class="good" x="55" y="635" rx="12" width="1090" height="50"/>
+  <text class="t" x="600" y="666" text-anchor="middle">Also hardened: cross-process RunStore lock · fsync/atomic publish · Evidence sanitization · Linux/macOS/Windows CI</text>
+</svg>
