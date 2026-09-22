@@ -38,21 +38,27 @@ Keep work solo when:
 
 ### Standard
 
-- Agents: 0-1
-- Use one sidecar agent only for independent research, review, or verification.
-- Main agent keeps the implementation path.
+- Agents: 0
+- Default profile for normal engineering work.
+- Keep implementation, research, and verification in the lead process unless execution is explicitly promoted to multiagent.
 
 ### Deep
 
-- Agents: 2-4
-- Use for multi-system changes, project audits, SaaS builds, security hardening, or explicit parallel work.
-- Every agent needs a disjoint scope and a concrete output.
+- Agents: 0
+- Use for broad or difficult work that needs more reasoning, context, or verification.
+- Deep means greater reasoning depth, not automatic fan-out.
+
+### Multiagent
+
+- Subagents: 1-4
+- This is the only normal execution profile that permits provider fan-out.
+- Use only when there are at least 2 independent, non-overlapping workstreams and parallel execution materially helps.
 
 ### Team
 
-- Agents: 3-6
-- Use only when the work has clearly separable lanes such as frontend, backend, database, security, docs, and verification.
-- Require an integration owner.
+- Subagents: 2-4
+- Team is an explicit multiagent workflow, not an automatic consequence of task complexity.
+- Require disjoint ownership and a lead/integration owner.
 
 ## Delegation Rules
 
