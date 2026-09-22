@@ -371,12 +371,19 @@ test("brief labels legacy bare-verified rows as unverified", () => {
 
 test("M5: redaction covers bare cloud secrets", () => {
   const { tmpDir, memory } = makeMemory();
+  const awsFixture = ["AKIAIOSFODNN7", "EXAMPLE"].join("");
+  const privateKeyFixture = [
+    "-----BEGIN EC PRIVATE KEY",
+    "-----\nabc\n",
+    "-----END EC PRIVATE KEY",
+    "-----"
+  ].join("");
   try {
     const obs = memory.record("p1", baseObs({
       summary: "Deploy notes",
-      details: "key AKIAIOSFODNN7EXAMPLE and glpat-abcdefghijklmnopqrst and -----BEGIN EC PRIVATE KEY-----\nabc\n-----END EC PRIVATE KEY----- and AIzaSyAbcdefghijklmnopqrstuvwxyz1234567"
+      details: `key ${awsFixture} and glpat-abcdefghijklmnopqrst and ${privateKeyFixture} and AIzaSyAbcdefghijklmnopqrstuvwxyz1234567`
     }));
-    assert.ok(!obs.details.includes("AKIAIOSFODNN7EXAMPLE"));
+    assert.ok(!obs.details.includes(awsFixture));
     assert.ok(!obs.details.includes("glpat-abcdefghijklmnopqrst"));
     assert.ok(!obs.details.includes("BEGIN EC PRIVATE KEY"));
     assert.ok(!obs.details.includes("AIzaSyAbcdefghijklmnopqrstuvwxyz1234567"));
@@ -451,7 +458,12 @@ test("M11: brief redacts JWT and keys from DEV files (behavior)", () => {
   const { tmpDir, memory } = makeMemory();
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "memory-brief-redact-"));
   try {
-    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    const awsFixture = ["AKIAIOSFODNN7", "EXAMPLE"].join("");
+    const jwt = [
+      "eyJhbGciOiJIUzI1NiJ9",
+      ".eyJzdWIiOiIxIn0",
+      ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    ].join("");
     fs.writeFileSync(path.join(projectRoot, "AGENTS.md"), "# Contrato\n", "utf8");
     fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
     for (const f of ["README.md", "INDEX.md", "HANDOFF.md"]) {
@@ -459,7 +471,7 @@ test("M11: brief redacts JWT and keys from DEV files (behavior)", () => {
     }
     fs.writeFileSync(
       path.join(projectRoot, "DEV", "CONTEXT.md"),
-      "# C\n\nOld key AKIAIOSFODNN7EXAMPLE rotated. Old jwt " + jwt + ".\n",
+      "# C\n\nOld key " + awsFixture + " rotated. Old jwt " + jwt + ".\n",
       "utf8"
     );
     const brief = buildBrief({
@@ -469,7 +481,7 @@ test("M11: brief redacts JWT and keys from DEV files (behavior)", () => {
       memory
     });
     const text = typeof brief === "string" ? brief : brief.brief || JSON.stringify(brief);
-    assert.ok(!text.includes("AKIAIOSFODNN7EXAMPLE"));
+    assert.ok(!text.includes(awsFixture));
     assert.ok(!text.includes(jwt));
   } finally {
     cleanup(tmpDir);

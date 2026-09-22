@@ -11,7 +11,7 @@
     "sourceSkillFiles": 177,
     "uniqueSkills": 75,
     "shadowedDuplicates": 102,
-    "conflictingIds": 7
+    "conflictingIds": 6
   },
   "skills": [
     {
@@ -364,7 +364,7 @@
       "description": "Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-multiagent-orchestration",
-      "contentHash": "5777a3af46bec82418394f75a1d23bc634f837ce41d57f9109b2dc7c4c22da6d"
+      "contentHash": "8532c9532b9e63891eb0bff5c762f6d2ff9bbfacec003fd5154f5576c7ba8058"
     },
     {
       "id": "skill-open-design-ui",
@@ -620,7 +620,6 @@
     "skill-frontend-ux-guardrails",
     "skill-impeccable",
     "skill-modern-ui-patterns",
-    "skill-multiagent-orchestration",
     "skill-open-design-ui",
     "skill-saas-factory"
   ]
