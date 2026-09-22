@@ -841,9 +841,8 @@ async function handleRunCommand(args) {
     ? await app.executeTaskWithHandoff(request)
     : await app.executeRun(request);
   console.log(JSON.stringify({ run: outcome.run, verification: outcome.verification, changes: outcome.changes }, null, 2));
-  const resolutionState = outcome.run?.metadata?.resolution?.outcome?.state || null;
-  const validated = outcome.run.status === "completed" && (!resolutionState || resolutionState === "validated");
-  return validated ? 0 : 1;
+  const { isValidatedRunSuccess } = require(path.join(rootDir, "runtime", "resolution", "resolution-state"));
+  return isValidatedRunSuccess(outcome.run) ? 0 : 1;
 }
 
 function handleInteractionCommand(args) {
