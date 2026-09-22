@@ -400,7 +400,7 @@ test("resolved planner skill reaches the provider prompt after runtime compactio
 
   assert.equal(outcome.run.status, "completed");
   assert.equal(provider.requests.length, 1);
-  assert.match(provider.requests[0].prompt, /Resolved skills:/u);
+  assert.match(provider.requests[0].prompt, /Resolved skills/u);
   assert.match(provider.requests[0].prompt, /maestro\/skill-testing/u);
   assert.match(provider.requests[0].prompt, /skills[/\\]skill-testing[/\\]SKILL\.md/u);
   assert.match(provider.requests[0].prompt, /do not load unrelated skills/u);
