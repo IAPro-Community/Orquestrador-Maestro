@@ -845,6 +845,21 @@ class MaestroApplication {
       // Durable rejection reason is sanitized: provider/transport errors
       // routinely embed tokens, cookies, connection strings and home paths.
       const cleanReason = sanitizeDiagnostic(error && error.message ? error.message : String(error));
+      // A provider may mutate the workspace and then crash before returning a
+      // normal result. Capture that partial ChangeSet so the provider handoff
+      // reflects the real workspace state instead of pretending no work happened.
+      const failedChanges = diff(workspacePath);
+      const failedArtifact = core.createArtifact({
+        id: id("artifact"),
+        runId: run.id,
+        stepId: step.id,
+        type: "DIFF",
+        name: "git-diff-provider-failure",
+        createdAt: completedAt,
+        metadata: durableChangeArtifactMetadata(before, failedChanges)
+      });
+      await this.store.saveArtifact(failedArtifact);
+      await this.record(run.id, "artifact.created", { artifactId: failedArtifact.id, type: failedArtifact.type });
       await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: cleanReason, engineeringContract: executionPackage.engineeringContract } });
       await this.store.saveStep({ ...step, status: "failed", completedAt });
       // Failed-run telemetry: minimal but coherent. The provider call was
@@ -920,7 +935,7 @@ class MaestroApplication {
       await this._recordTaskOutcomeTransition(task.id, run.id, failedResolution.outcome);
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
       await this.record(run.id, "run.failed", { reason: cleanReason });
-      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, failureClass: "provider-failure", failureKind: "provider", failureCode: "PROVIDER_EXECUTION_FAILED", governanceWarnings: [], governanceBlocking: [], recommendations: [] };
+      return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, changes: failedChanges, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, failureClass: "provider-failure", failureKind: "provider", failureCode: "PROVIDER_EXECUTION_FAILED", governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
     this.activeRuns.delete(run.id);
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
@@ -938,7 +953,12 @@ class MaestroApplication {
     const commands = request.verificationCommands || this.inferProjectVerification(workspacePath);
     const verification = await this.verification.verify({ id: id("verification"), runId: run.id, commands, cwd: workspacePath, timeoutMs: policy.timeoutMs });
     await this.store.saveVerification(verification);
-    await this.record(run.id, verification.status === "passed" ? "verification.completed" : "verification.failed", { verificationId: verification.id });
+    const verificationEventType = verification.status === "passed"
+      ? "verification.completed"
+      : verification.status === "skipped"
+        ? "verification.skipped"
+        : "verification.failed";
+    await this.record(run.id, verificationEventType, { verificationId: verification.id, status: verification.status });
     const qualityReview = request.qualityReview === true || profile.id === "guided-engineering";
     const allSourceFiles = listSourceFiles(workspacePath);
     const gitChangedFiles = changes.available ? changes.changedFiles : [];

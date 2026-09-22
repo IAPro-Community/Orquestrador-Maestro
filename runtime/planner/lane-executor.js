@@ -2,6 +2,7 @@
 
 const EventEmitter = require("node:events");
 const { isScopeExecutionEligible } = require("../governance/change-governance");
+const { classifyResolutionFailure } = require("../resolution");
 
 /**
  * Executa tarefas paralelamente respeitando restrições de dependências
@@ -123,7 +124,13 @@ class LaneExecutor extends EventEmitter {
               this.emit("task.completed", task);
             })
             .catch((error) => {
-              markFailed(task, error.message, { resolutionState: "failed", failureClass: "provider-failure" });
+              const failureClass = classifyResolutionFailure({
+                code: error?.code,
+                reason: error?.message,
+                failureKind: error?.failureKind,
+                blockerCodes: error?.blockerCodes
+              });
+              markFailed(task, error.message, { resolutionState: "failed", failureClass });
             })
             .finally(() => {
               running.delete(task.id);

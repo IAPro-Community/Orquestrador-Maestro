@@ -45,3 +45,8 @@ test("protocol v2 conversion preserves the canonical runId on task-family events
 test("blocked runs remain valid protocol v2 task-family events", () => {
   assert.equal(familyOf("run.blocked"), "task.*");
 });
+
+
+test("verification skipped is a first-class verification event", () => {
+  assert.equal(familyOf("verification.skipped"), "verification.*");
+});

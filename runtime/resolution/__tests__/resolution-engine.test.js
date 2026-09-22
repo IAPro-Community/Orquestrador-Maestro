@@ -70,6 +70,10 @@ test("enforce mode is fail-closed without an explicit promotion authorization", 
 });
 
 test("resolution projection never upgrades completed to validated without evidence", () => {
+  assert.equal(resolutionProjection({
+    status: "pending",
+    metadata: { resolution: { outcome: { state: "pending" }, strategy: "balanced", mode: "shadow" } }
+  }).state, "running");
   assert.equal(resolutionProjection({ status: "completed", metadata: {} }).state, "needs_attention");
   assert.equal(resolutionProjection({
     status: "completed",

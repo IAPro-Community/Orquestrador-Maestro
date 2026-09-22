@@ -88,3 +88,19 @@ test("LaneExecutor rejects completed runs whose canonical outcome is not validat
   assert.equal(result["task-1"].status, "failed");
   assert.equal(result["task-1"].error, "resolution outcome: needs_attention");
 });
+
+
+test("LaneExecutor preserves policy failures instead of relabeling them as provider failures", async () => {
+  const app = {
+    async getMission() { return { projectId: "project-1" }; },
+    async executeRun() {
+      const error = new Error("MISSION_SCOPE_MISMATCH: wrong project");
+      error.code = "MISSION_SCOPE_MISMATCH";
+      throw error;
+    }
+  };
+  const executor = new LaneExecutor({ application: app, maxParallel: 1 });
+  const result = await executor.execute([task("task-1")], "mission-1");
+  assert.equal(result["task-1"].status, "failed");
+  assert.equal(result["task-1"].failureClass, "policy-block");
+});

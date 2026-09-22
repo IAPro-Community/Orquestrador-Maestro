@@ -50,8 +50,9 @@ function resolutionTransition(contract, finalized) {
 
 function resolutionProjection(run = {}) {
   const resolution = run?.metadata?.resolution || null;
+  const explicitState = resolution?.outcome?.state;
   return Object.freeze({
-    state: resolution?.outcome?.state || (
+    state: explicitState === "pending" ? "running" : explicitState || (
       run.status === "blocked" ? "blocked"
         : ["failed", "cancelled", "timed_out"].includes(run.status) ? "failed"
           : run.status === "completed" ? "needs_attention" : "running"

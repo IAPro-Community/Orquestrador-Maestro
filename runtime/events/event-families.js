@@ -15,7 +15,7 @@ const FAMILIES_TYPES = Object.freeze({
   ]),
   "agent.*": Object.freeze(["agentSession.created", "agentSession.output", "agentSession.active", "agentSession.exited", "agentSession.closed", "agentSession.disconnected", "provider.started", "provider.output", "provider.completed"]),
   "terminal.*": Object.freeze(["terminal.session_created", "terminal.session_started", "terminal.session_closed", "pane.updated"]),
-  "verification.*": Object.freeze(["verification.completed", "verification.failed"]),
+  "verification.*": Object.freeze(["verification.completed", "verification.failed", "verification.skipped"]),
   "review.*": Object.freeze(["review.started", "review.completed", "review.failed"]),
   "attention.*": Object.freeze(["attention.created", "attention.snoozed", "attention.resolved"]),
   "skill.*": Object.freeze([])
