@@ -1872,6 +1872,7 @@ async function handleGoCommand(args, planningOnly = false) {
   p.note(formatTasks(tasks, maxWidth), "Plano de Engenharia");
 
   // Fase 4.5: Plan Approval Gate
+  try {
   if (args.includes("--auto")) {
     const autoEval = PlanApprovalGate.evaluateAutoApproval({
       validationResult: { valid: true, blockers: [] },
@@ -1933,6 +1934,18 @@ async function handleGoCommand(args, planningOnly = false) {
         return 0;
       }
     }
+  }
+  } catch (error) {
+    await app.updateMission(mission.id, {
+      status: "failed",
+      completedAt: new Date().toISOString(),
+      metadata: {
+        ...(mission.metadata || {}),
+        failureStage: "approval",
+        failureCode: typeof error?.code === "string" ? error.code : "PLAN_APPROVAL_FAILED"
+      }
+    });
+    throw error;
   }
 
   // Fase 5: Execução
