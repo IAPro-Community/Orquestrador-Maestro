@@ -576,3 +576,63 @@ test("Run creation preserves an existing project workspace binding", async () =>
   const after = await app.getProject(registered.id);
   assert.equal(path.resolve(after.path), path.resolve(root));
 });
+
+
+test("routine git task stays solo even when multiagent policy is requested", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-solo-git-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    policyId: "multiagent",
+    description: "git commit -m fix",
+    semanticTaskId: "git-commit-task",
+    semanticTask: { id: "git-commit-task", objective: "Create the requested commit", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  assert.equal(outcome.run.metadata.delegation.allowSubagents, false);
+  assert.equal(outcome.run.metadata.delegation.reason, "routine-git-operation");
+  assert.match(provider.requests[0].prompt, /Delegation contract: SOLO/u);
+});
+
+test("identified child agent violates a solo contract and prevents validated outcome", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-solo-violation-"));
+  class FanoutAdapter extends Adapter {
+    async execute(request) {
+      this.requests.push(request);
+      return {
+        pid: 1,
+        cancel() {},
+        result: Promise.resolve({
+          providerId: this.id,
+          pid: 1,
+          exitCode: 0,
+          stdout: JSON.stringify({ type: "agent.started", agent_id: "child-1", role: "worker" }),
+          stderr: "",
+          durationMs: 1,
+          cancelled: false,
+          timedOut: false
+        })
+      };
+    }
+  }
+
+  const provider = new FanoutAdapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "Fix a local bug",
+    semanticTaskId: "solo-task",
+    semanticTask: { id: "solo-task", objective: "Fix a local bug", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  assert.equal(outcome.run.status, "completed");
+  assert.equal(outcome.run.metadata.resolution.outcome.state, "needs_attention");
+  assert.equal(outcome.run.metadata.resolution.outcome.reason, "delegation-contract-violated");
+  assert.equal(outcome.failureClass, "policy-block");
+  const events = await app.store.listEvents({ runId: outcome.run.id });
+  assert.equal(events.some((event) => event.type === "delegation.violation"), true);
+});
