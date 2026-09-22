@@ -111,12 +111,14 @@ Two drivers exist: `OpenCodeDriver` (`benchmark-harness/src/drivers/opencode.ts`
 
 It invokes the real `opencode` CLI — not a mock, not an API wrapper. This ensures measured token usage and behavior reflect the actual tool the user would experience.
 
+The official benchmark workflows currently pin `opencode-ai@1.18.31`. The driver consumes the v1 JSONL event contract (including `step_finish`); moving to the OpenCode v2 CLI must be treated as a benchmark-driver migration, not an unreviewed dependency update.
+
 The driver:
 
 1. Checks availability via `which opencode`
 2. Builds the prompt with the condition preamble
-3. Invokes `opencode run <message> --format json --model <model> --dir <workDir> --auto`
-4. Parses the last line of stdout as JSON to extract `usage`, `tools`, and `session` data
+3. Invokes `opencode run --dir <workDir> --model <model> --format json <message>`
+4. Parses the JSONL stdout stream to extract token and tool-usage evidence
 5. Returns a `DriverResult` with `success`, `usage`, `durationMs`, `tools`, `evidence`, and `stdout`
 
 ### 5.2 Driver Extensibility
@@ -633,7 +635,7 @@ Every `RunResult` written to disk follows this structure:
   "promptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "environment": {
     "os": "Linux 6.1.0",
-    "nodeVersion": "v20.11.0",
+    "nodeVersion": "v20.12.2",
     "platform": "linux",
     "arch": "x64",
     "timestamp": "2026-09-10T14:30:00.000Z"
