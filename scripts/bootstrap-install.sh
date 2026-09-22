@@ -4,7 +4,7 @@ set -euo pipefail
 # Bootstrap oficial para macOS/Linux. Pode ser executado antes da CLI existir.
 PACKAGE="@iapro/orquestrador-maestro-cli"
 PACKAGE_VERSION="0.4.4"
-BOOTSTRAP_VERSION="2026.09.20.1"
+BOOTSTRAP_VERSION="2026.09.22.1"
 PREFIX="${ORQUESTRADOR_NPM_PREFIX:-$HOME/.npm-global}"
 
 echo "Orquestrador Maestro bootstrap $BOOTSTRAP_VERSION"
@@ -19,15 +19,9 @@ if [ "$(id -u)" -eq 0 ]; then
   exit 1
 fi
 
-NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || true)"
-case "$NODE_MAJOR" in
-  ''|*[!0-9]*)
-    echo "Erro: não foi possível identificar a versão do Node.js." >&2
-    exit 1
-    ;;
-esac
-if [ "$NODE_MAJOR" -lt 20 ]; then
-  echo "Erro: Node.js 20 ou superior é necessário. Versão atual: $(node --version)." >&2
+NODE_SUPPORTED="$(node -p "const [major, minor] = process.versions.node.split('.').map(Number); major > 20 || (major === 20 && minor >= 12) ? 'yes' : 'no'" 2>/dev/null || true)"
+if [ "$NODE_SUPPORTED" != "yes" ]; then
+  echo "Erro: Node.js 20.12 ou superior é necessário. Versão atual: $(node --version)." >&2
   exit 1
 fi
 
