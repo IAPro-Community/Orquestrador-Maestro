@@ -496,3 +496,59 @@ test("durable DIFF artifact stores hashes and metadata, never raw source patches
   assert.equal(Object.hasOwn(diffArtifact.metadata.changes, "workingTreePatch"), false);
   assert.equal(Object.hasOwn(diffArtifact.metadata.changes, "untrackedContent"), false);
 });
+
+
+test("legacy semantic-task Runs remain visible in outcome history and Mission Proof after ID migration", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-proof-legacy-history-"));
+  const provider = new Adapter("fake", 0);
+  const app = createApp(root, [provider]);
+  const mission = await app.createMission({ workspacePath: root, objective: "Preserve old history", status: "running" });
+
+  await app.store.saveTask({
+    id: "task-1",
+    projectId: mission.projectId,
+    description: "Legacy task",
+    createdAt: new Date(Date.now() - 2000).toISOString(),
+    metadata: {
+      missionId: mission.id,
+      semanticTaskId: "task-1",
+      semanticTask: { id: "task-1", objective: "Preserve old history", acceptanceCriteria: [] }
+    }
+  });
+  await app.store.saveRun({
+    id: "legacy-run",
+    taskId: "task-1",
+    providerId: "legacy",
+    status: "completed",
+    startedAt: new Date(Date.now() - 1900).toISOString(),
+    completedAt: new Date(Date.now() - 1800).toISOString(),
+    metadata: {
+      resolution: {
+        engine: "maestro-resolution-engine",
+        outcome: {
+          state: "validated",
+          reason: "definition-of-done-satisfied",
+          definitionOfDone: { intent: "Preserve old history" },
+          validatedAt: new Date(Date.now() - 1800).toISOString(),
+          revokedAt: null
+        }
+      }
+    }
+  });
+
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    missionId: mission.id,
+    description: "Preserve old history",
+    semanticTaskId: "task-1",
+    semanticTask: { id: "task-1", objective: "Preserve old history", acceptanceCriteria: [] },
+    verificationCommands: [passCommand]
+  });
+
+  const history = await app.getTaskOutcomeHistory(outcome.run.taskId);
+  assert.deepEqual(history.map((entry) => entry.runId), ["legacy-run", outcome.run.id]);
+
+  const proof = await app.getMissionProofBundle(mission.id);
+  assert.equal(proof.tasks.length, 1);
+  assert.deepEqual(proof.tasks[0].runs.map((entry) => entry.runId), ["legacy-run", outcome.run.id]);
+});
