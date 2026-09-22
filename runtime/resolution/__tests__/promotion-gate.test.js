@@ -134,3 +134,19 @@ test("promotion report exposes mission validation and efficiency rates without c
   assert.equal(result.operational.providerSwitchMissionRate, 0.1);
   assert.equal(result.operational.medianTokensToValidatedOutcome, 809.5);
 });
+
+
+test("quality improvement cannot hide a different scenario regression", () => {
+  const samples = Array.from({ length: 20 }, (_, index) => sample(index));
+  samples[0] = sample(0, { baselineAccepted: true, treatmentAccepted: false, treatmentTokens: 500 });
+  samples[1] = sample(1, { baselineAccepted: false, treatmentAccepted: true, treatmentTokens: 500 });
+  const result = evaluatePromotionGate(
+    { samples },
+    { candidatePolicyFingerprint: POLICY_IDENTITIES.PROGRESSIVE_PLANNING_V3.fingerprint }
+  );
+  assert.equal(result.quality.acceptanceRateDelta, 0);
+  assert.equal(result.quality.qualityRegressions, 1);
+  assert.equal(result.quality.qualityImprovements, 1);
+  assert.equal(result.promotionReady, false);
+  assert.ok(result.blockers.includes("quality-regressions:1/0"));
+});
