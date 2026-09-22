@@ -18,10 +18,7 @@ export function normalizeEvent(raw: unknown): RuntimeAction {
   const record = raw as Record<string, unknown>;
   const type = typeof record.type === "string" ? record.type : "invalid";
   const rawFamily = type.split(".")[0];
-  const family = rawFamily === "agentSession" ? "agent"
-    : rawFamily === "provider" && type !== "provider.handoff" ? "agent"
-      : ["resolution", "budget", "outcome", "evidence", "artifact", "review"].includes(rawFamily) || type === "provider.handoff" ? "task"
-        : rawFamily;
+  const family = rawFamily === "agentSession" ? "agent" : rawFamily;
   const epoch = typeof record.epoch === "string" || typeof record.epoch === "number" ? String(record.epoch) : "";
   const seq = typeof record.seq === "number" ? record.seq : Number.NaN;
   const envelopePayload = record.payload && typeof record.payload === "object" && !Array.isArray(record.payload)
@@ -33,7 +30,6 @@ export function normalizeEvent(raw: unknown): RuntimeAction {
     ...(record.projectId ? { projectId: record.projectId } : {}),
     ...(record.missionId ? { missionId: record.missionId } : {}),
     ...(record.taskId ? { taskId: record.taskId } : {}),
-    ...(record.runId ? { runId: record.runId } : {}),
     ...(family === "mission" && record.missionId && data.id === undefined ? { id: record.missionId } : {}),
     ...(family === "task" && record.taskId && data.taskId === undefined ? { taskId: record.taskId } : {})
   };

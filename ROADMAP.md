@@ -13,7 +13,7 @@ Evolve Maestro to include episodic memory and benchmark engine, following the Ma
 - ADR-001 (Episodic Memory)
 
 ## Phase 1: Benchmark Protocol
-**Status:** Complete (superseded by shipped `benchmark-harness/` with scenarios in 0.2.0–0.4.4)
+**Status:** Complete (superseded by shipped `benchmark-harness/` with scenarios in 0.2.0–0.4.0)
 **Goal:** Define benchmark schema, scenarios, isolation, acceptance
 **Output:**
 - BENCHMARK_SCHEMA.json

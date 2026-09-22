@@ -10,6 +10,6 @@ and 24.
 
 `orquestrador-maestro run --provider codex "task"` and `orquestrador-maestro run --provider claude "task"` are additive commands. Provider completion alone does not complete a Run: the configured or conservatively inferred verification commands must pass.
 
-The portable JSON store is safe for multiple local Maestro processes: mutations are serialized with an OS-visible lock, reload the latest committed generation inside the critical section, fsync the temporary generation before atomic rename, and sync the parent directory where the platform supports it. A future SQLite implementation must preserve the `RunStore` contract and these concurrency/durability invariants without changing legacy behavior.
+The initial store is safe for a single local process. A future SQLite implementation must preserve `RunStore` and add multi-process locking without changing legacy behavior.
 
 Projects and managed commands are stored as additive RunStore records. The `terminals` collection is optional in the existing version-1 JSON shape, so previously created runtime files remain readable.

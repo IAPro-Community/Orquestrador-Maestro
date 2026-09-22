@@ -212,7 +212,7 @@ describe("Memory", () => {
       const recorded = memory.record("test-project", {
         type: "decision",
         summary: "Use TypeScript",
-        verified: true, verifier: "test"
+        verified: true
       });
 
       const result = memory.promote("test-project", recorded.id, "DEV/DECISIONS.md", { apply: true, projectRoot: tmpDir });
@@ -249,7 +249,7 @@ describe("Memory", () => {
       const recorded = memory.record("test-project", {
         type: "decision",
         summary: "safe decision",
-        verified: true, verifier: "test"
+        verified: true
       });
       const projectRoot = path.join(tmpDir, "project");
       fs.mkdirSync(path.join(projectRoot, "DEV"), { recursive: true });
@@ -264,7 +264,7 @@ describe("Memory", () => {
 
   describe("stats", () => {
     it("should return stats for project", () => {
-      memory.record("test-project", { type: "discovery", summary: "First", verified: true, verifier: "test" });
+      memory.record("test-project", { type: "discovery", summary: "First", verified: true });
       memory.record("test-project", { type: "decision", summary: "Second", verified: false });
 
       const stats = memory.stats("test-project");
@@ -310,7 +310,7 @@ describe("Memory", () => {
 
     it("should keep verified observations", () => {
       memory.record("test-project", { type: "discovery", summary: "Unverified 1" });
-      memory.record("test-project", { type: "decision", summary: "Verified", verified: true, verifier: "test" });
+      memory.record("test-project", { type: "decision", summary: "Verified", verified: true });
       memory.record("test-project", { type: "discovery", summary: "Unverified 2" });
 
       const result = memory.prune("test-project", { keepRecent: 1 });

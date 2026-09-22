@@ -104,7 +104,7 @@ jobs:
         run: npm run bench:test
 
   test-windows:
-    name: Full + smoke tests — Node ${{ matrix.node-version }} on Windows
+    name: Smoke tests — Node ${{ matrix.node-version }} on Windows
     runs-on: windows-latest
     strategy:
       matrix:
@@ -166,7 +166,7 @@ jobs:
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   test-macos:
-    name: Full + smoke tests — Node ${{ matrix.node-version }} on macOS
+    name: Smoke tests — Node ${{ matrix.node-version }} on macOS
     runs-on: macos-latest
     strategy:
       matrix:

@@ -1,37 +1,15 @@
 "use strict";
 
-const { runtimeTaskId } = require("../core/task-identity");
-const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
-
 class TaskLifecycleMonitor {
-  static attach({ executor, app, graphs, store, missionId = null, projectId = null, graphId = null }) {
+  static attach({ executor, app, graphs, store }) {
     if (!executor || !app || !graphs) throw new TypeError("executor, app and graphs are required");
     const listeners = [];
     let pending = Promise.resolve();
     const persist = async (type, task, extra = {}) => {
       try {
-        const graphLink = await graphs.missionForTask(task.id);
-        const link = missionId
-          ? {
-              ...(projectId ? { projectId } : graphLink?.projectId ? { projectId: graphLink.projectId } : {}),
-              missionId,
-              ...(graphId ? { graphId } : {})
-            }
-          : graphLink;
+        const link = await graphs.missionForTask(task.id);
         if (!link?.missionId) return;
-        const persistedTaskId = missionId
-          ? runtimeTaskId({ missionId, semanticTaskId: task.id }) || task.id
-          : task.id;
-        let normalizedExtra = Array.isArray(extra.blockedBy) && missionId
-          ? { ...extra, blockedBy: extra.blockedBy.map((id) => runtimeTaskId({ missionId, semanticTaskId: id }) || id) }
-          : { ...extra };
-        if (typeof normalizedExtra.error === "string") {
-          normalizedExtra.error = sanitizeDiagnostic(normalizedExtra.error, { maxChars: 1000 });
-        }
-        if (typeof normalizedExtra.reason === "string") {
-          normalizedExtra.reason = sanitizeDiagnostic(normalizedExtra.reason, { maxChars: 512 });
-        }
-        await app.record(null, type, { taskId: persistedTaskId, ...link, ...normalizedExtra });
+        await app.record(null, type, { taskId: task.id, ...link, ...extra });
       } catch { /* observability must not interrupt execution */ }
     };
     const enqueue = (operation) => { pending = pending.then(operation).catch(() => undefined); return pending; };
@@ -44,22 +22,7 @@ class TaskLifecycleMonitor {
     });
     const unsubscribe = app.subscribe?.((event) => {
       if (event?.type !== "provider.completed" || !event.runId) return;
-      void enqueue(async () => {
-        const run = await store?.getRun?.(event.runId);
-        if (!run?.taskId) return;
-        if (!missionId) {
-          await persist("task.verifying", { id: run.taskId });
-          return;
-        }
-        const task = await store?.getTask?.(run.taskId);
-        const semanticTaskId = task?.metadata?.semanticTaskId || task?.metadata?.semanticTask?.id || null;
-        const graphLink = semanticTaskId ? await graphs.missionForTask(semanticTaskId) : null;
-        await app.record(null, "task.verifying", {
-          taskId: run.taskId,
-          ...(graphLink || {}),
-          missionId
-        });
-      });
+      void enqueue(async () => { const run = await store?.getRun?.(event.runId); if (run?.taskId) await persist("task.verifying", { id: run.taskId }); });
     });
     return Object.freeze({ detach() { for (const remove of listeners) remove(); unsubscribe?.(); } });
   }

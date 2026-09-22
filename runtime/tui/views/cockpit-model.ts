@@ -8,12 +8,8 @@ export function cockpitModel(state: TuiState): Section[] {
   const projects = selectAllProjects(state);
   const attention = selectPendingAttention(state);
   const tasks = Object.values(state.tasksById.byId);
-  const counts = { running: 0, ready: 0, blocked: 0, needs_attention: 0, human: attention.length, verify: 0, validated: 0, failed: 0 };
-  for (const task of tasks) {
-    const status = String(task.state || task.resolutionState || task.status || "");
-    if (status === "verifying") counts.verify += 1;
-    else if (status in counts) counts[status as keyof typeof counts] += 1;
-  }
+  const counts = { running: 0, ready: 0, blocked: 0, human: attention.length, verify: 0, failed: 0 };
+  for (const task of tasks) { const status = String(task.status || ""); if (status === "verifying") counts.verify += 1; else if (status in counts) counts[status as keyof typeof counts] += 1; }
   const connection = selectConnection(state);
   const runningRows = projects.length ? projects.map((project) => projectSummaryRow(state, project.id)) : [na("none", "Nenhum projeto em execução")];
   const attentionRows = attention.length ? attention.map((entry) => Object.freeze({ id: entry.id, fields: Object.freeze([entry.severity || "medium", entry.title || entry.message || entry.id]) })) : [na("none", "Nenhuma decisão pendente")];

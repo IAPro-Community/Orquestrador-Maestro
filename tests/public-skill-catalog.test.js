@@ -11,7 +11,7 @@ const ROOT = path.resolve(__dirname, "..");
 test("public catalog is deterministic and deduplicated", () => {
   const catalog = buildCatalog(ROOT);
   assert.equal(catalog.counts.uniqueSkills, 75);
-  assert.equal(catalog.counts.sourceSkillFiles, 177);
+  assert.equal(catalog.counts.sourceSkillFiles, 174);
   assert.equal(catalog.skills.length, 75);
   assert.ok(catalog.skills.every((skill) => !skill.relativePath.includes("cache")));
   assert.ok(catalog.skills.some((skill) => skill.id === "skill-melhorar-ux-ui-por-referencia"));

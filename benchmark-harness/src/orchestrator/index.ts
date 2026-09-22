@@ -22,7 +22,6 @@ import type { BenchmarkScenario } from '../types/scenario.js';
 import type { BenchmarkRunReport, RunStatus, Condition } from '../types/run.js';
 import type { AgentDriver, DriverExecuteOptions } from '../types/driver.js';
 import type { TokenUsage } from '../types/tokens.js';
-import { TokenSource, TokenConfidence } from '../types/tokens.js';
 import { createUnavailableTokens } from '../utils/tokens.js';
 import { hashFixture, copyFixtureToTemp } from '../fixtures/index.js';
 import { verifyAcceptanceSuite } from '../verifier/index.js';
@@ -30,13 +29,10 @@ import { checkBenchmarkIntegrity } from '../verifier/integrity.js';
 import { preserveRawEvidence, sanitizeSecrets } from '../evidence/index.js';
 import { runCmd } from '../utils/run-cmd.js';
 import { ContainerRunner } from '../container/runner.js';
-import { buildMaestroArgs } from '../drivers/maestro.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const HARNESS_ROOT = resolve(__dirname, '..', '..');
-const MAESTRO_REPO_ROOT = resolve(HARNESS_ROOT, '..');
-const MAESTRO_CONTAINER_ROOT = '/maestro-runtime';
 
 /** Orchestration options. */
 export interface OrchestrateOptions {
@@ -62,10 +58,6 @@ export interface OrchestrateOptions {
   pairId?: string;
   /** Replicate number within a pair (0-indexed). */
   replicate?: number;
-  /** Explicit container network mode. */
-  networkMode?: 'none' | 'bridge';
-  /** Names only of explicitly forwarded host environment variables. */
-  forwardedEnvNames?: string[];
 }
 
 /** Single run result. */
@@ -93,13 +85,13 @@ export async function orchestrateRun(
     model: overrideModel,
     pairId,
     replicate,
-    networkMode = 'none',
-    forwardedEnvNames = [],
   } = options;
 
   // Select the appropriate driver based on condition
-  const isMaestroCondition = condition === 'maestro' || condition === 'maestro-focus' || condition === 'maestro-adaptive';
-  const activeDriver = isMaestroCondition && maestroDriver ? maestroDriver : driver;
+  const activeDriver =
+    (condition === 'maestro' || condition === 'maestro-focus') && maestroDriver
+      ? maestroDriver
+      : driver;
 
   const runId = randomUUID();
   const startMs = Date.now();
@@ -122,37 +114,12 @@ export async function orchestrateRun(
     const taskHash = computeHash(scenario.task);
 
     // 6. Run the agent
-    const conditionEnv: Record<string, string> = { ...env };
-    for (const key of ['MAESTRO_ADAPTIVE_POLICY_ID', 'MAESTRO_ADAPTIVE_POLICY_FINGERPRINT', 'MAESTRO_ADAPTIVE_PAIR_ID', 'MAESTRO_BENCHMARK_MARKER_NONCE', 'MAESTRO_BENCHMARK_USAGE']) {
-      delete conditionEnv[key];
-    }
-    const markerNonce = isMaestroCondition ? randomUUID() : undefined;
-    if (markerNonce) {
-      conditionEnv.MAESTRO_BENCHMARK_MARKER_NONCE = markerNonce;
-      conditionEnv.MAESTRO_BENCHMARK_USAGE = '1';
-    }
-    if (condition === 'maestro-adaptive') {
-      const policyId = env.BENCHMARK_ADAPTIVE_POLICY_ID ?? process.env.BENCHMARK_ADAPTIVE_POLICY_ID;
-      const policyFingerprint = env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT ?? process.env.BENCHMARK_ADAPTIVE_POLICY_FINGERPRINT;
-      if (!pairId) throw new Error('maestro-adaptive requires a pairId');
-      if (!policyId || !policyFingerprint) throw new Error('maestro-adaptive requires canonical benchmark policy identity');
-      conditionEnv.MAESTRO_ADAPTIVE_POLICY_ID = policyId;
-      conditionEnv.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT = policyFingerprint;
-      conditionEnv.MAESTRO_ADAPTIVE_PAIR_ID = pairId;
-    }
-
-    const maestroRuntimeCommit = useContainer && isMaestroCondition
-      ? await assertCleanMaestroRuntimeCheckout()
-      : undefined;
-
     const driverOptions: DriverExecuteOptions = {
       workspace,
       fixture: scenario.fixture.path,
       timeoutMs: timeoutMs ?? scenario.limits.maxTimeMs ?? 300_000,
       model: overrideModel ?? scenario.model ?? process.env.BENCHMARK_MODEL ?? 'deepseek/deepseek-v4-flash',
-      env: conditionEnv,
-      condition,
-      pairId,
+      env,
     };
 
     const task = condition === 'maestro-focus'
@@ -169,34 +136,22 @@ export async function orchestrateRun(
     let driverResult;
     if (useContainer) {
       const containerRunner = new ContainerRunner({ image: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim' });
-      const containerDriverOptions: DriverExecuteOptions = {
-        ...driverOptions,
-        workspace: '/benchmark',
-      };
-      const command = activeDriver.name === 'maestro'
-        ? ['node', `${MAESTRO_CONTAINER_ROOT}/bin/orquestrador-maestro.js`, ...buildMaestroArgs(task, containerDriverOptions)]
-        : ['opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task];
       const containerResult = await containerRunner.runBenchmark({
         task,
         workspace,
         fixturePath: scenario.fixture.path,
-        command,
-        env: { ...conditionEnv, BENCHMARK_MODEL: driverOptions.model },
+        command: [activeDriver.name === 'maestro' ? 'orquestrador-maestro' : 'opencode', 'run', '--dir', '/benchmark', '--model', driverOptions.model, '--format', 'json', task],
+        env: { ...env, BENCHMARK_MODEL: driverOptions.model },
         timeoutMs: driverOptions.timeoutMs,
-        networkMode,
-        extraMounts: activeDriver.name === 'maestro'
-          ? [{ host: MAESTRO_REPO_ROOT, container: MAESTRO_CONTAINER_ROOT, readonly: true }]
-          : [],
       });
       driverResult = {
         output: containerResult.output,
         exitCode: containerResult.exitCode,
-        tokens: activeDriver.extractTokenUsage?.(containerResult.output, { markerNonce }) ?? createUnavailableTokens(),
+        tokens: null,
         durationMs: containerResult.durationMs,
         sessionFile: '',
         agentOutput: containerResult.output,
         toolUsage: null,
-        metadata: activeDriver.extractMetadata?.(containerResult.output, { markerNonce }) ?? null,
       };
       // Record container provenance
       environment = {
@@ -207,8 +162,6 @@ export async function orchestrateRun(
         isolated: true,
         containerImage: driverOptions.env?.BENCHMARK_IMAGE ?? 'node:20-slim',
         containerId: containerResult.containerId,
-        networkMode,
-        forwardedEnvNames: [...forwardedEnvNames].sort(),
       };
     } else {
       driverResult = await activeDriver.execute(task, driverOptions);
@@ -232,29 +185,11 @@ export async function orchestrateRun(
       workspace,
     });
 
-    const adaptiveMetadata = driverResult.metadata?.adaptiveResolution as {
-      confirmed?: boolean;
-      policyId?: string;
-      policyFingerprint?: string;
-      pairId?: string;
-    } | undefined;
-    const missionResolution = driverResult.metadata?.missionResolution as BenchmarkRunReport["resolution"] | undefined;
-    const adaptiveIdentityValid = condition !== 'maestro-adaptive'
-      || (
-        adaptiveMetadata?.confirmed === true
-        && adaptiveMetadata.policyId === conditionEnv.MAESTRO_ADAPTIVE_POLICY_ID
-        && adaptiveMetadata.policyFingerprint === conditionEnv.MAESTRO_ADAPTIVE_POLICY_FINGERPRINT
-        && adaptiveMetadata.pairId === pairId
-      );
-
     // 9. Determine status
     let status: RunStatus;
     let failureType: string | undefined;
 
-    if (!adaptiveIdentityValid) {
-      status = 'benchmark-integrity-violation';
-      failureType = 'adaptive-policy-unconfirmed-or-mismatched';
-    } else if (!integrityResult.valid) {
+    if (!integrityResult.valid) {
       status = 'benchmark-integrity-violation';
       failureType = integrityResult.violations.join('; ');
     } else if (driverResult.exitCode !== 0 && !verifierResult.passed) {
@@ -289,21 +224,6 @@ export async function orchestrateRun(
 
     // 11. Build run report
     const endMs = Date.now();
-    const tokens = driverResult.tokens ?? createUnavailableTokens();
-    const reproducible = Boolean(scenario.integrity?.scenarioHash && fixtureHash && taskHash);
-    const isolated = useContainer;
-    const validationPassed = verifierResult.passed;
-    const trustedExactTokens =
-      (tokens.source === TokenSource.ProviderReported || tokens.source === TokenSource.OpenCodeNative)
-      && tokens.confidence === TokenConfidence.Exact;
-    const publicClaimEligible = status === 'passed'
-      && adaptiveIdentityValid
-      && integrityResult.valid
-      && validationPassed
-      && trustedExactTokens
-      && reproducible
-      && isolated;
-
     const report: BenchmarkRunReport = {
       runId,
       scenarioId: scenario.id,
@@ -317,14 +237,7 @@ export async function orchestrateRun(
       driver: {
         name: activeDriver.name,
         version: activeDriver.version,
-        config: {
-          model: driverOptions.model,
-          ...(maestroRuntimeCommit ? { maestroRuntimeCommit } : {}),
-          ...(adaptiveIdentityValid && adaptiveMetadata?.confirmed === true ? {
-            adaptiveResolutionPolicyId: adaptiveMetadata.policyId,
-            adaptiveResolutionPolicyFingerprint: adaptiveMetadata.policyFingerprint,
-          } : {}),
-        },
+        config: { model: driverOptions.model },
       },
       fixture: {
         path: scenario.fixture.path,
@@ -342,10 +255,7 @@ export async function orchestrateRun(
           output: sanitizeSecrets(c.output),
         })),
       },
-      tokens,
-      usage: { tokenSource: tokens.source, confidence: tokens.confidence },
-      validation: { passed: validationPassed },
-      ...(missionResolution ? { resolution: missionResolution } : {}),
+      tokens: driverResult.tokens ?? createUnavailableTokens(),
       toolUsage: driverResult.toolUsage ?? null,
       timing: {
         startMs,
@@ -361,10 +271,6 @@ export async function orchestrateRun(
         filesChanged,
         gitDiff,
         sessionFile: driverResult.sessionFile,
-        executionType: 'real-execution',
-        reproducible,
-        isolated,
-        publicClaimEligible,
       },
       createdAt: new Date().toISOString(),
     };
@@ -450,7 +356,6 @@ export async function orchestratePair(options: {
   evidenceBase: string;
   model?: string;
   pairId?: string;
-  useContainer?: boolean;
   vanillaEnv?: Record<string, string>;
   maestroEnv?: Record<string, string>;
   vanillaTimeoutMs?: number;
@@ -471,7 +376,7 @@ export async function orchestratePair(options: {
     condition: 'vanilla',
     driver: vanillaDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: options.useContainer ?? true,
+    useContainer: true,
     model: options.model,
     env: options.vanillaEnv,
     timeoutMs: options.vanillaTimeoutMs,
@@ -485,7 +390,7 @@ export async function orchestratePair(options: {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: options.useContainer ?? true,
+    useContainer: true,
     model: options.model,
     env: options.maestroEnv,
     timeoutMs: options.maestroTimeoutMs,
@@ -499,7 +404,7 @@ export async function orchestratePair(options: {
     driver: vanillaDriver,
     maestroDriver,
     evidenceBase: options.evidenceBase,
-    useContainer: options.useContainer ?? true,
+    useContainer: true,
     model: options.model,
     env: options.maestroFocusEnv ?? { ...options.maestroEnv, MAESTRO_INTERACTION_PROFILE: 'focus' },
     timeoutMs: options.maestroFocusTimeoutMs ?? options.maestroTimeoutMs,
@@ -511,25 +416,6 @@ export async function orchestratePair(options: {
 }
 
 // --- Helpers ---
-
-async function assertCleanMaestroRuntimeCheckout(): Promise<string> {
-  const { stdout: head } = await runCmd('git', ['rev-parse', 'HEAD'], {
-    cwd: MAESTRO_REPO_ROOT,
-    timeout: 5_000,
-  });
-  const { stdout: status } = await runCmd('git', ['status', '--porcelain', '--untracked-files=no'], {
-    cwd: MAESTRO_REPO_ROOT,
-    timeout: 5_000,
-  });
-  if (status.trim()) {
-    throw new Error('Official Maestro container benchmark requires a clean tracked checkout');
-  }
-  const commit = head.trim();
-  if (!/^[a-f0-9]{40}$/u.test(commit)) {
-    throw new Error('Unable to resolve a reproducible Maestro runtime commit');
-  }
-  return commit;
-}
 
 function computeHash(input: string): string {
   return createHash('sha256').update(input).digest('hex');

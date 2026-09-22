@@ -16,7 +16,7 @@ const OWNERSHIP_MAP = deepFreeze({
   invariant: "one canonical daemon writer per project store file",
   canonicalWriters: [
     { owner: "MaestroApplication", appMethods: ["registerProject", "createMission", "updateMission"], storeMethods: ["createProject", "saveMission"] },
-    { owner: "MaestroApplication", appMethods: ["createRun", "executeRun"], storeMethods: ["saveTask", "saveRun", "saveStep", "saveExecution", "saveArtifact", "saveEvidence", "saveVerification"] },
+    { owner: "MaestroApplication", appMethods: ["createRun", "executeRun"], storeMethods: ["saveTask", "saveRun", "saveStep", "saveExecution", "saveArtifact", "saveVerification"] },
     { owner: "MaestroApplication", appMethods: ["createTerminalSession", "startTerminal"], storeMethods: ["saveTerminal"] },
     { owner: "MaestroApplication", appMethods: ["record"], storeMethods: ["appendEvent"] },
     { owner: "MaestroApplication", appMethods: ["startIntentSession", "updateIntentSession", "approveMissionBrief"], storeMethods: ["saveIntentSession", "saveMissionBrief"] },

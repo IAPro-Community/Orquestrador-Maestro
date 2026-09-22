@@ -12,13 +12,12 @@ const { isScopeExecutionEligible } = require("../governance/change-governance");
  * conclui quando não há mais tarefas pendentes nem em execução.
  */
 class LaneExecutor extends EventEmitter {
-  constructor({ application, maxParallel = 3, interactionProfile, executionProfile, resolutionMode = "shadow" } = {}) {
+  constructor({ application, maxParallel = 3, interactionProfile, executionProfile } = {}) {
     super();
     this.app = application;
     this.maxParallel = maxParallel;
     this.interactionProfile = interactionProfile;
     this.executionProfile = executionProfile;
-    this.resolutionMode = resolutionMode;
   }
 
   async execute(tasks, missionId) {
@@ -38,19 +37,13 @@ class LaneExecutor extends EventEmitter {
       // Mission lookup is best-effort; fall back to the mission id.
     }
 
-    const markFailed = (task, errorMessage, details = {}) => {
-      results[task.id] = {
-        status: "failed",
-        error: errorMessage,
-        ...(details.result ? { result: details.result } : {}),
-        ...(details.resolutionState ? { resolutionState: details.resolutionState } : {}),
-        ...(details.failureClass ? { failureClass: details.failureClass } : {})
-      };
+    const markFailed = (task, errorMessage) => {
+      results[task.id] = { status: "failed", error: errorMessage };
       failed.add(task.id);
-      this.emit("task.failed", { ...task, error: errorMessage, resolutionState: details.resolutionState || null });
+      this.emit("task.failed", { ...task, error: errorMessage });
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const checkNext = () => {
         if (pending.length === 0 && running.size === 0) return resolve(results);
 
@@ -60,7 +53,7 @@ class LaneExecutor extends EventEmitter {
           const blockingFailures = deps.filter((dep) => failed.has(dep));
           if (blockingFailures.length === 0) continue;
           pending.splice(i, 1);
-          markFailed(task, `blocked by failed dependency: ${blockingFailures.join(", ")}`, { resolutionState: "blocked" });
+          markFailed(task, `blocked by failed dependency: ${blockingFailures.join(", ")}`);
         }
 
         while (running.size < this.maxParallel) {
@@ -75,7 +68,7 @@ class LaneExecutor extends EventEmitter {
             ? task.semanticMetadata
             : task;
           if (!isScopeExecutionEligible(semanticTask)) {
-            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`, { resolutionState: "blocked", failureClass: "policy-block" });
+            markFailed(task, `blocked by scope classification: ${semanticTask.scopeClassification || "unknown"}`);
             continue;
           }
           running.add(task.id);
@@ -85,45 +78,25 @@ class LaneExecutor extends EventEmitter {
           const executionOptions = ["fast", "standard", "deep", "security", "multiagent"].includes(this.executionProfile)
             ? { policyId: this.executionProfile }
             : this.executionProfile ? { profileId: this.executionProfile } : {};
-          const execute = typeof this.app.executeTaskWithHandoff === "function"
-            ? this.app.executeTaskWithHandoff.bind(this.app)
-            : this.app.executeRun.bind(this.app);
-          execute({
+          this.app.executeRun({
             description: task.description,
             providerId: task.provider,
-            providerFallbacks: task.providerFallbacks || [],
             model: task.model,
             skills: task.skills,
             projectId,
             missionId,
             semanticTaskId: task.id,
             semanticTask,
-            resolutionMode: this.resolutionMode,
             ...executionOptions,
             interactionProfile: this.interactionProfile
           })
             .then((result) => {
-              const runStatus = result?.run?.status;
-              const resolutionState = result?.run?.metadata?.resolution?.outcome?.state;
-              if (runStatus !== "completed" || (resolutionState && resolutionState !== "validated")) {
-                const reason = result?.run?.metadata?.preflightBlock
-                  || result?.review?.reason
-                  || result?.governanceBlocking?.[0]
-                  || (resolutionState && resolutionState !== "validated" ? `resolution outcome: ${resolutionState}` : null)
-                  || `run finished with status: ${runStatus || "unknown"}`;
-                markFailed(task, reason, {
-                  result,
-                  resolutionState: resolutionState || (runStatus === "blocked" ? "blocked" : "failed"),
-                  failureClass: result?.failureClass || null
-                });
-                return;
-              }
               results[task.id] = { status: "completed", result };
               completed.add(task.id);
               this.emit("task.completed", task);
             })
             .catch((error) => {
-              markFailed(task, error.message, { resolutionState: "failed", failureClass: "provider-failure" });
+              markFailed(task, error.message);
             })
             .finally(() => {
               running.delete(task.id);
@@ -138,7 +111,7 @@ class LaneExecutor extends EventEmitter {
           if (hasFailedDependency) return checkNext();
 
           for (const task of pending.splice(0)) {
-            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`, { resolutionState: "blocked" });
+            markFailed(task, `blocked by unresolved dependency: ${(task.dependsOn || []).join(", ") || "unknown"}`);
           }
         }
 

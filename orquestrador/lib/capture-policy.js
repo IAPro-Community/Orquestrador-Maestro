@@ -37,8 +37,7 @@ const INJECTION_PATTERNS = [
   /system\s*prompt/i,
   /act\s+as\s+if/i,
   /pretend\s+you\s+are/i,
-  /<script>/i,
-  /\{\{[\s\S]*?\}\}/
+  /<script>/i
 ];
 
 class CapturePolicy {
@@ -57,8 +56,7 @@ class CapturePolicy {
       observation.summary || "",
       observation.details || "",
       (observation.files || []).join(" "),
-      (observation.tags || []).join(" "),
-      JSON.stringify(observation.source || {})
+      (observation.tags || []).join(" ")
     ].join(" ");
 
     if (this.containsInjection(content)) {

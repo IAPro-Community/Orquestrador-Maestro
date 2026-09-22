@@ -124,21 +124,7 @@ function parseArgs(argv) {
 function sanitizeContent(content) {
   return content
     .replace(/(api[_-]?key|access[_-]?token|refresh[_-]?token|secret|password)\s*[:=]\s*[^\s`"']+/giu, "$1=[redigido]")
-    .replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]")
-    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[email redigido]")
-    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[JWT redigido]")
-    .replace(/-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g, "[chave privada redigida]")
-    .replace(/(?:sk-|pk-|rk-|sk-ant-|sk-proj-)[A-Za-z0-9_-]{20,}/g, "[chave de API redigida]")
-    .replace(/(?:ghp_|github_pat_|gho_|ghu_)[A-Za-z0-9_]{20,}/g, "[token GitHub redigido]")
-    .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, "[token GitLab redigido]")
-    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[chave AWS redigida]")
-    .replace(/\bAIza[A-Za-z0-9_-]{35}\b/g, "[chave Google redigida]")
-    .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "[token Slack redigido]")
-    .replace(/cookie\s*[:=]\s*[^\s`"']+/gi, "[cookie redigido]")
-    .replace(/(?:AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GOOGLE_APPLICATION_CREDENTIALS|GITHUB_TOKEN)\s*[:=]\s*[^\s`"']+/gi, "[credencial redigida]")
-    .replace(/(?:mysql|postgres|postgresql|mongodb):\/\/[^\s`"']+/gi, "[string de conexão redigida]")
-    .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[telefone redigido]")
-    .replace(/\.env[^a-zA-Z0-9]/gi, "[arquivo env redigido]");
+    .replace(/(?:[A-Za-z]:[\\/]|\/Users\/|\/home\/|\/root\/)[^\s`"']+/gu, "[caminho local redigido]");
 }
 
 function readUtf8(filePath) {
@@ -170,13 +156,6 @@ function tokenize(value) {
 
 function relativePath(projectRoot, filePath) {
   return path.relative(projectRoot, filePath).replace(/\\/g, "/");
-}
-
-function sanitizeMemoryEntry(value) {
-  // Memory content is untrusted: a summary containing </episodic-memory>
-  // would break out of the wrapper below. Strip wrapper-like tags so the
-  // brief always emits exactly one open + one close tag.
-  return String(value || "").replace(/<\/?episodic-memory[^>]*>/gi, "[tag-removida]");
 }
 
 function isExcluded(relative) {
@@ -628,14 +607,10 @@ function buildBrief(options) {
     let memorySection = "";
 
     try {
-      const { Memory, isTrulyVerified } = require("./memory.js");
+      const { Memory } = require("./memory.js");
       const mem = options.memory || new Memory();
-      // Single source for the repository id: resolveRepositoryId() hashes a
-      // sanitized/truncated path for non-git projects while
-      // resolveGitContext() hashes the resolved path, so mixing them yields
-      // different ids and a silently empty memory section. Use gitCtx.
+      const projectId = mem.resolveRepositoryId(projectRoot);
       const gitCtx = resolveGitContext(projectRoot);
-      const projectId = gitCtx.repositoryId;
       const taskTokens = tokenize(options.task || "");
       const taskClass = classifyTask(options.task);
 
@@ -655,7 +630,7 @@ function buildBrief(options) {
         const selected = [];
 
         for (const obs of memResults) {
-          const entry = `- [${isTrulyVerified(obs) ? "verified" : "unverified"}] ${sanitizeMemoryEntry(obs.summary)}`;
+          const entry = `- [${obs.verified ? "verified" : "unverified"}] ${obs.summary}`;
           if (usedMemory + entry.length > budget.memoryChars) break;
           selected.push(entry);
           usedMemory += entry.length;
@@ -817,4 +792,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, buildSection, classifyTask, computeBudget, main, parseArgs, parsePhaseState, resolveGitDelta, sanitizeMemoryEntry };
+module.exports = { DEFAULT_MAX_CHARS, buildBrief, buildDevState, buildSection, classifyTask, computeBudget, main, parseArgs, parsePhaseState, resolveGitDelta };

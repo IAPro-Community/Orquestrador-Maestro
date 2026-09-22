@@ -180,12 +180,9 @@ interface ClaimEligibleInput {
   } | null;
   environment?: {
     container?: boolean;
-    containerImage?: string;
-    containerId?: string;
   } | null;
-  usage?: { tokenSource?: string; confidence?: string } | null;
-  tokens?: { tokenSource?: string; source?: string; confidence?: string } | null;
-  driverResult?: { usage?: { tokenSource?: string; confidence?: string } | null } | null;
+  usage?: { tokenSource?: string } | null;
+  driverResult?: { usage?: { tokenSource?: string } | null } | null;
   validation?: { passed?: boolean } | null;
   status?: string;
   results?: {
@@ -198,36 +195,20 @@ interface ClaimEligibleInput {
  * Determines if a run is eligible for public performance claims.
  *
  * Requirements (all must be true):
- * - when final `status` is present, it is "passed" (legacy evidence without
- *   the field remains classifiable by the remaining provenance gates)
  * - `evidence.publicClaimEligible` is true
  * - `evidence.executionType` is "real-execution"
- * - container runs are accepted only with daemon-anchored provenance:
- *   both `environment.containerImage` and `environment.containerId` must be
- *   present (`containerId` is issued by the container runtime, not user
- *   input, so a bare `container:true` flag or a user-typed image alone
- *   is not enough)
- * - isolation must be consistent with containment: `evidence.isolated`
- *   must equal `environment.container === true` (a non-container run
- *   claiming `isolated:true` is rejected as forged)
- * - Token source is trusted exact usage: "provider-reported" or
- *   authenticated "opencode-native", with confidence "exact"
+ * - `environment.container` is not true
+ * - Token source is "provider-reported"
  * - `evidence.reproducible` is true
+ * - `evidence.isolated` is true
  * - `validation.passed` is true
  */
 export function isClaimEligibleRun(run: ClaimEligibleInput): boolean {
-  if (typeof run?.status === 'string' && run.status !== 'passed') return false;
   if (!run?.evidence?.publicClaimEligible) return false;
   if (run.evidence.executionType !== 'real-execution') return false;
-  const container = run.environment?.container === true;
-  if (container && (!run.environment?.containerImage || !run.environment?.containerId)) return false;
-  if (run.evidence.isolated !== container) return false;
-  const tokenSource =
-    run.usage?.tokenSource ?? run.tokens?.tokenSource ?? run.tokens?.source ?? run.driverResult?.usage?.tokenSource;
-  const tokenConfidence =
-    run.usage?.confidence ?? run.tokens?.confidence ?? run.driverResult?.usage?.confidence;
-  if (!['provider-reported', 'opencode-native'].includes(String(tokenSource || ''))) return false;
-  if (tokenConfidence !== 'exact') return false;
+  if (run.environment?.container === true) return false;
+  const tokenSource = run.usage?.tokenSource ?? run.driverResult?.usage?.tokenSource;
+  if (tokenSource !== 'provider-reported') return false;
   if (run.evidence.reproducible !== true) return false;
   if (run.evidence.isolated !== true) return false;
   if (run.validation?.passed !== true) return false;

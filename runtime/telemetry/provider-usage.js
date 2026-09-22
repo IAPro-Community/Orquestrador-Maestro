@@ -72,12 +72,11 @@ function emptyUsage(tool) {
     toolCalls: null,
     tokenSource: "unavailable",
     usageScope: "unknown",
-    usageComplete: false,
     source: "unavailable"
   });
 }
 
-function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, usageComplete = false, source }) {
+function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, source }) {
   const hasTokens = tokenInput !== null || tokenOutput !== null || cachedInputTokens !== null || reasoningTokens !== null;
   return Object.freeze({
     tool: tool || "unknown",
@@ -96,7 +95,6 @@ function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, c
     // provider total already includes children/history; "self" means only
     // this execution; "unknown" means conservative (never sum blindly).
     usageScope: usageScope || (hasTokens ? "unknown" : "unknown"),
-    usageComplete: usageComplete === true,
     source: source || (hasTokens ? "stdout-events" : "unavailable")
   });
 }
@@ -188,7 +186,7 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
   // Usage without any per-turn event (thread summary only) still implies one
   // observed generation; report it as such instead of zero.
   if (modelCalls === 0 && sawThreadUsage) modelCalls = 1;
-  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", usageComplete: sawThreadUsage, source: "stdout-events" });
+  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", source: "stdout-events" });
 }
 
 // Claude `--print --output-format stream-json --verbose` (+ agy variant):
@@ -210,7 +208,6 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
   let toolCalls = 0;
   let sawToolUse = false;
   let sawAggregate = false;
-  let sawResultUsage = false;
   for (const event of events) {
     const sid = asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (sid && !sessionId) sessionId = sid;
@@ -232,10 +229,7 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
       // A result event carries the cumulative totals for the turn.
       if (event.type === "result") {
         modelCalls += 1;
-        if (usage) {
-          sawAggregate = true;
-          sawResultUsage = true;
-        }
+        if (usage) sawAggregate = true;
       }
     }
     // Tool-use counting is best-effort: assistant content blocks with
@@ -259,7 +253,6 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
     tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null,
     reasoningTokens: null, modelCalls, toolCalls: sawToolUse ? toolCalls : null,
     usageScope: sawAggregate ? "aggregate" : "unknown",
-    usageComplete: sawResultUsage,
     source: "stdout-events"
   });
 }
@@ -273,14 +266,16 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
   const tool = "opencode";
   const events = safeJsonLines(stdout);
   if (events.length === 0) return emptyUsage(tool);
-  let tokenInput = 0, tokenOutput = 0, cachedInputTokens = 0, cachedOutputTokens = 0, reasoningTokens = 0;
-  let sawInput = false, sawOutput = false, sawCacheRead = false, sawCacheWrite = false, sawReasoning = false;
+  let tokenInput = null;
+  let tokenOutput = null;
+  let cachedInputTokens = null;
+  let reasoningTokens = null;
   let sessionId = null;
   let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
-  let provider = "unknown", modelCalls = 0, toolCalls = 0, sawToolCalls = false, lastLifecycleEvent = null;
-  let sawSubagent = false;
-  const childSessionIds = new Set();
-  const stepFinishSessionIds = new Set();
+  let provider = "unknown";
+  let modelCalls = 0;
+  let toolCalls = 0;
+  let sawToolCalls = false;
   for (const event of events) {
     const sid = asNonEmptyString(event.sessionID) || asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (sid && !sessionId) sessionId = sid;
@@ -288,55 +283,30 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     if (mid && (!model || model === "unknown")) model = mid;
     const pid = asNonEmptyString(event.providerID) || asNonEmptyString(event.provider);
     if (pid) provider = pid;
-    const eventType = typeof event.type === "string" ? event.type : "";
-    const partType = typeof event?.part?.type === "string" ? event.part.type : "";
-    const toolName = asNonEmptyString(event?.part?.tool) || asNonEmptyString(event?.tool);
-    const childSessionId = asNonEmptyString(event?.part?.state?.metadata?.sessionId)
-      || asNonEmptyString(event?.part?.state?.metadata?.sessionID);
-    if (toolName === "task") {
-      sawSubagent = true;
-      if (childSessionId) childSessionIds.add(childSessionId);
+    const tokens = event.tokens && typeof event.tokens === "object" ? event.tokens
+      : event.usage && typeof event.usage === "object" ? event.usage
+      : event?.part?.tokens && typeof event.part.tokens === "object" ? event.part.tokens : null;
+    if (tokens) {
+      const input = pickFirst(asNonNegativeInt(tokens.input), asNonNegativeInt(tokens.input_tokens), asNonNegativeInt(tokens.inputTokens), asNonNegativeInt(tokens.prompt_tokens));
+      const output = pickFirst(asNonNegativeInt(tokens.output), asNonNegativeInt(tokens.output_tokens), asNonNegativeInt(tokens.outputTokens), asNonNegativeInt(tokens.completion_tokens));
+      const cached = pickFirst(asNonNegativeInt(tokens.cache), asNonNegativeInt(tokens.cached), asNonNegativeInt(tokens.cached_input_tokens), asNonNegativeInt(tokens.cache_read_input_tokens));
+      const reasoning = pickFirst(asNonNegativeInt(tokens.reasoning), asNonNegativeInt(tokens.reasoning_tokens));
+      if (input !== null) tokenInput = tokenInput === null ? input : Math.max(tokenInput, input);
+      if (output !== null) tokenOutput = tokenOutput === null ? output : Math.max(tokenOutput, output);
+      if (cached !== null) cachedInputTokens = cachedInputTokens === null ? cached : Math.max(cachedInputTokens, cached);
+      if (reasoning !== null) reasoningTokens = reasoningTokens === null ? reasoning : Math.max(reasoningTokens, reasoning);
     }
-    const isStepFinish = /^(step_finish|step-finish|step\.finish)$/iu.test(eventType) || /^(step_finish|step-finish|step\.finish)$/iu.test(partType);
-    const isStepStart = /^(step_start|step-start|step\.start)$/iu.test(eventType) || /^(step_start|step-start|step\.start)$/iu.test(partType);
-    const isPayloadActivity = /^(text|tool|tool_call|tool-result|tool_use)$/iu.test(eventType) || /^(text|tool|tool_use)$/iu.test(partType);
-    if (isStepStart) lastLifecycleEvent = "step-start";
-    else if (isPayloadActivity) lastLifecycleEvent = "payload";
-    else if (isStepFinish) lastLifecycleEvent = "step-finish";
-    if (isStepFinish) {
-      if (sid) stepFinishSessionIds.add(sid);
-      const tokens = event?.part?.tokens && typeof event.part.tokens === "object" ? event.part.tokens : event.tokens && typeof event.tokens === "object" ? event.tokens : event.usage && typeof event.usage === "object" ? event.usage : null;
-      if (tokens) {
-        const input = pickFirst(asNonNegativeInt(tokens.input), asNonNegativeInt(tokens.input_tokens), asNonNegativeInt(tokens.inputTokens), asNonNegativeInt(tokens.prompt_tokens));
-        const output = pickFirst(asNonNegativeInt(tokens.output), asNonNegativeInt(tokens.output_tokens), asNonNegativeInt(tokens.outputTokens), asNonNegativeInt(tokens.completion_tokens));
-        const reasoning = pickFirst(asNonNegativeInt(tokens.reasoning), asNonNegativeInt(tokens.reasoning_tokens));
-        const cache = tokens.cache && typeof tokens.cache === "object" ? tokens.cache : null;
-        const read = pickFirst(cache ? asNonNegativeInt(cache.read) : null, asNonNegativeInt(tokens.cache), asNonNegativeInt(tokens.cached), asNonNegativeInt(tokens.cached_input_tokens), asNonNegativeInt(tokens.cache_read_input_tokens));
-        const write = pickFirst(cache ? asNonNegativeInt(cache.write) : null, asNonNegativeInt(tokens.cache_write_input_tokens));
-        if (input !== null) { tokenInput += input; sawInput = true; }
-        if (output !== null) { tokenOutput += output; sawOutput = true; }
-        if (reasoning !== null) { reasoningTokens += reasoning; sawReasoning = true; }
-        if (read !== null) { cachedInputTokens += read; sawCacheRead = true; }
-        if (write !== null) { cachedOutputTokens += write; sawCacheWrite = true; }
-        modelCalls += 1;
-      }
+    if (typeof event.type === "string" && /^(step_finish|step\.finish|message\.finish|turn\.finish)$/iu.test(event.type)) {
+      modelCalls += 1;
     }
-    if (/^(tool|tool_use|tool-use|function_call)$/iu.test(partType)) { toolCalls += 1; sawToolCalls = true; }
+    // Best-effort tool counting: explicit tool part types only.
+    const partType = event?.part?.type;
+    if (typeof partType === "string" && /^(tool|tool_use|tool-use|function_call)$/iu.test(partType)) {
+      toolCalls += 1;
+      sawToolCalls = true;
+    }
   }
-  const childUsageComplete = !sawSubagent
-    || (childSessionIds.size > 0 && [...childSessionIds].every((id) => stepFinishSessionIds.has(id)));
-  return finalize({
-    tool, provider, model: model || "unknown", sessionId,
-    tokenInput: sawInput ? tokenInput : null,
-    tokenOutput: sawOutput ? tokenOutput : null,
-    cachedInputTokens: sawCacheRead ? cachedInputTokens : null,
-    cachedOutputTokens: sawCacheWrite ? cachedOutputTokens : null,
-    reasoningTokens: sawReasoning ? reasoningTokens : null,
-    modelCalls, toolCalls: sawToolCalls ? toolCalls : null,
-    usageScope: sawSubagent && childUsageComplete ? "aggregate" : modelCalls > 0 ? "self" : "unknown",
-    usageComplete: modelCalls > 0 && lastLifecycleEvent === "step-finish" && childUsageComplete,
-    source: "stdout-events"
-  });
+  return finalize({ tool, provider, model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: sawToolCalls ? toolCalls : null, source: "stdout-events" });
 }
 
 function parseProviderUsage({ providerId, stdout, stderr, model } = {}) {

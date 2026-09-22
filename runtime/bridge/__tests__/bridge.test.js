@@ -200,29 +200,3 @@ test("stdio server uses newline-delimited JSON-RPC and recovers from parse error
   ]);
   server.close();
 });
-
-
-test("resolution bridge exposes one canonical run, evidence and proof surface", async () => {
-  const calls = [];
-  const runtime = {
-    executeTaskWithHandoff: async (params) => { calls.push(params); return { run: { id: "run-1", status: "completed" } }; },
-    inspectRun: async (id) => ({ run: { id }, resolution: { state: "validated", strategy: "targeted" } }),
-    listEvidence: async () => [{ id: "evidence-1", taskId: "task-1" }],
-    getEvidence: async (id) => ({ id, taskId: "task-1" }),
-    getTaskProofBundle: async (id) => ({ kind: "task-proof-bundle", task: { id } }),
-    getMissionProofBundle: async (id) => ({ kind: "mission-proof-bundle", mission: { id } })
-  };
-  const bridge = createBridge({ services: { runtime } });
-
-  assert.equal((await bridge.handle(request(1, "runs.create", {
-    description: "fix",
-    providerId: "codex",
-    providerFallbacks: ["claude"]
-  }))).result.run.id, "run-1");
-  assert.deepEqual(calls[0].providerFallbacks, ["claude"]);
-  assert.deepEqual((await bridge.handle(request(2, "resolution.get", { runId: "run-1" }))).result, { state: "validated", strategy: "targeted" });
-  assert.equal((await bridge.handle(request(3, "evidence.list", { taskId: "task-1" }))).result[0].id, "evidence-1");
-  assert.equal((await bridge.handle(request(4, "evidence.get", { evidenceId: "evidence-1" }))).result.id, "evidence-1");
-  assert.equal((await bridge.handle(request(5, "proof.task", { taskId: "task-1" }))).result.kind, "task-proof-bundle");
-  assert.equal((await bridge.handle(request(6, "proof.mission", { missionId: "mission-1" }))).result.kind, "mission-proof-bundle");
-});

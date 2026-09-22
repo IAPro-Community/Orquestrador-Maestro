@@ -14,7 +14,6 @@ O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini 
 
 | Você quer… | Vá direto para… |
 | --- | --- |
-| Começar do zero em 10 minutos | [Comece aqui](docs/START-HERE.md) |
 | Entender a ideia em 1 minuto | [Como funciona](#um-processo-várias-ferramentas) |
 | Instalar agora | [Comece em dois minutos](#comece-em-dois-minutos) |
 | Ver o benchmark | [Veja os números](#benchmark-veja-os-números-na-sua-máquina) |
@@ -39,7 +38,6 @@ Quando uma IA recebe só um prompt, ela pode abrir contexto demais, improvisar o
 
 - **Menos contexto desnecessário.** Índices compactos e documentação de projeto evitam carregar catálogos e históricos inteiros.
 - **Menos surpresa na entrega.** Regras, escopo e verificação entram antes da mudança, não no fim.
-- **Conclusão verificável.** O [Maestro Resolution Engine](docs/maestro-resolution-engine.md) diferencia processo encerrado de `Validated Outcome`, preservando Evidence, Proof Bundle, budget e histórico de resolução.
 - **Menos recomeço entre sessões.** O estado útil fica no projeto, legível por pessoas e por outras ferramentas.
 
 ## Comece em dois minutos
@@ -115,7 +113,7 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 | Instalar ou atualizar | [Guia de instalação](docs/installation.md) · [opções](docs/installer-options.md) |
 | Entender o método | [Guia operacional para IAs](docs/ai-agent-operating-guide.md) · [referência técnica](docs/orquestrador-reference.md) |
 | Reduzir custo de contexto | [Economia de contexto](docs/context-economy.md) |
-| Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) · [Resolution Engine](docs/maestro-resolution-engine.md) |
+| Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) |
 | Avaliar privacidade | [Modelo de privacidade](docs/privacy-model.md) |
 | Retomar tarefas longas | [Workflows](docs/workflows.md) · [contratos](docs/task-and-workspace-contracts.md) |
 | Organizar memória | [Hierarquia DEV/](docs/project-dev-hierarchy.md) · [escopos](docs/memory-scopes.md) |

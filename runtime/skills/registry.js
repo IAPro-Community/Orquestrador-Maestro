@@ -70,19 +70,8 @@ class SkillRegistry {
       .sort((left, right) => left.identity.localeCompare(right.identity)));
   }
 
-  get(identityOrId) {
-    const key = typeof identityOrId === "string" ? identityOrId.trim() : "";
-    if (!key) return null;
-    const skills = this.list();
-    const exact = skills.find((skill) => skill.identity === key);
-    if (exact) return exact;
-
-    // Planner/IntentRouter contracts use canonical skill ids, while external
-    // callers may use fully-qualified identities. Resolve the short id only
-    // when the effective registry has a single winner; ambiguous custom
-    // registries must use the namespaced identity explicitly.
-    const byId = skills.filter((skill) => skill.id === key);
-    return byId.length === 1 ? byId[0] : null;
+  get(identity) {
+    return this.list().find((skill) => skill.identity === identity) || null;
   }
 
   listMaestro() {

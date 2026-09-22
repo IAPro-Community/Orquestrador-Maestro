@@ -19,8 +19,7 @@ Mapeie a linguagem natural para a menor intervenção útil:
 - “Audite”, “está quebrando no celular”, “corrija UX” ou “veja acessibilidade” → use `skill-frontend-ux-guardrails` e, se houver navegação ou interação relevante, `skill-webapp-testing`.
 - “Tipografia”, “espaçamento”, “layout”, “cores”, “animação”, “texto confuso” ou “responsivo” → trate como intervenção focal; não faça redesign amplo sem autorização.
 - “Criar uma tela nova” ou “começar do zero” → defina primeiro público, objetivo, produto versus marca e direção visual; só então implemente.
-- “Criar um site premium”, “experiência cinematográfica”, “storytelling no scroll” ou “redesign estrutural” → encaminhe para `skill-premium-web-experience`; não tente substituir a estratégia com uma rodada de polish.
-- Se o pedido for estrutural ou narrativo, `skill-premium-web-experience` vem antes. Se for direção visual, use `skill-open-design-ui`. Se for comportamento de componentes, use `skill-modern-ui-patterns`.
+- “Site premium”, “site cinematográfico”, “storytelling no scroll” ou “redesign estrutural” → encaminhe a estratégia e a narrativa para `skill-premium-web-experience`; intervenha aqui apenas no polimento focal.
 
 ## Workflow
 
@@ -48,8 +47,8 @@ Reporte o que foi alterado, quais viewports e estados foram verificados e qualqu
 
 ## Related Skills
 
-- `skill-premium-web-experience`: estratégia, narrativa, conversão e coordenação de experiências web completas.
 - `skill-frontend-ux-guardrails`: qualidade, acessibilidade, responsividade e estados.
 - `skill-modern-ui-patterns`: composição de interfaces SaaS e comportamento de componentes.
 - `skill-open-design-ui`: direção visual, tokens e QA visual.
+- `skill-premium-web-experience`: estratégia, narrativa e coordenação de experiências web premium.
 - `skill-webapp-testing`: validação E2E e regressão visual quando o fluxo mudar.

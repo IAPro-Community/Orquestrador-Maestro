@@ -17,10 +17,6 @@ export interface DriverExecuteOptions {
   model: string;
   /** Additional environment variables for the isolated condition. */
   env?: Record<string, string>;
-  /** Benchmark condition being executed. */
-  condition?: string;
-  /** Pair identifier for matched control/treatment evidence. */
-  pairId?: string;
 }
 
 /** Tool usage statistics extracted from agent execution. */
@@ -35,12 +31,6 @@ export interface ToolUsage {
   filesCreated: number;
   /** Number of files deleted. */
   filesDeleted: number;
-}
-
-/** Context for parsing already-captured driver output without re-execution. */
-export interface DriverExtractionContext {
-  /** Per-run nonce used to authenticate benchmark-only runtime markers. */
-  markerNonce?: string;
 }
 
 /** Result returned by {@link AgentDriver.execute}. */
@@ -59,8 +49,6 @@ export interface DriverResult {
   agentOutput: string;
   /** Tool usage statistics (null if unavailable). */
   toolUsage: ToolUsage | null;
-  /** Driver-provided structured execution metadata. */
-  metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -102,9 +90,4 @@ export interface AgentDriver {
    * @returns           - Token usage if parseable, otherwise `null`.
    */
   getTokenUsage?(sessionFile: string): Promise<TokenUsage | null>;
-
-  /** Parse structured metadata from already-captured execution output. */
-  extractMetadata?(output: string, context?: DriverExtractionContext): Record<string, unknown> | null;
-  /** Parse token usage from already-captured execution output. */
-  extractTokenUsage?(output: string, context?: DriverExtractionContext): TokenUsage | null;
 }

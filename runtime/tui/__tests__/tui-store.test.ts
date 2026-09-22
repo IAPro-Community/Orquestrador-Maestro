@@ -42,34 +42,3 @@ test("T1.3 connection e entidades reagem às famílias corretas", () => {
   assert.equal(store.getState().projectsById.ids.length, 1);
   assert.equal(store.getState().missionsById.ids.length, 1);
 });
-
-
-test("TUI preserva campos de Resolution entre eventos sucessivos da mesma Task", () => {
-  const store = createTuiStore();
-  store.dispatch(normalizeEvent({
-    version: 2,
-    epoch: "e1",
-    seq: 10,
-    type: "resolution.planned",
-    taskId: "task-r",
-    runId: "run-r",
-    timestamp: new Date(0).toISOString(),
-    payload: { data: { strategy: "balanced", budgetTier: "standard", evidenceSelected: 3, escalationMax: 1 } }
-  }));
-  store.dispatch(normalizeEvent({
-    version: 2,
-    epoch: "e1",
-    seq: 11,
-    type: "outcome.validated",
-    taskId: "task-r",
-    runId: "run-r",
-    timestamp: new Date(1).toISOString(),
-    payload: { data: { state: "validated" } }
-  }));
-
-  const task = store.getState().tasksById.byId["task-r"];
-  assert.equal(task.strategy, "balanced");
-  assert.equal(task.budgetTier, "standard");
-  assert.equal(task.evidenceSelected, 3);
-  assert.equal(task.state, "validated");
-});

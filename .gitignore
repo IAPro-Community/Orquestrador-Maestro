@@ -37,8 +37,6 @@ benchmark-harness/evidence/
 evidence/
 benchmark-harness/node_modules/
 benchmark-harness/dist/
-# Compiled JS must go to dist/ (tsconfig outDir), never next to .ts sources.
-benchmark-harness/src/**/*.js
 *.tgz
 .yarn/
 .yarnrc.yml

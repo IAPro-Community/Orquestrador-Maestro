@@ -1,11 +1,5 @@
 # 🎼 TUTORIAL: Orquestração Universal {{USER_NAME}} (v4.0)
 
-> **Documento histórico (não seguir como guia atual).** Mantido por compatibilidade.
-> Para instalar e usar hoje, siga nesta ordem: `docs/START-HERE.md` →
-> `docs/installation.md` → `docs/ai-agent-operating-guide.md` →
-> `docs/skills/README.md`. Referências a `ecosistema.md`/`memoria.md` abaixo
-> estão obsoletas.
-
 ## 🚀 Resumo em 3 Pontos
 1. **Ponto Único da Verdade:** Tudo o que a IA precisa saber sobre como você trabalha está em `{{USER_HOME}}/.orquestrador`.
 2. **Consciência Global:** A IA agora sabe o que acontece em todos os seus projetos (example-saas, example-ai, etc.) através do `ecosistema.md`.

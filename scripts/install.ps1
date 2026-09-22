@@ -17,39 +17,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Parity with install.sh: refuse elevated installs that would land in the
-# wrong profile. Override explicitly with ORQUESTRADOR_ALLOW_ROOT_INSTALL=1.
-$windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
-if (
-  $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
-  -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
-  -not $DryRun -and
-  -not $ListTargets
-) {
-  throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
-}
-
-function Get-HostPowerShell {
-  # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
-  # Mirrored in scripts/test-install.ps1; keep both in sync.
-  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-  if ($pwsh) { return "pwsh" }
-  return "powershell"
-}
-
-function Test-ToolPresent {
-  # Mirrors install.sh tool_is_present: binary on PATH, or a config dir
-  # that we did not create ourselves (.maestro-managed marker).
-  param([string]$Command, [string]$ConfigDir)
-  if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) { return $true }
-  if ($ConfigDir) {
-    $dir = Join-Path $HomePath $ConfigDir
-    if ((Test-Path -LiteralPath $dir) -and -not (Test-Path -LiteralPath (Join-Path $dir ".maestro-managed"))) { return $true }
-  }
-  return $false
-}
-
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $SourceOrquestrador = Join-Path $RepoRoot "orquestrador"
 $SourceAgents = Join-Path $RepoRoot "home\AGENTS.md"
@@ -366,72 +333,6 @@ function Uninstall-MappedDirectory {
   Remove-EmptyParentsUnderRoot -Path $DestinationDir -Root $HomePath
 }
 
-function Get-ManagedMirrorNames {
-  param([string]$SourceRoot)
-  try {
-    $names = @{}
-    $manifestPath = Join-Path $SourceRoot "SKILLS_MANIFEST.json"
-    if (Test-Path -LiteralPath $manifestPath) {
-      $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-      foreach ($prop in $manifest.skills.PSObject.Properties) {
-        if ($prop.Value.mirrorEverywhere -eq $true) { $names[$prop.Name] = $true }
-      }
-    }
-    $policyPath = Join-Path $SourceRoot "SKILL_INSTALL_POLICY.json"
-    if (Test-Path -LiteralPath $policyPath) {
-      $policy = Get-Content -LiteralPath $policyPath -Raw -Encoding UTF8 | ConvertFrom-Json
-      foreach ($prop in $policy.nativeRoots.PSObject.Properties) {
-        foreach ($dir in @($prop.Value.allowDirectories)) { $names[$dir] = $true }
-      }
-    }
-    $names["orquestrador-maestro"] = $true
-    if ($names.Count -gt 0) { return @($names.Keys | Sort-Object) }
-  } catch { }
-  return @(
-    ".system", "ask-claude", "ask-gemini", "autopilot", "cancel", "code-review",
-    "deep-interview", "doctor", "orquestrador-maestro", "plan", "ralplan", "ralph",
-    "security-review", "skill-adr", "skill-ai-orchestration", "skill-frontend-excellence",
-    "skill-multiagent-orchestration", "skill-preflight", "skill-quality-gate",
-    "skill-release-engineering", "skill-repo-health", "skill-research-and-synthesis",
-    "skill-saas-factory", "skill-saas-security-scan", "skill-systematic-debugging",
-    "skill-verification-before-completion", "skill-webapp-testing", "team",
-    "ultrawork", "web-clone", "worker"
-  )
-}
-
-function Get-SyncMirrorSpecs {
-  return @(
-    @{ Program = "codex"; Relative = ".codex\skills"; LabelPrefix = ".codex__skills" },
-    @{ Program = "opencode"; Relative = ".opencode\skills"; LabelPrefix = ".opencode__skills" },
-    @{ Program = "agents"; Relative = ".agents\skills"; LabelPrefix = ".agents__skills" },
-    @{ Program = "claude"; Relative = ".claude\skills"; LabelPrefix = ".claude__skills" },
-    @{ Program = "cursor"; Relative = ".cursor\skills"; LabelPrefix = ".cursor__skills" },
-    @{ Program = "gemini"; Relative = ".gemini\skills"; LabelPrefix = ".gemini__skills" },
-    @{ Program = "windsurf"; Relative = ".windsurf\skills"; LabelPrefix = ".windsurf__skills" },
-    @{ Program = "antigravity"; Relative = ".antigravity-skills\skills"; LabelPrefix = ".antigravity-skills__skills" }
-  )
-}
-
-function Test-SyncMirrorSelected {
-  param([string]$Program)
-  if ($SelectedComponents.Count -eq 0) { return $true }
-  if ($SelectedComponents -contains "all") { return $true }
-  $normalized = $Program.ToLowerInvariant()
-  if ($SelectedComponents -contains $normalized) { return $true }
-  if ($normalized -eq "agents" -and $SelectedComponents -contains "freebuff") { return $true }
-  return $false
-}
-
-function Uninstall-SyncedMirrorDirectory {
-  param([string]$DestinationDir, [string]$Label)
-  if (-not (Test-Path -LiteralPath $DestinationDir)) { return }
-  if (-not (Test-PathUnderRoot -Path $DestinationDir -Root $HomePath)) {
-    throw "Refusing to uninstall synced mirror outside home: $DestinationDir"
-  }
-  Backup-Path -Path $DestinationDir -Label $Label
-  Remove-Item -LiteralPath $DestinationDir -Recurse -Force
-}
-
 if (-not (Test-Path -LiteralPath $SourceOrquestrador)) {
   throw "Missing generated snapshot: $SourceOrquestrador. Run scripts\sync-from-local.ps1 first."
 }
@@ -498,26 +399,21 @@ if (-not $SkipExtraSkills) {
 
 if ($InstallToolProfiles) {
   $toolProfileTargets = @(
-    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex"; ToolCommand = "codex"; ToolConfigDir = ".codex" },
-    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode"; ToolCommand = "opencode"; ToolConfigDir = ".opencode" },
-    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode"; ToolCommand = "opencode"; ToolConfigDir = ".config/opencode" },
-    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude"; ToolCommand = "claude"; ToolConfigDir = ".claude" },
-    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor"; ToolCommand = "cursor"; ToolConfigDir = ".cursor" },
-    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini"; ToolCommand = "gemini"; ToolConfigDir = ".gemini" },
-    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf"; ToolCommand = "windsurf"; ToolConfigDir = ".windsurf" },
-    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf"; ToolCommand = "windsurf"; ToolConfigDir = ".codeium/windsurf/memories" },
-    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity"; ToolCommand = "antigravity"; ToolConfigDir = ".antigravity" },
-    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity"; ToolCommand = "antigravity"; ToolConfigDir = ".ai-standards" },
-    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo"; ToolCommand = "mimo"; ToolConfigDir = ".mimo" },
-    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi"; ToolCommand = "kimi"; ToolConfigDir = ".kimi-code" },
-    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok"; ToolCommand = "grok"; ToolConfigDir = ".grok" }
+    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex" },
+    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode" },
+    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode" },
+    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude" },
+    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor" },
+    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini" },
+    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf" },
+    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf" },
+    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity" },
+    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity" },
+    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo" },
+    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi" },
+    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok" }
   )
   foreach ($target in $toolProfileTargets) {
-    # -AllTargets installs everything; -NonInteractive installs only
-    # detected tools (mirrors install.sh tool_should_install).
-    if (-not $AllTargets -and $NonInteractive) {
-      if (-not (Test-ToolPresent -Command $target.ToolCommand -ConfigDir $target.ToolConfigDir)) { continue }
-    }
     if (Test-SelectedComponent -Names @("tool-profiles", $target.Component)) {
       Add-InstallTarget `
         -Targets $extraTargets `
@@ -529,51 +425,18 @@ if ($InstallToolProfiles) {
   }
 
   if (Test-SelectedComponent -Names @("tool-profiles", "antigravity")) {
-    $antigravityDetected = $AllTargets -or -not $NonInteractive -or (Test-ToolPresent -Command "antigravity" -ConfigDir ".antigravity")
-    if ($antigravityDetected) {
-      Add-InstallFileTarget `
-        -Targets $extraFileTargets `
-        -Source (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") `
-        -Destination (Join-Path $HomePath "antigravity-rules.json") `
-        -Label "antigravity-rules.json" `
-        -Component "antigravity"
-    }
+    Add-InstallFileTarget `
+      -Targets $extraFileTargets `
+      -Source (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") `
+      -Destination (Join-Path $HomePath "antigravity-rules.json") `
+      -Label "antigravity-rules.json" `
+      -Component "antigravity"
   }
 }
 
 if ($ListTargets -or $DryRun) {
   $mode = if ($Uninstall) { "uninstall-plan" } elseif ($DryRun) { "dry-run" } else { "list" }
   Write-InstallPlan -CoreTargets $coreTargets -DirectoryTargets $extraTargets.ToArray() -FileTargets $extraFileTargets.ToArray() -Mode $mode
-  if ($DryRun -and -not $Uninstall) {
-    Write-Output "Planned post-copy steps (not executed in dry-run):"
-    $logsDisplay = if ($VerbosePaths) { Join-Path $TargetOrquestrador "logs" } else { "$TargetOrquestradorName\logs" }
-    Write-Output "- Would create logs directory: $logsDisplay"
-    if ($SkipSkillSync) {
-      Write-Output "- Would skip skill sync (-SkipSkillSync specified)."
-    } else {
-      $syncDetail = "sync-skills.ps1 -Apply -HomePath <home>"
-      if ($SelectedComponents.Count -gt 0) { $syncDetail += " -Only $($SelectedComponents -join ',')" }
-      Write-Output "- Would run skill sync: $syncDetail"
-    }
-    $dryRunDiscoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
-    if (Test-Path -LiteralPath $dryRunDiscoveryScript) {
-      Write-Output "- Would run skill discovery: node scripts\discover-skills.js -> $TargetOrquestradorName\SKILLS_DISCOVERY.json"
-    }
-  }
-  if ($DryRun -and $Uninstall) {
-    $dryRunManagedNames = Get-ManagedMirrorNames -SourceRoot $SourceOrquestrador
-    foreach ($spec in Get-SyncMirrorSpecs) {
-      if (-not (Test-SyncMirrorSelected -Program $spec.Program)) { continue }
-      $dryRunMirrorRoot = Join-Path $HomePath $spec.Relative
-      foreach ($managedName in $dryRunManagedNames) {
-        $dryRunCandidate = Join-Path $dryRunMirrorRoot $managedName
-        if (Test-Path -LiteralPath $dryRunCandidate) {
-          $dryRunDisplay = if ($VerbosePaths) { $dryRunCandidate } else { "$($spec.LabelPrefix)__$managedName" }
-          Write-Output "- Would remove synced mirror: $dryRunDisplay"
-        }
-      }
-    }
-  }
   if ($DryRun -or $ListTargets) {
     return
   }
@@ -581,8 +444,8 @@ if ($ListTargets -or $DryRun) {
 
 if ($Uninstall) {
   if ($includeCore) {
-    Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
-    Backup-Path -Path $TargetAgents -Label "AGENTS.md"
+    Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
+    Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
   }
   foreach ($target in $extraTargets) {
     Backup-MappedDirectory -SourceDir $target.Source -DestinationDir $target.Destination -Label $target.Label
@@ -614,19 +477,6 @@ if ($Uninstall) {
       Remove-Item -LiteralPath $target.Destination -Force
     }
   }
-  $managedMirrorNames = Get-ManagedMirrorNames -SourceRoot $SourceOrquestrador
-  foreach ($spec in Get-SyncMirrorSpecs) {
-    if (-not (Test-SyncMirrorSelected -Program $spec.Program)) { continue }
-    $mirrorRoot = Join-Path $HomePath $spec.Relative
-    if (-not (Test-Path -LiteralPath $mirrorRoot)) { continue }
-    foreach ($managedName in $managedMirrorNames) {
-      $candidate = Join-Path $mirrorRoot $managedName
-      if (Test-Path -LiteralPath $candidate) {
-        Uninstall-SyncedMirrorDirectory -DestinationDir $candidate -Label "$($spec.LabelPrefix)__$managedName"
-      }
-    }
-    Remove-EmptyParentsUnderRoot -Path $mirrorRoot -Root $HomePath
-  }
 
   [pscustomobject]@{
     HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
@@ -638,8 +488,8 @@ if ($Uninstall) {
   return
 }
 
-Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
-Backup-Path -Path $TargetAgents -Label "AGENTS.md"
+Backup-MappedDirectory -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador -Label $TargetOrquestradorName
+Backup-MappedFile -DestinationFile $TargetAgents -Label "AGENTS.md"
 $backedUpExtraTargets = @{}
 foreach ($target in $extraTargets) {
   $key = [System.IO.Path]::GetFullPath($target.Destination).ToLowerInvariant()
@@ -682,7 +532,7 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
   }
 }
 

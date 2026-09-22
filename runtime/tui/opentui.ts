@@ -31,17 +31,7 @@ const { projectTerminals } = require("./views/terminal-layouts")
 const { NORMAL_MODE, enterInput, exitInput } = require("./views/terminal-mouse")
 const { PROVIDERS, canStartMission, clampSelection, cockpitLayout, cockpitShortcut, firstInteractiveIndex, isInteractiveSession, missionState, primaryAction, terminalInputForKey, visibleSessions } = require("./ade-model")
 
-type Project = {
-  id: string; name: string; path: string; status: string;
-  verification?: { status?: string };
-  resolution?: {
-    state?: string; strategy?: string; mode?: string;
-    budget?: { tier?: string; contextTokens?: number };
-    evidence?: { candidates?: number; selected?: unknown[]; budgetOverflow?: boolean };
-    escalation?: { count?: number; max?: number };
-    outcome?: { state?: string; reason?: string }
-  }
-}
+type Project = { id: string; name: string; path: string; status: string; verification?: { status?: string } }
 type Session = { id: string; label: string; kind: string; providerId?: string; backend: string; workspacePath: string; sourceWorkspacePath?: string; status: string; startedAt?: string; missionId?: string; role?: string; isolation?: string }
 type Mission = { id: string; objective: string; status: string; mode: string; startedAt?: string; plan?: { tasks?: unknown[]; blockers?: unknown[] } }
 type Wizard = "none" | "agent" | "mission" | "shell" | "palette" | "search"
@@ -312,25 +302,8 @@ async function main() {
         panels[0].box.width = "100%"; panels[0].text.fg = theme.text
         const rows = projects.map((entry) => {
           const status = tabStatus(tuiStore.getState(), entry.id)
-          const resolution = entry.resolution
-          const state = resolution?.state === "validated" ? "✓ validated"
-            : resolution?.state === "needs_attention" ? "⚠ needs attention"
-              : resolution?.state === "blocked" ? "■ blocked"
-                : resolution?.state === "verifying" ? "◐ verifying"
-                  : resolution?.state === "failed" ? "✗ failed"
-                    : status.kind === "attention" ? "⚠ needs attention"
-                      : status.kind === "verifying" ? "◐ verifying"
-                        : status.kind === "running" ? `● ${status.agentCount} agent${status.agentCount === 1 ? "" : "s"} running` : "○ idle"
-          const detail = resolution
-            ? [
-                resolution.strategy,
-                resolution.budget?.tier ? `budget ${resolution.budget.tier}` : "",
-                Number.isInteger(resolution.evidence?.selected?.length) ? `evidence ${resolution.evidence?.selected?.length}/${resolution.evidence?.candidates ?? "?"}` : "",
-                Number.isInteger(resolution.escalation?.max) ? `esc ${resolution.escalation?.count ?? 0}/${resolution.escalation?.max}` : "",
-                entry.verification?.status ? `verify ${entry.verification.status}` : ""
-              ].filter(Boolean).join(" · ")
-            : ""
-          return `${entry.name.padEnd(22, " ")} ${state}${detail ? ` · ${detail}` : ""}`
+          const state = status.kind === "attention" ? "⚠ needs attention" : status.kind === "verifying" ? "◐ verifying" : status.kind === "running" ? `● ${status.agentCount} agent${status.agentCount === 1 ? "" : "s"} running` : "○ idle"
+          return `${entry.name.padEnd(22, " ")} ${state}`
         }).join("\n") || "Nenhum projeto registrado."
         const attentionCount = projects.reduce((total, entry) => total + tabStatus(tuiStore.getState(), entry.id).attentionCount, 0)
         panels[0].text.content = `ACTIVE PROJECTS\n${rows}\n\nATTENTION\n${attentionCount ? `${attentionCount} decisão${attentionCount === 1 ? "" : "ões"} pendente${attentionCount === 1 ? "" : "s"}` : "Nenhuma intervenção pendente."}\n\nEXECUTION\n${projects.filter((entry) => ["running", "active", "executing"].includes(String(entry.status).toLowerCase())).length} ativos · ${connectedRuntime ? "runtime conectado" : "runtime local"}\n\nCtrl+P trocar projeto · A atenção · T terminal`
@@ -509,7 +482,7 @@ async function main() {
   const unsubscribe = typeof app.subscribe === "function" ? app.subscribe((event: any) => {
     if (event?.entry) consumeRuntimeEntry(event.entry)
     const type = event?.entry?.type || event?.type
-    if (["agentSession.output", "agentSession.active", "agentSession.exited", "agentSession.closed", "terminal.output", "agent.active", "agent.exited", "mission.created", "mission.updated", "attention.created", "attention.resolved", "resolution.planned", "outcome.validated", "outcome.revoked", "outcome.revalidated", "verification.completed", "verification.failed", "provider.handoff"].includes(type)) scheduleRefresh()
+    if (["agentSession.output", "agentSession.active", "agentSession.exited", "agentSession.closed", "terminal.output", "agent.active", "agent.exited", "mission.created", "mission.updated", "attention.created", "attention.resolved"].includes(type)) scheduleRefresh()
   }) : undefined
   process.on("SIGWINCH", () => scheduleRefresh())
   setWizard("none"); await refresh(connectedRuntime ? "Cockpit conectado ao runtime persistente." : "Runtime externo indisponível; usando processo local.")

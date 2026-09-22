@@ -40,12 +40,7 @@ function createBridge(options = {}) {
     "runs.list": (params) => invokeList(services.runStore, "listRuns", params),
     "runs.get": (params) => invokeGet(services.runStore, "getRun", params, "runId"),
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
-    "runs.create": (params) => invokeRunCreate(services.runtime, params),
-    "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
-    "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
-    "evidence.get": (params) => invokeGet(services.runtime, "getEvidence", params, "evidenceId"),
-    "proof.task": (params) => invokeGet(services.runtime, "getTaskProofBundle", params, "taskId"),
-    "proof.mission": (params) => invokeGet(services.runtime, "getMissionProofBundle", params, "missionId"),
+    "runs.create": (params) => invokeCall(services.runtime, "executeRun", params),
     "runs.cancel": (params) => invokeCall(services.runtime, "cancelRun", params, "runId"),
     "runs.subscribe": () => unsupported("Run subscriptions are not available in protocol version 1"),
     "artifacts.list": (params) => invokeList(services.runStore, "listArtifacts", params),
@@ -237,20 +232,6 @@ async function invokeAgentResize(service, params) {
   if (!Number.isInteger(params.columns) || !Number.isInteger(params.rows)) throw invalidParams("columns and rows must be integers");
   if (!service || typeof service.resizeTerminalSession !== "function") return unsupported("resizeTerminalSession is unavailable");
   return service.resizeTerminalSession(params.terminalId, params.columns, params.rows);
-}
-
-async function invokeRunCreate(service, params) {
-  if (!service) return unsupported("runtime is unavailable");
-  if (typeof service.executeTaskWithHandoff === "function") return service.executeTaskWithHandoff(params);
-  if (typeof service.executeRun === "function") return service.executeRun(params);
-  return unsupported("executeRun is unavailable");
-}
-
-async function invokeResolutionGet(service, params) {
-  requireNonEmptyString(params.runId, "runId");
-  if (!service || typeof service.inspectRun !== "function") return unsupported("inspectRun is unavailable");
-  const inspection = await service.inspectRun(params.runId);
-  return inspection?.resolution || null;
 }
 
 async function invokeMissionUpdate(service, params) {

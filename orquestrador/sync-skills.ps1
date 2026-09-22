@@ -170,10 +170,7 @@ function Test-DirectoryDifferent {
 
 function Copy-ManagedDirectory {
   param([string]$SourceDir, [string]$DestDir, [string]$TargetRoot)
-  if (-not (Test-PathUnderRoot -Path $DestDir -Root $TargetRoot)) {
-    throw "Refusing to copy managed directory outside target root: $DestDir"
-  }
-  if (Test-Path -LiteralPath $DestDir) {
+  if ((Test-Path -LiteralPath $DestDir) -and (Test-PathUnderRoot -Path $DestDir -Root $TargetRoot)) {
     Remove-Item -LiteralPath $DestDir -Recurse -Force
   }
   New-Item -ItemType Directory -Force -Path $DestDir | Out-Null

@@ -125,7 +125,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true, verifier: "test",
+          verified: true,
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -157,7 +157,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Old verified",
-        verified: true, verifier: "test",
+        verified: true,
         timestamp: new Date(Date.now() - 86400000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -186,7 +186,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true, verifier: "test",
+        verified: true,
         timestamp: new Date(Date.now() - 2000).toISOString(),
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
@@ -217,7 +217,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
         memory.record(projectId, {
           type: "discovery",
           summary: "Verified " + i,
-          verified: true, verifier: "test",
+          verified: true,
           source: { tool: "test" }
         }, { projectRoot: gitDir, gitContext });
       }
@@ -250,7 +250,7 @@ describe("MERGE-BLOCKER CLEANUP — Regression Tests", () => {
       memory.record(projectId, {
         type: "discovery",
         summary: "Verified obs",
-        verified: true, verifier: "test",
+        verified: true,
         source: { tool: "test" }
       }, { projectRoot: gitDir, gitContext });
 
@@ -510,7 +510,7 @@ try {
     it("should not allow infrastructure runs to be claim-eligible", () => {
       const infraRun = {
         evidence: { executionType: "infrastructure", publicClaimEligible: false, reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(infraRun), "Infrastructure run should not be claim-eligible");
@@ -519,8 +519,7 @@ try {
     it("should allow real-execution runs to be claim-eligible", () => {
       const realRun = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-        environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
       assert.ok(isClaimEligibleRun(realRun), "Real execution run should be claim-eligible");
@@ -538,7 +537,7 @@ try {
     it("should block runs with publicClaimEligible undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined publicClaimEligible should not be eligible");
@@ -547,7 +546,7 @@ try {
     it("should block runs with reproducible undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, isolated: true },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined reproducible should not be eligible");
@@ -556,7 +555,7 @@ try {
     it("should block runs with isolated undefined", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: true }
       };
       assert.ok(!isClaimEligibleRun(run), "Undefined isolated should not be eligible");
@@ -565,7 +564,7 @@ try {
     it("should block runs with failed validation", () => {
       const run = {
         evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-        usage: { tokenSource: "provider-reported", confidence: "exact" },
+        usage: { tokenSource: "provider-reported" },
         validation: { passed: false }
       };
       assert.ok(!isClaimEligibleRun(run), "Failed validation should not be eligible");
@@ -585,17 +584,16 @@ try {
       const mixedResults = [
         {
           benchmark: "test-001", condition: "vanilla", run: 1,
-          usage: { inputTokens: 100, tokenSource: "provider-reported", confidence: "exact" },
+          usage: { inputTokens: 100, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "infrastructure", publicClaimEligible: false, reproducible: true, isolated: true },
           metadata: { durationMs: 100 }
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -629,18 +627,16 @@ try {
       const allEligibleResults = [
         {
           benchmark: "test-001", condition: "vanilla", run: 1,
-          usage: { inputTokens: 100, tokenSource: "provider-reported", confidence: "exact" },
+          usage: { inputTokens: 100, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];
@@ -663,10 +659,9 @@ try {
         },
         {
           benchmark: "test-001", condition: "maestro-memory", run: 1,
-          usage: { inputTokens: 80, tokenSource: "provider-reported", confidence: "exact" },
+          usage: { inputTokens: 80, tokenSource: "provider-reported" },
           validation: { passed: true },
           evidence: { executionType: "real-execution", publicClaimEligible: true, reproducible: true, isolated: true },
-          environment: { container: true, containerImage: "node:20-slim", containerId: "test-container-id" },
           metadata: { durationMs: 100 }
         }
       ];

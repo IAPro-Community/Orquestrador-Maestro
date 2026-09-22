@@ -53,18 +53,6 @@ O roteamento seleciona uma skill principal; [chains](../../orquestrador/SKILL_CH
 
 O catálogo deve mostrar clients compatíveis, pré-requisitos e modo de instalação derivados da política de instalação. Consulte [pacotes de skills](../skill-packs.md) para entender a distribuição física.
 
-## Como ler uma página de skill (para humanos)
-
-As páginas em `reference/` são geradas do manifesto e têm sempre a mesma ordem. Leia assim:
-
-1. **Descrição + “Melhores casos de uso”** — é para o seu caso?
-2. **“Quando não usar”** — se seu pedido cai aqui, volte para `choose.md`.
-3. **“Pré-requisitos e ferramentas externas”** — o que precisa existir (autorização, serviço, baseline) antes de começar.
-4. **“Compatibilidade e instalação”** — onde ela roda (nativa = já espelhada; sob demanda = carrega quando pedida; condicional = exige algo externo).
-5. **“Evidência mínima de conclusão”** — o que cobrar da IA antes de aceitar como pronto.
-
-Exemplo guiado de ponta a ponta: [Sua primeira skill](primeira-skill.md) (usa `skill-repo-health`, só leitura, sem alterar arquivos).
-
 ## Escolher uma ou combinar várias
 
 Use uma skill isolada quando o resultado couber em um único domínio e tiver uma verificação clara. Use uma [receita](recipes.md) quando houver dependências entre etapas — por exemplo, construir um SaaS, integrar pagamento e sincronizar entitlement — ou quando a evidência final depender de várias disciplinas.

@@ -2,8 +2,6 @@
 
 Comece pela situação e ajuste pela evidência disponível no projeto. O perfil sugerido é um ponto de partida: o roteador pode escolher outro quando risco, escopo ou autorização exigirem.
 
-Primeira vez? Faça o [exemplo guiado](primeira-skill.md) antes — ele mostra o ciclo completo com `skill-repo-health`.
-
 | Situação | Skill principal | Skills de apoio | Perfil sugerido |
 | --- | --- | --- | --- |
 | Iniciar ou revisar um SaaS | `skill-saas-factory` | `skill-preflight`, `skill-saas-security-scan`, `skill-verification-before-completion` | `standard` ou `deep` |

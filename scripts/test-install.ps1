@@ -6,14 +6,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Get-HostPowerShell {
-  # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
-  # Mirrored in scripts/install.ps1; keep both in sync.
-  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-  if ($pwsh) { return "pwsh" }
-  return "powershell"
-}
-
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $TempHome = Join-Path ([System.IO.Path]::GetTempPath()) ("orquestrador-install-test-" + [Guid]::NewGuid().ToString("N"))
 
@@ -31,10 +23,10 @@ try {
     Set-Content -LiteralPath (Join-Path $sessionDir "personal.jsonl") -Value "personal-session-must-survive" -Encoding UTF8
   }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs -DryRun
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs -DryRun
   if ($LASTEXITCODE -ne 0) { throw "DryRun failed." }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs
   if ($LASTEXITCODE -ne 0) { throw "Install failed." }
 
   if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\runtime")) {
@@ -53,16 +45,16 @@ try {
     }
   }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\verify-install.ps1") @verifyArgs
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\verify-install.ps1") @verifyArgs
   if ($LASTEXITCODE -ne 0) { throw "Verify failed." }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -ListTargets
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -ListTargets
   if ($LASTEXITCODE -ne 0) { throw "ListTargets failed." }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall -DryRun
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall -DryRun
   if ($LASTEXITCODE -ne 0) { throw "Uninstall DryRun failed." }
 
-  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall
   if ($LASTEXITCODE -ne 0) { throw "Uninstall failed." }
 
   if ($Full) {

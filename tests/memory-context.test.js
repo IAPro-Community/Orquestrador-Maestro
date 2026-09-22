@@ -27,21 +27,21 @@ describe("Memory-Context Integration", () => {
         type: "decision",
         summary: "Use JWT for authentication",
         tags: ["auth", "jwt"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
         type: "discovery",
         summary: "Refresh token reuse bug found",
         tags: ["auth", "bug"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
         type: "implementation",
         summary: "Fixed login flow",
         tags: ["auth", "login"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       const authObservations = memory.search(projectId, { search: "auth" });
@@ -58,14 +58,14 @@ describe("Memory-Context Integration", () => {
         type: "decision",
         summary: "Use TypeScript",
         tags: ["typescript", "language"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
         type: "discovery",
         summary: "Database performance issue",
         tags: ["database", "performance"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       const authObservations = memory.search(projectId, { search: "authentication" });
@@ -80,7 +80,7 @@ describe("Memory-Context Integration", () => {
           type: "discovery",
           summary: `Finding ${i}`,
           tags: [`tag${i}`],
-          verified: true, verifier: "test"
+          verified: true
         });
       }
 
@@ -95,7 +95,7 @@ describe("Memory-Context Integration", () => {
         type: "decision",
         summary: "Verified decision",
         tags: ["important"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
@@ -105,7 +105,7 @@ describe("Memory-Context Integration", () => {
         verified: false
       });
 
-      const verified = memory.search(projectId, { verified: true, verifier: "test" });
+      const verified = memory.search(projectId, { verified: true });
       assert.equal(verified.length, 1);
       assert.ok(verified[0].summary.includes("Verified"));
     });
@@ -117,14 +117,14 @@ describe("Memory-Context Integration", () => {
         type: "decision",
         summary: "Old decision",
         tags: ["outdated"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
         type: "decision",
         summary: "New decision",
         tags: ["current"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       const stats = memory.stats(projectId);
@@ -144,14 +144,14 @@ describe("Memory-Context Integration", () => {
         type: "decision",
         summary: "Use React for frontend",
         tags: ["frontend", "framework"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       memory.record(projectId, {
         type: "decision",
         summary: "Use Vue for frontend",
         tags: ["frontend", "framework"],
-        verified: true, verifier: "test"
+        verified: true
       });
 
       const frontendDecisions = memory.search(projectId, {

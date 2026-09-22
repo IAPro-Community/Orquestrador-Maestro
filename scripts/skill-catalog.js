@@ -927,11 +927,6 @@ function validate() {
       if (!fs.existsSync(path.join(skillsRoot, name, "SKILL.md"))) {
         issues.push(`mirrorEverywhere:${name}: canonical source is missing`);
       }
-      // Nativa skills must be present in the published Codex snapshot,
-      // otherwise npm install cannot deliver them to Codex users.
-      if (!fs.existsSync(path.join(repoRoot, "codex", "skills", name, "SKILL.md"))) {
-        issues.push(`mirrorEverywhere:${name}: missing from published codex/skills snapshot (resync from orquestrador/skills/${name})`);
-      }
     }
   }
 

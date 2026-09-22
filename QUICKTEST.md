@@ -9,12 +9,8 @@ node orquestrador/bin/memory.js record \
   --type decision \
   --summary "Usei JWT para autenticação" \
   --tags "auth,jwt" \
-  --verified --verifier "alice" --verify-note "revisado no PR #42"
+  --verified
 ```
-
-> Linha dura: `--verified` sozinho não verifica — vira `verifiedClaimed`.
-> Só vale com `--verifier` (quem verificou) e `verifiedAt`; `promote --apply`
-> para `DEV/` exige os dois.
 
 ### Buscar observations
 ```bash
@@ -35,34 +31,22 @@ node orquestrador/bin/memory.js stats \
   --project meu-projeto
 ```
 
-### Exportar e importar (backup/restore; import nunca herda `verified`)
-```bash
-node orquestrador/bin/memory.js export --project meu-projeto --output backup.json
-node orquestrador/bin/memory.js import --project outro-projeto --input backup.json --dry-run
-```
-
-### Opt-out por projeto (`DEV/memory-policy.json`)
-```json
-{ "capture": false, "excludedPaths": ["secrets/"] }
-```
-`capture: false` bloqueia novas capturas; `excludedPaths` remove arquivos casados do registro.
-
 ## 2. Testar Benchmark
-
-Os comandos atuais usam `benchmark-harness/` (os paths `benchmarks/benchmark.js` e `benchmarks/real-benchmark.js` não existem mais neste repo).
 
 ### Listar cenários
 ```bash
-npm run bench:list
+node benchmarks/benchmark.js list
 ```
 
-### Validar cenários
+### Executar benchmark
 ```bash
-npm run bench:validate
+node benchmarks/real-benchmark.js
 ```
 
 ### Ver resultados
-Os relatórios ficam sob `benchmark-harness/evidence/` ou no diretório de saída indicado pelo comando `report`. Veja a metodologia em `docs/benchmark.md`.
+```bash
+cat benchmarks/results/real/real-benchmark-report.json
+```
 
 ## 3. Rodar Todos os Testes
 

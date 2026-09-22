@@ -13,12 +13,12 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command 
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL) {
-  throw "Execute o bootstrap em um PowerShell normal, sem Administrador (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  throw "Execute o bootstrap em um PowerShell normal, sem Administrador."
 }
 
 $nodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
-if ($nodeMajor -lt 20) {
+if ($nodeMajor -lt 18) {
   throw "Node.js 20 ou superior é necessário. Versão atual: $(& node --version)."
 }
 

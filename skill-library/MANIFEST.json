@@ -21,8 +21,8 @@
     "publicCatalog": {
       "path": "skill-library/PUBLIC_SKILLS_MANIFEST.json",
       "uniqueSkills": 75,
-      "sourceSkillFiles": 177,
-      "shadowedDuplicates": 102,
+      "sourceSkillFiles": 174,
+      "shadowedDuplicates": 99,
       "conflictingIds": 7
     },
     "toolProfiles": {

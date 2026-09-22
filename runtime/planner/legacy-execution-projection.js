@@ -9,9 +9,6 @@ class LegacyExecutionProjection {
     const executionTarget = (options && typeof options === "object" && options.executionTarget) || options || {};
     const providerId = executionTarget.providerId || executionTarget.provider;
     const model = executionTarget.model;
-    const providerFallbacks = Array.isArray(executionTarget.providerFallbacks)
-      ? executionTarget.providerFallbacks.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim())
-      : [];
 
     if (!providerId || typeof providerId !== "string" || providerId.trim() === "") {
       throw new TypeError("MISSING_EXECUTION_TARGET: providerId is required for legacy execution projection");
@@ -31,7 +28,6 @@ class LegacyExecutionProjection {
       skills: [...(semanticTask.requiredSkills || [])],
       dependsOn: [...(semanticTask.dependsOn || [])],
       provider: providerId.trim(),
-      providerFallbacks: Object.freeze(providerFallbacks.filter((value) => value !== providerId.trim())),
       model: model.trim(),
       semanticMetadata: semanticTask
     });

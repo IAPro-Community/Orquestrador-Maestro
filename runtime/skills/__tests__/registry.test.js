@@ -54,33 +54,3 @@ test("default registry discovers public roots and direct user skills, never plug
   assert.ok(identities.includes("library/community/skill-community"));
   assert.ok(!identities.includes("skill-plugin"));
 });
-
-
-test("effective default registry resolves canonical short ids selected by the planner", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skill-short-id-root-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skill-short-id-home-"));
-  fs.mkdirSync(path.join(root, "orquestrador", "skills"), { recursive: true });
-  fs.writeFileSync(path.join(root, "orquestrador", "SKILLS_MANIFEST.json"), JSON.stringify({ skills: {} }), "utf8");
-  writeSkill(root, "orquestrador/skills/skill-testing", "skill-testing");
-
-  const registry = new SkillRegistry({ maestroRoot: root, userHome: home, projectSources: [] });
-  assert.equal(registry.get("skill-testing")?.identity, "maestro/skill-testing");
-  assert.equal(registry.get("maestro/skill-testing")?.identity, "maestro/skill-testing");
-});
-
-test("ambiguous short ids require a namespaced identity", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-skill-ambiguous-root-"));
-  fs.mkdirSync(path.join(root, "orquestrador"), { recursive: true });
-  fs.writeFileSync(path.join(root, "orquestrador", "SKILLS_MANIFEST.json"), JSON.stringify({ skills: { react: {} } }), "utf8");
-  writeSkill(root, "orquestrador/skills/react", "react");
-  writeSkill(root, "user/codex/react", "react");
-
-  const registry = new SkillRegistry({
-    maestroRoot: root,
-    userSources: [{ provider: "codex", path: path.join(root, "user", "codex") }],
-    projectSources: []
-  });
-  assert.equal(registry.get("react"), null);
-  assert.equal(registry.get("maestro/react")?.id, "react");
-  assert.equal(registry.get("user/codex/react")?.id, "react");
-});

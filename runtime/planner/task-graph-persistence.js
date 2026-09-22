@@ -1,6 +1,5 @@
 "use strict";
 
-const { runtimeTaskId } = require("../core/task-identity");
 const {
   PLANNING_MODES,
   createSemanticTask,
@@ -58,17 +57,11 @@ class TaskGraphPersistence {
 
   async persistTaskLinks(graph) {
     for (const task of graph.tasks || []) {
-      const semanticTask = task.metadata?.semantic || task.metadata?.semanticTask || null;
-      const semanticTaskId = semanticTask?.id || task.metadata?.semanticTaskId || task.id;
-      const persistedTaskId = runtimeTaskId({ missionId: graph.missionId, semanticTaskId }) || task.id;
       await this.store.saveTask({
         ...task,
-        id: persistedTaskId,
         projectId: graph.metadata.projectId,
         metadata: {
           ...(task.metadata || {}),
-          semanticTaskId,
-          ...(semanticTask ? { semanticTask } : {}),
           missionId: graph.missionId,
           graphId: graph.id,
           ancestry: {
@@ -81,18 +74,8 @@ class TaskGraphPersistence {
     return graph;
   }
 
-  async _resolveTask(taskId, missionId = null) {
-    const direct = await this.store.getTask(taskId);
-    if (direct) return direct;
-    if (typeof this.store.listTasks !== "function") return undefined;
-    const matches = (await this.store.listTasks({})).filter((task) =>
-      task.metadata?.semanticTaskId === taskId
-      && (!missionId || task.metadata?.missionId === missionId));
-    return matches.length === 1 ? matches[0] : undefined;
-  }
-
-  async missionForTask(taskId, options = {}) {
-    const task = await this._resolveTask(taskId, options.missionId || null);
+  async missionForTask(taskId) {
+    const task = await this.store.getTask(taskId);
     if (!task?.metadata?.missionId) return undefined;
     return {
       missionId: task.metadata.missionId,
@@ -101,8 +84,8 @@ class TaskGraphPersistence {
     };
   }
 
-  async ancestryForTask(taskId, options = {}) {
-    const task = await this._resolveTask(taskId, options.missionId || null);
+  async ancestryForTask(taskId) {
+    const task = await this.store.getTask(taskId);
     const ancestry = task?.metadata?.ancestry;
     if (!task?.metadata?.missionId && !ancestry) return undefined;
     return {
