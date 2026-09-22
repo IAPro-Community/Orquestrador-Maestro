@@ -157,6 +157,51 @@ function evidenceLabel(value, fallback, maxChars = 128) {
   return sanitizeDiagnostic(raw, { maxChars }) || fallback;
 }
 
+function hashText(value) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function durableChangeArtifactMetadata(before, changes = {}) {
+  // Review needs full patches only in memory. Persisting them in runs.json
+  // duplicates source code, grows every atomic rewrite, and can retain
+  // accidental secrets from otherwise non-sensitive files. Proof keeps
+  // filenames/stats/omissions plus hashes that bind it to the reviewed bytes.
+  return Object.freeze({
+    before: {
+      available: before?.available === true,
+      files: Array.isArray(before?.files) ? before.files.slice(0, 1000).map((item) => ({
+        status: item?.status || null,
+        path: typeof item?.path === "string" ? sanitizeDiagnostic(item.path, { maxChars: 512 }) : null,
+        previousPath: typeof item?.previousPath === "string" ? sanitizeDiagnostic(item.previousPath, { maxChars: 512 }) : undefined
+      })) : []
+    },
+    changes: {
+      available: changes?.available === true,
+      patchComplete: changes?.patchComplete === true,
+      changedFiles: Array.isArray(changes?.changedFiles) ? changes.changedFiles.slice(0, 1000).map((value) => sanitizeDiagnostic(value, { maxChars: 512 })) : [],
+      stats: sanitizeEvidenceMetadata(changes?.stats || []),
+      stagedStats: sanitizeEvidenceMetadata(changes?.stagedStats || []),
+      untrackedFiles: Array.isArray(changes?.untrackedFiles) ? changes.untrackedFiles.slice(0, 1000).map((value) => sanitizeDiagnostic(value, { maxChars: 512 })) : [],
+      binaryFiles: sanitizeEvidenceMetadata(changes?.binaryFiles || []),
+      sensitiveFiles: sanitizeEvidenceMetadata(changes?.sensitiveFiles || []),
+      omitted: sanitizeEvidenceMetadata(changes?.omitted || []),
+      limits: sanitizeEvidenceMetadata(changes?.limits || {}),
+      truncated: changes?.truncated === true,
+      patchHashes: {
+        workingTree: hashText(changes?.workingTreePatch),
+        staged: hashText(changes?.stagedPatch),
+        combined: hashText(changes?.patch)
+      },
+      patchBytes: {
+        workingTree: typeof changes?.workingTreePatch === "string" ? Buffer.byteLength(changes.workingTreePatch, "utf8") : null,
+        staged: typeof changes?.stagedPatch === "string" ? Buffer.byteLength(changes.stagedPatch, "utf8") : null,
+        combined: typeof changes?.patch === "string" ? Buffer.byteLength(changes.patch, "utf8") : null
+      }
+    }
+  });
+}
+
 function normalizeProviderAttempts(request = {}) {
   const raw = [
     { providerId: request.providerId || "codex", model: request.model },
@@ -230,6 +275,9 @@ class MaestroApplication {
     this.terminals = options.terminals || new TerminalManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.terminalSessions = options.terminalSessions || new TerminalSessionManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.governance = mergeConfig(options.governance || loadGovernanceConfig({ cwd: this.projectRoot }).config);
+    // Enforce mode is a runtime-owned capability. A request/Bridge client
+    // cannot self-authorize promotion by setting a payload boolean.
+    this.resolutionEnforceAuthorized = options.resolutionEnforceAuthorized === true;
     this.interaction = options.interaction || resolveInteractionProfile({ cwd: this.projectRoot, cliProfile: options.interactionProfile });
     this.governanceWarnings = new Set();
     this.governanceNotices = [];
@@ -451,8 +499,35 @@ class MaestroApplication {
     const capabilities = await provider.capabilities();
     for (const capability of policy.requiredCapabilities) if (!capabilities[capability]) throw new Error(`provider ${provider.id} lacks ${capability}`);
 
-    const workspacePath = path.resolve(request.workspacePath || this.projectRoot);
-    const projectId = request.projectId || projectIdForPath(workspacePath);
+    let workspacePath = path.resolve(request.workspacePath || this.projectRoot);
+    let projectId = request.projectId || projectIdForPath(workspacePath);
+    if (request.missionId) {
+      const mission = await this.store.getMission(request.missionId);
+      if (!mission) {
+        const error = new Error(`MISSION_NOT_FOUND: ${request.missionId}`);
+        error.code = "MISSION_NOT_FOUND";
+        throw error;
+      }
+      const missionProject = await this.store.getProject(mission.projectId);
+      if (!missionProject?.path) {
+        const error = new Error(`MISSION_PROJECT_NOT_FOUND: ${mission.projectId}`);
+        error.code = "MISSION_PROJECT_NOT_FOUND";
+        throw error;
+      }
+      const missionWorkspacePath = path.resolve(missionProject.path);
+      if (request.projectId && request.projectId !== mission.projectId) {
+        const error = new Error("MISSION_SCOPE_MISMATCH: projectId does not match mission.projectId");
+        error.code = "MISSION_SCOPE_MISMATCH";
+        throw error;
+      }
+      if (request.workspacePath && path.resolve(request.workspacePath) !== missionWorkspacePath) {
+        const error = new Error("MISSION_SCOPE_MISMATCH: workspacePath does not match the Mission project");
+        error.code = "MISSION_SCOPE_MISMATCH";
+        throw error;
+      }
+      projectId = mission.projectId;
+      workspacePath = missionWorkspacePath;
+    }
     const cognitiveBudget = evaluateCognitiveBudget({ ...(request.semanticTask || {}), changeClass: semanticChangeClass, risk: semanticRisk }, this.governance.cognitiveBudget);
     const semanticTaskId = semanticTaskIdOf(request);
     const semanticTask = request.semanticTask || {
@@ -468,7 +543,7 @@ class MaestroApplication {
       mode: request.resolutionMode || request.adaptiveResolutionMode || "shadow",
       executionProfile: profile.id,
       validators: request.validators,
-      enforceAuthorized: request.resolutionEnforceAuthorized === true
+      enforceAuthorized: this.resolutionEnforceAuthorized === true && request.resolutionEnforceAuthorized === true
     });
     resolution = withBudgetReservation(resolution, createBudgetReservation({
       estimate: {
@@ -838,7 +913,7 @@ class MaestroApplication {
     } catch { primaryUsageSummary = null; }
     await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { summary: durableExecutionSummary(result, { providerId: provider.id }), engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
     const changes = diff(workspacePath);
-    const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: { before, changes } });
+    const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: durableChangeArtifactMetadata(before, changes) });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
     const commands = request.verificationCommands || this.inferProjectVerification(workspacePath);
     const verification = await this.verification.verify({ id: id("verification"), runId: run.id, commands, cwd: workspacePath, timeoutMs: policy.timeoutMs });
@@ -1105,6 +1180,8 @@ class MaestroApplication {
       // sanitized before becoming a durable summary/artifact.
       const parsed = raw.exitCode === 0 ? parseReviewResult(raw.stdout) : { verdict: "inconclusive", findings: [{ code: "REVIEW_PROCESS_FAILED" }], summary: sanitizeDiagnostic(raw.stderr || "reviewer process failed") };
       const status = parsed.verdict === "approved" ? "approved" : parsed.verdict === "rejected" ? "rejected" : "inconclusive";
+      const durableReviewFindings = sanitizeEvidenceMetadata(parsed.findings || []);
+      const durableReviewSummary = sanitizeDiagnostic(parsed.summary || "", { maxChars: 4000 });
       // Reviewer usage is provider-reported when the CLI exposes it; never
       // invented. Child agents observed on the review call are carried for
       // the run-level topology.
@@ -1116,8 +1193,8 @@ class MaestroApplication {
       try {
         reviewAgents = [...extractChildAgents({ providerId: provider.id, stdout: raw.stdout })];
       } catch { reviewAgents = []; }
-      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: parsed.findings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, tokenSource: reviewUsage.tokenSource } : null } });
-      await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: parsed.findings, summary: sanitizeDiagnostic(parsed.summary || ""), executionId: execution.id, contextTruncated: prompt.truncated } }));
+      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: durableReviewFindings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, tokenSource: reviewUsage.tokenSource } : null } });
+      await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: durableReviewFindings, summary: durableReviewSummary, executionId: execution.id, contextTruncated: prompt.truncated } }));
       await this.record(run.id, status === "approved" ? "review.completed" : "review.failed", { executionId: execution.id, verdict: parsed.verdict });
       return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated, executionId: execution.id, usage: reviewUsage, childAgents: reviewAgents });
     } catch (error) {
