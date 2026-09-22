@@ -948,7 +948,10 @@ class MaestroApplication {
     } catch {
       primaryChildAgents = [];
     }
-    const unexpectedSubagents = run.metadata?.delegation?.allowSubagents === false && primaryChildAgents.length > 0;
+    const identifiedPrimaryChildAgents = primaryChildAgents.filter((agent) =>
+      agent?.anonymous !== true && agent?.agentId !== null && agent?.agentId !== undefined
+    );
+    const unexpectedSubagents = run.metadata?.delegation?.allowSubagents === false && identifiedPrimaryChildAgents.length > 0;
     // Durable execution record carries a sanitized summary only. Full result
     // (args with prompt, stdout/stderr) stays ephemeral in memory for parsers.
     let primaryUsageSummary = null;
@@ -1029,7 +1032,7 @@ class MaestroApplication {
     if (unexpectedSubagents) {
       await this.record(run.id, "delegation.violation", {
         reason: "solo-contract-spawned-subagents",
-        observedChildAgents: primaryChildAgents.length,
+        observedChildAgents: identifiedPrimaryChildAgents.length,
         delegation: run.metadata?.delegation || null
       });
     }

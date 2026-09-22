@@ -3,8 +3,10 @@
 /**
  * Observed subagent topology.
  *
- * The Maestro does NOT limit provider-native subagents in this phase; it
- * OBSERVES them when the provider exposes child sessions/agents.
+ * The Maestro observes provider-native subagents when the provider exposes
+ * child sessions/agents. Delegation policy is enforced by the application
+ * layer: telemetry reports topology but does not decide whether fan-out was
+ * authorized.
  *
  * Identity rule: NEVER invent an agentId. Events without a provider-reported
  * identifier are recorded as explicit anonymous observations
