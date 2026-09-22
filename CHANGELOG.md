@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-09-22
+
+Esta versão inaugura o Maestro Resolution Engine e consolida o hardening de execução, evidências, memória, telemetria e persistência entregue no PR #23.
 
 - Orquestração: execução passa a ser solo por padrão; apenas o perfil explícito `multiagent` permite fan-out. Operações mecânicas de Git/VCS continuam solo mesmo sob solicitação de perfil multiagente, e child agents identificados em contrato solo geram `delegation.violation` e impedem `validated`.
 - Resolution: `verification.skipped` deixa de ser publicado como falha e não conta mais como prova por omissão: somente um skip explicitamente marcado como `not_applicable` pode satisfazer uma Task sem validators/DoD verificável. O estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
@@ -30,6 +32,11 @@
 - Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE` e troca `curl|bash` por baixar-inspecionar-executar.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
+
+### Compatibilidade
+
+- Requisito mínimo do runtime: Node.js `20.19.0` ou superior.
+- A versão `0.5.0` contém mudanças observáveis no ciclo de resolução, no contrato de evidências e na persistência; consumidores devem revisar integrações que dependem de estados de execução.
 
 ## 0.4.4 - 2026-09-20
 

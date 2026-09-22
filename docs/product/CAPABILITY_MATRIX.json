@@ -3,7 +3,7 @@
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "0.4.4",
+    "packageVersion": "0.5.0",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": [
