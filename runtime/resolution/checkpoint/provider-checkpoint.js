@@ -7,12 +7,21 @@ function sha256(value) {
   return crypto.createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
 }
 
+function safeText(value, maxChars = 1000) {
+  return sanitizeDiagnostic(typeof value === "string" ? value : String(value ?? ""), { maxChars });
+}
+
 function strings(value) {
-  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim()) : [];
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === "string" && item.trim()).map((item) => safeText(item.trim(), 1000))
+    : [];
 }
 
 function fileChanges(changes = {}) {
-  return Object.freeze([...(changes?.changedFiles || [])].filter((value) => typeof value === "string").sort());
+  return Object.freeze([...(changes?.changedFiles || [])]
+    .filter((value) => typeof value === "string")
+    .map((value) => safeText(value, 512))
+    .sort());
 }
 
 function evidenceRefs(evidence = []) {
@@ -20,8 +29,8 @@ function evidenceRefs(evidence = []) {
     .filter((item) => item && typeof item === "object")
     .map((item) => Object.freeze({
       id: typeof item.id === "string" ? item.id : null,
-      type: typeof item.type === "string" ? item.type : "unknown",
-      acceptanceCriterion: typeof item.acceptanceCriterion === "string" ? item.acceptanceCriterion : null,
+      type: typeof item.type === "string" ? safeText(item.type, 128) : "unknown",
+      acceptanceCriterion: typeof item.acceptanceCriterion === "string" ? safeText(item.acceptanceCriterion, 512) : null,
       verificationId: typeof item.verificationId === "string" ? item.verificationId : null
     })));
 }
@@ -51,7 +60,7 @@ function buildProviderCheckpoint({
     sourceRunId: run?.id || null,
     attempt: Number.isInteger(attempt) ? attempt : 1,
     providerId: providerId || run?.providerId || "unknown",
-    objective: semantic.objective || request.description || task.description || "",
+    objective: safeText(semantic.objective || request.description || task.description || "", 2000),
     requirements: Object.freeze(requirements),
     decisions: Object.freeze(decisions),
     filesChanged: fileChanges(changes),
