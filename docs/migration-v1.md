@@ -95,4 +95,4 @@ A auditoria estrita falha se:
 
 0.4.x e 1.0.x são artefatos autocontidos. Se uma pré-release 1.0 apresentar problema, reinstale a versão 0.4.x desejada ou uma alpha corrigida. Não misture arquivos canônicos de versões diferentes dentro da mesma instalação.
 
-O Router v2 pode existir durante alpha/beta como mecanismo interno de shadow/rollback, mas a release 1.0 não promete compatibilidade de schema das skills Maestro com a linha 0.x.
+Router v3 é o caminho padrão da linha V1 desde a pré-release. O Router v2 pode existir durante alpha/beta/RC apenas como comparação e rollback explícito (`--router-version 2`), mas a release 1.0 não promete compatibilidade de schema das skills Maestro com a linha 0.x.
