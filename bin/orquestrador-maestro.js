@@ -1729,7 +1729,7 @@ async function handleGoCommand(args, planningOnly = false) {
       ? installedRouterRoot
       : bundledRouterRoot
   });
-  const requestedRouterVersion = String(options.routerVersion || process.env.MAESTRO_ROUTER_VERSION || "2");
+  const requestedRouterVersion = String(options.routerVersion || process.env.MAESTRO_ROUTER_VERSION || "3");
   if (!["2", "3"].includes(requestedRouterVersion)) {
     throw new Error("--router-version aceita apenas 2 ou 3.");
   }
