@@ -1,14 +1,14 @@
 "use strict";
 
 function normalizeVersion(value) {
-  const version = String(value || "2");
+  const version = String(value || "3");
   if (!["2", "3"].includes(version)) {
     throw new TypeError("router version must be 2 or 3");
   }
   return version;
 }
 
-function evaluateRouterShadow({ intent, routerV2, routerV3, activeVersion = "2", options = {} }) {
+function evaluateRouterShadow({ intent, routerV2, routerV3, activeVersion = "3", options = {} }) {
   if (!routerV2 || typeof routerV2.resolve !== "function") {
     throw new TypeError("routerV2.resolve is required");
   }
