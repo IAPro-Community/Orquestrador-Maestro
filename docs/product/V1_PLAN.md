@@ -332,7 +332,7 @@ Não otimizar por percentual de coverage isoladamente.
 
 ### V1-07 — Complexity Gate
 
-> **Implementação:** entregue em shadow/alpha neste galho. O gate é determinístico, precede Router v3, limita skills/contexto e não habilita multiagent apenas por complexidade.
+> **Implementação:** entregue e ativa no fluxo padrão desta linha V1. O gate é determinístico, precede Router v3, limita skills/contexto e não habilita multiagent apenas por complexidade.
 
 Gate antes do roteamento completo.
 
@@ -379,7 +379,7 @@ O gate deve ser barato e determinístico sempre que possível.
 
 ### V1-08 — Router v3
 
-> **Implementação:** entregue em shadow/alpha neste galho. Router v2 continua default; v3 pode ser inspecionado por `route explain` ou ativado explicitamente com `--router-version 3`. A promoção para default continua condicionada a evidência comparativa.
+> **Implementação:** entregue e default nesta linha V1. Router v3 pode ser inspecionado por `route explain`; Router v2 permanece somente como comparação/rollback explícito com `--router-version 2` durante a pré-release.
 
 Substituir roteamento centrado em trigger por:
 
@@ -666,32 +666,30 @@ FORBIDDEN:
 
 ## 5.3 Rollout, compatibilidade e rollback
 
-Router v3, Complexity Gate e Context Compiler não devem substituir o comportamento atual em um único corte.
+Router v3 e Complexity Gate constituem o comportamento padrão da linha V1. Componentes ainda não concluídos, como o Context Compiler completo, não devem ser simulados como ativos antes de cumprirem seus próprios gates.
 
 Rollout obrigatório:
 
 ```text
-v2 ativo
+v3 ativo por padrão
   +
-v3 shadow
+v2 somente para comparação/rollback explícito
       ↓
-comparação de decisões/evidência
+comparação de decisões/evidência sem execução duplicada
       ↓
-v3 advisory/default em pré-release
-      ↓
-v3 default na 1.0
+remoção da dependência operacional de v2 antes da 1.0 estável
 ```
 
 Regras:
 
-- shadow nunca executa uma segunda rota; apenas calcula/compara a decisão;
+- a comparação v2/v3 nunca executa uma segunda rota; apenas calcula/compara a decisão;
 - registrar versão do router, fingerprint do registry e versão do compilador junto da decisão;
-- manter mecanismo explícito de retorno ao Router v2 durante alpha/beta/RC;
+- manter mecanismo explícito de retorno ao Router v2 durante alpha/beta/RC apenas para rollback diagnosticável;
 - caches devem ser namespaced por schema/analyzer version para permitir rollback sem reutilizar conhecimento incompatível;
 - migração deve ser forward-compatible e documentar depreciação antes de remover contratos antigos;
 - nenhum fallback pode esconder erro de contrato ou reduzir silenciosamente requisitos de segurança/verificação.
 
-A promoção para default exige evidência comparativa contra a baseline congelada.
+A permanência do Router v3 como default e a remoção do rollback v2 exigem evidência comparativa contra a baseline congelada.
 
 ## 5.4 Context Safety & Privacy
 
