@@ -1,70 +1,225 @@
-# Escolher uma skill por objetivo
+# Escolher uma Skill por objetivo
 
-Comece pela situação e ajuste pela evidência disponível no projeto. O perfil sugerido é um ponto de partida: o roteador pode escolher outro quando risco, escopo ou autorização exigirem.
+Você não precisa começar pelo nome de uma Skill. Comece pelo **resultado que deseja** e deixe o Router v3 combinar intenção, complexidade e sinais do projeto.
 
-Primeira vez? Faça o [exemplo guiado](primeira-skill.md) antes — ele mostra o ciclo completo com `skill-repo-health`.
+Antes de executar, você pode inspecionar a rota:
 
-| Situação | Skill principal | Skills de apoio | Perfil sugerido |
-| --- | --- | --- | --- |
-| Iniciar ou revisar um SaaS | `skill-saas-factory` | `skill-preflight`, `skill-saas-security-scan`, `skill-verification-before-completion` | `standard` ou `deep` |
-| Criar frontend de produto | `skill-frontend-excellence` | `skill-frontend-ux-guardrails`, `skill-webapp-testing` | `standard` |
-| Melhorar uma interface por screenshot ou referência | `skill-melhorar-ux-ui-por-referencia` | Apoio de frontend somente quando necessário | `fast` ou `standard` |
-| Corrigir um bug difícil | `skill-systematic-debugging` | `skill-repo-health`, `skill-verification-before-completion` | `standard` |
-| Preparar uma release | `skill-release-engineering` | `skill-saas-security-scan`, `skill-verification-before-completion` | `deep` |
-| Integrar pagamentos | `skill-stripe-integration` ou `skill-abacatepay-integration` | `skill-saas-core-limits`, `skill-security-hooks`, `skill-verification-before-completion` | `deep` |
-| Projetar uma integração de IA | `skill-ai-orchestration` | `skill-agent-observability`, `skill-security-hooks` | `deep` |
-| Processar vídeo ou transmissão | `skill-live-processing` ou `skill-manual-video-processing` | `skill-smart-clip-detection`, `skill-watch-evidence` | `standard` ou `deep` |
-| Investigar um repositório desconhecido | `skill-repo-health` | `skill-preflight`, `skill-deep-wiki` | `standard` |
-| Fazer pesquisa com fontes | `skill-research-and-synthesis` | `skill-adr`, `skill-doublecheck` quando disponível | `standard` |
+```bash
+orquestrador-maestro route explain "descreva aqui o trabalho"
+```
 
-## Rotas em detalhe
+Primeira vez? Veja [Sua primeira Skill](primeira-skill.md).
 
-### Construir ou revisar um SaaS
+## Mapa rápido por intenção
 
-Funciona melhor quando há produto, autenticação, tenancy, dashboard, billing ou requisitos de produção. O `saas-factory` coordena a visão geral; acrescente limites, pagamentos, RLS, admin e segurança conforme o pedido. Se a tarefa for apenas uma tela, comece por `skill-frontend-excellence`; se for somente uma auditoria autorizada, use o scan específico.
+| Se o seu objetivo é… | Skill que normalmente representa a intenção | Evite usar quando… |
+| --- | --- | --- |
+| Entender um repositório desconhecido | `skill-repo-health` | já existe um bug específico e reproduzível |
+| Fazer preflight antes de uma mudança relevante | `skill-preflight` | a tarefa é mecânica e de baixo risco |
+| Corrigir um bug por causa raiz | `skill-systematic-debugging` | o pedido é uma auditoria ampla sem falha concreta |
+| Criar baseline de qualidade multi-stack | `skill-engineering-quality` | o objetivo principal é apenas upgrade de dependência ou UX |
+| Validar antes de declarar “done” | `skill-verification-before-completion` | ainda estamos na investigação ou planejamento inicial |
+| Registrar uma decisão arquitetural | `skill-adr` | a decisão já foi tomada e só falta implementar |
+| Fazer pesquisa com fontes | `skill-research-and-synthesis` | não há necessidade de fontes atuais/comparação |
+| Preparar release e rollback | `skill-release-engineering` | é apenas commit/PR comum |
+| Fazer migração de banco | `skill-database-migrations` | não há mudança de schema/dados persistidos |
+| Projetar integração com LLM/providers | `skill-ai-orchestration` | o foco é coordenação de agentes de desenvolvimento |
+| Orquestrar vários agentes | `skill-multiagent-orchestration` | a tarefa é curta, serial ou não ganha com paralelismo |
+| Documentar profundamente um produto/repo | `skill-deep-wiki` | a necessidade é apenas registrar uma decisão isolada |
 
-Requisitos externos: repositório e critérios de aceite; serviços de pagamento, banco e cloud só quando realmente usados. Risco médio, podendo ficar alto com dados reais ou mudanças de infraestrutura. Resultado mínimo: escopo, mudança implementada, gates do projeto e evidência de testes/segurança.
+Essa tabela é um mapa humano. O Router pode escolher outra Skill quando `doNotUseWhen`, stack, arquivos alterados, contexto ou risco indicarem uma rota melhor.
 
-### Criar frontend de produto
+## Frontend, UX e design: qual usar?
 
-Use quando a tarefa exige descobrir ou preservar o design system do projeto, aplicar um Design Profile, cuidar de responsividade/acessibilidade e executar Visual QA. `frontend-ux-guardrails` é o apoio para regras de usabilidade; `modern-ui-patterns`, `open-design-ui` e `premium-web-experience` são capacidades diferentes para composição visual e direção de experiência. Para teste funcional amplo, acrescente `webapp-testing`.
+Essa família merece atenção porque várias Skills trabalham na mesma superfície, mas em **níveis diferentes**.
 
-Não use como substituto de uma auditoria de acessibilidade isolada ou como licença para introduzir um design system privado. Requisito externo: navegador e baseline quando houver Visual QA. Risco médio. Resultado mínimo: implementação, contraste/responsividade validados e relatório visual com limitações declaradas.
+| Skill | Papel principal | Pergunta que responde |
+| --- | --- | --- |
+| `skill-product-ux-architecture` | arquitetura de UX do produto | “os fluxos, estados e informação do produto fazem sentido?” |
+| `skill-open-design-ui` | direção visual e composição | “como tirar esta interface da aparência genérica/template?” |
+| `skill-impeccable` | auditoria visual e de usabilidade | “onde hierarquia, spacing, consistência e acessibilidade estão falhando?” |
+| `skill-design-engineering-craft` | acabamento de implementação | “o que falta para esta UI parecer madura e bem construída?” |
+| `skill-motion-design-principles` | movimento | “as animações e transições ajudam ou atrapalham?” |
+| `skill-frontend-excellence` | execução frontend no produto real | “como implementar isso respeitando design system, responsividade e Visual QA?” |
+| `skill-melhorar-ux-ui-por-referencia` | análise por referência visual | “o que devemos aprender desta screenshot/referência para melhorar nossa tela?” |
+| `skill-frontend-ux-guardrails` | restrições de UX | “quais regras de interação/usabilidade não podemos violar?” |
 
-### Melhorar uma interface por referência
+### Exemplos
 
-Use [skill-melhorar-ux-ui-por-referencia](reference/skill-melhorar-ux-ui-por-referencia.md)
-para extrair hierarquia, cores, tipografia, espaçamentos, componentes e propostas
-responsivas de screenshots. Ela distingue análise, geração de prompt e implementação
-autorizada, sem impor uma API de visão.
+**“Redesenhe toda a experiência deste módulo.”**
 
-O roteador textual reconhece frases como "melhore essa tela com base na referência"
-e "compare estas telas"; ele não inspeciona anexos nem entende toda negação.
-O assistente deve confirmar que a intenção e a imagem são de interface antes de
-aplicar o fluxo. Uma imagem com "melhore isso" depende da interpretação contextual
-do assistente, não de uma garantia de seleção pelo runtime.
+Tende a começar por `skill-product-ux-architecture`; implementação pode depois exigir `skill-frontend-excellence`.
 
-A skill fica disponível sob demanda na fonte canônica; não exige espelhos nativos
-em todas as ferramentas. Sem imagem ou renderização, declarar a limitação em vez
-de prometer reprodução fiel. Fotos, anúncios e prints de terminal não são seu escopo.
+**“Esta tela parece template. Quero algo com identidade.”**
 
-### Investigar e corrigir
+Tende a favorecer `skill-open-design-ui`.
 
-`systematic-debugging` é a rota para sintomas reproduzíveis, regressões e falhas de teste. Use `repo-health` quando a estrutura ou os comandos ainda forem desconhecidos. Se a causa envolver segurança, migração ou dependência, troque ou acrescente a skill especializada. Resultado mínimo: reprodução, hipótese testada, causa raiz, correção focada e verificação.
+**“Revise esta tela: tipografia, spacing, contraste e hierarquia.”**
 
-### Release e segurança
+Tende a favorecer `skill-impeccable`.
 
-`release-engineering` organiza changelog, migração, smoke test, rollback e risco de publicação. `saas-security-scan` é para análise defensiva local; `saas-dast-recon` requer alvo autorizado de staging/preview. Uma revisão de segurança não substitui autorização nem permite atacar terceiros. Resultado mínimo: checklist executado, findings classificados, evidência e plano de rollback.
+**“A interface já está boa, mas falta acabamento.”**
 
-### Pagamentos e entitlements
+Tende a favorecer `skill-design-engineering-craft`.
 
-Escolha Stripe ou AbacatePay pelo provedor realmente usado; não combine os dois apenas por conveniência. Acrescente `saas-core-limits` para planos, quotas e entitlements e valide webhooks idempotentes, estado local e reconciliação. Risco alto quando há dinheiro ou dados de produção. Resultado mínimo: fluxo de teste, estados documentados, webhook verificado e limites cobertos.
+**“As animações estão estranhas.”**
 
-## Requisitos que mudam a rota
+Tende a favorecer `skill-motion-design-principles`.
 
-- **Autorização:** scans externos, mensagens, publicação, pagamentos e alterações destrutivas exigem autorização explícita e escopo verificável.
-- **Ambiente:** skills de navegador, mídia, pagamentos e Google Workspace dependem de ferramentas/serviços disponíveis.
-- **Baseline:** Visual QA e comparação de regressão devem falhar ou registrar limitação quando não houver referência confiável.
-- **Idioma e intenção:** use frases completas e específicas. Termos curtos como `saas`, `ia` ou `whatsapp` não devem superar uma intenção mais precisa.
+**“Use esta screenshot como referência.”**
 
-Para ver os metadados, risco e disponibilidade de cada rota, abra a [referência individual](reference/README.md).
+Tende a favorecer `skill-melhorar-ux-ui-por-referencia`.
+
+O objetivo é impedir que a palavra “design” carregue todas elas ao mesmo tempo.
+
+## Engenharia e qualidade
+
+### Investigar um projeto
+
+Use `skill-repo-health` quando ainda precisamos descobrir:
+
+- stack;
+- estrutura;
+- comandos;
+- testes;
+- CI;
+- riscos;
+- sinais de dívida.
+
+Resultado esperado: findings priorizados e próximos passos.
+
+### Aplicar baseline técnico
+
+Use `skill-engineering-quality` quando o pedido é **melhorar o próprio baseline**:
+
+- formatter;
+- lint/static analysis;
+- typecheck/compile;
+- testes;
+- build;
+- hooks;
+- CI.
+
+Ela detecta a stack antes de escolher tooling e trabalha por delta, preservando configuração saudável existente.
+
+### Corrigir um defeito
+
+Use `skill-systematic-debugging` quando existe sintoma reproduzível, regressão ou teste falhando.
+
+Resultado esperado:
+
+```text
+reprodução
+→ hipótese
+→ causa raiz
+→ correção focada
+→ regressão testada
+```
+
+Não transforme todo bug em auditoria completa do repositório.
+
+## Segurança, release e dados
+
+| Situação | Rota principal |
+| --- | --- |
+| Modelar ameaças e fronteiras de confiança | `skill-threat-modeling` |
+| Configurar gates recorrentes de segurança | `skill-security-hooks` |
+| Fazer scan defensivo autorizado | `skill-saas-security-scan` |
+| Fazer DAST/recon em alvo autorizado | `skill-saas-dast-recon` |
+| Preparar release/smoke/rollback | `skill-release-engineering` |
+| Alterar schema/dados persistidos | `skill-database-migrations` |
+| Trabalhar especificamente com Supabase RLS | `skill-supabase-rls` |
+
+Scans externos, produção, pagamentos e ações destrutivas continuam sujeitos a autorização/policy. Routing não é autorização.
+
+## IA e agentes
+
+Não confunda três problemas diferentes:
+
+### Integração de IA no produto
+
+`skill-ai-orchestration`
+
+Use para providers, models, fallback, budgets, segurança de chaves e arquitetura server-side.
+
+### Observar agentes/IA
+
+`skill-agent-observability`
+
+Use para tracing, custo, latência, qualidade e regressões de agentes.
+
+### Dividir trabalho entre agentes
+
+`skill-multiagent-orchestration`
+
+Use quando o usuário realmente pediu delegação/subagents e a tarefa complexa possui trabalho independente.
+
+Complexidade alta sozinha **não ativa multiagent**.
+
+## SaaS e integrações
+
+Use Skills de domínio quando o problema realmente pertence àquele domínio.
+
+Exemplos:
+
+- `skill-saas-factory` — produto SaaS amplo;
+- `skill-saas-core-limits` — planos, quotas e entitlements;
+- `skill-saas-admin-dashboard` — administração;
+- `skill-stripe-integration` — Stripe;
+- `skill-abacatepay-integration` — AbacatePay;
+- `skill-google-workspace-sync` — Google Workspace;
+- `skill-evolution-api` — integração específica Evolution API;
+- `skill-live-processing` / `skill-manual-video-processing` — mídia.
+
+Não combine integrações diferentes “por garantia”. Cada dependência carregada aumenta contexto, risco e superfície de falha.
+
+## Quando usar uma receita
+
+Uma Skill isolada é suficiente quando um único domínio cobre o resultado e a verificação.
+
+Use uma [receita](recipes.md) quando há etapas realmente dependentes.
+
+Exemplo:
+
+```text
+preflight
+  ↓
+implementação
+  ↓
+security/release quando aplicável
+  ↓
+verification
+```
+
+A receita não significa que todas as Skills previstas serão sempre carregadas. O projeto e a evidência decidem.
+
+## O que pode mudar a rota
+
+- **Intenção explícita:** `/skill:<id>` ou alias exato tem evidência forte.
+- **Negative routing:** uma Skill pode declarar casos em que não deve ser usada.
+- **Stack:** React, Node, Go, Java, .NET, Python, Docker, Kubernetes e outras detecções alimentam capabilities.
+- **Arquivos alterados:** frontend, testes, migrations, CI, containers e docs ajudam a delimitar escopo.
+- **Contexto obrigatório:** ausência pode reduzir a adequação de uma Skill.
+- **Memória verificada:** quando disponível, pode fornecer hints de Skill.
+- **Complexidade:** limita quantidade de Skills e contexto.
+- **Autorização:** routing nunca substitui policy/consentimento.
+
+## Se ainda houver dúvida
+
+Rode:
+
+```bash
+orquestrador-maestro route explain --json "seu pedido"
+```
+
+Depois consulte a [página individual da Skill](reference/README.md) para entender:
+
+- quando usar;
+- quando não usar;
+- contexto;
+- outputs;
+- verificação;
+- risco;
+- disponibilidade.
+
+O catálogo é a referência. O `route explain` é a explicação operacional.
