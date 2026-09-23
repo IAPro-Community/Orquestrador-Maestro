@@ -8,10 +8,10 @@
     "community"
   ],
   "counts": {
-    "sourceSkillFiles": 177,
-    "uniqueSkills": 75,
-    "shadowedDuplicates": 102,
-    "conflictingIds": 6
+    "sourceSkillFiles": 185,
+    "uniqueSkills": 79,
+    "shadowedDuplicates": 106,
+    "conflictingIds": 0
   },
   "skills": [
     {
@@ -225,10 +225,10 @@
     {
       "id": "skill-deep-wiki",
       "name": "skill-deep-wiki",
-      "description": "Gera documentação técnica navegável de um repositório, com arquitetura, Mermaid, onboarding, AGENTS.md, llms.txt e páginas por domínio.",
+      "description": "Use when documenting or auditing a software product or repository, creating or improving README, Quick Start, guides, API/CLI/configuration references, troubleshooting, visual documentation plans, or checking documentation drift after product changes.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-deep-wiki",
-      "contentHash": "079239c31277ef5064471e222261d6d50a08dd2c3d79f0d3d927c12ab4188b03"
+      "contentHash": "34c922ce7d37f15bed7dd3eb85d0a0400c57a5fe07a3e83ce24d9772131eb288"
     },
     {
       "id": "skill-dependency-upgrade",
@@ -237,6 +237,14 @@
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-dependency-upgrade",
       "contentHash": "af5bea943d5c5e424eae775a797fa44871de69298113f7e8c101b434ab9d64c6"
+    },
+    {
+      "id": "skill-design-engineering-craft",
+      "name": "skill-design-engineering-craft",
+      "description": "High-fidelity design engineering for the implementation details that make an interface feel deliberate and expensive: optical alignment, type rhythm, density, surfaces, state fidelity, responsive detail, and component finish.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-design-engineering-craft",
+      "contentHash": "f8235c3889d622c9196dd9298fb96b52d946c0f33df853ec766cfc3be48ef682"
     },
     {
       "id": "skill-doublecheck",
@@ -255,6 +263,14 @@
       "contentHash": "550d4c952286a02a0c65a61db19c479e4e4ffa6eff4d30cad456ab64bda09582"
     },
     {
+      "id": "skill-engineering-quality",
+      "name": "skill-engineering-quality",
+      "description": "Use when a repository needs a quality baseline or modernization across one or more detected application stacks, especially linting, formatting, type checking, tests, build validation, developer tooling, hooks, or CI consistency.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-engineering-quality",
+      "contentHash": "a992a5ddcadd5f791bcb0f0f5bf591e306302c09efb9e888a679d9ee9c90f2e1"
+    },
+    {
       "id": "skill-evolution-api",
       "name": "skill-evolution-api",
       "description": "Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery.",
@@ -268,7 +284,7 @@
       "description": "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-frontend-excellence",
-      "contentHash": "dd9d400bf667e72996a8401414477ae47777c653f5b806dd17db02adf9a78bb5"
+      "contentHash": "7b6bcaa148fb8ae12aef4121221178f747eb9f638448636f30f2cf69dd39fe2e"
     },
     {
       "id": "skill-frontend-ux-guardrails",
@@ -292,7 +308,7 @@
       "description": "Orquestra melhorias de frontend inspiradas no Impeccable a partir de pedidos conversacionais de design, UX, acessibilidade, responsividade, tipografia, layout, cor, motion, clareza, hardening e polish.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-impeccable",
-      "contentHash": "c442dc99f61bc4e0bc1c4c79bc12686cf72b871eaf81f2a00619b840abea430c"
+      "contentHash": "5e179a2fe0c857ca478e59c9ca5b1b72103c92d9027cc90d6c0fdd059ff4e121"
     },
     {
       "id": "skill-incident-response",
@@ -359,6 +375,14 @@
       "contentHash": "d5e1ec006cc3326a3df92e562dea46e12f631e514488b9366e79784d944800ba"
     },
     {
+      "id": "skill-motion-design-principles",
+      "name": "skill-motion-design-principles",
+      "description": "Design and review UI motion systems for purpose, timing, easing, choreography, interruption, feedback, reduced motion, performance, and responsive behavior without decorative animation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-motion-design-principles",
+      "contentHash": "2bdf9813658e8cc3d601835150158ba67e40f192505a6519f254f788e61c52d0"
+    },
+    {
       "id": "skill-multiagent-orchestration",
       "name": "skill-multiagent-orchestration",
       "description": "Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency.",
@@ -372,7 +396,7 @@
       "description": "Use for defining and implementing a distinctive frontend visual system with design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after the experience strategy is clear.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-open-design-ui",
-      "contentHash": "5b4ef2136758a74e8cd1c4d40ae246f7c7aa53f07c784f469f75150a89328736"
+      "contentHash": "d6f8bfb704924aa371fa422b309aca383cfa5b941faad866e31dfc2ab8b69575"
     },
     {
       "id": "skill-optimize-images",
@@ -397,6 +421,14 @@
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-premium-web-experience",
       "contentHash": "99e84d1e3ee18e6f479037c02d78197f3611de9f910948b0777b342aa5afe475"
+    },
+    {
+      "id": "skill-product-ux-architecture",
+      "name": "skill-product-ux-architecture",
+      "description": "Plan the UX architecture of an entire product or application across screens, navigation, journeys, states, responsive behavior, information architecture, and design-system needs before implementation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-product-ux-architecture",
+      "contentHash": "1669f924df8081dfa18c5ed0182d8ad92cb4debb9487dee9b212e19ff0a30528"
     },
     {
       "id": "skill-quality-gate",
@@ -615,12 +647,5 @@
       "contentHash": "bb46b31f275a7ec4006d43bba9bf5d0e05955c846a3b58e66b82dc930ac0ac70"
     }
   ],
-  "conflicts": [
-    "skill-browser-agent",
-    "skill-frontend-ux-guardrails",
-    "skill-impeccable",
-    "skill-modern-ui-patterns",
-    "skill-open-design-ui",
-    "skill-saas-factory"
-  ]
+  "conflicts": []
 }

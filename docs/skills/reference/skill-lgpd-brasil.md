@@ -17,7 +17,8 @@ LGPD-focused privacy and data-governance skill for Brazilian software products. 
 
 ## Quando não usar
 
-- Pedidos fora do domínio compliance; use a skill específica quando houver uma intenção mais precisa.
+- Scan de vulnerabilidade, SAST/DAST ou threat modeling sem questão de privacidade/LGPD.
+- Discussão jurídica fora de privacidade e governança de dados.
 
 ## Exemplos de pedidos reconhecidos
 

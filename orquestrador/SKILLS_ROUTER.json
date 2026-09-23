@@ -662,7 +662,12 @@
         "component library",
         "brand ui",
         "visual system",
-        "art direction"
+        "art direction",
+        "frontend-design",
+        "frontend design",
+        "tirar cara de template",
+        "cara de template",
+        "interface com cara de template"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-open-design-ui/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-open-design-ui/SKILL.md",
@@ -1009,17 +1014,36 @@
       "priority": 0
     },
     "skill-deep-wiki": {
-      "description": "Documentação técnica navegável com arquitetura, Mermaid e onboarding.",
+      "description": "Documentação de produto baseada em evidência: inventário de capacidades, README/TL;DR, Quick Start, guias, API/CLI/configuração, visuais, cobertura e drift.",
       "triggers": [
         "deep wiki",
         "wiki tecnica",
-        "documentar repositorio"
+        "wiki técnica",
+        "documentar repositorio",
+        "documentar repositório",
+        "documente completamente este projeto",
+        "documentação completa",
+        "documentacao completa",
+        "product documentation",
+        "product docs",
+        "crie README",
+        "melhore o README",
+        "Quick Start",
+        "documente as features",
+        "documente as funcionalidades",
+        "documente a API",
+        "documente a CLI",
+        "audite a documentação",
+        "audite a documentacao",
+        "documentation drift",
+        "documentação desatualizada",
+        "documentacao desatualizada"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-deep-wiki/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-deep-wiki/SKILL.md",
       "cost": "medium",
       "safety": "docs-only-by-default",
-      "priority": 0
+      "priority": 15
     },
     "skill-agent-observability": {
       "description": "Observabilidade de agentes, custos, latência, qualidade e regressões.",
@@ -1133,7 +1157,15 @@
     "skill-impeccable": {
       "description": "Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills.",
       "triggers": [
-        "impeccable"
+        "impeccable",
+        "auditar hierarquia",
+        "auditar espaçamento",
+        "auditar espacamento",
+        "auditar acessibilidade visual",
+        "ui audit",
+        "polish ui",
+        "refinar interface",
+        "interface parece inacabada"
       ],
       "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-impeccable/SKILL.md",
       "codexPath": "{{USER_HOME}}/.codex/skills/skill-impeccable/SKILL.md",
@@ -1250,6 +1282,106 @@
       "cost": "low",
       "safety": "task-specific-guardrails",
       "priority": 0
+    },
+    "skill-engineering-quality": {
+      "description": "Detecta a stack real do repositório e aplica um baseline de qualidade por delta, preservando tooling saudável e validando format, lint, tipos, testes, build e CI.",
+      "triggers": [
+        "engineering quality",
+        "qualidade de engenharia",
+        "boas práticas neste projeto",
+        "boas praticas neste projeto",
+        "configurar lint format typecheck testes e build",
+        "configurar lint e formatter",
+        "configurar eslint prettier",
+        "setup de qualidade",
+        "quality baseline",
+        "padronizar qualidade do repositorio",
+        "padronizar qualidade do repositório",
+        "detecte a stack e configure qualidade"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-engineering-quality/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-engineering-quality/SKILL.md",
+      "cost": "medium",
+      "safety": "task-specific-guardrails",
+      "priority": 20
+    },
+    "skill-design-engineering-craft": {
+      "description": "Implementation-focused design craftsmanship for the subtle details that make an already-directed interface feel deliberate and premium.",
+      "triggers": [
+        "emil-design-eng",
+        "emil design eng",
+        "design engineering craft",
+        "design craft",
+        "ui craft",
+        "optical alignment",
+        "alinhamento óptico",
+        "alinhamento optico",
+        "type rhythm",
+        "ritmo tipográfico",
+        "ritmo tipografico",
+        "deixar interface mais refinada",
+        "detalhes que fazem parecer caro",
+        "pixel polish",
+        "premium ui details"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-design-engineering-craft/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-design-engineering-craft/SKILL.md",
+      "cost": "low",
+      "safety": "task-specific-guardrails",
+      "priority": 6
+    },
+    "skill-motion-design-principles": {
+      "description": "Design and review UI motion so animations communicate state and continuity instead of adding decorative movement.",
+      "triggers": [
+        "design-motion-principles",
+        "design motion principles",
+        "motion design principles",
+        "motion review",
+        "revisar animação",
+        "revisar animacao",
+        "revisar animações",
+        "revisar animacoes",
+        "easing",
+        "timing de animação",
+        "timing de animacao",
+        "motion system",
+        "motion tokens",
+        "prefers-reduced-motion",
+        "reduced motion",
+        "animation choreography",
+        "coreografia de animação",
+        "coreografia de animacao"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-motion-design-principles/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-motion-design-principles/SKILL.md",
+      "cost": "low",
+      "safety": "task-specific-guardrails",
+      "priority": 7
+    },
+    "skill-product-ux-architecture": {
+      "description": "Plan the UX architecture of an entire product across screens, navigation, journeys, states, and responsive behavior before implementation.",
+      "triggers": [
+        "ui-ux-pro-max",
+        "ui ux pro max",
+        "planejar ui inteira",
+        "planejar a ui inteira",
+        "arquitetura ux do produto",
+        "product ux architecture",
+        "mapear todas as telas",
+        "screen inventory",
+        "mapear jornadas do usuário",
+        "mapear jornadas do usuario",
+        "information architecture do app",
+        "navegação do produto",
+        "navegacao do produto",
+        "redesign do produto inteiro",
+        "ux do app inteiro"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-product-ux-architecture/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-product-ux-architecture/SKILL.md",
+      "cost": "medium",
+      "safety": "task-specific-guardrails",
+      "priority": 8
     }
   },
   "riskClasses": {

@@ -17,7 +17,8 @@ Google Workspace sync patterns for Drive/Sheets/Calendar data, OAuth scopes, web
 
 ## Quando não usar
 
-- Pedidos fora do domínio integrations; use a skill específica quando houver uma intenção mais precisa.
+- Integração OAuth/API que não pertence ao Google Workspace.
+- Sincronização local sem Calendar/Drive/Sheets/Meet/FreeBusy.
 
 ## Exemplos de pedidos reconhecidos
 

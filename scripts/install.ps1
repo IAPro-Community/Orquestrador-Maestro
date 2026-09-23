@@ -656,16 +656,68 @@ foreach ($target in $extraFileTargets) {
   }
 }
 
-if (Test-Path -LiteralPath $TargetOrquestrador) {
-  if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
-    throw "Refusing to remove target outside home: $TargetOrquestrador"
+$StagedOrquestrador = "$TargetOrquestrador.install-$Stamp-$PID"
+$PreviousOrquestrador = "$TargetOrquestrador.previous-$Stamp-$PID"
+
+foreach ($swapPath in @($StagedOrquestrador, $PreviousOrquestrador)) {
+  if (-not (Test-PathUnderRoot -Path $swapPath -Root $HomePath)) {
+    throw "Refusing install staging outside home: $swapPath"
   }
-  Remove-Item -LiteralPath $TargetOrquestrador -Recurse -Force
+  if (Test-Path -LiteralPath $swapPath) {
+    Remove-Item -LiteralPath $swapPath -Recurse -Force
+  }
 }
 
-Copy-TreeWithPlaceholders -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador
+try {
+  Copy-TreeWithPlaceholders -SourceDir $SourceOrquestrador -DestinationDir $StagedOrquestrador
+  New-Item -ItemType Directory -Force -Path (Join-Path $StagedOrquestrador "logs") | Out-Null
+
+  $stagedManifestPath = Join-Path $StagedOrquestrador "SKILLS_MANIFEST.json"
+  if (-not (Test-Path -LiteralPath $stagedManifestPath)) {
+    throw "Staged Maestro bundle is missing SKILLS_MANIFEST.json"
+  }
+  $stagedManifest = Get-Content -Raw -LiteralPath $stagedManifestPath | ConvertFrom-Json
+  if ($stagedManifest.version -ne 3) {
+    throw "Staged Maestro manifest must be V3; received $($stagedManifest.version)"
+  }
+  $stagedSkills = @($stagedManifest.skills.PSObject.Properties)
+  if ($stagedSkills.Count -eq 0) {
+    throw "Staged Maestro manifest has no canonical skills"
+  }
+  foreach ($skill in $stagedSkills) {
+    if ($skill.Value.schemaVersion -ne 2 -or -not $skill.Value.contractVersion) {
+      throw "Staged Maestro skill $($skill.Name) is not native Skill Contract V2"
+    }
+  }
+
+  $previousMoved = $false
+  if (Test-Path -LiteralPath $TargetOrquestrador) {
+    if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
+      throw "Refusing to replace target outside home: $TargetOrquestrador"
+    }
+    Move-Item -LiteralPath $TargetOrquestrador -Destination $PreviousOrquestrador
+    $previousMoved = $true
+  }
+
+  try {
+    Move-Item -LiteralPath $StagedOrquestrador -Destination $TargetOrquestrador
+  } catch {
+    if ($previousMoved -and -not (Test-Path -LiteralPath $TargetOrquestrador) -and (Test-Path -LiteralPath $PreviousOrquestrador)) {
+      Move-Item -LiteralPath $PreviousOrquestrador -Destination $TargetOrquestrador
+    }
+    throw
+  }
+
+  if (Test-Path -LiteralPath $PreviousOrquestrador) {
+    Remove-Item -LiteralPath $PreviousOrquestrador -Recurse -Force
+  }
+} finally {
+  if (Test-Path -LiteralPath $StagedOrquestrador) {
+    Remove-Item -LiteralPath $StagedOrquestrador -Recurse -Force
+  }
+}
+
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
-New-Item -ItemType Directory -Force -Path (Join-Path $TargetOrquestrador "logs") | Out-Null
 
 foreach ($target in $extraTargets) {
   Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination

@@ -17,7 +17,8 @@ Automatic SaaS billing engine with AbacatePay (PIX + card), dunning (regua de co
 
 ## Quando não usar
 
-- Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa.
+- Integração pontual da AbacatePay sem dunning, trial, portal ou ciclo de cobrança.
+- Integração Stripe.
 
 ## Exemplos de pedidos reconhecidos
 

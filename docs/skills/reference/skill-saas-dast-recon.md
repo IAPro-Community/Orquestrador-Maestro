@@ -17,7 +17,8 @@ Authorized staging/preview DAST and recon workflow for owned SaaS systems.
 
 ## Quando não usar
 
-- Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa.
+- Scan local de código, dependências, secrets ou IaC; use skill-saas-security-scan.
+- Alvo externo sem autorização explícita.
 
 ## Exemplos de pedidos reconhecidos
 

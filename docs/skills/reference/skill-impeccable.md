@@ -7,7 +7,7 @@ Focused frontend critique and polish for interfaces that feel generic, amateur, 
 | --- | --- |
 | Categoria | frontend |
 | Risco | medium |
-| Disponibilidade | Sob demanda |
+| Disponibilidade | Nativa |
 | Tags | frontend, impeccable |
 | Aliases | impeccable |
 
@@ -17,7 +17,8 @@ Focused frontend critique and polish for interfaces that feel generic, amateur, 
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Redesign amplo ou construção completa de frontend; use skill-frontend-excellence.
+- Pedido que exige somente correção funcional sem trabalho de polish/UX.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -31,16 +32,16 @@ Focused frontend critique and polish for interfaces that feel generic, amateur, 
 
 | Client | Disponibilidade | Raiz/política |
 | --- | --- | --- |
-| agents | Sob demanda | .agents/skills |
-| antigravity | Sob demanda | .antigravity-skills/skills |
-| claude | Sob demanda | .claude/skills |
-| codex | Sob demanda | .codex/skills |
-| cursor | Sob demanda | .cursor/skills |
-| gemini | Sob demanda | .gemini/skills |
-| opencode | Sob demanda | .opencode/skills |
-| windsurf | Sob demanda | .windsurf/skills |
+| agents | Nativa | .agents/skills |
+| antigravity | Nativa | .antigravity-skills/skills |
+| claude | Nativa | .claude/skills |
+| codex | Nativa | .codex/skills |
+| cursor | Nativa | .cursor/skills |
+| gemini | Nativa | .gemini/skills |
+| opencode | Nativa | .opencode/skills |
+| windsurf | Nativa | .windsurf/skills |
 
-A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela não ocupa uma raiz nativa por padrão.
+A skill é sincronizada para as raízes nativas configuradas pela política de instalação.
 
 ## Recipes e chains relacionadas
 

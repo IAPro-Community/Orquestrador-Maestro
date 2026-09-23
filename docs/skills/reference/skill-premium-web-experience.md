@@ -17,7 +17,8 @@ Use for creating, redesigning, or transforming websites into premium, cinematic,
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Dashboard, backoffice ou UI de produto; use skill-frontend-excellence.
+- Mudança pequena de componente sem narrativa, motion ou experiência premium.
 
 ## Exemplos de pedidos reconhecidos
 

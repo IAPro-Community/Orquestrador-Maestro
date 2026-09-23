@@ -4,8 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, "feature/*", "feat/*"]
   workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -36,6 +40,9 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Validate native Maestro Skill Contract V2
+        run: npm run skills:contract-audit:strict
 
       - name: npm pack dry-run
         run: npm pack --dry-run

@@ -8,14 +8,221 @@
     "neverLoadFullCatalog": true
   },
   "riskClasses": {
-    "trivial": { "mandatoryPreCode": [] },
-    "local": { "mandatoryPreCode": [] },
-    "structural": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "integration": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "security-compliance": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] },
-    "domain-critical": { "mandatoryPreCode": ["deep-interview", "skill-preflight", "skill-adr"] }
+    "trivial": {
+      "mandatoryPreCode": []
+    },
+    "local": {
+      "mandatoryPreCode": []
+    },
+    "structural": {
+      "mandatoryPreCode": [
+        "deep-interview",
+        "skill-preflight",
+        "skill-adr"
+      ]
+    },
+    "integration": {
+      "mandatoryPreCode": [
+        "deep-interview",
+        "skill-preflight",
+        "skill-adr"
+      ]
+    },
+    "security-compliance": {
+      "mandatoryPreCode": [
+        "deep-interview",
+        "skill-preflight",
+        "skill-adr"
+      ]
+    },
+    "domain-critical": {
+      "mandatoryPreCode": [
+        "deep-interview",
+        "skill-preflight",
+        "skill-adr"
+      ]
+    }
   },
   "chains": {
+    "skill-ai-orchestration": {
+      "mayInvoke": [
+        "skill-multiagent-orchestration",
+        "skill-unified-analytics",
+        "skill-google-workspace-sync",
+        "skill-elevenlabs-voice-cloning"
+      ]
+    },
+    "skill-aionui-cowork-orchestration": {
+      "mayInvoke": [
+        "skill-multiagent-orchestration",
+        "skill-ai-orchestration",
+        "skill-saas-factory",
+        "skill-security-hooks"
+      ],
+      "rules": [
+        "Use AionUi as coordination UI, not as the source of truth.",
+        "Do not enable YOLO/full-auto for risky code, secrets, payments, auth, production, RLS, migrations, cron, or customer data.",
+        "Keep Codex as default executor unless the user explicitly chooses another agent."
+      ]
+    },
+    "skill-deep-wiki": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-browser-agent",
+        "skill-webapp-testing",
+        "skill-watch-evidence",
+        "skill-doublecheck",
+        "skill-verification-before-completion",
+        "skill-adr"
+      ],
+      "rules": [
+        "Own documentation discovery, information architecture, README/TL;DR/Quick Start, guides, references, coverage and drift; do not implement product features or create parallel evidence/browser infrastructure.",
+        "Use browser-agent or webapp-testing only when current visual/runtime evidence is required; Product Documentation specifies what must be demonstrated, the delegated skill owns how to capture or execute it.",
+        "Use ADR only for an actual architecture decision record, not merely because architecture is documented.",
+        "Use verification-before-completion before claiming documentation completeness or verified Quick Start/runtime claims.",
+        "For a standard documentation task load at most one downstream skill unless independent evidence requirements justify more."
+      ]
+    },
+    "skill-doublecheck": {
+      "mayInvoke": [
+        "skill-research-and-synthesis",
+        "skill-verification-before-completion"
+      ],
+      "rules": [
+        "Use one-shot verification by default; persistent mode requires an explicit request.",
+        "Use web research for unstable or current claims and cite the supporting sources.",
+        "Never invent citations or claim verification without evidence."
+      ]
+    },
+    "skill-engineering-quality": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-repo-health",
+        "skill-systematic-debugging",
+        "skill-dependency-upgrade",
+        "skill-security-hooks",
+        "skill-webapp-testing",
+        "skill-frontend-excellence",
+        "skill-verification-before-completion"
+      ],
+      "rules": [
+        "Own multi-stack quality baseline setup: stack discovery, formatter/lint/static analysis, typecheck/compile, tests, build and CI consistency.",
+        "Do not duplicate design/UX, broad repo diagnosis, dependency migration, debugging or browser E2E responsibilities; invoke their specialized skill only when evidence requires it.",
+        "For a standard task load at most one downstream skill unless independent evidence requires additional specialization.",
+        "Do not use multiagent execution for mechanical configuration, formatting, one-file edits or a single validation command."
+      ]
+    },
+    "skill-evolution-api": {
+      "mayInvoke": [
+        "skill-ai-orchestration",
+        "skill-unified-analytics"
+      ]
+    },
+    "skill-frontend-excellence": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-open-design-ui",
+        "skill-modern-ui-patterns",
+        "skill-frontend-ux-guardrails",
+        "skill-webapp-testing",
+        "skill-impeccable",
+        "skill-verification-before-completion",
+        "skill-browser-agent",
+        "skill-product-ux-architecture",
+        "skill-design-engineering-craft",
+        "skill-motion-design-principles"
+      ],
+      "rules": [
+        "This skill owns intent classification, Design Profile discovery, the design-system adapter, Visual QA DoD, and preserve-vs-redesign policy.",
+        "Do not copy design-system catalogs into this skill; read configured public metadata.",
+        "Use premium-web-experience only for cinematic marketing sites, not product admin/SSO.",
+        "Use open-design-ui for visual direction, modern-ui-patterns for interaction states, frontend-ux-guardrails for the final UX gate, and webapp-testing for critical browser journeys.",
+        "Load at most two downstream frontend skills for a standard task."
+      ]
+    },
+    "skill-google-workspace-sync": {
+      "mayInvoke": [
+        "skill-unified-analytics"
+      ]
+    },
+    "skill-impeccable": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-frontend-ux-guardrails",
+        "skill-modern-ui-patterns",
+        "skill-open-design-ui",
+        "skill-webapp-testing",
+        "skill-design-engineering-craft",
+        "skill-motion-design-principles"
+      ],
+      "rules": [
+        "Interpret natural-language design requests before selecting a focused intervention.",
+        "Load at most two downstream frontend skills for a standard task unless the user requests a deep audit.",
+        "Use the external Impeccable CLI only when it is already available or the user explicitly authorizes installation."
+      ]
+    },
+    "skill-live-processing": {
+      "mayInvoke": [
+        "skill-smart-clip-detection",
+        "skill-manual-video-processing",
+        "skill-ai-orchestration"
+      ]
+    },
+    "skill-manual-video-processing": {
+      "mayInvoke": [
+        "skill-smart-clip-detection",
+        "skill-ai-orchestration"
+      ]
+    },
+    "skill-multiagent-orchestration": {
+      "mayInvoke": [
+        "skill-saas-security-scan",
+        "skill-security-hooks",
+        "skill-frontend-ux-guardrails",
+        "skill-unified-analytics"
+      ],
+      "rules": [
+        "Use only when workstreams are independent or the user explicitly asks for subagents/multiagents.",
+        "Assign file/module ownership before implementation agents edit files.",
+        "Keep integration and final verification with the lead agent."
+      ]
+    },
+    "skill-open-design-ui": {
+      "mayInvoke": [
+        "skill-frontend-ux-guardrails",
+        "skill-modern-ui-patterns",
+        "skill-design-engineering-craft",
+        "skill-motion-design-principles"
+      ]
+    },
+    "skill-premium-web-experience": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-open-design-ui",
+        "skill-modern-ui-patterns",
+        "skill-frontend-ux-guardrails",
+        "skill-impeccable",
+        "skill-browser-agent",
+        "skill-multiagent-orchestration",
+        "skill-saas-factory",
+        "skill-design-engineering-craft",
+        "skill-motion-design-principles"
+      ],
+      "rules": [
+        "Use this as the experience strategy and coordination layer; keep downstream skills focused on their specialty.",
+        "Use browser research only when public references or page validation add evidence.",
+        "Use scroll-experience only when that specialized capability is installed; otherwise keep scroll effects progressively enhanced and understandable without them.",
+        "Use multiagent orchestration only for independent lanes and centralize integration and final QA."
+      ]
+    },
+    "skill-saas-admin-dashboard": {
+      "mayInvoke": [
+        "skill-frontend-ux-guardrails",
+        "skill-modern-ui-patterns",
+        "skill-unified-analytics",
+        "skill-saas-core-limits"
+      ]
+    },
     "skill-saas-factory": {
       "loadFirst": true,
       "mayInvoke": [
@@ -40,14 +247,6 @@
         "Use security scan/hooks before production or when the user asks for audit, hardening, or SaaS security."
       ]
     },
-    "skill-saas-admin-dashboard": {
-      "mayInvoke": [
-        "skill-frontend-ux-guardrails",
-        "skill-modern-ui-patterns",
-        "skill-unified-analytics",
-        "skill-saas-core-limits"
-      ]
-    },
     "skill-saas-security-scan": {
       "mayInvoke": [
         "skill-security-hooks",
@@ -57,138 +256,6 @@
       "rules": [
         "DAST requires explicit owned target or staging authorization.",
         "Hooks require explicit local repository authorization."
-      ]
-    },
-    "skill-security-hooks": {
-      "mayInvoke": [
-        "skill-verification-before-completion"
-      ]
-    },
-    "skill-supabase-rls": {
-      "mayInvoke": [
-        "skill-saas-core-limits"
-      ]
-    },
-    "skill-ai-orchestration": {
-      "mayInvoke": [
-        "skill-multiagent-orchestration",
-        "skill-unified-analytics",
-        "skill-google-workspace-sync",
-        "skill-elevenlabs-voice-cloning"
-      ]
-    },
-    "skill-multiagent-orchestration": {
-      "mayInvoke": [
-        "skill-saas-security-scan",
-        "skill-security-hooks",
-        "skill-frontend-ux-guardrails",
-        "skill-unified-analytics"
-      ],
-      "rules": [
-        "Use only when workstreams are independent or the user explicitly asks for subagents/multiagents.",
-        "Assign file/module ownership before implementation agents edit files.",
-        "Keep integration and final verification with the lead agent."
-      ]
-    },
-    "skill-aionui-cowork-orchestration": {
-      "mayInvoke": [
-        "skill-multiagent-orchestration",
-        "skill-ai-orchestration",
-        "skill-saas-factory",
-        "skill-security-hooks"
-      ],
-      "rules": [
-        "Use AionUi as coordination UI, not as the source of truth.",
-        "Do not enable YOLO/full-auto for risky code, secrets, payments, auth, production, RLS, migrations, cron, or customer data.",
-        "Keep Codex as default executor unless the user explicitly chooses another agent."
-      ]
-    },
-    "skill-evolution-api": {
-      "mayInvoke": [
-        "skill-ai-orchestration",
-        "skill-unified-analytics"
-      ]
-    },
-    "skill-google-workspace-sync": {
-      "mayInvoke": [
-        "skill-unified-analytics"
-      ]
-    },
-    "skill-live-processing": {
-      "mayInvoke": [
-        "skill-smart-clip-detection",
-        "skill-manual-video-processing",
-        "skill-ai-orchestration"
-      ]
-    },
-    "skill-manual-video-processing": {
-      "mayInvoke": [
-        "skill-smart-clip-detection",
-        "skill-ai-orchestration"
-      ]
-    },
-    "skill-watch-evidence": {
-      "mayInvoke": [
-        "skill-smart-clip-detection",
-        "skill-browser-agent",
-        "skill-verification-before-completion"
-      ]
-    },
-    "skill-frontend-excellence": {
-      "loadFirst": true,
-      "mayInvoke": [
-        "skill-open-design-ui",
-        "skill-modern-ui-patterns",
-        "skill-frontend-ux-guardrails",
-        "skill-webapp-testing",
-        "skill-impeccable",
-        "skill-verification-before-completion",
-        "skill-browser-agent"
-      ],
-      "rules": [
-        "This skill owns intent classification, Design Profile discovery, the design-system adapter, Visual QA DoD, and preserve-vs-redesign policy.",
-        "Do not copy design-system catalogs into this skill; read configured public metadata.",
-        "Use premium-web-experience only for cinematic marketing sites, not product admin/SSO.",
-        "Use open-design-ui for visual direction, modern-ui-patterns for interaction states, frontend-ux-guardrails for the final UX gate, and webapp-testing for critical browser journeys.",
-        "Load at most two downstream frontend skills for a standard task."
-      ]
-    },
-    "skill-open-design-ui": {
-      "mayInvoke": [
-        "skill-frontend-ux-guardrails",
-        "skill-modern-ui-patterns"
-      ]
-    },
-    "skill-premium-web-experience": {
-      "loadFirst": true,
-      "mayInvoke": [
-        "skill-open-design-ui",
-        "skill-modern-ui-patterns",
-        "skill-frontend-ux-guardrails",
-        "skill-impeccable",
-        "skill-browser-agent",
-        "skill-multiagent-orchestration",
-        "skill-saas-factory"
-      ],
-      "rules": [
-        "Use this as the experience strategy and coordination layer; keep downstream skills focused on their specialty.",
-        "Use browser research only when public references or page validation add evidence.",
-        "Use scroll-experience only when that specialized capability is installed; otherwise keep scroll effects progressively enhanced and understandable without them.",
-        "Use multiagent orchestration only for independent lanes and centralize integration and final QA."
-      ]
-    },
-    "skill-impeccable": {
-      "loadFirst": true,
-      "mayInvoke": [
-        "skill-frontend-ux-guardrails",
-        "skill-modern-ui-patterns",
-        "skill-open-design-ui",
-        "skill-webapp-testing"
-      ],
-      "rules": [
-        "Interpret natural-language design requests before selecting a focused intervention.",
-        "Load at most two downstream frontend skills for a standard task unless the user requests a deep audit.",
-        "Use the external Impeccable CLI only when it is already available or the user explicitly authorizes installation."
       ]
     },
     "skill-scope-control": {
@@ -203,15 +270,26 @@
         "Recommend keep, split or justify with evidence from the diff."
       ]
     },
-    "skill-doublecheck": {
+    "skill-security-hooks": {
       "mayInvoke": [
-        "skill-research-and-synthesis",
+        "skill-verification-before-completion"
+      ]
+    },
+    "skill-skill-development": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-quality-gate",
         "skill-verification-before-completion"
       ],
       "rules": [
-        "Use one-shot verification by default; persistent mode requires an explicit request.",
-        "Use web research for unstable or current claims and cite the supporting sources.",
-        "Never invent citations or claim verification without evidence."
+        "Inspect the existing router, aliases, manifest and chains before creating a new pattern.",
+        "Keep the skill focused and validate natural-language routing with examples.",
+        "Do not install an external artifact without a quality and permission review."
+      ]
+    },
+    "skill-supabase-rls": {
+      "mayInvoke": [
+        "skill-saas-core-limits"
       ]
     },
     "skill-threat-modeling": {
@@ -227,16 +305,11 @@
         "Use incremental mode only when a baseline is available."
       ]
     },
-    "skill-skill-development": {
-      "loadFirst": true,
+    "skill-watch-evidence": {
       "mayInvoke": [
-        "skill-quality-gate",
+        "skill-smart-clip-detection",
+        "skill-browser-agent",
         "skill-verification-before-completion"
-      ],
-      "rules": [
-        "Inspect the existing router, aliases, manifest and chains before creating a new pattern.",
-        "Keep the skill focused and validate natural-language routing with examples.",
-        "Do not install an external artifact without a quality and permission review."
       ]
     },
     "skill-whatsapp-meta-ads-leads": {
@@ -248,6 +321,44 @@
         "Use when the user asks about WhatsApp campaigns for leads in Meta Ads.",
         "Combine with Evolution API skill for WhatsApp API integration.",
         "Combine with billing skill for payment collection via WhatsApp."
+      ]
+    },
+    "skill-product-ux-architecture": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-open-design-ui",
+        "skill-modern-ui-patterns",
+        "skill-frontend-ux-guardrails"
+      ],
+      "rules": [
+        "Use as the owner for product-wide information architecture, navigation, screen inventory and journeys.",
+        "Do not invoke downstream skills eagerly; load them only when the user intent independently requires visual direction, component behavior or UX QA.",
+        "Keep implementation detail out of the UX architecture phase until the product map is stable enough."
+      ]
+    },
+    "skill-design-engineering-craft": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-motion-design-principles",
+        "skill-frontend-ux-guardrails",
+        "skill-webapp-testing"
+      ],
+      "rules": [
+        "Use only after the visual/product direction is sufficiently defined.",
+        "Keep changes bounded to implementation craft; do not expand into an unrequested redesign.",
+        "Load motion only when animation evidence exists."
+      ]
+    },
+    "skill-motion-design-principles": {
+      "loadFirst": true,
+      "mayInvoke": [
+        "skill-frontend-ux-guardrails",
+        "skill-webapp-testing"
+      ],
+      "rules": [
+        "Motion must communicate state, continuity, hierarchy or feedback; decorative motion alone is not sufficient evidence.",
+        "Always preserve a reduced-motion path.",
+        "Do not load design-system or product-architecture skills unless the request independently requires them."
       ]
     }
   },

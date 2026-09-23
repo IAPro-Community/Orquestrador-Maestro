@@ -792,17 +792,60 @@ EOF
   backup_path "$dest" "$label"
 done
 
-if [ -d "$TARGET_ORQUESTRADOR" ]; then
-  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
-    echo "Error: refusing to remove target outside home: $TARGET_ORQUESTRADOR" >&2
+STAGED_ORQUESTRADOR="$TARGET_ORQUESTRADOR.install-$STAMP-$"
+PREVIOUS_ORQUESTRADOR="$TARGET_ORQUESTRADOR.previous-$STAMP-$"
+
+cleanup_install_swap() {
+  rm -rf "$STAGED_ORQUESTRADOR" 2>/dev/null || true
+}
+trap cleanup_install_swap EXIT
+
+for swap_path in "$STAGED_ORQUESTRADOR" "$PREVIOUS_ORQUESTRADOR"; do
+  if ! path_under_root "$swap_path" "$HOME_PATH"; then
+    echo "Error: refusing install staging outside home: $swap_path" >&2
     exit 1
   fi
-  rm -rf "$TARGET_ORQUESTRADOR"
+  rm -rf "$swap_path"
+done
+
+copy_tree_with_placeholders "$SOURCE_ORQUESTRADOR" "$STAGED_ORQUESTRADOR"
+mkdir -p "$STAGED_ORQUESTRADOR/logs"
+
+node - "$STAGED_ORQUESTRADOR/SKILLS_MANIFEST.json" <<'NODE'
+const fs = require("node:fs");
+const manifestPath = process.argv[2];
+if (!fs.existsSync(manifestPath)) throw new Error("staged Maestro bundle is missing SKILLS_MANIFEST.json");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+if (manifest.version !== 3) throw new Error(`staged Maestro manifest must be V3; received ${manifest.version}`);
+const entries = Object.entries(manifest.skills || {});
+if (entries.length === 0) throw new Error("staged Maestro manifest has no canonical skills");
+for (const [id, entry] of entries) {
+  if (entry.schemaVersion !== 2 || typeof entry.contractVersion !== "string" || !entry.contractVersion) {
+    throw new Error(`staged Maestro skill ${id} is not native Skill Contract V2`);
+  }
+}
+NODE
+
+if [ -d "$TARGET_ORQUESTRADOR" ]; then
+  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to replace target outside home: $TARGET_ORQUESTRADOR" >&2
+    exit 1
+  fi
+  mv "$TARGET_ORQUESTRADOR" "$PREVIOUS_ORQUESTRADOR"
 fi
 
-copy_tree_with_placeholders "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
+if ! mv "$STAGED_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"; then
+  if [ -d "$PREVIOUS_ORQUESTRADOR" ] && [ ! -e "$TARGET_ORQUESTRADOR" ]; then
+    mv "$PREVIOUS_ORQUESTRADOR" "$TARGET_ORQUESTRADOR" || true
+  fi
+  echo "Error: failed to publish staged Maestro bundle; previous install restored when possible." >&2
+  exit 1
+fi
+
+rm -rf "$PREVIOUS_ORQUESTRADOR"
+trap - EXIT
+
 copy_with_placeholders "$SOURCE_AGENTS" "$TARGET_AGENTS"
-mkdir -p "$TARGET_ORQUESTRADOR/logs"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
   IFS='|' read -r src dest _label _component _kind <<EOF

@@ -3,8 +3,8 @@
 
 Este catálogo compacto é gerado a partir de [`orquestrador/SKILLS_MANIFEST.json`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
 
-Total canônico: 52
-Catálogo público deduplicado: 75 skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).
+Total canônico: 56
+Catálogo público deduplicado: 79 skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).
 
 Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `check` e `validate` (ou `orquestrador-maestro skill-catalog <comando>`).
 
@@ -18,15 +18,17 @@ Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `
 | [skill-browser-agent](skills/reference/skill-browser-agent.md) | automation | medium | Sob demanda | Reliable web-browser agents using semantic page state, accessibility-tree inspection, structured Playwright actions, post-action validation, replay, and bounded visual fallbacks. |
 | [skill-cobranca-automatizada-saas-abacatepay](skills/reference/skill-cobranca-automatizada-saas-abacatepay.md) | payments | high | Sob demanda | Automatic SaaS billing engine with AbacatePay (PIX + card), dunning (regua de cobranca), trial management, invoice portal, Resend email and Evolution API WhatsApp notifications, admin CRUD, and billing metrics. |
 | [skill-database-migrations](skills/reference/skill-database-migrations.md) | database | high | Sob demanda | Migrações de banco seguras, compatíveis, idempotentes e verificáveis. |
-| [skill-deep-wiki](skills/reference/skill-deep-wiki.md) | documentation | low | Sob demanda | Documentação técnica navegável com arquitetura, Mermaid e onboarding. |
+| [skill-deep-wiki](skills/reference/skill-deep-wiki.md) | documentation | low | Sob demanda | Documentação de produto baseada em evidência: inventário de capacidades, README/TL;DR, Quick Start, guias, API/CLI/configuração, visuais, cobertura e drift. |
 | [skill-dependency-upgrade](skills/reference/skill-dependency-upgrade.md) | maintenance | medium | Sob demanda | Atualização controlada de dependências e lockfiles. |
+| [skill-design-engineering-craft](skills/reference/skill-design-engineering-craft.md) | frontend | low | Nativa | Implementation-focused design craftsmanship for the subtle details that make an already-directed interface feel deliberate and premium. |
 | [skill-doublecheck](skills/reference/skill-doublecheck.md) | verification | medium | Sob demanda | Verifica afirmações, fontes e risco de alucinação em respostas, pesquisas e documentos, com modo pontual ou contínuo. |
 | [skill-elevenlabs-voice-cloning](skills/reference/skill-elevenlabs-voice-cloning.md) | ai | high | Sob demanda | ElevenLabs voice generation/cloning integration with consent, asset handling, and server-side API use. |
+| [skill-engineering-quality](skills/reference/skill-engineering-quality.md) | engineering | medium | Nativa | Detecta a stack real do repositório e aplica um baseline de qualidade por delta, preservando tooling saudável e validando format, lint, tipos, testes, build e CI. |
 | [skill-evolution-api](skills/reference/skill-evolution-api.md) | communication | medium | Sob demanda | Evolution API WhatsApp integration with webhook idempotency, queueing, consent, and rate limits. |
 | [skill-frontend-excellence](skills/reference/skill-frontend-excellence.md) | frontend | medium | Nativa | Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence. |
 | [skill-frontend-ux-guardrails](skills/reference/skill-frontend-ux-guardrails.md) | frontend | medium | Sob demanda | Frontend UX quality gate for responsive behavior, overflow, accessibility, interaction usability, touch targets, typography, layout stability, mobile behavior, focus states, reduced motion, and final visual validation. |
 | [skill-google-workspace-sync](skills/reference/skill-google-workspace-sync.md) | integrations | medium | Sob demanda | Google Workspace sync patterns for Drive/Sheets/Calendar data, OAuth scopes, webhooks, and reconciliation. |
-| [skill-impeccable](skills/reference/skill-impeccable.md) | frontend | medium | Sob demanda | Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills. |
+| [skill-impeccable](skills/reference/skill-impeccable.md) | frontend | medium | Nativa | Focused frontend critique and polish for interfaces that feel generic, amateur, unclear, inaccessible, or unfinished, with bounded routing to visual-system, component, and UX quality skills. |
 | [skill-incident-response](skills/reference/skill-incident-response.md) | operations | high | Sob demanda | Resposta a incidentes, contenção, recuperação e postmortem. |
 | [skill-lgpd-brasil](skills/reference/skill-lgpd-brasil.md) | compliance | high | Sob demanda | LGPD-focused privacy and data-governance skill for Brazilian software products. Use for data mapping, legal basis selection, consent, privacy notices, RIPD, rights requests, retention, vendor risk, incident response, and international transfer review. |
 | [skill-live-processing](skills/reference/skill-live-processing.md) | media | medium | Sob demanda | Live media processing pipeline with capture, queueing, worker state, retries, and observability. |
@@ -34,11 +36,13 @@ Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `
 | [skill-mcp-builder](skills/reference/skill-mcp-builder.md) | integrations | high | Sob demanda | Construção segura de MCP servers tipados e testáveis. |
 | [skill-melhorar-ux-ui-por-referencia](skills/reference/skill-melhorar-ux-ui-por-referencia.md) | frontend | low | Sob demanda | Melhorar interfaces por screenshots/referências; separar análise, prompt e implementação autorizada. Confirmar o contexto visual após a seleção textual. |
 | [skill-modern-ui-patterns](skills/reference/skill-modern-ui-patterns.md) | frontend | low | Sob demanda | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
+| [skill-motion-design-principles](skills/reference/skill-motion-design-principles.md) | frontend | low | Nativa | Design and review UI motion so animations communicate state and continuity instead of adding decorative movement. |
 | [skill-multiagent-orchestration](skills/reference/skill-multiagent-orchestration.md) | orchestration | medium | Nativa | Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely. |
-| [skill-open-design-ui](skills/reference/skill-open-design-ui.md) | frontend | low | Sob demanda | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
+| [skill-open-design-ui](skills/reference/skill-open-design-ui.md) | frontend | low | Nativa | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
 | [skill-optimize-images](skills/reference/skill-optimize-images.md) | media | low | Sob demanda | Otimiza imagens para blogs e sites, incluindo conversão de formato, redimensionamento, compressão, responsividade, acessibilidade e validação visual. Use quando pedirem para otimizar, reduzir, preparar, converter ou melhorar imagens para web. |
 | [skill-preflight](skills/reference/skill-preflight.md) | workflow | medium | Nativa | Preflight de escopo, baseline, riscos, ownership e testes. |
 | [skill-premium-web-experience](skills/reference/skill-premium-web-experience.md) | frontend | low | Sob demanda | Use for creating, redesigning, or transforming websites into premium, cinematic, conversion-focused web experiences with visual research, storytelling, scroll-driven interaction, responsive design, motion, performance, accessibility, and visual QA. |
+| [skill-product-ux-architecture](skills/reference/skill-product-ux-architecture.md) | frontend | medium | Nativa | Plan the UX architecture of an entire product across screens, navigation, journeys, states, and responsive behavior before implementation. |
 | [skill-quality-gate](skills/reference/skill-quality-gate.md) | governance | high | Nativa | Avalia skills, plugins e MCPs antes da adoção. |
 | [skill-release-engineering](skills/reference/skill-release-engineering.md) | delivery | high | Nativa | Engenharia de release, smoke tests, rollback e checklist operacional. |
 | [skill-repo-health](skills/reference/skill-repo-health.md) | engineering | medium | Nativa | Diagnóstico de saúde, stack, verificação e riscos de repositórios. |

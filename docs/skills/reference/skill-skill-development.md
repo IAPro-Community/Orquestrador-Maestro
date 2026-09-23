@@ -17,7 +17,8 @@ Cria, revisa e melhora skills do Orquestrador com gatilhos claros, divulgação 
 
 ## Quando não usar
 
-- Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa.
+- Uso de uma skill existente para resolver a tarefa final.
+- Criação de workflow/provider adapter que não é uma skill.
 
 ## Exemplos de pedidos reconhecidos
 

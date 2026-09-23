@@ -17,7 +17,8 @@ Git hooks and CI security gates for SaaS repositories.
 
 ## Quando não usar
 
-- Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa.
+- Execução pontual de scan sem instalar automação recorrente.
+- Threat modeling arquitetural sem alteração de hooks/CI.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -50,6 +51,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 
 - Nenhuma recipe registrada.
 - Chain `skill-aionui-cowork-orchestration`
+- Chain `skill-engineering-quality`
 - Chain `skill-multiagent-orchestration`
 - Chain `skill-saas-factory`
 - Chain `skill-saas-security-scan`

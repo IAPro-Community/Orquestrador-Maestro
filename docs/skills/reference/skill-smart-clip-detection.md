@@ -17,7 +17,8 @@ Smart clip candidate detection for video/audio using scored moments, metadata, a
 
 ## Quando não usar
 
-- Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa.
+- Ingestão, upload ou transcode da mídia; use a skill de processamento correspondente.
+- Pedido apenas para assistir/transcrever e comprovar momentos; use skill-watch-evidence.
 
 ## Exemplos de pedidos reconhecidos
 

@@ -59,15 +59,56 @@ The [benchmark methodology](docs/benchmark.md) explains its evidence gate, limit
 
 **Next step:** [inspect the generated evidence](docs/benchmark.md#evidence) before publishing a number.
 
-## Skills: specialization on demand
+## Skills: ask for the outcome, let Maestro choose the capability
 
-Skills are specialized capabilities routed by goal, risk, and environment. Not every skill needs to be installed in every tool: some are **native**, some are available **on demand**, and some are **conditional** because they require a service, browser, or explicit authorization.
+You do **not** need to memorize Skill names. In V1, Router v3 selects specialized capabilities from intent, complexity, project signals, risk, and the Skill Contract.
 
-The detailed skills documentation is currently in Portuguese. Use the equivalent navigation below:
+![How Maestro selects Skills in V1](docs/diagrams/skills-routing-v1.svg)
 
+```text
+natural-language request
+        ↓
+Complexity Gate
+        ↓
+project signals + Skill Contract
+        ↓
+Router v3
+        ↓
+primary Skill
++ support only when justified
+        ↓
+bounded context
+        ↓
+execution + verification
+```
+
+A few examples:
+
+| Goal | Typical capabilities |
+| --- | --- |
+| Understand a repository | preflight, repo health, deep documentation, ADRs |
+| Build/evolve a product | engineering quality, frontend excellence, product UX architecture |
+| Improve UI quality | open design, impeccable audit, design engineering craft, motion principles |
+| Debug and prove a fix | systematic debugging, verification before completion |
+| Ship safely | database migrations, release engineering, security |
+| Work with AI/agents | AI orchestration, agent observability, explicit multiagent orchestration |
+
+Inspect the routing decision before execution:
+
+```bash
+orquestrador-maestro route explain "investigate why this test started failing"
+orquestrador-maestro route explain --json "prepare this application for release"
+```
+
+The canonical V1 catalog currently contains **56 Maestro Skills** (15 Core + 41 Domain) and **79 unique public Skills**. The architecture is designed so this catalog does not need to be eagerly loaded into the prompt.
+
+The detailed Skills documentation is currently in Portuguese:
+
+- [Skills portal (PT)](docs/skills/README.md)
 - [Choose by objective (PT)](docs/skills/choose.md)
 - [Recipes and combinations (PT)](docs/skills/recipes.md)
-- [Full reference catalog (PT)](docs/skills/reference/README.md)
+- [Full generated reference (PT)](docs/skills/reference/README.md)
+
 
 ## Keep exploring
 

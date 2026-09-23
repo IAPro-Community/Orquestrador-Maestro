@@ -17,7 +17,8 @@ Stripe Checkout, Billing subscriptions, customer portal, webhook verification, a
 
 ## Quando não usar
 
-- Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa.
+- Fluxo PIX/CPF/CNPJ específico da AbacatePay.
+- Motor completo de cobrança recorrente independente do provider.
 
 ## Exemplos de pedidos reconhecidos
 

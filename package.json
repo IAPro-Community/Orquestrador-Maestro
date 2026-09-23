@@ -1,6 +1,6 @@
 {
   "name": "@iapro/orquestrador-maestro-cli",
-  "version": "0.5.0",
+  "version": "1.0.0-alpha.1",
   "description": "CLI npm para instalar, atualizar, verificar e remover o Orquestrador Maestro no usuário atual, com catálogo público deduplicado de skills versionadas.",
   "bin": {
     "orquestrador-maestro": "bin/orquestrador-maestro.js"
@@ -67,7 +67,9 @@
     "bench:help": "node --import tsx benchmark-harness/src/cli/index.ts --help",
     "bench:test": "node --import tsx --test benchmark-harness/tests/*.test.ts benchmark-harness/tests/**/*.test.ts",
     "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json",
-    "bench:build": "cd benchmark-harness && npm run build"
+    "bench:build": "cd benchmark-harness && npm run build",
+    "skills:contract-audit": "node scripts/skill-contract-audit.js",
+    "skills:contract-audit:strict": "node scripts/skill-contract-audit.js --strict"
   },
   "config": {
     "telemetryEndpoint": ""

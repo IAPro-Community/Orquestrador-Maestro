@@ -17,7 +17,8 @@ SaaS admin dashboard and internal panel patterns for users, plans, payments, log
 
 ## Quando não usar
 
-- Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa.
+- Construção ou arquitetura do SaaS completo; use skill-saas-factory.
+- Landing page ou experiência de marketing premium; use a skill de frontend apropriada.
 
 ## Exemplos de pedidos reconhecidos
 

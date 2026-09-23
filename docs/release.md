@@ -2,7 +2,7 @@
 
 Este guia é para mantenedores que publicam uma versão. Ele mantém releases rastreáveis e reversíveis; não é necessário para instalar ou usar o Maestro.
 
-O release estável segue um único contrato: a versão do `package.json`, do `package-lock.json` e do `CHANGELOG.md` deve ser igual à tag anotada `vX.Y.Z`.
+O release segue um único contrato: a versão do `package.json`, do `package-lock.json` e do `CHANGELOG.md` deve ser igual à tag anotada (`vX.Y.Z` para estável ou `vX.Y.Z-alpha.N`/`beta.N`/`rc.N` para pré-release).
 
 ## Fluxo do mantenedor
 
@@ -24,7 +24,7 @@ O script exige working tree limpo, verifica a versão dos manifestos, confere o 
 
 ## Publicação automática
 
-O envio de uma tag `vX.Y.Z` dispara [`.github/workflows/release.yml`](../.github/workflows/release.yml). O workflow:
+O envio de uma tag SemVer (`vX.Y.Z` ou pré-release) dispara [`.github/workflows/release.yml`](../.github/workflows/release.yml). Releases estáveis usam o dist-tag npm `latest`; `alpha` usa `alpha`, `beta` usa `beta` e outros pré-releases/RC usam `next`. O workflow:
 
 - confere se tag e pacote têm a mesma versão;
 - exige a entrada correspondente no changelog;

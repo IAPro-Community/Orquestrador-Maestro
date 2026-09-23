@@ -17,7 +17,8 @@ Multiagent and subagent orchestration for splitting independent engineering work
 
 ## Quando não usar
 
-- Pedidos fora do domínio orchestration; use a skill específica quando houver uma intenção mais precisa.
+- Tarefa mecânica, curta ou estritamente serial que não ganha com paralelismo.
+- Integração específica com AionUi/Cowork; use skill-aionui-cowork-orchestration.
 
 ## Exemplos de pedidos reconhecidos
 

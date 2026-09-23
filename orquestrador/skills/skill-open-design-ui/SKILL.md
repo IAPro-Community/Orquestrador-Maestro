@@ -69,4 +69,7 @@ If the project already provides the Impeccable CLI, `npx impeccable detect <targ
 - `skill-premium-web-experience` — complete experience strategy and narrative orchestration.
 - `skill-modern-ui-patterns` — component composition and product interaction states.
 - `skill-frontend-ux-guardrails` — final usability, accessibility, responsive, and layout gate.
+- `skill-product-ux-architecture` — app-wide information architecture, navigation, screen inventory, and journeys.
+- `skill-design-engineering-craft` — high-fidelity implementation details after the visual direction is clear.
+- `skill-motion-design-principles` — timing, easing, choreography, interruption, and reduced-motion behavior.
 - `skill-impeccable` — focused critique and polish requests.

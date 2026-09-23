@@ -60,7 +60,7 @@ test("TRUE packaged: installed binary --version and --help", () => {
   const binPath = path.join(installDir, "node_modules", ".bin", process.platform === "win32" ? "orquestrador-maestro.cmd" : "orquestrador-maestro");
   const version = run(binPath, ["--version"]);
   assert.equal(version.status, 0, version.stderr);
-  assert.match(version.stdout.trim(), /^\d+\.\d+\.\d+$/);
+  assert.match(version.stdout.trim(), /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u);
 
   const help = run(binPath, ["--help"]);
   assert.equal(help.status, 0, help.stderr);

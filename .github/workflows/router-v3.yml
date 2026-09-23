@@ -1,0 +1,48 @@
+name: Router v3 Gate
+
+on:
+  pull_request:
+    branches: [main, "feature/*", "feat/*"]
+    paths:
+      - "runtime/planner/**"
+      - "runtime/skills/**"
+      - "orquestrador/SKILLS_MANIFEST.json"
+      - "orquestrador/SKILLS_ROUTER.json"
+      - "orquestrador/SKILL_ALIASES.json"
+      - "orquestrador/SKILL_CHAINS.json"
+      - "orquestrador/skills/**"
+      - "bin/orquestrador-maestro.js"
+      - "tests/router-*.test.js"
+      - "tests/design-*.test.js"
+
+concurrency:
+  group: router-v3-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  router-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install dependencies
+        run: npm ci
+      - name: Router v3 focused tests
+        run: >-
+          node --test
+          runtime/planner/__tests__/complexity-gate.test.js
+          runtime/planner/__tests__/routing-signals.test.js
+          runtime/planner/__tests__/router-shadow.test.js
+          runtime/planner/__tests__/skill-router-v3.test.js
+          tests/router-v2-v3-benchmark.test.js
+          tests/router-v3-cli.test.js
+          tests/design-skill-routing-v3.test.js
+          tests/design-skills-claude-mirror.test.js
+      - name: Skill contract audit
+        run: npm run skills:contract-audit:strict

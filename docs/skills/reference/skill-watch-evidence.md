@@ -17,7 +17,8 @@ Video, audio, screen-recording, and visual-flow analysis with persistent indexes
 
 ## Quando não usar
 
-- Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa.
+- Alteração da pipeline de processamento de mídia.
+- Geração de clips ou ranking de highlights como objetivo principal.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -49,6 +50,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Recipe `media-processing`: Processamento de mídia
+- Chain `skill-deep-wiki`
 - Chain `skill-watch-evidence`
 
 ## Evidência mínima de conclusão

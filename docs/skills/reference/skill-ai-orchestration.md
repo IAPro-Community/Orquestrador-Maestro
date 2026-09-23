@@ -17,7 +17,8 @@ Server-side AI provider orchestration, routing, budgets, fallbacks, observabilit
 
 ## Quando não usar
 
-- Pedidos fora do domínio ai; use a skill específica quando houver uma intenção mais precisa.
+- Integração exclusivamente de voz/voice cloning; use skill-elevenlabs-voice-cloning.
+- Coordenação de agentes de desenvolvimento; use skill-multiagent-orchestration.
 
 ## Exemplos de pedidos reconhecidos
 

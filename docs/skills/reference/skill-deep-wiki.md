@@ -1,33 +1,41 @@
 <!-- GENERATED FILE: scripts/skill-catalog.js; DO NOT EDIT. -->
 # skill-deep-wiki
 
-Documentação técnica navegável com arquitetura, Mermaid e onboarding.
+Use when documenting or auditing a software product or repository, creating or improving README, Quick Start, guides, API/CLI/configuration references, troubleshooting, visual documentation plans, or checking documentation drift after product changes.
 
 | Campo | Valor |
 | --- | --- |
 | Categoria | documentation |
 | Risco | low |
 | Disponibilidade | Sob demanda |
-| Tags | documentation, deep, wiki |
-| Aliases | deep wiki |
+| Tags | documentation, product-docs, readme, quick-start, drift |
+| Aliases | deep wiki, product documentation, product docs, documentação do produto, documentacao do produto, documentação completa, documentacao completa, criar readme, quick start, documentation drift |
 
 ## Melhores casos de uso
 
-- Documentação técnica navegável com arquitetura, Mermaid e onboarding.
+- Documentar completamente um produto/repositório a partir de capacidades verificadas.
+- Criar ou melhorar README, TL;DR, Quick Start, guias, API/CLI/configuração, troubleshooting e documentação operacional.
+- Auditar cobertura e documentation drift depois de mudanças no produto.
 
 ## Quando não usar
 
-- Pedidos fora do domínio documentation; use a skill específica quando houver uma intenção mais precisa.
+- Implementação de funcionalidade, correção de bug ou refatoração sem documentação abrangente como objetivo.
+- Decisão arquitetural isolada ou ADR; use skill-adr.
+- Diagnóstico amplo de saúde do repositório sem objetivo documental; use skill-repo-health.
+- Avaliação global de produção/release; use os gates de qualidade/release apropriados.
+- Automação genérica de navegador ou teste E2E como objetivo principal; use skill-browser-agent ou skill-webapp-testing.
 
 ## Exemplos de pedidos reconhecidos
 
-- Use para deep wiki.
-- Use para wiki tecnica.
-- Use para documentar repositorio.
+- Documente completamente este projeto.
+- Crie README, Quick Start e documentação das funcionalidades deste produto.
+- Audite a documentação e identifique funcionalidades sem documentação.
+- Compare o código atual com a documentação e encontre documentation drift.
+- Documente a API e a CLI sem inventar capacidades não verificadas.
 
 ## Pré-requisitos e ferramentas externas
 
-- Contexto do projeto e autorização compatíveis com o risco low.
+- Acesso ao repositório e às fontes de evidência necessárias para verificar as capacidades documentadas.
 
 ## Compatibilidade e instalação
 
@@ -47,14 +55,16 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Nenhuma recipe registrada.
-- Nenhuma chain registrada.
+- Chain `skill-deep-wiki`
 
 ## Evidência mínima de conclusão
 
-- Resultado solicitado demonstrado por teste, inspeção ou artefato verificável.
-- Handoff com limitações e próximo passo quando aplicável.
+- Capacidades relevantes inventariadas antes da documentação final e claims importantes vinculados a evidência atual.
+- README/TL;DR/Quick Start e referências aplicáveis refletem o produto atual sem capacidades inventadas.
+- Comandos, links, exemplos, assets e build de documentação validados quando o projeto oferece meios para isso.
+- Documentation drift, cobertura e gaps não verificados reportados explicitamente.
 
-Perfil de workflow: `standard` (entrada: `SKILL.md`).
+Perfil de workflow: `strict` (entrada: `SKILL.md`).
 
 ## Proveniência
 
@@ -62,8 +72,8 @@ Perfil de workflow: `standard` (entrada: `SKILL.md`).
 - Versão: bundled
 - Licença: repository-license
 - Steward: orquestrador-maintainers
-- Revisado em: 2026-09-13
-- Evidências: `orquestrador/skills/skill-deep-wiki/SKILL.md`
+- Revisado em: 2026-09-22
+- Evidências: `orquestrador/skills/skill-deep-wiki/SKILL.md`, `orquestrador/skills/skill-deep-wiki/references/evidence-and-discovery.md`, `orquestrador/skills/skill-deep-wiki/references/documentation-surfaces.md`, `orquestrador/skills/skill-deep-wiki/references/visuals-drift-validation.md`
 
 ## Fonte canônica
 
