@@ -17,6 +17,7 @@ O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini 
 | Começar do zero em 10 minutos | [Comece aqui](docs/START-HERE.md) |
 | Entender a ideia em 1 minuto | [Como funciona](#um-processo-várias-ferramentas) |
 | Instalar agora | [Comece em dois minutos](#comece-em-dois-minutos) |
+| Entender a evolução 0.5 → V1 | [Veja o que mudou e por quê](#da-050-à-v1-contexto-e-roteamento-proporcionais-ao-problema) |
 | Ver o benchmark | [Veja os números](#benchmark-veja-os-números-na-sua-máquina) |
 | Descobrir qual skill usar | [Escolha por objetivo](docs/skills/choose.md) |
 | Configurar memória e contexto | [Guias técnicos](#guias-técnicos) |
@@ -89,6 +90,130 @@ Escolha o caminho mais útil:
 - [Escolher por objetivo](docs/skills/choose.md)
 - [Consultar receitas e combinações](docs/skills/recipes.md)
 - [Abrir o catálogo completo](docs/skills/reference/README.md)
+
+## Da 0.5.0 à V1: contexto e roteamento proporcionais ao problema
+
+A `0.5.0` consolidou a base de execução confiável do Maestro: Resolution Engine, Evidence, Proof Bundle, memória, telemetria, persistência e integração provider-neutral. Essa fundação resolveu uma pergunta essencial: **“o processo terminou ou o resultado foi realmente validado?”**
+
+A próxima limitação estava antes da execução. O fluxo ainda tinha decisões mais estáticas do que o produto precisava: roteamento centrado principalmente em triggers e um orçamento de exploração de codebase próximo de **8k tokens** no caminho legado, independentemente de a tarefa ser um typo ou uma mudança arquitetural.
+
+A V1 move essa decisão para o início do fluxo:
+
+```text
+pedido
+  ↓
+Complexity Gate
+  ↓
+Router v3
+  ↓
+Skill Intelligence
+  ↓
+Context Budget
+  ↓
+Provider
+  ↓
+Verification / Resolution
+```
+
+O objetivo não é simplesmente “usar menos contexto”. É **usar contexto proporcional ao problema**: reduzir agressivamente o que é carregado em tarefas pequenas e permitir mais profundidade quando a evidência indica uma tarefa realmente complexa.
+
+![Budget de contexto da 0.5.0 comparado à V1](docs/diagrams/v1-context-budget.svg)
+
+| Complexidade | 0.5.0 — fluxo legado | V1 | Mudança de teto |
+| --- | ---: | ---: | ---: |
+| `MICRO` | ~8.000 | 1.500 | −81,3% |
+| `SIMPLE` | ~8.000 | 3.000 | −62,5% |
+| `STANDARD` | ~8.000 | 6.000 | −25% |
+| `COMPLEX` | ~8.000 | 10.000 | +25% |
+| `DEEP` | ~8.000 | 16.000 | +100% |
+
+Esses números são **limites configurados no runtime**, não uma promessa de consumo real. O uso efetivo depende do repositório, provider, tarefa e contexto encontrado.
+
+### Como chegamos a esse desenho
+
+A evolução foi incremental:
+
+1. **Primeiro, confiabilidade de conclusão.** A linha 0.5 passou a separar processo encerrado de `Validated Outcome`, preservando verificação e evidência.
+2. **Depois, identidade e contrato das Skills.** A V1 introduz Manifest V3 e Skill Contract V2 para que routing, contexto necessário, outputs e verificação tenham uma fonte canônica.
+3. **Em seguida, complexidade antes de contexto.** O Complexity Gate classifica `MICRO | SIMPLE | STANDARD | COMPLEX | DEEP` antes de decidir quanto carregar.
+4. **Router v3 como caminho padrão.** O Router v3 considera evidência positiva e negativa, capabilities, aliases, sinais do projeto e budget. O Router v2 permanece apenas como comparação/rollback explícito durante a pré-release.
+5. **Fan-out continua deliberado.** Complexidade alta não cria automaticamente vários agentes. Multiagent exige intenção explícita e complexidade compatível para evitar amplification desnecessária.
+
+A mudança no catálogo é pequena em quantidade e grande em contrato:
+
+![Evolução do catálogo e contrato de Skills](docs/diagrams/v1-skill-evolution.svg)
+
+| Indicador | 0.5.0 | V1 proposta |
+| --- | ---: | ---: |
+| Skills canônicas Maestro | 52 | 56 |
+| Skills públicas únicas | 75 | 79 |
+| Manifest canônico | V2 | V3 |
+| Skill Contract V2 nativo | parcial/não canônico | obrigatório para `maestro/*` |
+| Negative routing | limitado | explícito |
+| Context requirements por skill | não canônico | explícito |
+| Outputs / verification por skill | distribuídos | canônicos |
+
+Ou seja: a principal mudança **não é ter mais quatro Skills**. É tornar a seleção explicável, versionada e verificável.
+
+### O que já conseguimos provar
+
+O conjunto comportamental versionado hoje contém **16 intents rotuladas** usadas para comparar Router v2 e Router v3. O gate atual exige que ambos acertem os 16 casos e que o v3 não introduza regressões nesses cenários conhecidos.
+
+Isso é evidência de **não regressão na baseline atual**, não prova de superioridade do v3. Por isso este README não publica uma porcentagem inventada de “melhoria de roteamento”.
+
+Também conseguimos verificar diretamente no código e nos manifests:
+
+- Router v3 é o default da linha V1;
+- Router v2 é rollback explícito;
+- Complexity Gate governa o budget normal de contexto;
+- tarefas `MICRO` e `SIMPLE` não habilitam subagents;
+- mesmo `COMPLEX` e `DEEP` só permitem subagents quando multiagent foi solicitado explicitamente;
+- Skills externas sem routing confiável permanecem `explicit-only`;
+- o catálogo canônico não depende de carregar todas as Skills no prompt.
+
+### Como isso deve melhorar o uso real
+
+Se o desenho se comportar como esperado, a V1 deve melhorar quatro dimensões:
+
+- **Eficiência:** tarefas pequenas deixam de pagar o mesmo custo de contexto de tarefas arquiteturais.
+- **Precisão:** positive/negative routing e capabilities reduzem seleção por coincidência textual.
+- **Profundidade quando necessário:** tarefas complexas podem usar budgets maiores sem obrigar todo o sistema a trabalhar sempre no pior caso.
+- **Explicabilidade:** `orquestrador-maestro route explain` mostra intenção, complexidade, Skill escolhida, evidência e budget estimado em vez de esconder a decisão.
+
+O resultado desejado é este:
+
+```text
+menos tarefa simples → contexto demais
+menos tarefa complexa → contexto de menos
+menos skill irrelevante → prompt
+menos fan-out automático → custo
+
+mais decisão explicável
+mais contexto quando a evidência pede
+mais verificação antes de "done"
+```
+
+### O que ainda precisa de benchmark A/B
+
+Há métricas que **não devem virar claim público apenas porque a arquitetura sugere melhora**. Para comparar `0.5.0` e V1 de forma válida, o benchmark precisa usar as mesmas tarefas, repositórios, provider/modelo e critérios de aceitação.
+
+As próximas comparações devem medir:
+
+| Métrica | Pergunta que ela responde |
+| --- | --- |
+| TTVO — Tokens To Validated Outcome | Quantos tokens foram necessários até um resultado realmente validado? |
+| Context tokens por tarefa | A V1 carregou menos contexto onde não precisava? |
+| First-pass validation | Mais tarefas passaram sem retry? |
+| Validation rate | A economia manteve ou melhorou a qualidade? |
+| Skills selecionadas por tarefa | O Router v3 evitou carregar capacidades irrelevantes? |
+| Retries / provider calls | Houve menos retrabalho e amplification? |
+| Time To Validated Outcome | O caminho até conclusão válida ficou mais curto? |
+| Fan-out por tarefa | Tarefas simples permaneceram solo? |
+| Regressões v2 → v3 | Algum caso conhecido piorou? |
+
+Esses resultados só devem ser publicados quando passarem pelo mesmo [evidence gate](docs/benchmark.md#evidence-gate) usado pelo benchmark do projeto.
+
+**Resumo:** a V1 muda o Maestro de um fluxo com contexto mais uniforme para um sistema que tenta gastar **o mínimo suficiente** por tarefa, sem reduzir os requisitos de validação. A economia é uma consequência esperada; a regra principal continua sendo chegar a um `Validated Outcome` com evidência.
 
 ## Benchmark: veja os números na sua máquina
 
