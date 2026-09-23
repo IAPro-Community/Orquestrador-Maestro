@@ -77,19 +77,103 @@ Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orqu
 
 **Próximo passo:** [aprenda o fluxo que a IA deve seguir](docs/ai-agent-operating-guide.md) ou [configure um workflow declarativo](docs/workflows.md).
 
-### Skills: especialização sob demanda
+## Skills: você pede o resultado, o Maestro escolhe a capacidade
 
-Em desenvolvimento (Unreleased): melhoria de UX/UI por screenshots e referências visuais,
-com análise, prompt de implementação e validação de evidências. Veja a
-[referência da skill](docs/skills/reference/skill-melhorar-ux-ui-por-referencia.md).
+Você **não precisa decorar o nome das Skills** para usar o Maestro. Na V1, elas funcionam como capacidades especializadas que o Router v3 seleciona conforme a intenção, a complexidade, a stack, os arquivos alterados, o risco e o contexto disponível.
 
-Skills são capacidades especializadas que o Maestro roteia conforme objetivo, risco e ambiente. Nem toda skill precisa estar instalada em todas as ferramentas: algumas são **nativas**, outras ficam **sob demanda** na biblioteca e algumas são **condicionais**, pois exigem um serviço, navegador ou autorização.
+![Como o Maestro escolhe Skills na V1](docs/diagrams/skills-routing-v1.svg)
 
-Escolha o caminho mais útil:
+O fluxo normal é:
 
-- [Escolher por objetivo](docs/skills/choose.md)
-- [Consultar receitas e combinações](docs/skills/recipes.md)
-- [Abrir o catálogo completo](docs/skills/reference/README.md)
+```text
+pedido em linguagem natural
+        ↓
+Complexity Gate
+        ↓
+sinais do projeto + Skill Contract
+        ↓
+Router v3
+        ↓
+1 Skill principal
++ apoios somente quando justificados
+        ↓
+contexto mínimo suficiente
+        ↓
+execução + verificação
+```
+
+### Comece pelo objetivo, não pelo catálogo
+
+| Quero… | Capacidade que o Maestro tende a procurar | Exemplos de Skills |
+| --- | --- | --- |
+| **Entender um projeto** | baseline, arquitetura, riscos e documentação | `skill-preflight`, `skill-repo-health`, `skill-deep-wiki`, `skill-adr` |
+| **Construir ou evoluir produto** | engenharia, frontend e UX coerentes com o projeto | `skill-engineering-quality`, `skill-frontend-excellence`, `skill-product-ux-architecture` |
+| **Melhorar uma interface** | direção visual, hierarquia, acabamento e motion | `skill-open-design-ui`, `skill-impeccable`, `skill-design-engineering-craft`, `skill-motion-design-principles` |
+| **Investigar e corrigir** | causa raiz, mudança focada e prova da correção | `skill-systematic-debugging`, `skill-verification-before-completion` |
+| **Entregar com segurança** | migração, release, CI, rollback e segurança | `skill-database-migrations`, `skill-release-engineering`, `skill-security-hooks`, `skill-threat-modeling` |
+| **Trabalhar com IA/agentes** | providers, budgets, observabilidade e delegação | `skill-ai-orchestration`, `skill-agent-observability`, `skill-multiagent-orchestration` |
+| **Integrar serviços específicos** | conhecimento de domínio carregado sob demanda | Stripe, AbacatePay, Google Workspace, WhatsApp, mídia e outras Skills de domínio |
+
+Esses exemplos são **portas de entrada**, não combinações obrigatórias. O Router não carrega todas as Skills de uma linha e não encadeia capacidades apenas porque elas parecem relacionadas.
+
+### Veja a decisão antes de executar
+
+Você pode perguntar ao próprio Router o que ele faria:
+
+```bash
+orquestrador-maestro route explain "investigue por que este teste começou a falhar"
+orquestrador-maestro route explain "refaça a arquitetura de UX deste produto"
+orquestrador-maestro route explain --json "prepare esta aplicação para release"
+```
+
+A explicação mostra, conforme aplicável:
+
+- complexidade estimada;
+- Skill principal;
+- Skills encadeadas;
+- confiança;
+- evidência que levou à seleção;
+- sinais de stack/escopo;
+- rotas rejeitadas;
+- contexto estimado e budget máximo.
+
+Isso transforma Skills de uma coleção de prompts em um **sistema de decisão inspecionável**.
+
+### Core, Domain e Skills externas
+
+| Origem | Papel | Como entra no fluxo |
+| --- | --- | --- |
+| **Maestro Core** | capacidades transversais de engenharia e governança | Skill Contract V2 obrigatório; elegíveis para routing automático |
+| **Maestro Domain** | capacidades especializadas, como frontend, segurança, IA e integrações | Skill Contract V2 obrigatório; roteadas quando há evidência específica |
+| **Library / External** | catálogo reutilizável mantido fora do núcleo | normalizado na fronteira; sem routing confiável permanece `explicit-only` |
+| **User / Project** | conhecimento local criado pelo usuário ou pelo repositório | permanece local e não precisa adotar o manifesto interno do Maestro |
+
+O catálogo atual possui **56 Skills canônicas Maestro** e **79 Skills públicas únicas**, mas o objetivo da arquitetura é justamente evitar que esse catálogo inteiro seja colocado no prompt ou apresentado ao usuário como uma lista que precisa ser aprendida.
+
+### As Skills de design não fazem a mesma coisa
+
+Uma área em que uma lista plana confundia bastante era design/frontend. Na V1 elas têm papéis diferentes:
+
+| Skill | Use principalmente para |
+| --- | --- |
+| `skill-product-ux-architecture` | estruturar produto, fluxos, informação, estados e arquitetura de UX |
+| `skill-open-design-ui` | sair de UI genérica/template e definir direção visual |
+| `skill-impeccable` | auditar hierarquia, spacing, consistência, legibilidade e acessibilidade |
+| `skill-design-engineering-craft` | elevar acabamento de implementação e detalhes que fazem a interface parecer madura |
+| `skill-motion-design-principles` | revisar e projetar animações, transições e comportamento de movimento |
+| `skill-frontend-excellence` | coordenar implementação frontend, Design Profile e Visual QA dentro do produto real |
+| `skill-melhorar-ux-ui-por-referencia` | trabalhar especificamente a partir de screenshots ou referências visuais |
+
+O Router usa `useWhen`, `doNotUseWhen`, capabilities e sinais do projeto para evitar que essas capacidades concorram apenas por palavras como “design” ou “frontend”.
+
+### Explore conforme sua necessidade
+
+- **[Escolher por objetivo](docs/skills/choose.md)** — melhor ponto de entrada para humanos.
+- **[Portal de Skills](docs/skills/README.md)** — entenda o modelo, routing, disponibilidade e contrato.
+- **[Receitas operacionais](docs/skills/recipes.md)** — veja quando várias capacidades realmente precisam trabalhar em sequência.
+- **[Referência completa](docs/skills/reference/README.md)** — consulte as 56 Skills canônicas e seus metadados.
+- **[Catálogo público](skill-library/PUBLIC_SKILLS_MANIFEST.json)** — fonte estruturada das Skills públicas deduplicadas.
+
 
 ## Da 0.5.0 à V1: contexto e roteamento proporcionais ao problema
 
