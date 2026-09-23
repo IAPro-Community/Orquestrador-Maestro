@@ -14,7 +14,9 @@ Only these branches are part of the current delivery path:
 
 All branches under `archive/` are immutable historical snapshots. They exist only for traceability and recovery.
 
-The following former work branches have matching frozen snapshots and are no longer valid development targets:
+The `archive/*` branches are historical consolidation checkpoints; they are not a one-to-one snapshot for every former work branch.
+
+The following former work branches are frozen/obsolete and are no longer valid development targets:
 
 - `feat/cli-novo`
 - `feat/cli-novo-wip`
