@@ -6,7 +6,7 @@
 
 - **Router v3:** novo roteamento sobre Skill Contract V2 com evidência explícita, aliases, positive/negative routing, capability matching, chaining lazy e explicação de seleção/rejeição.
 - **Complexity Gate:** tarefas passam por classificação determinística `MICRO | SIMPLE | STANDARD | COMPLEX | DEEP`, com budgets de skills/contexto e fan-out proibido por padrão.
-- **Shadow rollout:** `go` mantém Router v2 ativo por padrão, calcula v3 sem duplicar execução e persiste a comparação na Mission; `--router-version 3` habilita teste explícito.
+- **Router v3 default:** `go` usa Router v3 por padrão, mantém a comparação com v2 sem duplicar execução e preserva `--router-version 2` apenas como rollback explícito durante a pré-release.
 - **Context budget:** quando v3 está ativo, exploração do codebase obedece ao budget definido pelo Complexity Gate em vez de usar 8k fixos.
 - **CLI:** novo `route explain [--json] "objetivo"` expõe intenção, complexidade, skill selecionada, evidência e budget estimado de contexto.
 - **Design:** `frontend-design` passa a alias de `skill-open-design-ui`; `impeccable` mantém a skill canônica existente; adicionadas `skill-product-ux-architecture`, `skill-design-engineering-craft` e `skill-motion-design-principles`.
