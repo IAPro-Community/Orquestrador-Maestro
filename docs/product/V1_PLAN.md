@@ -1,8 +1,8 @@
 # Plano V1 — Context & Skill Intelligence
 
 > **Status:** implementação ativa — `1.0.0-alpha.1`  
-> **Branch:** `feature/v1-context-skill-intelligence`  
-> **Base:** HEAD do PR #23 (`43420044a78d5511f27d735e282a0e58a9a71af1`)  
+> **Branch:** `feature/upstream-consolidated-v1`  
+> **Base:** `IAPro-Community/Orquestrador-Maestro:main` após PR #23 / release `0.5.0` (`09e7bf70306bac7dd9238089a0d845d05427bc64`)  
 > **Target:** `1.0.0`  
 > **Última atualização:** 2026-09-22
 
@@ -84,7 +84,7 @@ A versão não deve ser publicada diretamente como estável durante desenvolvime
 Estratégia:
 
 ```text
-0.4.x / PR #23
+0.5.0 / PR #23
       ↓
 1.0.0-alpha.1  ← linha atual
       ↓
