@@ -54,8 +54,28 @@ test("shadow records agreement without executing duplicate work", () => {
   assert.equal(result.shadow.v3SkillCount, 1);
 });
 
+test("Router v3 is the default while v2 remains an explicit rollback path", () => {
+  const v2 = { primarySkill: { id: "skill-v2" }, allSkills: [{ id: "skill-v2" }] };
+  const v3 = {
+    primarySkill: { id: "skill-v3" },
+    allSkills: [{ id: "skill-v3" }],
+    complexity: { level: "STANDARD" },
+    estimatedContextTokens: 2000
+  };
+  const result = evaluateRouterShadow({
+    intent: "test",
+    routerV2: router(v2),
+    routerV3: router(v3)
+  });
+
+  assert.equal(result.resolved, v3);
+  assert.equal(result.shadow.activeVersion, 3);
+  assert.equal(result.shadow.v2Primary, "skill-v2");
+  assert.equal(result.shadow.v3Primary, "skill-v3");
+});
+
 test("router version is explicit and bounded", () => {
-  assert.equal(normalizeVersion(undefined), "2");
+  assert.equal(normalizeVersion(undefined), "3");
   assert.equal(normalizeVersion("3"), "3");
   assert.throws(() => normalizeVersion("4"), /must be 2 or 3/u);
 });
