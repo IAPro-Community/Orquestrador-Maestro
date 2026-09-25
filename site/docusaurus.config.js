@@ -1,5 +1,3 @@
-import repoDocsPlugin from './plugins/repo-docs/index.js';
-
 const config = {
   title: 'Orquestrador Maestro',
   tagline: 'Você escolhe a IA. O Maestro organiza o trabalho.',
@@ -10,12 +8,26 @@ const config = {
   projectName: 'Orquestrador-Maestro',
   trailingSlash: true,
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn'
+    }
+  },
   i18n: { defaultLocale: 'pt-BR', locales: ['pt-BR'] },
   presets: [
-    ['classic', { docs: false, blog: false, theme: { customCss: './src/css/custom.css' } }]
+    ['classic', {
+      docs: {
+        path: '../docs',
+        routeBasePath: 'docs',
+        sidebarPath: false,
+        breadcrumbs: true,
+        showLastUpdateAuthor: false,
+        showLastUpdateTime: false
+      },
+      blog: false,
+      theme: { customCss: './src/css/custom.css' }
+    }]
   ],
-  plugins: [repoDocsPlugin],
   themeConfig: {
     image: 'img/orquestrador-maestro-logo.png',
     colorMode: { defaultMode: 'dark', disableSwitch: true, respectPrefersColorScheme: false },
@@ -31,7 +43,7 @@ const config = {
         { to: '/skills', label: 'Skills', position: 'left' },
         { to: '/simulador', label: 'Simulação', position: 'left' },
         { to: '/benchmark', label: 'Benchmark', position: 'left' },
-        { to: '/docs', label: 'Documentação', position: 'left' },
+        { to: '/documentation', label: 'Documentação', position: 'left' },
         { href: 'https://github.com/IAPro-Community/Orquestrador-Maestro', label: 'GitHub', position: 'right' }
       ]
     },
@@ -46,12 +58,12 @@ const config = {
         { title: 'Referência', items: [
           { label: 'Skills', to: '/skills' },
           { label: 'Roteador', to: '/simulador' },
-          { label: 'Benchmark', to: '/benchmark' }
+          { label: 'Benchmark', to: '/benchmark' },
+          { label: 'Documentação', to: '/documentation' }
         ]}
       ],
-      copyright: 'Orquestrador Maestro · Conteúdo gerado a partir das fontes canônicas do repositório.'
+      copyright: 'Orquestrador Maestro · Conteúdo derivado das fontes canônicas do repositório.'
     }
   }
 };
-
 export default config;
