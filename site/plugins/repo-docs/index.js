@@ -14,10 +14,10 @@ export default function repoDocsPlugin() {
       return JSON.parse(raw);
     },
     async contentLoaded({ content, actions }) {
-      const { createData, createPage } = actions;
+      const { createData, addRoute } = actions;
       for (const doc of content.documents) {
         const dataPath = await createData(`repo-doc-${doc.id}.json`, JSON.stringify(doc));
-        createPage({
+        addRoute({
           path: `/docs/${doc.slug}`,
           component: '@site/src/components/RepoDocPage.jsx',
           modules: { doc: dataPath },
