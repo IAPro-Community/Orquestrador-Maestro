@@ -1,5 +1,5 @@
 function phraseMatches(text, phrase) {
-  const escaped = phrase.toLowerCase().replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\$&');
+  const escaped = phrase.toLowerCase().replace(/[.*+?^$()|[\\]{}\\\\]/g, '\\replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\$&')');
   return new RegExp('(?<![\\p{L}\\p{N}])' + escaped + '(?![\\p{L}\\p{N}])', 'iu').test(text);
 }
 
