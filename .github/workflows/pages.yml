@@ -3,7 +3,7 @@ name: GitHub Pages - Maestro Site
 on:
   push:
     branches: [main]
-    paths:
+    paths: &site_paths
       - 'site/**'
       - 'docs/**'
       - 'README.md'
@@ -14,6 +14,8 @@ on:
       - 'runtime/planner/intent-router.js'
       - 'benchmark-harness/scenarios/**'
       - '.github/workflows/pages.yml'
+  pull_request:
+    paths: *site_paths
   workflow_dispatch:
 
 permissions:
@@ -22,7 +24,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -49,14 +51,17 @@ jobs:
         run: npm --prefix site run build
 
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: site/build
 
   deploy:
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
