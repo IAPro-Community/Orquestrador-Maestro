@@ -22,7 +22,8 @@ const config = {
         sidebarPath: false,
         breadcrumbs: true,
         showLastUpdateAuthor: false,
-        showLastUpdateTime: false
+        showLastUpdateTime: false,
+        remarkPlugins: [require('./remark-repo-links.cjs')]
       },
       blog: false,
       theme: { customCss: './src/css/custom.css' }
