@@ -1,0 +1,83 @@
+name: GitHub Pages - Maestro Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'README-technical-reference.md'
+      - 'assets/orquestrador-maestro-logo.png'
+      - 'orquestrador/**'
+      - 'skill-library/**'
+      - 'runtime/planner/intent-router.js'
+      - 'benchmark-harness/scenarios/**'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'README-technical-reference.md'
+      - 'assets/orquestrador-maestro-logo.png'
+      - 'orquestrador/**'
+      - 'skill-library/**'
+      - 'runtime/planner/intent-router.js'
+      - 'benchmark-harness/scenarios/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20.19.0'
+
+      - name: Install site dependencies
+        run: npm install --prefix site --no-audit --no-fund
+
+      - name: Check router parity
+        run: npm --prefix site run check:router-parity
+
+      - name: Build React site
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: npm --prefix site run build
+
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/build
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
