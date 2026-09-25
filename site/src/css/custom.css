@@ -37,8 +37,9 @@ a{text-underline-offset:3px}
   box-shadow:none
 }
 .navbar__logo img{
-  border-radius:50%;
-  border:1px solid rgba(215,161,58,.32)
+  border-radius:8px;
+  border:1px solid rgba(215,161,58,.24);
+  object-fit:contain
 }
 .navbar__title{font-weight:800;letter-spacing:-.02em}
 .shell{width:min(1180px,calc(100% - 32px));margin-inline:auto}
@@ -154,11 +155,11 @@ a{text-underline-offset:3px}
 .maestro-visual img{
   position:relative;
   z-index:2;
-  width:min(72%,380px);
-  aspect-ratio:1;
-  object-fit:cover;
-  border-radius:50%;
-  border:1px solid rgba(240,197,107,.35);
+  width:min(82%,430px);
+  height:auto;
+  object-fit:contain;
+  border-radius:18px;
+  border:1px solid rgba(240,197,107,.26);
   box-shadow:0 26px 80px rgba(0,0,0,.45)
 }
 .orbit{
@@ -551,7 +552,7 @@ a{text-underline-offset:3px}
   .hero-grid{gap:28px}
   .hero-proof{display:grid;grid-template-columns:1fr 1fr}
   .maestro-visual{min-height:320px;border-radius:24px}
-  .maestro-visual img{width:min(72%,250px)}
+  .maestro-visual img{width:min(88%,300px)}
   .signal-node{width:36px;height:36px;font-size:.65rem}
   .section{padding:62px 0}
   .section-head{gap:12px;margin-bottom:24px}
