@@ -7,17 +7,23 @@ export default function Documentation(){
   const [query,setQuery]=useState('');
   const items=useMemo(()=>{
     const needle=query.toLocaleLowerCase('pt-BR');
-    return docs.documents.filter((doc)=>!needle||(doc.title+' '+doc.searchText).toLocaleLowerCase('pt-BR').includes(needle)).slice(0,120);
+    return docs.documents
+      .filter((doc)=>!needle||(doc.title+' '+doc.searchText).toLocaleLowerCase('pt-BR').includes(needle))
+      .slice(0,120);
   },[query]);
+
   return <Layout title="Documentação">
     <main className="shell section">
       <span className="eyebrow">MARKDOWN DO REPOSITÓRIO</span>
       <h1 className="page-title">Documentação</h1>
-      <p>Estas páginas são renderizadas a partir dos arquivos Markdown do próprio repositório. Não há cópia editorial separada.</p>
+      <p>O índice é reconstruído a partir dos arquivos Markdown do repositório. Documentos dentro de <code>docs/</code> são renderizados no site; documentos raiz abrem a fonte oficial no GitHub.</p>
       <input className="skill-search" type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Pesquisar documentação…" aria-label="Pesquisar documentação"/>
-      <div className="docs-grid">{items.map(doc=><Link key={doc.id} to={'/docs/'+doc.slug+'/'}>
-        <h3>{doc.title}</h3><p>{doc.excerpt}</p><small>{doc.sourcePath}</small>
-      </Link>)}</div>
+      <div className="docs-grid">{items.map(doc=>{
+        const body=<><h3>{doc.title}</h3><p>{doc.excerpt}</p><small>{doc.sourcePath}</small></>;
+        return doc.siteRoute
+          ? <Link key={doc.id} to={doc.siteRoute}>{body}</Link>
+          : <a key={doc.id} href={doc.sourceUrl}>{body}</a>;
+      })}</div>
     </main>
   </Layout>;
 }
