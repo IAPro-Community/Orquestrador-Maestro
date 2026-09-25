@@ -2,8 +2,9 @@
   "name": "orquestrador-maestro-site",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
-  "engines": {"node": ">=20.19.0"},
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "generate": "node scripts/generate-content.mjs",
     "prestart": "npm run generate",
