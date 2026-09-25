@@ -3,7 +3,7 @@ name: GitHub Pages - Maestro Site
 on:
   push:
     branches: [main]
-    paths: &site_paths
+    paths:
       - 'site/**'
       - 'docs/**'
       - 'README.md'
@@ -15,7 +15,17 @@ on:
       - 'benchmark-harness/scenarios/**'
       - '.github/workflows/pages.yml'
   pull_request:
-    paths: *site_paths
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'README-technical-reference.md'
+      - 'assets/orquestrador-maestro-logo.png'
+      - 'orquestrador/**'
+      - 'skill-library/**'
+      - 'runtime/planner/intent-router.js'
+      - 'benchmark-harness/scenarios/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
