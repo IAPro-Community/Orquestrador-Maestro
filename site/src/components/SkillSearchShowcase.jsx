@@ -2,48 +2,57 @@ import React,{useMemo,useState} from 'react';
 import Link from '@docusaurus/Link';
 import data from '@site/src/generated/site-data.json';
 
+function valueOf(value){
+  if(Array.isArray(value)) return value.join(' ');
+  return value==null?'':String(value);
+}
+
 export default function SkillSearchShowcase(){
   const [query,setQuery]=useState('');
   const results=useMemo(()=>{
     const needle=query.trim().toLocaleLowerCase('pt-BR');
-    const list=data.skills.filter(skill=>{
+    return data.skills.filter(skill=>{
       if(!needle) return true;
       return [
         skill.id,skill.description,skill.category,skill.risk,skill.safety,
         ...(skill.tags||[]),...(skill.triggers||[]),...(skill.aliases||[]),...(skill.dependencies||[])
-      ].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(needle);
-    });
-    return list.slice(0,6);
+      ].map(valueOf).join(' ').toLocaleLowerCase('pt-BR').includes(needle);
+    }).slice(0,5);
   },[query]);
 
-  return <div className="marketing-skill-search">
-    <div className="marketing-search-bar">
-      <label htmlFor="marketing-skill-query">Pesquisar no catálogo real</label>
-      <div>
-        <input
-          id="marketing-skill-query"
-          type="search"
-          value={query}
-          onChange={e=>setQuery(e.target.value)}
-          placeholder="Ex.: debug, release, frontend, segurança…"
-        />
-        <Link to="/skills">Abrir catálogo completo</Link>
-      </div>
+  return <div className="v2-skill-browser">
+    <div className="v2-skill-search">
+      <span>⌕</span>
+      <input
+        id="marketing-skill-query"
+        type="search"
+        value={query}
+        onChange={e=>setQuery(e.target.value)}
+        placeholder="Busque por skill, trigger, alias ou capacidade…"
+        aria-label="Pesquisar skills"
+      />
+      <small>{results.length} resultados em destaque</small>
     </div>
 
-    <div className="marketing-skill-results" aria-live="polite">
+    <div className="v2-skill-table" aria-live="polite">
+      <div className="v2-skill-table-head"><span>SKILL</span><span>CONTEXTO</span><span>ROTA</span></div>
       {results.map(skill=><article key={skill.id}>
-        <div>
-          <small>{skill.category||skill.source||'skill'}</small>
-          {(skill.risk||skill.safety)&&<span>{skill.risk||skill.safety}</span>}
+        <div className="v2-skill-id">
+          <small>{valueOf(skill.category)||valueOf(skill.source)||'skill'}</small>
+          <strong>{skill.id}</strong>
         </div>
-        <h3>{skill.id}</h3>
         <p>{skill.description||'Sem descrição publicada.'}</p>
-        <footer>
+        <div className="v2-skill-meta">
           <span>{(skill.triggers||[]).length} triggers</span>
           <span>{(skill.dependencies||[]).length} chains</span>
-        </footer>
+          {(skill.risk||skill.safety)&&<b>{valueOf(skill.risk||skill.safety)}</b>}
+        </div>
       </article>)}
+    </div>
+
+    <div className="v2-skill-footer">
+      <span>Fonte: manifests e documentação versionados</span>
+      <Link to="/skills">Explorar as {data.skills.length} skills <b>↗</b></Link>
     </div>
   </div>;
 }
