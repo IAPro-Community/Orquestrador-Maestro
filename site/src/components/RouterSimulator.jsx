@@ -2,20 +2,33 @@ import React,{useMemo,useState} from 'react';
 import data from '@site/src/generated/site-data.json';
 import {resolveIntent} from '@site/src/lib/intent-router.mjs';
 
-function unique(values){return [...new Set(values.filter(Boolean))]}
+function normalizeTrigger(value){
+  if(value===null||value===undefined) return '';
+  if(Array.isArray(value)) return value.join(' ');
+  return String(value).trim();
+}
+
+function uniqueStrings(values){
+  return Array.from(new Set(values.map(normalizeTrigger).filter(Boolean)));
+}
 
 export default function RouterSimulator(){
-  const examples=useMemo(()=>unique(data.skills.flatMap(skill=>skill.triggers||[])).slice(0,4),[]);
-  const [text,setText]=useState(examples[0] || 'skill:skill-repo-health');
+  const examples=useMemo(()=>uniqueStrings(data.skills.flatMap(skill=>skill.triggers||[])).slice(0,4),[]);
+  const [text,setText]=useState(()=>examples[0]||'skill:skill-repo-health');
   const result=useMemo(()=>resolveIntent(text,{aliases:data.aliases,router:data.router,chains:data.chains,profiles:data.profiles}),[text]);
 
   return <div className="simulator-shell">
     <div className="sim-input">
       <label htmlFor="router-intent">Descreva a intenção</label>
-      <textarea id="router-intent" value={text} onChange={e=>setText(e.target.value)} placeholder="Descreva uma tarefa…"/>
+      <textarea
+        id="router-intent"
+        value={text}
+        onChange={e=>setText(e.target.value)}
+        placeholder="Ex.: investigar bug de autenticação e validar antes de concluir"
+      />
       {examples.length>0&&<div className="sim-examples">
-        <span>Exemplos reais de triggers:</span>
-        <div>{examples.map(example=><button type="button" key={example} onClick={()=>setText(example)}>{example}</button>)}</div>
+        <span>Exemplos reais de triggers</span>
+        <div>{examples.map(example=><button type="button" key={example} onClick={()=>setText(normalizeTrigger(example))}>{example}</button>)}</div>
       </div>}
       <p className="caveat">A simulação considera somente o catálogo público versionado. Skills locais descobertas na máquina do usuário não existem no GitHub Pages.</p>
     </div>
@@ -24,7 +37,7 @@ export default function RouterSimulator(){
       <div className="sim-result-head">
         <div>
           <small>ROTEADOR v{result.routingVersion}</small>
-          <h3>{result.primarySkill?.id || 'Nenhuma skill selecionada'}</h3>
+          <h3>{result.primarySkill?.id||'Nenhuma skill selecionada'}</h3>
         </div>
         <span className={'confidence confidence-'+result.confidence}>{result.confidence}</span>
       </div>
@@ -32,7 +45,7 @@ export default function RouterSimulator(){
       <dl className="sim-meta">
         <div><dt>Perfil</dt><dd>{result.profile}</dd></div>
         <div><dt>Risco/runtime</dt><dd>{result.risk}</dd></div>
-        <div><dt>Capacidades</dt><dd>{result.engineeringCapabilities.length || 0}</dd></div>
+        <div><dt>Capacidades</dt><dd>{result.engineeringCapabilities.length||0}</dd></div>
       </dl>
 
       <div className="sim-block">
@@ -40,7 +53,7 @@ export default function RouterSimulator(){
         <div className="evidence-tags">
           {result.matchedEvidence.length
             ? result.matchedEvidence.map((e,i)=><code key={i}>{e.kind}: {e.value}</code>)
-            : <span className="muted">Nenhuma evidência forte encontrada.</span>}
+            : <span className="muted">Nenhuma evidência forte encontrada. Tente um trigger, alias ou ID canônico.</span>}
         </div>
       </div>
 
