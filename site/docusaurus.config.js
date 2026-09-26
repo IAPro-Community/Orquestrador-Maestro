@@ -40,14 +40,20 @@ const config = {
       title: 'Orquestrador Maestro',
       logo: { alt: 'Logo do Orquestrador Maestro', src: 'img/orquestrador-maestro-logo.png' },
       items: [
-        { to: '/', label: 'Início', position: 'left' },
         { to: '/como-funciona', label: 'Como funciona', position: 'left' },
         { to: '/skills', label: 'Skills', position: 'left' },
-        { to: '/simulador', label: 'Simulação', position: 'left' },
-        { to: '/arquitetura', label: 'Arquitetura', position: 'left' },
-        { to: '/benchmark', label: 'Benchmark', position: 'left' },
-        { to: '/documentation', label: 'Documentação', position: 'left' },
-        { href: 'https://github.com/IAPro-Community/Orquestrador-Maestro', label: 'GitHub', position: 'right' }
+        { to: '/simulador', label: 'Simulador', position: 'left' },
+        {
+          type: 'dropdown',
+          label: 'Recursos',
+          position: 'left',
+          items: [
+            { to: '/arquitetura', label: 'Arquitetura' },
+            { to: '/benchmark', label: 'Benchmark' },
+            { to: '/documentation', label: 'Documentação' }
+          ]
+        },
+        { href: 'https://github.com/IAPro-Community/Orquestrador-Maestro', label: 'GitHub ↗', position: 'right' }
       ]
     },
     footer: {
