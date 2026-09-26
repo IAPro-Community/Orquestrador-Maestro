@@ -1,7 +1,9 @@
-import React,{useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useState} from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import docs from '@site/src/generated/docs.json';
+
+const PAGE_SIZE=24;
 
 function sectionOf(path=''){
   if(path.startsWith('docs/skills/')) return 'Skills';
@@ -14,16 +16,29 @@ function sectionOf(path=''){
 export default function Documentation(){
   const [query,setQuery]=useState('');
   const [section,setSection]=useState('Todas');
-  const sections=useMemo(()=>['Todas',...new Set(docs.documents.map(doc=>sectionOf(doc.sourcePath)))],[]);
+  const [visibleCount,setVisibleCount]=useState(PAGE_SIZE);
+
+  const sections=useMemo(()=>{
+    const values=docs.documents.map(doc=>sectionOf(doc.sourcePath));
+    return ['Todas',...Array.from(new Set(values)).sort((a,b)=>a.localeCompare(b,'pt-BR'))];
+  },[]);
 
   const items=useMemo(()=>{
     const needle=query.trim().toLocaleLowerCase('pt-BR');
     return docs.documents.filter(doc=>{
-      const matchesText=!needle||(doc.title+' '+doc.searchText+' '+doc.sourcePath).toLocaleLowerCase('pt-BR').includes(needle);
-      const matchesSection=section==='Todas'||sectionOf(doc.sourcePath)===section;
-      return matchesText&&matchesSection;
+      const haystack=(doc.title+' '+doc.searchText+' '+doc.sourcePath).toLocaleLowerCase('pt-BR');
+      return (!needle||haystack.includes(needle))
+        && (section==='Todas'||sectionOf(doc.sourcePath)===section);
     });
   },[query,section]);
+
+  useEffect(()=>setVisibleCount(PAGE_SIZE),[query,section]);
+  const visibleItems=items.slice(0,visibleCount);
+
+  function clearFilters(){
+    setQuery('');
+    setSection('Todas');
+  }
 
   return <Layout title="Documentação" description="Índice pesquisável da documentação Markdown do Orquestrador Maestro.">
     <main>
@@ -44,7 +59,7 @@ export default function Documentation(){
           <label>
             <span>Seção</span>
             <select value={section} onChange={e=>setSection(e.target.value)}>
-              {sections.map(x=><option key={x}>{x}</option>)}
+              {sections.map(value=><option key={value} value={value}>{value}</option>)}
             </select>
           </label>
         </div>
@@ -56,8 +71,12 @@ export default function Documentation(){
           <Link to="/docs/benchmark/"><strong>Benchmark</strong><span>Metodologia e evidence gate →</span></Link>
         </div>
 
-        <div className="result-summary"><strong>{items.length}</strong> documentos encontrados</div>
-        <div className="docs-grid docs-grid-index">{items.map(doc=>{
+        <div className="result-summary" aria-live="polite">
+          <span><strong>{items.length}</strong> documentos encontrados</span>
+          {(query||section!=='Todas')&&<button type="button" onClick={clearFilters}>Limpar filtros</button>}
+        </div>
+
+        {visibleItems.length>0?<div className="docs-grid docs-grid-index">{visibleItems.map(doc=>{
           const body=<>
             <small>{sectionOf(doc.sourcePath)}</small>
             <h3>{doc.title}</h3>
@@ -67,7 +86,18 @@ export default function Documentation(){
           return doc.siteRoute
             ? <Link key={doc.id} to={doc.siteRoute}>{body}</Link>
             : <a key={doc.id} href={doc.sourceUrl}>{body}</a>;
-        })}</div>
+        })}</div>:<div className="empty-state">
+          <strong>Nenhum documento encontrado.</strong>
+          <p>Ajuste a busca ou remova o filtro de seção.</p>
+          <button type="button" onClick={clearFilters}>Limpar filtros</button>
+        </div>}
+
+        {visibleCount<items.length&&<div className="load-more">
+          <button type="button" onClick={()=>setVisibleCount(count=>count+PAGE_SIZE)}>
+            Mostrar mais {Math.min(PAGE_SIZE,items.length-visibleCount)} documentos
+          </button>
+          <span>{visibleItems.length} de {items.length} exibidos</span>
+        </div>}
       </section>
     </main>
   </Layout>;
