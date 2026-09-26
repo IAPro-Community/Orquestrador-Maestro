@@ -75,7 +75,7 @@ export default function Home(){
         <div className="shell hero-grid">
           <div className="hero-copy">
             <span className="eyebrow">ORQUESTRAÇÃO PARA AGENTES DE IA</span>
-            <h1>Menos contexto.<br/><em>Mais controle.</em></h1>
+            <h1><span>Menos contexto.</span><em>Mais controle.</em></h1>
             <p className="hero-lede">Um processo consistente para entender o pedido, carregar só o contexto necessário, encontrar a skill adequada, executar com limites e verificar o resultado antes de concluir.</p>
 
             <div className="actions hero-actions">

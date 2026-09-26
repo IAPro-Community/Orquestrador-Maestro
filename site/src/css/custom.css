@@ -1480,3 +1480,28 @@ summary:focus-visible{
   .sim-examples>div{grid-template-columns:1fr}
   .docs-start a{min-height:96px}
 }
+
+
+/* Follow-up from post-deploy GUI validation */
+.hero-copy h1>span,
+.hero-copy h1>em{
+  display:block;
+  white-space:nowrap;
+  word-break:normal;
+  overflow-wrap:normal;
+  hyphens:none
+}
+.docs-toolbar input[type="search"]{
+  font-size:16px
+}
+.result-summary q{
+  color:#f4f7fa;
+  font-weight:700
+}
+
+@media(max-width:430px){
+  .hero-copy h1{
+    font-size:clamp(2.25rem,11.5vw,2.85rem);
+    letter-spacing:-.04em
+  }
+}

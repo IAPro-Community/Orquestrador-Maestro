@@ -5,6 +5,13 @@ import docs from '@site/src/generated/docs.json';
 
 const PAGE_SIZE=24;
 
+function normalizeSearch(value=''){
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLocaleLowerCase('pt-BR');
+}
+
 function sectionOf(path=''){
   if(path.startsWith('docs/skills/')) return 'Skills';
   if(path.startsWith('docs/architecture/')||path.startsWith('docs/rfcs/')) return 'Arquitetura e RFCs';
@@ -24,9 +31,9 @@ export default function Documentation(){
   },[]);
 
   const items=useMemo(()=>{
-    const needle=query.trim().toLocaleLowerCase('pt-BR');
+    const needle=normalizeSearch(query.trim());
     return docs.documents.filter(doc=>{
-      const haystack=(doc.title+' '+doc.searchText+' '+doc.sourcePath).toLocaleLowerCase('pt-BR');
+      const haystack=normalizeSearch([doc.title,doc.searchText,doc.sourcePath,sectionOf(doc.sourcePath)].filter(Boolean).join(' '));
       return (!needle||haystack.includes(needle))
         && (section==='Todas'||sectionOf(doc.sourcePath)===section);
     });
@@ -54,7 +61,7 @@ export default function Documentation(){
         <div className="docs-toolbar">
           <label className="search-field">
             <span>Pesquisar documentação</span>
-            <input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ex.: memória, instalação, skills, benchmark…" aria-label="Pesquisar documentação"/>
+            <input type="search" value={query} onInput={e=>setQuery(e.currentTarget.value)} placeholder="Ex.: memória, instalação, skills, benchmark…" aria-label="Pesquisar documentação" autoComplete="off"/>
           </label>
           <label>
             <span>Seção</span>
@@ -72,7 +79,7 @@ export default function Documentation(){
         </div>
 
         <div className="result-summary" aria-live="polite">
-          <span><strong>{items.length}</strong> documentos encontrados</span>
+          <span><strong>{items.length}</strong> documentos encontrados{query.trim()?<> para <q>{query.trim()}</q></>:null}</span>
           {(query||section!=='Todas')&&<button type="button" onClick={clearFilters}>Limpar filtros</button>}
         </div>
 
