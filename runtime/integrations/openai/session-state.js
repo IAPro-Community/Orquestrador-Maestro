@@ -1,55 +1,50 @@
 "use strict";
 
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
-function statePath(pluginData) {
-  if (!pluginData) return null;
-  return path.join(pluginData, "maestro-session-state.json");
+function sessionKey(sessionId) {
+  return crypto.createHash("sha256").update(String(sessionId || ""), "utf8").digest("hex").slice(0, 32);
 }
 
-function loadState(pluginData) {
-  const file = statePath(pluginData);
-  if (!file || !fs.existsSync(file)) return { sessions: {} };
+function statePath(pluginData, sessionId) {
+  if (!pluginData || !sessionId) return null;
+  return path.join(pluginData, "sessions", sessionKey(sessionId) + ".json");
+}
+
+function getSession(pluginData, sessionId) {
+  const file = statePath(pluginData, sessionId);
+  if (!file || !fs.existsSync(file)) return null;
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    return parsed && typeof parsed === "object" && parsed.sessions ? parsed : { sessions: {} };
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    return { sessions: {} };
+    return null;
   }
 }
 
-function saveState(pluginData, state) {
-  const file = statePath(pluginData);
+function saveSession(pluginData, sessionId, state) {
+  const file = statePath(pluginData, sessionId);
   if (!file) return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temp = file + ".tmp";
+  const temp = file + "." + process.pid + ".tmp";
   fs.writeFileSync(temp, JSON.stringify(state, null, 2) + "\n", "utf8");
   fs.renameSync(temp, file);
 }
 
 function updateSession(pluginData, sessionId, patch) {
   if (!sessionId) return null;
-  const state = loadState(pluginData);
-  const current = state.sessions[sessionId] || {};
+  const current = getSession(pluginData, sessionId) || {};
   const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-  state.sessions[sessionId] = next;
-  saveState(pluginData, state);
+  saveSession(pluginData, sessionId, next);
   return next;
-}
-
-function getSession(pluginData, sessionId) {
-  if (!sessionId) return null;
-  return loadState(pluginData).sessions[sessionId] || null;
 }
 
 function endSession(pluginData, sessionId) {
   if (!sessionId) return;
-  const state = loadState(pluginData);
-  if (state.sessions[sessionId]) {
-    state.sessions[sessionId] = { ...state.sessions[sessionId], endedAt: new Date().toISOString() };
-    saveState(pluginData, state);
-  }
+  const current = getSession(pluginData, sessionId);
+  if (current) saveSession(pluginData, sessionId, { ...current, endedAt: new Date().toISOString() });
 }
 
-module.exports = { endSession, getSession, loadState, saveState, statePath, updateSession };
+module.exports = { endSession, getSession, saveSession, sessionKey, statePath, updateSession };
