@@ -12,9 +12,8 @@
 // through the installed entrypoint. It never touches source-tree bin and
 // never requires a live AI provider, so it is deterministic and CI-safe.
 //
-// node-pty requires native compilation; the installed package lazy-loads it
-// (runtime/terminals/pty-session-manager.js require is try/catch guarded),
-// so --ignore-scripts installs are valid for CLI commands that do not use TUI.
+// The V1 package has no PTY/OpenTUI native dependency, so --ignore-scripts
+// remains a valid installation mode for this deterministic packaged smoke test.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
