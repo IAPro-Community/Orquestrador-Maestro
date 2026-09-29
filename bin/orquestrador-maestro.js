@@ -17,10 +17,8 @@ const { resolveGitContext } = require(path.join(rootDir, "orquestrador", "lib", 
 const workflowState = require(path.join(rootDir, "orquestrador", "bin", "workflow-state.js"));
 const { Memory } = require(path.join(rootDir, "orquestrador", "bin", "memory.js"));
 const { MaestroApplication } = require(path.join(rootDir, "runtime", "application"));
-const { createBridge, createStdioServer, runtimePaths, startSocketRuntime } = require(path.join(rootDir, "runtime", "bridge"));
-const { SocketMaestroClient } = require(path.join(rootDir, "runtime", "client", "socket-maestro-client"));
+const { createBridge, createStdioServer, startSocketRuntime } = require(path.join(rootDir, "runtime", "bridge"));
 const { createProtocolV2Server } = require(path.join(rootDir, "runtime", "protocol", "protocol-v2"));
-const { startTui } = require(path.join(rootDir, "runtime", "tui"));
 const { resolveMaestroRoot } = require(path.join(rootDir, "runtime", "config", "maestro-paths"));
 const { loadGovernanceConfig, writeGovernanceConfig } = require(path.join(rootDir, "runtime", "governance", "compatibility"));
 const { loadInteractionCatalog, resolveInteractionProfile, setInteractionProfile, resetInteractionProfile } = require(path.join(rootDir, "runtime", "interaction"));
@@ -114,7 +112,6 @@ Uso:
   orquestrador-maestro terminal close <id> [--project-path PATH]
   orquestrador-maestro terminal start [--project-path PATH] -- <comando> [argumentos]
   orquestrador-maestro terminal stop <id> [--project-path PATH]
-  orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
@@ -160,7 +157,6 @@ Opcoes de verify:
 
 Opcoes de doctor:
   --home-path <path>          Diagnostica outro home
-  --repair-ui                 Mostra a correção para Bun/OpenTUI/node-pty
 
 Opcoes de init-dev:
   --project-path <path>       Cria a hierarquia DEV recomendada no projeto
@@ -482,11 +478,9 @@ function runVerify(args) {
 function parseDoctorArgs(args) {
   const normalized = normalizeArgs(args);
   let homePath = "";
-  let repairUi = false;
 
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
-    if (arg === "--repair-ui") { repairUi = true; continue; }
     if (arg === "--home-path") {
       const value = normalized[i + 1];
       if (!value || value.startsWith("--")) {
@@ -499,7 +493,7 @@ function parseDoctorArgs(args) {
     throw new Error(`Parametro desconhecido: ${arg}`);
   }
 
-  return { homePath, repairUi };
+  return { homePath };
 }
 
 function runDoctor(args) {
@@ -508,12 +502,11 @@ function runDoctor(args) {
     throw new Error(`Diagnostico nao encontrado: ${script}`);
   }
 
-  const { homePath, repairUi } = parseDoctorArgs(args);
+  const { homePath } = parseDoctorArgs(args);
   const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script];
   if (homePath) {
     psArgs.push("-HomePath", homePath);
   }
-  if (repairUi) psArgs.push("-RepairUi");
 
   if (process.platform === "win32") {
     return run("powershell", psArgs);
@@ -1081,7 +1074,7 @@ async function handleTerminalCommand(args) {
     if (options.values.length) throw new Error("Uso: maestro terminal start [--project-path PATH] -- <comando> [argumentos]");
     const app = await createRuntimeApplication(options.projectPath);
     const terminal = await app.startTerminal({ workspacePath: options.projectPath, command, args: commandArgs });
-    console.log(`Comando gerenciado iniciado: ${terminal.id}. Aguarde a conclusão; para sessão ao vivo, use \`maestro tui\` ou a extensão VS Code.`);
+    console.log(`Comando gerenciado iniciado: ${terminal.id}. Aguarde a conclusão.`);
     const completed = await app.waitTerminal(terminal.id);
     console.log(JSON.stringify(completed, null, 2)); return completed?.status === "completed" ? 0 : 1;
   }
@@ -1094,41 +1087,6 @@ async function handleTerminalsCommand(args) {
   const app = await createRuntimeApplication(options.projectPath);
   const project = await app.inspectProject({ projectPath: options.projectPath });
   console.log(JSON.stringify(await app.listTerminalSessions({ projectId: project.id }), null, 2));
-  return 0;
-}
-
-async function handleTuiCommand(args) {
-  const classic = args.includes("--classic");
-  const options = parseRuntimeArgs(args.filter((arg) => arg !== "--classic"), ["--project-path"]);
-  if (options.values.length) throw new Error("Uso: maestro tui [--project-path PATH]");
-  if (classic) { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); return 0; }
-  const projectRoot = path.resolve(options.projectPath);
-  const paths = runtimePaths(projectRoot);
-  let externalRuntime = false;
-  if (fs.existsSync(paths.tokenPath)) {
-    const probe = new SocketMaestroClient({ socketPath: paths.socketPath, token: fs.readFileSync(paths.tokenPath, "utf8").trim(), watchdog: false, requestTimeoutMs: 500 });
-    try { await probe.initialize(); externalRuntime = true; } catch { externalRuntime = false; } finally { probe.close(); }
-  }
-  if (!externalRuntime) {
-    const daemon = spawn(process.execPath, [__filename, "runtime", "--project-path", projectRoot], { detached: true, stdio: "ignore", shell: false });
-    daemon.unref();
-    const deadline = Date.now() + 5_000;
-    while (!externalRuntime && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      if (!fs.existsSync(paths.tokenPath)) continue;
-      const probe = new SocketMaestroClient({ socketPath: paths.socketPath, token: fs.readFileSync(paths.tokenPath, "utf8").trim(), watchdog: false, requestTimeoutMs: 500 });
-      try { await probe.initialize(); externalRuntime = true; } catch { externalRuntime = false; } finally { probe.close(); }
-    }
-    if (!externalRuntime) throw new Error("O runtime canônico não iniciou dentro de 5 segundos.");
-  }
-  const hasBun = executableAvailable("bun");
-  const hasOpentui = (() => { try { require.resolve("@opentui/core"); return true; } catch { return false; } })();
-  if (!hasBun || !hasOpentui) { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); return 0; }
-  const visualHost = {
-    projectRoot,
-    terminalCapabilities: () => ({ tui: { bun: true, opentui: true } })
-  };
-  try { await startTui(visualHost, { classic: false }); } catch { await startTui(await createRuntimeApplication(options.projectPath), { classic: true }); }
   return 0;
 }
 
@@ -2825,7 +2783,6 @@ async function dispatch(command, args) {
   if (command === "mission") return handleMissionCommand(args);
   if (command === "terminal") return handleTerminalCommand(args);
   if (command === "terminals") return handleTerminalsCommand(args);
-  if (command === "tui") return handleTuiCommand(args);
   if (command === "skills") return handleSkillsCommand(args);
   if (command === "skill-catalog") return handleSkillCatalogCommand(args);
   if (command === "providers") return handleProvidersCommand(args);
@@ -2884,7 +2841,7 @@ async function main() {
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal", "terminals",
-    "tui", "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
+    "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
   ]);
   if (telemetryCommands.has(command)) {
