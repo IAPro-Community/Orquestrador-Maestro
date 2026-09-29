@@ -12,7 +12,7 @@ const { trimToBudget } = require("./context-budget");
 const { routePrompt } = require("./adapter");
 
 const SERVER_NAME = "orquestrador-maestro";
-const SERVER_VERSION = "1.0.0-beta.3";
+const SERVER_VERSION = require(path.resolve(__dirname, "..", "..", "..", "package.json")).version;
 const PROTOCOL_VERSION = "2025-06-18";
 
 function resolveSkillRegistry(cwd = process.cwd()) {
@@ -22,6 +22,17 @@ function resolveSkillRegistry(cwd = process.cwd()) {
   const bundledRoot = path.resolve(__dirname, "..", "..", "..", "orquestrador");
   const maestroRoot = fs.existsSync(installedManifest) ? installedRoot : bundledRoot;
   return new SkillRegistry({ maestroRoot, projectRoot: path.resolve(cwd) });
+}
+
+function resolveWorkspaceCwd(value) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error("cwd is required and must identify the current project workspace");
+  }
+  const cwd = path.resolve(value);
+  if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
+    throw new Error(`workspace does not exist: ${cwd}`);
+  }
+  return cwd;
 }
 
 function textResult(value) {
@@ -42,9 +53,9 @@ function toolDefinitions() {
         type: "object",
         properties: {
           intent: { type: "string", minLength: 1 },
-          cwd: { type: "string" }
+          cwd: { type: "string", minLength: 1 }
         },
-        required: ["intent"],
+        required: ["intent", "cwd"],
         additionalProperties: false
       }
     },
@@ -55,10 +66,10 @@ function toolDefinitions() {
         type: "object",
         properties: {
           intent: { type: "string", minLength: 1 },
-          cwd: { type: "string" },
+          cwd: { type: "string", minLength: 1 },
           maxTokens: { type: "integer", minimum: 256, maximum: 16000 }
         },
-        required: ["intent"],
+        required: ["intent", "cwd"],
         additionalProperties: false
       }
     },
@@ -69,10 +80,10 @@ function toolDefinitions() {
         type: "object",
         properties: {
           id: { type: "string", pattern: "^skill-[a-z0-9-]+$" },
-          cwd: { type: "string" },
+          cwd: { type: "string", minLength: 1 },
           maxTokens: { type: "integer", minimum: 256, maximum: 4000 }
         },
-        required: ["id"],
+        required: ["id", "cwd"],
         additionalProperties: false
       }
     }
@@ -83,7 +94,7 @@ async function callTool(name, args = {}) {
   if (name === "maestro_route") {
     const intent = String(args.intent || "").trim();
     if (!intent) return errorResult("intent is required");
-    const cwd = path.resolve(args.cwd || process.cwd());
+    const cwd = resolveWorkspaceCwd(args.cwd);
     const routed = routePrompt(intent, cwd);
     return textResult({
       complexity: routed?.complexity?.level || "STANDARD",
@@ -97,7 +108,7 @@ async function callTool(name, args = {}) {
   if (name === "maestro_context") {
     const intent = String(args.intent || "").trim();
     if (!intent) return errorResult("intent is required");
-    const cwd = path.resolve(args.cwd || process.cwd());
+    const cwd = resolveWorkspaceCwd(args.cwd);
     const complexity = classifyComplexity(intent);
     const requested = Number(args.maxTokens);
     const budget = Number.isFinite(requested)
@@ -116,7 +127,7 @@ async function callTool(name, args = {}) {
   if (name === "maestro_skill") {
     const id = String(args.id || "").trim();
     if (!/^skill-[a-z0-9-]+$/u.test(id)) return errorResult("invalid skill id");
-    const cwd = path.resolve(args.cwd || process.cwd());
+    const cwd = resolveWorkspaceCwd(args.cwd);
     const record = resolveSkillRegistry(cwd).get(id);
     if (!record) return errorResult(`skill not found: ${id}`);
     const file = path.join(record.path, "SKILL.md");
@@ -191,6 +202,7 @@ module.exports = {
   callTool,
   handleRequest,
   resolveSkillRegistry,
+  resolveWorkspaceCwd,
   startMcpServer,
   toolDefinitions
 };
