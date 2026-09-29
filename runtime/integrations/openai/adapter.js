@@ -17,7 +17,7 @@ const {
   recordToolDecision
 } = require("./context-ledger");
 const { approximateTokens, injectionBudget, trimToBudget } = require("./context-budget");
-const { contextResponse, denyTool, preToolContext } = require("./hook-response");
+const { contextResponse, denyTool, preToolContext, rewriteTool } = require("./hook-response");
 const { endSession, getSession, updateSession } = require("./session-state");
 const { governToolUse } = require("./tool-governor");
 
@@ -160,6 +160,7 @@ function handleOpenAIHookEvent(event, options = {}) {
     recordToolDecision(pluginData, sessionId, decision);
     if (mode === "observe") return {};
     if (decision.action === "deny") return denyTool(decision.reason);
+    if (decision.action === "rewrite") return rewriteTool(decision.updatedInput);
     if (decision.action === "context") return preToolContext(decision.reason);
     return {};
   }
