@@ -9,7 +9,6 @@ test("F3 materializa eventos reais F7/F8 e preserva contexto sem run", async () 
   const inputs = [
     { type: "mission.created", data: { missionId: "m1", projectId: "p1" } },
     { type: "attention.created", data: { id: "a1", projectId: "p1", missionId: "m1" } },
-    { type: "run.attachPty", data: { runId: "r1", terminalId: "t1" } },
     { type: "run.output", runId: "r1", data: { chunk: "ok" } },
     { type: "provider.output", runId: "r1", data: { chunk: "ok" } }
   ];
