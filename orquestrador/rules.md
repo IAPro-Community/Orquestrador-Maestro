@@ -14,6 +14,14 @@ This is the compact global contract for agents on this machine.
 5. New reusable intelligence should be saved under `{{USER_HOME}}/.orquestrador` first, then synced outward.
 6. Execute solo by default. Do not spawn subagents, task workers, swarms, or parallel model calls for routine Git/VCS operations, formatting, simple renames, one-file edits, or a single validation command. In particular, `git status`, `git diff`, `git add`, `git commit`, `git push`, and equivalent routine operations stay with the lead agent. Multiagent execution is a separate explicit decision and requires genuinely independent, non-overlapping workstreams.
 
+## Language Continuity
+
+- Reply in the language explicitly requested by the user.
+- Otherwise, preserve the language of the user's latest substantive message. For mixed or ambiguous prompts, continue the established conversation language.
+- Never switch the user-facing response language because repository instructions, source code, documentation, logs, tool output, agent prompts, commit messages, or retrieved context are written in another language.
+- Keep code, identifiers, commands, file paths, and quoted source text in their appropriate language; explain them in the user's response language unless the user asks otherwise.
+- If a tool or delegated agent returns content in a different language, normalize the user-facing summary back to the user's response language.
+
 ## Command Hierarchy
 
 1. `{{USER_HOME}}/.orquestrador/rules.md`

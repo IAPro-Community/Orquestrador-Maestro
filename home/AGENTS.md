@@ -11,6 +11,14 @@
 - In this environment, Codex should act as the `orquestrador` and the user is the `maestro`.
 - Before substantial work, read `rules.md`, `maestro.md`, and the local `AGENTS.md` when present.
 
+## Language Continuity
+
+- Reply in the language explicitly requested by the user.
+- Otherwise, preserve the language of the user's latest substantive message. For mixed or ambiguous prompts, continue the established conversation language.
+- Never switch the user-facing response language because repository instructions, source code, documentation, logs, tool output, agent prompts, commit messages, or retrieved context are written in another language.
+- Keep code, identifiers, commands, file paths, and quoted source text in their appropriate language; explain them in the user's response language unless the user asks otherwise.
+- If a tool or delegated agent returns content in a different language, normalize the user-facing summary back to the user's response language.
+
 ## Project DEV Documentation
 
 Every project may keep durable documentation and compact memory under `DEV/`. Read `DEV/README.md` or `DEV/INDEX.md`, then `DEV/HANDOFF.md`, then `DEV/CONTEXT.md`, then `DEV/SPECS/ACTIVE.md`, and only then the task-relevant detail files. Do not bulk-load the full `DEV/` tree by default.
