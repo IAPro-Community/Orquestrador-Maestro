@@ -29,4 +29,17 @@ function preToolContext(additionalContext) {
   };
 }
 
-module.exports = { contextResponse, denyTool, preToolContext };
+function rewriteTool(updatedInput) {
+  if (!updatedInput || typeof updatedInput !== "object" || Array.isArray(updatedInput)) {
+    throw new TypeError("updatedInput must be an object");
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "allow",
+      updatedInput
+    }
+  };
+}
+
+module.exports = { contextResponse, denyTool, preToolContext, rewriteTool };
