@@ -229,8 +229,7 @@
       "status": "stable",
       "surface": "runtime",
       "implementationEvidence": [
-        "runtime/workspaces/manager.js",
-        "runtime/application/maestro-application.js (createTerminalSession, isolation==worktree)"
+        "runtime/workspaces/manager.js"
       ],
       "testEvidence": [
         "runtime/workspaces/__tests__/manager.test.js",
