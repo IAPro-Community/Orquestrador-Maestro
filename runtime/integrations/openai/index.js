@@ -4,5 +4,6 @@ module.exports = {
   ...require("./adapter"),
   ...require("./context-budget"),
   ...require("./hook-response"),
+  ...require("./installer"),
   ...require("./session-state")
 };
