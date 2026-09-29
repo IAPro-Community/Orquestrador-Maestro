@@ -179,3 +179,39 @@ test("desktop doctor validates the installed governor package", () => {
   assert.equal(result.checks.find((check) => check.id === "synthetic-hook")?.pass, true);
   assert.equal(result.checks.find((check) => check.id === "mcp-tools")?.pass, true);
 });
+
+
+test("policy digest changes when the effective context budget changes", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-openai-budget-"));
+  const makeRoute = (maxContextTokens) => ({
+    profile: "standard",
+    allSkills: [{ id: "skill-repo-health" }],
+    complexity: {
+      level: "STANDARD",
+      explicitMultiagent: false,
+      budget: { maxContextTokens, allowSubagents: false }
+    }
+  });
+
+  const first = handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-budget",
+    turn_id: "t1",
+    cwd: process.cwd(),
+    prompt: "revise este módulo"
+  }, { pluginData, mode: "optimize", route: () => makeRoute(6000) });
+
+  const second = handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-budget",
+    turn_id: "t2",
+    cwd: process.cwd(),
+    prompt: "revise este módulo novamente"
+  }, { pluginData, mode: "optimize", route: () => makeRoute(4000) });
+
+  assert.ok(first.hookSpecificOutput?.additionalContext);
+  assert.ok(second.hookSpecificOutput?.additionalContext);
+  const ledger = readLedger(pluginData, "s-budget");
+  assert.equal(ledger.policy.contextBudget, 4000);
+  assert.equal(ledger.counters.policyInjections, 2);
+});
