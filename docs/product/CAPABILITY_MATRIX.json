@@ -3,7 +3,7 @@
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "1.0.0-beta.2",
+    "packageVersion": "1.0.0-beta.3",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": [
@@ -344,24 +344,6 @@
       "notes": "Bridge suportado na V1: JSON-RPC v1 sobre stdio. O daemon/socket e o protocolo visual v2 foram removidos da linha 1.0 por não estarem finalizados."
     },
     {
-      "id": "vscode-client",
-      "name": "Cliente VS Code",
-      "category": "cockpit",
-      "status": "stable",
-      "surface": "cockpit",
-      "implementationEvidence": [
-        "extensions/vscode-maestro/extension.js (BridgeClient sobre bridge --stdio)"
-      ],
-      "testEvidence": [
-        "runtime/bridge/__tests__/bridge.test.js (cobertura indireta)"
-      ],
-      "documentation": [
-        "docs/architecture/MAESTRO_VSCODE_EXTENSION.md"
-      ],
-      "publicClaimAllowed": true,
-      "notes": "Cliente puro: sem discovery/execução/store próprios; sem streaming/approvals em v1."
-    },
-    {
       "id": "resolution-engine",
       "name": "Maestro Resolution Engine",
       "category": "runtime",
@@ -459,6 +441,31 @@
       ],
       "publicClaimAllowed": false,
       "notes": "Planejado, não implementado. Possuem contrato/integração, mas nenhum adapter em runtime/providers/ nem driver de benchmark. Não vender como Runtime Provider."
+    },
+    {
+      "id": "openai-desktop-governor",
+      "name": "Governança de contexto para Codex Desktop e ChatGPT Work",
+      "category": "runtime",
+      "status": "stable",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/integrations/openai/adapter.js",
+        "runtime/integrations/openai/context-ledger.js",
+        "runtime/integrations/openai/context-capsule.js",
+        "runtime/integrations/openai/tool-governor.js",
+        "runtime/integrations/openai/mcp-server.js",
+        "plugins/maestro-openai/"
+      ],
+      "testEvidence": [
+        "tests/openai-desktop-integration.test.js",
+        "tests/openai-tool-governor.test.js",
+        "tests/openai-mcp.test.js"
+      ],
+      "documentation": [
+        "docs/openai-desktop-integration.md"
+      ],
+      "publicClaimAllowed": true,
+      "notes": "Integração local fail-open: policy deduplicada por sessão, Context Ledger, compact capsule, governor de ferramentas e MCP stdio sob demanda. Não controla o system context/harness nativo do host e não promete equivalência exata de tokens com a CLI."
     }
   ],
   "tools": [
