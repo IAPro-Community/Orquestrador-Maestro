@@ -2,15 +2,6 @@
 
 ## 1.0.0-beta.2 - 2026-09-29
 
-### Repository and portal consolidation
-
-- **Portal:** incorpora o portal React/Docusaurus publicado na `main`, incluindo documentação, simulador de roteamento, catálogo de skills e páginas de arquitetura.
-- **Experiência visual:** incorpora o redesign editorial do branch `feat/site-visual-redesign-v2`, com navegação simplificada, showcase de skills como produto e identidade visual Maestro.
-- **Base V1:** preserva o Router v3, a integração com Codex Desktop/ChatGPT Work e a remoção das superfícies abandonadas do CLI/TUI.
-- **Origem:** candidato local montado a partir de `release/1.0.0-beta`, `main` e `feat/site-visual-redesign-v2`; ainda não publicado nem enviado ao GitHub.
-
-## Unreleased
-
 ### OpenAI Desktop integration
 
 - **Codex Desktop / ChatGPT Work:** novo plugin local do Maestro com lifecycle hooks oficiais e marketplace de repositório.
@@ -19,8 +10,7 @@
 - **Compaction:** estado mínimo da sessão é preservado em `PLUGIN_DATA` e reidratado por `SessionStart(source=compact)`, sem replay do transcript.
 - **Instalação pessoal:** novos comandos `desktop-plugin install|status|remove` registram o plugin em `~/.codex/plugins` e no marketplace pessoal sem substituir entradas existentes.
 - **Fail-open:** indisponibilidade do CLI Maestro não interrompe Codex/Work.
-- **Release:** pacote normalizado para `1.0.0-beta.1`.
-
+- **Release:** pacote normalizado para `1.0.0-beta.2` e publicado no canal npm `beta` após a promoção da tag.
 
 ### V1 Router & Design Intelligence
 
@@ -32,6 +22,15 @@
 - **Design:** `frontend-design` passa a alias de `skill-open-design-ui`; `impeccable` mantém a skill canônica existente; adicionadas `skill-product-ux-architecture`, `skill-design-engineering-craft` e `skill-motion-design-principles`.
 - **Claude Code:** as cinco capacidades de design ficam `mirrorEverywhere` e chegam a `.claude/skills` pelo sync normal do Maestro, sem fonte canônica duplicada.
 - **Catálogo:** 56 skills Maestro canônicas e 79 skills públicas únicas, com 0 IDs conflitantes após sincronização dos mirrors.
+
+### Portal, documentação e compatibilidade
+
+- **Portal:** incorpora o portal React/Docusaurus da `main`, incluindo documentação, simulador de roteamento, catálogo de skills e páginas de arquitetura.
+- **Experiência visual:** incorpora o redesign editorial de `feat/site-visual-redesign-v2`, com navegação simplificada, showcase de skills como produto e identidade visual Maestro.
+- **Documentação:** corrige as rotas geradas para ADRs com prefixo numérico e os anchors do benchmark, mantendo o índice pesquisável alinhado ao Docusaurus.
+- **Base V1:** preserva a remoção das superfícies abandonadas do CLI/TUI e alinha instaladores, matriz de capacidades, documentação de migração e referências de runtime ao pacote beta.
+- **Empacotamento:** versão `1.0.0-beta.2` alinhada em `package.json`, `package-lock.json`, bootstrap scripts, changelog e artefato npm.
+- **Origem:** consolidação validada a partir de `release/1.0.0-beta`, `main` e `feat/site-visual-redesign-v2`; nenhuma alteração fora do escopo sanitizado foi incluída.
 
 ## 1.0.0-alpha.1 - 2026-09-22
 
