@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0-beta.2 - 2026-09-29
+
 ### Release cleanup — cli-novo
 
 - Removida da linha 1.0 a superfície experimental `cli-novo`: TUI/OpenTUI, PTY persistente, daemon/socket, protocolo visual v2, panes e cliente VS Code associado.
@@ -18,7 +20,7 @@
 - **Compaction:** estado mínimo da sessão é preservado em `PLUGIN_DATA` e reidratado por `SessionStart(source=compact)`, sem replay do transcript.
 - **Instalação pessoal:** novos comandos `desktop-plugin install|status|remove` registram o plugin em `~/.codex/plugins` e no marketplace pessoal sem substituir entradas existentes.
 - **Fail-open:** indisponibilidade do CLI Maestro não interrompe Codex/Work.
-- **Release:** pacote normalizado para `1.0.0-beta.1`.
+- **Release:** pacote normalizado para `1.0.0-beta.2`.
 
 
 ### V1 Router & Design Intelligence
