@@ -215,3 +215,28 @@ test("policy digest changes when the effective context budget changes", () => {
   assert.equal(ledger.policy.contextBudget, 4000);
   assert.equal(ledger.counters.policyInjections, 2);
 });
+
+
+test("PreToolUse returns updatedInput for safe read-only Bash scans", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-openai-rewrite-"));
+  handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-rewrite",
+    turn_id: "t1",
+    cwd: process.cwd(),
+    prompt: "corrija um typo no README"
+  }, { pluginData, mode: "optimize", route: () => route("MICRO") });
+
+  const result = handleOpenAIHookEvent({
+    hook_event_name: "PreToolUse",
+    session_id: "s-rewrite",
+    cwd: process.cwd(),
+    tool_name: "Bash",
+    tool_input: { command: "rg TODO ." }
+  }, { pluginData, mode: "optimize" });
+
+  assert.equal(result.hookSpecificOutput.permissionDecision, "allow");
+  assert.equal(result.hookSpecificOutput.updatedInput.command, "rg TODO . | head -n 80");
+  const ledger = readLedger(pluginData, "s-rewrite");
+  assert.equal(ledger.counters.toolRewrites, 1);
+});
