@@ -10,10 +10,7 @@ const ERROR_CODES = Object.freeze({
   invalidRequest: -32600,
   methodNotFound: -32601,
   invalidParams: -32602,
-  internal: -32603,
-  terminalBackendUnavailable: -32010,
-  terminalWorkspaceLocked: -32011,
-  agentWorktreeFailed: -32012
+  internal: -32603
 });
 
 function createBridge(options = {}) {
@@ -258,15 +255,6 @@ function errorResponse(id, code, message, data) {
 }
 
 function toErrorResponse(id, error) {
-  if (error?.code === "TERMINAL_BACKEND_UNAVAILABLE") {
-    return errorResponse(id, ERROR_CODES.terminalBackendUnavailable, error.message, { backend: error.backend });
-  }
-  if (error?.code === "TERMINAL_WORKSPACE_LOCKED") {
-    return errorResponse(id, ERROR_CODES.terminalWorkspaceLocked, error.message, error.data);
-  }
-  if (error?.code === "AGENT_WORKTREE_FAILED") {
-    return errorResponse(id, ERROR_CODES.agentWorktreeFailed, error.message);
-  }
   if (error && [ERROR_CODES.invalidParams, ERROR_CODES.methodNotFound].includes(error.code)) {
     return errorResponse(id, error.code, error.message, error.data);
   }
