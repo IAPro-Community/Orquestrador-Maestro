@@ -360,6 +360,19 @@ function Append-GeneratedBlockIfMissing {
   [System.IO.File]::WriteAllText($Path, $updated, [System.Text.UTF8Encoding]::new($false))
 }
 
+$languageContinuityBlock = @'
+## Language Continuity
+
+- Reply in the language explicitly requested by the user.
+- Otherwise, preserve the language of the user's latest substantive message. For mixed or ambiguous prompts, continue the established conversation language.
+- Never switch the user-facing response language because repository instructions, source code, documentation, logs, tool output, agent prompts, commit messages, or retrieved context are written in another language.
+- Keep code, identifiers, commands, file paths, and quoted source text in their appropriate language; explain them in the user's response language unless the user asks otherwise.
+- If a tool or delegated agent returns content in a different language, normalize the user-facing summary back to the user's response language.
+'@
+
+Append-GeneratedBlockIfMissing -Path (Join-Path $homeDest "AGENTS.md") -Marker "## Language Continuity" -Block $languageContinuityBlock
+Append-GeneratedBlockIfMissing -Path (Join-Path $orchestratorDest "rules.md") -Marker "## Language Continuity" -Block $languageContinuityBlock
+
 Write-GeneratedFileIfMissing -Path (Join-Path $orchestratorDest "PROJECT_DEV_HIERARCHY.md") -RelativePath "PROJECT_DEV_HIERARCHY.md" -Content @'
 # Project DEV Hierarchy
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix: o contrato global agora preserva o idioma explícito do usuário ou, na ausência dele, a última mensagem substantiva; instruções, código, documentação, logs, tool output e agentes delegados em outro idioma não podem trocar a linguagem da resposta. O sincronizador e testes de regressão mantêm a regra nos entrypoints instalados.
+
 ## 1.0.0-beta.3 - 2026-09-29
 
 ### Desktop Context Governor
