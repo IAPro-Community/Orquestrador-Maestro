@@ -22,7 +22,6 @@ Use this skill for coding and project work on `{{USER_HOME}}` so Codex follows t
 
 ## Core behavior
 - Apply the hierarchy `rules -> maestro -> local AGENTS`.
-- Preserve the user's response language according to `rules.md`; English instructions, repository content, or tool output must not cause an unsolicited language switch.
 - Follow the loop `PLAN -> CONSULT -> ACT -> DOCUMENT`.
 - Before inventing a new reusable pattern, inspect `{{USER_HOME}}/.orquestrador\SKILLS_INDEX.md`.
 - If a matching global skill exists in `{{USER_HOME}}/.orquestrador\skills`, propose using it.
