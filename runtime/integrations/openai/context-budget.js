@@ -1,11 +1,11 @@
 "use strict";
 
 const INJECTION_BUDGETS = Object.freeze({
-  MICRO: 220,
-  SIMPLE: 350,
-  STANDARD: 600,
-  COMPLEX: 900,
-  DEEP: 1200
+  MICRO: 100,
+  SIMPLE: 140,
+  STANDARD: 200,
+  COMPLEX: 300,
+  DEEP: 450
 });
 
 function injectionBudget(level) {
