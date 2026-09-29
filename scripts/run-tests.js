@@ -25,8 +25,8 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-// The suite includes process-heavy PTY, git, and installer fixtures. A single
-// test worker keeps those resources isolated and makes Windows/Linux results
+// The suite includes process-heavy git and installer fixtures. A single test
+// worker keeps those resources isolated and makes Windows/Linux results
 // deterministic instead of depending on host CPU count.
 const result = spawnSync(process.execPath, ["--import", "tsx", "--test", "--test-concurrency=1", ...files], {
   cwd: root,
