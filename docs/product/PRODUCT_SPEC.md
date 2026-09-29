@@ -49,7 +49,6 @@ ORQUESTRADOR MAESTRO
   o Runtime.
 - **Runtime** é o executor local opcional (providers reais:
   `codex`, `claude`, `opencode`, `agy`).
-- **Cockpit** é uma superfície (TUI + cliente VS Code opcional), não o produto.
 
 ## 3. Entidades
 
@@ -72,7 +71,7 @@ ORQUESTRADOR MAESTRO
 | DEV | Memória operacional canônica do projeto | `DEV/` (gitignored neste espelho) |
 | Governance | Portões de mudança, compatibilidade, revisão independente | `runtime/governance/` |
 | Interaction/Execution Profile | Como a IA interage / quantas skills carrega | `INTERACTION_PROFILES.json` / `SKILL_EXECUTION_PROFILES.json` |
-| Bridge | API JSON-RPC v1 sobre stdio + eventos v2 | `runtime/bridge/` + `runtime/protocol/` |
+| Bridge | API JSON-RPC v1 sobre stdio | `runtime/bridge/` |
 
 ## 4. Fluxo
 
@@ -89,18 +88,17 @@ runs e evidência. Dependem do provider: execução, sessão, permissões e stre
 
 Ver `CAPABILITY_MATRIX.json` (`status: stable`, `publicClaimAllowed: true`):
 protocolo, contexto progressivo, DEV, memória episódica, roteamento de 75 skills públicas (52 canônicas),
-governança, 4 providers, runs/artefatos, verificação, worktrees, PTY, observação
+governança, 4 providers, runs/artefatos, verificação, worktrees, observação
 Git, observabilidade de uso, telemetria opt-in, benchmark com evidence gate,
-Maestro Resolution Engine, Validated Outcome, Proof Bundle, provider handoff,
-bridge, Cockpit TUI, cliente VS Code.
+Maestro Resolution Engine, Validated Outcome, Proof Bundle, provider handoff
+e Bridge v1 por stdio.
 
 ## 6. Limitações explícitas
 
 - Apenas os providers Runtime listados em `CAPABILITY_MATRIX.json`; demais ferramentas são contrato/integração, não execução.
 - `agy` ≠ Antigravity IDE. Freebuff sem headless estável (uso interativo).
 - Sem merge automático de worktree; limpeza manual.
-- `node-pty` opcional (`PTY_UNAVAILABLE` sem ele); tmux exige binário.
 - Telemetria remota exige `telemetry enable` + endpoint + chave; sem isso nada sai.
 - Benchmark: claim público exige N≥20 pareados e condições de elegibilidade.
 - Resolution `enforce` não é modo normal de CLI: permanece bloqueado até evidência hard-validada, policy-bound e autorização explícita. `shadow` e `advisory` não alteram silenciosamente a seleção normal de contexto.
-- Bridge doc cobre v1; métodos v2 existem no código e ainda não estão na doc da API.
+- Bridge suportado na V1 usa somente JSON-RPC v1 por stdio; daemon/socket e protocolo visual v2 não fazem parte da release.
