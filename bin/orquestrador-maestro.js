@@ -1600,6 +1600,22 @@ function hasV3SkillManifest(maestroRoot) {
   }
 }
 
+function handleDesktopHookCommand(args) {
+  if (args.length !== 0) throw new Error("Uso interno: orquestrador-maestro desktop-hook");
+  const raw = fs.readFileSync(0, "utf8");
+  if (!raw.trim()) return 0;
+  let event;
+  try { event = JSON.parse(raw); }
+  catch { throw new Error("desktop-hook recebeu JSON inválido"); }
+  const { handleOpenAIHookEvent } = require(path.join(rootDir, "runtime", "integrations", "openai"));
+  const result = handleOpenAIHookEvent(event, {
+    pluginData: process.env.PLUGIN_DATA || null,
+    mode: process.env.MAESTRO_OPENAI_MODE
+  });
+  if (result && Object.keys(result).length > 0) console.log(JSON.stringify(result));
+  return 0;
+}
+
 function handleRouteCommand(args) {
   const [subcommand = "explain", ...rest] = args;
   if (subcommand !== "explain") {
@@ -2774,6 +2790,7 @@ async function dispatch(command, args) {
     return runDevContextHelper("check-dev-gates", args);
   }
 
+  if (command === "desktop-hook") return handleDesktopHookCommand(args);
   if (command === "run") return handleRunCommand(args);
   if (command === "runs") return handleRunsCommand(args);
   if (command === "usage") return handleUsageCommand(args);
