@@ -42,6 +42,26 @@ The OpenAI integration uses a smaller injection budget than the core task budget
 
 These are ceilings for Maestro-added context, not provider token limits.
 
+## Personal installation
+
+Install the CLI first, then register the desktop plugin for the current user:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@1.0.0-beta.1
+orquestrador-maestro desktop-plugin install
+orquestrador-maestro desktop-plugin status
+```
+
+The installer copies the plugin to `~/.codex/plugins/orquestrador-maestro` and adds or replaces only the Maestro entry in `~/.agents/plugins/marketplace.json`; unrelated personal plugins are preserved.
+
+Restart the ChatGPT desktop app or Codex after installation. The plugin still requires the normal hook trust review. The installer does not bypass trust and does not force-enable workspace-managed plugins.
+
+To remove the personal copy:
+
+```bash
+orquestrador-maestro desktop-plugin remove
+```
+
 ## Local repository installation
 
 The repository publishes a local marketplace in `.agents/plugins/marketplace.json` and enables `orquestrador-maestro@maestro-repo` in `.codex/config.toml`.
