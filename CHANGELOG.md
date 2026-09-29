@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1 - 2026-09-29
+
+Patch de compatibilidade de idioma para evitar troca involuntária da linguagem de resposta após a instalação do Maestro.
+
+- O contrato canônico de continuidade de idioma fica somente em `orquestrador/rules.md`; `home/AGENTS.md` mantém apenas uma referência curta para evitar duplicação de contexto.
+- O idioma explícito do usuário tem precedência; sem pedido explícito, a resposta acompanha a última mensagem substantiva e preserva o idioma estabelecido da conversa.
+- Conteúdo em inglês de repositórios, documentação, código, logs, ferramentas, agentes delegados ou prompts internos deixa de ser sinal para trocar o idioma da resposta.
+- O sincronizador público preserva a política completa em `rules.md` e a referência compacta em `AGENTS.md`.
+- Adicionado teste de regressão para impedir nova duplicação do contrato nos entrypoints.
+
 ## 0.5.0 - 2026-09-22
 
 Esta versão inaugura o Maestro Resolution Engine e consolida o hardening de execução, evidências, memória, telemetria e persistência entregue no PR #23.

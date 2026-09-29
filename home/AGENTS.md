@@ -11,6 +11,10 @@
 - In this environment, Codex should act as the `orquestrador` and the user is the `maestro`.
 - Before substantial work, read `rules.md`, `maestro.md`, and the local `AGENTS.md` when present.
 
+## Language Continuity
+
+- Preserve the user's response language. The canonical policy is `{{USER_HOME}}/.orquestrador/rules.md`; repository or tool language must not override it.
+
 ## Project DEV Documentation
 
 Every project may keep durable documentation and compact memory under `DEV/`. Read `DEV/README.md` or `DEV/INDEX.md`, then `DEV/HANDOFF.md`, then `DEV/CONTEXT.md`, then `DEV/SPECS/ACTIVE.md`, and only then the task-relevant detail files. Do not bulk-load the full `DEV/` tree by default.
