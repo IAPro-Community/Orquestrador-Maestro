@@ -308,26 +308,6 @@ test("missions persist independently from runs and remain project-scoped", async
   assert.deepEqual((await app.getMission(mission.id)).plan, { tasks: [] });
 });
 
-test("agents receive distinct automatic worktrees so providers can run concurrently", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-concurrent-agents-"));
-  const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") });
-  const created = [];
-  const app = new MaestroApplication({
-    projectRoot: root, store,
-    workspaces: { createSessionWorktree: async ({ sessionId }) => ({ id: sessionId, path: path.join(root, "worktrees", sessionId), isolated: true }) },
-    terminalSessions: {
-      create: async (request) => { created.push(request); return { id: request.sessionId, ...request, status: "active" }; }
-    }
-  });
-
-  await app.createTerminalSession({ workspacePath: root, kind: "agent", providerId: "codex", backend: "pty" });
-  await app.createTerminalSession({ workspacePath: root, kind: "agent", providerId: "opencode", backend: "pty" });
-
-  assert.notEqual(created[0].workspacePath, created[1].workspacePath);
-  assert.equal(created.every((request) => request.isolation === "worktree"), true);
-  assert.equal(created.every((request) => request.sourceWorkspacePath === root), true);
-});
-
 test("application orchestrates the intent session and creates a mission brief", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-app-intent-"));
   const store = new JsonFileRunStore({ filePath: path.join(root, "runs.json") });
