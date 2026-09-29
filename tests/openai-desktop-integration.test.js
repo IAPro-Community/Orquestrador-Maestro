@@ -7,9 +7,11 @@ const path = require("node:path");
 const test = require("node:test");
 const {
   buildTurnContext,
+  desktopPluginDoctor,
   desktopPluginStatus,
   handleOpenAIHookEvent,
   installDesktopPlugin,
+  readLedger,
   removeDesktopPlugin,
   resolveMode
 } = require("../runtime/integrations/openai");
@@ -113,4 +115,67 @@ test("personal installer preserves unrelated marketplace entries", () => {
   const afterRemove = JSON.parse(fs.readFileSync(marketplacePath, "utf8"));
   assert.equal(afterRemove.plugins.some((plugin) => plugin.name === "existing-plugin"), true);
   assert.equal(afterRemove.plugins.some((plugin) => plugin.name === "orquestrador-maestro"), false);
+});
+
+
+test("repeated desktop policy is not injected twice", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-openai-ledger-"));
+  const routed = () => route("SIMPLE", { skills: ["skill-repo-health"] });
+  const first = handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-repeat",
+    turn_id: "t1",
+    cwd: process.cwd(),
+    prompt: "ajuste uma função pequena"
+  }, { pluginData, mode: "optimize", route: routed });
+  const second = handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-repeat",
+    turn_id: "t2",
+    cwd: process.cwd(),
+    prompt: "ajuste outra função pequena"
+  }, { pluginData, mode: "optimize", route: routed });
+
+  assert.ok(first.hookSpecificOutput?.additionalContext);
+  assert.deepEqual(second, {});
+  const ledger = readLedger(pluginData, "s-repeat");
+  assert.equal(ledger.counters.policyInjections, 1);
+  assert.equal(ledger.counters.policySkips, 1);
+});
+
+test("compaction rehydrates only the Maestro context capsule", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-openai-compact-"));
+  handleOpenAIHookEvent({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "s-compact",
+    turn_id: "t1",
+    cwd: process.cwd(),
+    prompt: "corrija um typo no README"
+  }, { pluginData, mode: "optimize", route: () => route("MICRO", { skills: ["skill-repo-health"] }) });
+
+  handleOpenAIHookEvent({
+    hook_event_name: "PreCompact",
+    session_id: "s-compact",
+    cwd: process.cwd()
+  }, { pluginData, mode: "optimize" });
+
+  const resumed = handleOpenAIHookEvent({
+    hook_event_name: "SessionStart",
+    source: "compact",
+    session_id: "s-compact",
+    cwd: process.cwd()
+  }, { pluginData, mode: "optimize" });
+
+  assert.match(resumed.hookSpecificOutput.additionalContext, /Maestro context capsule/);
+  assert.match(resumed.hookSpecificOutput.additionalContext, /skill-repo-health/);
+});
+
+test("desktop doctor validates the installed governor package", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-plugin-doctor-"));
+  const packageRoot = path.resolve(__dirname, "..");
+  installDesktopPlugin({ home, packageRoot });
+  const result = desktopPluginDoctor({ home, packageRoot });
+  assert.equal(result.healthy, true, JSON.stringify(result.failed));
+  assert.equal(result.checks.find((check) => check.id === "synthetic-hook")?.pass, true);
+  assert.equal(result.checks.find((check) => check.id === "mcp-tools")?.pass, true);
 });
