@@ -11,7 +11,7 @@ const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("..
 const { getPolicy, getProfile, deriveDelegationContract } = require("../profiles");
 const { SkillRegistry } = require("../skills/registry");
 const { JsonFileRunStore } = require("../store");
-const { TerminalManager, TerminalSessionManager } = require("../terminals");
+const { TerminalManager } = require("../terminals");
 const { VerificationEngine, inferCommands } = require("../verification/engine");
 const { WorkspaceManager } = require("../workspaces/manager");
 const { compactContext } = require("../planner/context-compactor");
@@ -59,7 +59,7 @@ function projectIdForPath(workspacePath) { return `project-${crypto.createHash("
 //   verification.*, usage summaries, agent topology.
 // FOLLOW-UP (not this PR): if post-restart replay becomes a requirement, it
 // needs a privacy-reviewed design first — never raw ANSI in the RunStore.
-const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output", "terminal.output", "agentSession.output"]);
+const EPHEMERAL_EVENT_TYPES = new Set(["provider.started", "provider.output", "provider.completed", "run.output", "terminal.output"]);
 
 function sanitizeProviderError(message) {
   // Durable error strings flow into execution metadata and run events, so
@@ -270,10 +270,8 @@ class MaestroApplication {
     this.verification = options.verification || new VerificationEngine();
     this.events = new EventEmitter();
     this.activeRuns = new Map();
-    this.panes = new Map();
     this.workspaces = options.workspaces || new WorkspaceManager();
     this.terminals = options.terminals || new TerminalManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
-    this.terminalSessions = options.terminalSessions || new TerminalSessionManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.governance = mergeConfig(options.governance || loadGovernanceConfig({ cwd: this.projectRoot }).config);
     // Enforce mode is a runtime-owned capability. A request/Bridge client
     // cannot self-authorize promotion by setting a payload boolean.
@@ -422,58 +420,6 @@ class MaestroApplication {
       ? { ...terminal, status: "detached", notice: "A sessão ao vivo pertence a outro processo Maestro ou já foi encerrada." } : terminal);
   }
   async getTerminal(terminalId) { return this.store.getTerminal(terminalId); }
-  async listTerminalSessions(filters = {}) { return this.terminalSessions.list(filters); }
-  async getTerminalSession(terminalId) { return this.terminalSessions.get(terminalId); }
-  terminalCapabilities() { return this.terminalSessions.capabilities(); }
-  async createTerminalSession(request) {
-    await this.initialize();
-    const sourceWorkspacePath = path.resolve(request?.workspacePath || this.projectRoot);
-    const projectId = request?.projectId || projectIdForPath(sourceWorkspacePath);
-    const project = await this.store.getProject(projectId);
-    if (!project) await this.store.createProject({ id: projectId, path: sourceWorkspacePath, name: path.basename(sourceWorkspacePath), createdAt: new Date().toISOString() });
-    const kind = request?.kind || "shell";
-    const isolation = request?.isolation || (kind === "agent" ? "worktree" : "shared");
-    if (!["worktree", "shared"].includes(isolation)) throw new TypeError("isolation must be worktree or shared");
-    let workspacePath = sourceWorkspacePath; let workspaceId;
-    const sessionId = `agent-session-${crypto.randomUUID()}`;
-    if (kind === "agent" && isolation === "worktree") {
-      let workspace;
-      try { workspace = await this.workspaces.createSessionWorktree({ repositoryPath: sourceWorkspacePath, projectId, sessionId }); }
-      catch (error) { const wrapped = new Error(`Não foi possível criar o worktree do agente: ${error.message}`); wrapped.code = "AGENT_WORKTREE_FAILED"; throw wrapped; }
-      workspacePath = workspace.path; workspaceId = workspace.id;
-    }
-    return this.terminalSessions.create({ ...request, sessionId, projectId, workspacePath, sourceWorkspacePath, workspaceId, isolation });
-  }
-  async attachTerminalSession(terminalId) { return this.terminalSessions.attach(terminalId); }
-  async closeTerminalSession(terminalId) { return this.terminalSessions.close(terminalId); }
-  async registerTerminalClient(request) { return this.terminalSessions.registerClient(request); }
-  async updateTerminalClientStatus(request) { return this.terminalSessions.updateClientStatus(request); }
-  async inputTerminalSession(terminalId, input) { return this.terminalSessions.input(terminalId, input); }
-  async resizeTerminalSession(terminalId, columns, rows) { return this.terminalSessions.resize(terminalId, columns, rows); }
-  async focusTerminalSession(terminalId) { return this.terminalSessions.focus(terminalId); }
-  async snapshotTerminalSession(terminalId, options = {}) { return this.terminalSessions.snapshot(terminalId, options.afterSequence || 0); }
-  async dashboard({ projectId, projectPath } = {}) {
-    const project = await this.inspectProject({ projectId, projectPath });
-    const [projects, missions, sessions] = await Promise.all([
-      this.listProjects(), this.listMissions({ projectId: project.id }), this.listTerminalSessions({ projectId: project.id })
-    ]);
-    const activeMission = missions.find((mission) => ["running", "planning", "blocked", "verifying"].includes(mission.status)) || missions[0] || null;
-    return { projects, project, mission: activeMission, missions, sessions, panes: await this.listPanes({ projectId: project.id }), runtime: { pty: this.terminalCapabilities().backends.pty } };
-  }
-  async listPanes({ projectId } = {}) {
-    const sessions = await this.listTerminalSessions(projectId ? { projectId } : {});
-    return sessions.filter((session) => session.backend === "pty").map((session, index) => ({ terminalId: session.id, page: Math.floor(index / 6), slot: index % 6, ...(this.panes.get(session.id) || {}) }));
-  }
-  async updatePane(terminalId, patch = {}) {
-    if (!await this.getTerminalSession(terminalId)) return null;
-    const current = this.panes.get(terminalId) || {};
-    const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
-    this.panes.set(terminalId, next); await this.record(null, "pane.updated", { terminalId, ...next }); return { terminalId, ...next };
-  }
-  async pagePanes({ projectId, page = 0 } = {}) {
-    if (!Number.isInteger(page) || page < 0) throw new TypeError("page must be a non-negative integer");
-    return (await this.listPanes({ projectId })).filter((pane) => pane.page === page);
-  }
   async startTerminal(request) {
     await this.initialize();
     const workspacePath = path.resolve(request?.workspacePath || this.projectRoot);
