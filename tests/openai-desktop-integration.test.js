@@ -240,3 +240,21 @@ test("PreToolUse returns updatedInput for safe read-only Bash scans", () => {
   const ledger = readLedger(pluginData, "s-rewrite");
   assert.equal(ledger.counters.toolRewrites, 1);
 });
+
+
+test("desktop doctor detects a stale installed plugin version", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-plugin-stale-"));
+  const packageRoot = path.resolve(__dirname, "..");
+  installDesktopPlugin({ home, packageRoot });
+  const before = desktopPluginStatus({ home, packageRoot });
+  assert.equal(before.versionMatch, true);
+
+  const manifestPath = path.join(home, ".codex", "plugins", "orquestrador-maestro", "plugin.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  manifest.version = "0.0.0-stale";
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+
+  const result = desktopPluginDoctor({ home, packageRoot });
+  assert.equal(result.healthy, false);
+  assert.ok(result.failed.includes("version:plugin.json"));
+});
