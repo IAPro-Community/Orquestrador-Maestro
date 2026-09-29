@@ -1,0 +1,6 @@
+node_modules/
+build/
+.docusaurus/
+src/generated/
+static/img/orquestrador-maestro-logo.png
+static/robots.txt
