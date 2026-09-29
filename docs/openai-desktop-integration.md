@@ -46,7 +46,7 @@ When two turns resolve to the same effective policy — mode, complexity, profil
 
 - `SessionStart`: injects nothing on normal startup; after compaction it rehydrates only the compact Maestro capsule.
 - `UserPromptSubmit`: runs Complexity Gate + Router v3, updates the Context Ledger, and injects a bounded policy only when its digest changes.
-- `PreToolUse`: governs `Agent/spawn_agent`, Bash, patch/read/search tools and MCP calls matched by the plugin. MICRO/SIMPLE tasks reject obvious repository-wide scans and unauthorized fan-out; STANDARD warns before broad expansion.
+- `PreToolUse`: governs `Agent/spawn_agent`, Bash, patch/read/search tools and MCP calls matched by the plugin. MICRO/SIMPLE tasks reject unauthorized fan-out; safe read-only Bash/PowerShell repository scans are rewritten with bounded output, while structured broad scans are rejected so the model must select a narrower scope. STANDARD warns before broad expansion.
 - `SubagentStart`: keeps delegated work narrow.
 - `PreCompact`: persists a compact capsule with complexity, selected skills, budget counters and the current policy digest.
 - `PostCompact`: records compaction completion.
@@ -108,7 +108,8 @@ Restart ChatGPT Desktop or Codex after installation. Plugin hooks still require 
 - hooks and launch scripts;
 - bootstrap skill;
 - MCP manifests and the three-tool MCP contract;
-- a synthetic `UserPromptSubmit` hook execution.
+- CLI/plugin version consistency, so an updated CLI with a stale installed plugin is reported explicitly;
+- an end-to-end synthetic `UserPromptSubmit` through the real `desktop-hook` CLI path.
 
 The host's hook trust approval cannot be forced or proven by the CLI; the doctor reports that boundary explicitly.
 
@@ -118,7 +119,7 @@ Runtime counters can be inspected when the plugin data directory is available:
 orquestrador-maestro desktop-plugin stats --plugin-data <PLUGIN_DATA>
 ```
 
-Counters include routed turns, policy injections/skips, approximate Maestro-injected tokens, tool calls, denials/warnings and compactions.
+Counters include routed turns, policy injections/skips, approximate Maestro-injected tokens, tool calls, rewrites, denials/warnings and compactions.
 
 ## Local repository installation
 
