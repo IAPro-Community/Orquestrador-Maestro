@@ -73,6 +73,19 @@ Ele integra fluxos para Codex, Claude Code, OpenCode, Freebuff, Cursor, Gemini C
 
 O Freebuff usa o mesmo contrato de `AGENTS.md` e `.agents/skills` que o Maestro já sincroniza. Veja o [guia de integração do Freebuff](docs/freebuff-integration.md) para instalação persistente, MCP, agentes locais e publicação para outros usuários.
 
+### Codex Desktop e ChatGPT Work
+
+A V1 inclui uma integração oficial por plugin para superfícies locais compatíveis com lifecycle hooks. O plugin usa Router v3 + Complexity Gate para injetar apenas uma política compacta por turno e evitar fan-out desnecessário em tarefas pequenas.
+
+```bash
+orquestrador-maestro desktop-plugin install
+orquestrador-maestro desktop-plugin status
+```
+
+Depois, abra/reinicie o ChatGPT Desktop ou Codex, instale/habilite o plugin **Orquestrador Maestro** no marketplace pessoal e aprove os hooks quando o cliente solicitar confiança. A integração é fail-open: se o Maestro estiver indisponível, Codex/Work continuam funcionando sem bloqueio.
+
+Veja [Integração OpenAI Desktop](docs/openai-desktop-integration.md) para modos `observe|optimize|strict`, budgets e limites.
+
 Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orquestrador-reference.md), [economia de contexto](docs/context-economy.md), [memória de projeto com DEV/](docs/project-dev-hierarchy.md) e [perfis de ferramentas](docs/tool-profiles.md).
 
 **Próximo passo:** [aprenda o fluxo que a IA deve seguir](docs/ai-agent-operating-guide.md) ou [configure um workflow declarativo](docs/workflows.md).
