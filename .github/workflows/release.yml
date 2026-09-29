@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag de release a validar (ex.: v0.1.20)'
+        description: 'Tag de release a validar (ex.: v1.0.0-beta.3)'
         required: true
         type: string
 
@@ -50,20 +50,26 @@ jobs:
           [[ "$lock_version" == "$version" ]]
           grep -qE "^## ${version}([ -]|$)" CHANGELOG.md
 
-      - name: Verify release is ancestor of main
+      - name: Verify release is ancestor of its release line
         id: release
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
+          version="$(node -p "require('./package.json').version")"
+          release_branch="main"
+          if [[ "$version" == 1.* ]]; then
+            release_branch="v1"
+          fi
+          git fetch origin "$release_branch"
           RELEASE_SHA="$(git rev-parse HEAD)"
-          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
-            echo "ERROR: Release commit $RELEASE_SHA is not contained in origin/main history."
-            echo "This release must be based on main. Rebase first."
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" "origin/$release_branch"; then
+            echo "ERROR: Release commit $RELEASE_SHA is not contained in origin/$release_branch history."
+            echo "This release must be based on the $release_branch release line. Rebase first."
             exit 1
           fi
+          echo "release_branch=$release_branch" >> "$GITHUB_OUTPUT"
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
-          echo "OK: Release commit is contained in origin/main history"
+          echo "OK: Release commit is contained in origin/$release_branch history"
 
       - name: Install and run release gates
         shell: bash
@@ -77,6 +83,8 @@ jobs:
           tarball="$(npm pack 2>/dev/null | tail -1)"
           sha256sum "$tarball" | awk '{print $1}' > package.sha256
           printf '%s\n' "$tarball" > package.name
+        env:
+          VERIFY_BASE_REF: origin/${{ steps.release.outputs.release_branch }}
 
       - name: Upload validated package artifact
         uses: actions/upload-artifact@v4

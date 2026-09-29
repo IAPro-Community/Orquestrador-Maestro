@@ -20,7 +20,7 @@ Se travar em um termo: procure em `docs/product/GLOSSARY.md` antes de abrir qual
 Pré-requisito: Node.js 20 ou superior.
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 orquestrador-maestro install
 orquestrador-maestro verify
 ```

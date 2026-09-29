@@ -219,14 +219,21 @@ runCheck("No Windows-incompatible paths in tracked files", () => {
 });
 
 console.log("\n11. Release ancestry");
-runCheck("HEAD is descendant of origin/main", () => {
-  const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", "origin/main", "HEAD"], {
+const currentBranchResult = spawnSync("git", ["branch", "--show-current"], {
+  cwd: rootDir,
+  encoding: "utf8",
+  shell: false
+});
+const currentBranch = currentBranchResult.status === 0 ? currentBranchResult.stdout.trim() : "";
+const ancestryBase = process.env.VERIFY_BASE_REF || (currentBranch === "v1" ? "origin/v1" : "origin/main");
+runCheck(`HEAD is descendant of ${ancestryBase}`, () => {
+  const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", ancestryBase, "HEAD"], {
     cwd: rootDir,
     encoding: "utf8",
     shell: false
   });
   if (mergeBase.status !== 0) {
-    throw new Error("HEAD is not a descendant of origin/main — rebase first");
+    throw new Error(`HEAD is not a descendant of ${ancestryBase} — rebase first`);
   }
 });
 

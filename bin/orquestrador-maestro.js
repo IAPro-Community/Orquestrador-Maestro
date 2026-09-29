@@ -168,7 +168,7 @@ Opcoes de changelog:
   --full                      Mostra o historico completo embutido no pacote
 
 Opcoes de version:
-  --check                     Compara a CLI instalada com o latest publicado no npm
+  --check                     Compara a CLI instalada com o canal publicado correspondente
 
 Exemplos:
   npm install -g @iapro/orquestrador-maestro-cli
@@ -279,13 +279,23 @@ function runNpm(args, options = {}) {
   return spawnSync(getNpmCommand(), args, { ...options, shell: false });
 }
 
-function getLatestNpmVersion() {
-  const result = runNpm(["view", `${packageJson.name}@latest`, "version", "--json", "--prefer-online"], {
+function getNpmChannel(version) {
+  const prerelease = /^\d+\.\d+\.\d+-([0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*$/u.exec(version)?.[1];
+  if (!prerelease) return "latest";
+  if (prerelease === "alpha") return "alpha";
+  if (prerelease === "beta") return "beta";
+  if (prerelease === "rc") return "next";
+  return "next";
+}
+
+function getPublishedNpmVersion() {
+  const channel = getNpmChannel(packageJson.version);
+  const result = runNpm(["view", `${packageJson.name}@${channel}`, "version", "--json", "--prefer-online"], {
     encoding: "utf8"
   });
 
   if (result.error || result.status !== 0) {
-    throw new Error("Não foi possível consultar a versão latest no npm.");
+    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
   }
 
   let version;
@@ -295,20 +305,42 @@ function getLatestNpmVersion() {
     version = result.stdout.trim().replace(/^['"]|['"]$/gu, "");
   }
 
-  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/u.test(version)) {
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
     throw new Error("O npm retornou uma versão inválida.");
   }
 
-  return version;
+  return { channel, version };
 }
 
 function compareVersions(left, right) {
-  const leftParts = left.split(".").map(Number);
-  const rightParts = right.split(".").map(Number);
+  const parse = (version) => {
+    const [core, prerelease] = version.split("-", 2);
+    return {
+      core: core.split(".").map(Number),
+      prerelease: prerelease ? prerelease.split(".") : []
+    };
+  };
+  const leftParsed = parse(left);
+  const rightParsed = parse(right);
   for (let index = 0; index < 3; index += 1) {
-    if (leftParts[index] !== rightParts[index]) {
-      return leftParts[index] > rightParts[index] ? 1 : -1;
+    if (leftParsed.core[index] !== rightParsed.core[index]) {
+      return leftParsed.core[index] > rightParsed.core[index] ? 1 : -1;
     }
+  }
+
+  if (leftParsed.prerelease.length === 0 && rightParsed.prerelease.length > 0) return 1;
+  if (leftParsed.prerelease.length > 0 && rightParsed.prerelease.length === 0) return -1;
+  for (let index = 0; index < Math.max(leftParsed.prerelease.length, rightParsed.prerelease.length); index += 1) {
+    const leftPart = leftParsed.prerelease[index];
+    const rightPart = rightParsed.prerelease[index];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+    if (leftPart === rightPart) continue;
+    const leftNumber = /^\d+$/u.test(leftPart);
+    const rightNumber = /^\d+$/u.test(rightPart);
+    if (leftNumber && rightNumber) return Number(leftPart) > Number(rightPart) ? 1 : -1;
+    if (leftNumber !== rightNumber) return leftNumber ? -1 : 1;
+    return leftPart > rightPart ? 1 : -1;
   }
   return 0;
 }
@@ -349,9 +381,10 @@ function runCliUpdate(args) {
     return null;
   }
 
-  console.log(`Atualizando a CLI npm para ${packageJson.name}@latest...`);
+  const channel = getNpmChannel(packageJson.version);
+  console.log(`Atualizando a CLI npm para ${packageJson.name}@${channel}...`);
   const result = runNpm([
-    "install", "-g", `${packageJson.name}@latest`, "--force", "--prefer-online"
+    "install", "-g", `${packageJson.name}@${channel}`, "--force", "--prefer-online"
   ], { stdio: "inherit" });
 
   if (result.error) {
@@ -1505,21 +1538,22 @@ function handleVersionCommand(args) {
     throw new Error(`Parametro desconhecido: ${normalized.join(" ")}`);
   }
 
-  let latestVersion;
+  let published;
   try {
-    latestVersion = getLatestNpmVersion();
+    published = getPublishedNpmVersion();
   } catch (error) {
     console.error(`Não foi possível verificar atualizações: ${error.message}`);
     return 1;
   }
 
   console.log(`Versão instalada: ${packageJson.version}`);
-  console.log(`Versão latest no npm: ${latestVersion}`);
-  const comparison = compareVersions(packageJson.version, latestVersion);
+  console.log(`Versão publicada no canal ${published.channel}: ${published.version}`);
+  const comparison = compareVersions(packageJson.version, published.version);
+  const channel = getNpmChannel(packageJson.version);
   if (comparison < 0) {
-    console.log(`Atualização disponível: npm install -g ${packageJson.name}@latest --force --prefer-online`);
+    console.log(`Atualização disponível: npm install -g ${packageJson.name}@${channel} --force --prefer-online`);
   } else if (comparison > 0) {
-    console.log("A instalação local é mais nova que o latest publicado no npm.");
+    console.log(`A instalação local é mais nova que o canal ${published.channel} publicado no npm.`);
   } else {
     console.log("A CLI já está atualizada.");
   }

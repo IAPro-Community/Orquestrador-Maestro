@@ -97,6 +97,6 @@ node .\bin\orquestrador-maestro.js verify --home-path $tempHome --core-only
 node .\bin\orquestrador-maestro.js doctor --home-path $tempHome
 ```
 
-Para usuários finais, `orquestrador-maestro update` atualiza primeiro a CLI global para `latest` e depois reaplica o pacote atualizado. O fluxo equivalente manual é `npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online`, seguido de `orquestrador-maestro update`.
+Para usuários finais, `orquestrador-maestro update` preserva o canal da CLI instalada e depois reaplica o pacote atualizado. Na linha V1 beta, o fluxo equivalente manual é `npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online`, seguido de `orquestrador-maestro update`.
 
 Os modos `--dry-run` e `--list-targets` continuam somente leitura e não atualizam a CLI global.

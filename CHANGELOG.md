@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Fix: continuidade de idioma preservada com uma única política canônica em `orquestrador/rules.md`; `home/AGENTS.md` usa somente uma referência curta, reduzindo contexto sem permitir que instruções, código, documentação, logs, tool output ou agentes delegados troquem a linguagem da resposta. O sincronizador e testes de regressão mantêm a regra nos entrypoints instalados.
-
 ## 1.0.0-beta.3 - 2026-09-29
 
 ### Desktop Context Governor
@@ -18,6 +14,7 @@
 - **Contrato V1:** MCP Desktop é processo stdio iniciado pelo host; não reintroduz daemon/socket, TUI, PTY ou protocolo v2 do `cli-novo`.
 - **Capability cleanup:** removido o claim órfão `vscode-client` da matriz de capacidades.
 - **Release:** pacote e manifests promovidos para `1.0.0-beta.3`.
+- **Idioma:** continuidade da língua da conversa preservada com uma política canônica em `orquestrador/rules.md`; `home/AGENTS.md` usa somente uma referência curta, e o sincronizador mantém a regra nos entrypoints instalados.
 
 ## 1.0.0-beta.2 - 2026-09-29
 

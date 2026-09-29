@@ -31,7 +31,7 @@ Com a configuração padrão:
 ## Instalação e atualização
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 orquestrador-maestro install
 orquestrador-maestro verify
 ```

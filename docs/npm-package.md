@@ -30,13 +30,13 @@ Para publicar nesse nome, a conta npm precisa ser o usuário `iapro` ou ter perm
 Instalação automática recomendada no macOS/Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.sh | bash
 ```
 
 No Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.ps1 | iex
 ```
 
 Esses bootstraps detectam permissões do npm, configuram um prefixo no perfil do usuário quando necessário, ajustam o `PATH`, instalam a CLI e executam `install` e `verify`. A instalação normal não deve usar `sudo` nem executar como Administrador.
@@ -63,10 +63,10 @@ orquestrador-maestro verify
 orquestrador-maestro doctor
 ```
 
-O comando `update` primeiro atualiza a própria CLI para a versão `latest` do npm e, em seguida, reaplica os arquivos dessa versão no home. Para atualizar somente o pacote npm sem reaplicar os arquivos, use:
+O comando `update` primeiro atualiza a própria CLI no canal correspondente à versão instalada e, em seguida, reaplica os arquivos dessa versão no home. Para atualizar somente o pacote npm da linha V1 beta sem reaplicar os arquivos, use:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
 ```
 
 No Linux e no macOS, o comando `doctor` exige `pwsh` ou `powershell` disponível no `PATH`.
@@ -81,10 +81,10 @@ orquestrador-maestro compact-worklog --project-path . --keep 12
 
 ## Canal De Release
 
-O canal público atual é o `latest` do npm. Esse é o único caminho recomendado para usuários finais:
+O canal público da linha V1 em pré-release é o `beta`. Esse é o caminho recomendado enquanto a versão `1.0.0` não estiver estável:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 ```
 
 Canais como `preview`, `beta` ou `nightly` só devem ser criados quando o projeto tiver:

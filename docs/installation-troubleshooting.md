@@ -22,7 +22,7 @@ Use uma sessão normal do usuário. Não use `sudo`, `su`, root nem PowerShell c
 macOS e Linux (baixe, inspecione e só então execute — nunca encane saída remota direto no shell):
 
 ```bash
-curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.sh
 less /tmp/bootstrap-install.sh
 bash /tmp/bootstrap-install.sh
 ```
@@ -30,7 +30,7 @@ bash /tmp/bootstrap-install.sh
 Windows PowerShell (mesma regra: salvar, ler, executar):
 
 ```powershell
-Invoke-WebRequest -Uri https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 -OutFile $env:TEMP/bootstrap-install.ps1
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.ps1 -OutFile $env:TEMP/bootstrap-install.ps1
 notepad $env:TEMP/bootstrap-install.ps1
 & $env:TEMP/bootstrap-install.ps1
 ```
@@ -52,7 +52,7 @@ rm -rf -- "$HOME/.orquestrador-public-backups"
 df -h "$HOME"
 
 # 3. Instale a CLI corrigida, use o desinstalador seguro e remova a CLI.
-npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
 orquestrador-maestro uninstall
 npm uninstall -g @iapro/orquestrador-maestro-cli
 
@@ -60,7 +60,7 @@ npm uninstall -g @iapro/orquestrador-maestro-cli
 rm -rf -- "$HOME/.orquestrador" "$HOME/.orquestrador-public-backups"
 
 # 5. Faça uma instalação limpa e verifique o resultado.
-curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh
+curl -fsSL -o /tmp/bootstrap-install.sh https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.sh
 bash /tmp/bootstrap-install.sh
 orquestrador-maestro verify
 ```
@@ -148,7 +148,7 @@ No macOS e Linux, `doctor` requer `pwsh` ou `powershell`; `verify` não possui e
 Em versões anteriores, a CLI podia resolver `.` contra o diretório onde o pacote npm estava instalado, em vez do diretório atual do projeto. A correção mantém o diretório de invocação ao executar os helpers DEV. Atualize a CLI e rode novamente:
 
 ```text
-npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
 orquestrador-maestro check-dev-gates --project-path . --strict
 ```
 
@@ -171,4 +171,3 @@ Já `windows sandbox: helper_unknown_error` é uma falha do runtime/sandbox do C
 ## Terminal gerenciado
 
 A linha 1.0 não depende de `node-pty`, Bun, tmux ou OpenTUI. O terminal suportado é o comando gerenciado `terminal list|start|stop`, que usa processos locais explícitos sem oferecer sessão PTY persistente.
-

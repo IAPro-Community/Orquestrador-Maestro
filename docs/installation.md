@@ -7,10 +7,12 @@ Instale o Maestro no seu usuário e passe a usar o mesmo processo em ferramentas
 Com Node.js 20.19 ou superior:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 orquestrador-maestro install
 orquestrador-maestro verify
 ```
+
+Este repositório está na linha V1 beta. O canal `beta` acompanha automaticamente as versões `1.0.0-beta.N`; use `@latest` apenas para a linha estável anterior.
 
 Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue neste guia. Depois de instalar, use o [guia operacional para IAs](ai-agent-operating-guide.md).
 

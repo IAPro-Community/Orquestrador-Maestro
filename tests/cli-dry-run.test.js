@@ -69,6 +69,6 @@ test("version --check exposes the installed and published npm versions", () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+/u);
-  assert.match(result.stdout, /Versão latest no npm: \d+\.\d+\.\d+/u);
+  assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
+  assert.match(result.stdout, /Versão publicada no canal (?:latest|alpha|beta|next): \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
 });

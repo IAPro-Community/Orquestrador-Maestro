@@ -2,7 +2,7 @@ name: Auto-tag release
 
 on:
   push:
-    branches: [main]
+    branches: [main, v1]
 
 permissions:
   contents: write
@@ -102,7 +102,7 @@ jobs:
             existing_sha="$(git rev-list -n 1 "$tag")"
             head_sha="$(git rev-parse HEAD)"
             if [ "$existing_sha" = "$head_sha" ] || git merge-base --is-ancestor "$existing_sha" "$head_sha"; then
-              echo "Tag $tag already points into the current main history — skipping."
+              echo "Tag $tag already points into the current branch history — skipping."
               exit 0
             fi
             echo "Tag $tag already points to $existing_sha, not HEAD $head_sha." >&2

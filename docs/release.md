@@ -7,7 +7,7 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 ## Fluxo do mantenedor
 
 1. Atualize os dois manifestos e crie a seção correspondente no `CHANGELOG.md`.
-2. Faça commit dessas alterações no `main`.
+2. Para versões `1.x`, faça commit dessas alterações na branch `v1`. A linha `0.x` continua usando `main`.
 3. Rode a checagem local:
 
    ```powershell
@@ -38,3 +38,13 @@ O passo de publicação valida primeiro `npm whoami` e informa o usuário autent
 ## Rollback
 
 Uma versão publicada no npm não deve ser sobrescrita. Em caso de problema, publique uma nova versão corrigida e, se necessário, use `npm deprecate` com uma mensagem objetiva. A tag GitHub permanece como registro imutável do artefato publicado.
+
+## Canais da V1
+
+Instale a linha V1 beta explicitamente:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@beta
+```
+
+O comando `orquestrador-maestro update` preserva automaticamente o canal da versão instalada. Assim, uma instalação `1.0.0-beta.N` consulta `beta`, enquanto uma instalação estável consulta `latest`.

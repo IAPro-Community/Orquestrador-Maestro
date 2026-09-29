@@ -167,7 +167,7 @@ npm run benchmark -- pair --runs 10
 Requer Node.js 20 ou superior.
 
 ~~~bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 orquestrador-maestro install
 orquestrador-maestro verify
 ~~~
@@ -179,13 +179,13 @@ O pacote npm instala a CLI. Os arquivos do usuário só são alterados quando in
 Windows PowerShell:
 
 ~~~powershell
-irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.ps1 | iex
+irm https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.ps1 | iex
 ~~~
 
 Linux ou macOS:
 
 ~~~bash
-curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/main/scripts/bootstrap-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IAPro-Community/Orquestrador-Maestro/v1/scripts/bootstrap-install.sh | bash
 ~~~
 
 Para uma instalação normal, não use sudo nem abra o PowerShell como Administrador. Os bootstraps configuram a instalação no perfil do usuário, ajustam o PATH, instalam a CLI e executam a verificação.
@@ -556,7 +556,7 @@ orquestrador-maestro verify
 orquestrador-maestro doctor
 ~~~
 
-O comando `update` atualiza a CLI global para `latest` antes de reaplicar os arquivos. Para atualizar somente o pacote npm, use `npm install -g @iapro/orquestrador-maestro-cli@latest --force --prefer-online`.
+O comando `update` preserva o canal da CLI instalada antes de reaplicar os arquivos. Para a linha V1 beta, atualize somente o pacote npm com `npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online`.
 
 Para conferir sem alterar arquivos se a CLI instalada está atrás do npm, use `orquestrador-maestro version --check`. O comando informa a versão local, o `latest` publicado e o comando de atualização quando houver diferença.
 
