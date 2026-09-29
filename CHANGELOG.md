@@ -29,6 +29,7 @@
 - **Experiência visual:** incorpora o redesign editorial de `feat/site-visual-redesign-v2`, com navegação simplificada, showcase de skills como produto e identidade visual Maestro.
 - **Documentação:** corrige as rotas geradas para ADRs com prefixo numérico e os anchors do benchmark, mantendo o índice pesquisável alinhado ao Docusaurus.
 - **Base V1:** preserva a remoção das superfícies abandonadas do CLI/TUI e alinha instaladores, matriz de capacidades, documentação de migração e referências de runtime ao pacote beta.
+- **CI e runtime:** remove os testes residuais da TUI fora do escopo V1 e mantém os gates ativos para o runtime canônico por daemon/socket.
 - **Empacotamento:** versão `1.0.0-beta.2` alinhada em `package.json`, `package-lock.json`, bootstrap scripts, changelog e artefato npm.
 - **Origem:** consolidação validada a partir de `release/1.0.0-beta`, `main` e `feat/site-visual-redesign-v2`; nenhuma alteração fora do escopo sanitizado foi incluída.
 
