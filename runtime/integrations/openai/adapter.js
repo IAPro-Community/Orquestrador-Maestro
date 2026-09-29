@@ -7,9 +7,19 @@ const { resolveMaestroRoot } = require("../../config/maestro-paths");
 const { classifyComplexity } = require("../../planner/complexity-gate");
 const { collectRoutingSignals } = require("../../planner/routing-signals");
 const { SkillRouterV3 } = require("../../planner/skill-router-v3");
+const { buildCompactionCapsule } = require("./context-capsule");
+const {
+  closeLedger,
+  readLedger,
+  recordCompaction,
+  recordPolicyInjection,
+  recordRoute,
+  recordToolDecision
+} = require("./context-ledger");
 const { approximateTokens, injectionBudget, trimToBudget } = require("./context-budget");
 const { contextResponse, denyTool, preToolContext } = require("./hook-response");
 const { endSession, getSession, updateSession } = require("./session-state");
+const { governToolUse } = require("./tool-governor");
 
 const MODES = Object.freeze(["off", "observe", "optimize", "strict"]);
 
@@ -54,30 +64,18 @@ function buildTurnContext(result, mode = "optimize") {
   const budget = complexity.budget || {};
   const skills = selectedSkillIds(result);
   const lines = [
-    "Maestro turn policy:",
-    `- mode=${mode}; complexity=${complexity.level || "STANDARD"}; profile=${result?.profile || "standard"}.`,
-    `- core context budget <= ${budget.maxContextTokens || result?.contextBudget || "unknown"} tokens; selected skills: ${skills.length ? skills.join(", ") : "none"}.`,
-    `- subagents: ${budget.allowSubagents ? "allowed by current budget" : "not authorized by current budget"}.`,
-    "- Keep the working set minimal; read additional files only when needed.",
-    "- Do not create a Mission for a trivial request. Preserve native Codex/Work behavior.",
-    skills.length
-      ? "- Load only the selected Maestro skill instructions when they are available."
-      : "- Do not load Maestro skills speculatively."
+    `Maestro policy: mode=${mode}; complexity=${complexity.level || "STANDARD"}; profile=${result?.profile || "standard"}; context<=${budget.maxContextTokens || result?.contextBudget || "unknown"}.`,
+    `Skills=${skills.length ? skills.join(",") : "none"}; subagents=${budget.allowSubagents ? "allowed" : "not-authorized"}.`,
+    "Use progressive disclosure: request Maestro context/skill only when needed; avoid speculative repository-wide reads."
   ];
   return lines.join("\n");
 }
 
-function buildSessionContext(source, session, mode) {
-  const lines = [
-    `Maestro Desktop integration active (mode=${mode}).`,
-    "Use complexity-aware scope and avoid speculative context loading."
-  ];
-  if (source === "compact" && session?.complexity) {
-    lines.push(
-      `Rehydrate only the last Maestro policy: complexity=${session.complexity}; selected skills=${(session.selectedSkills || []).join(", ") || "none"}; subagents=${session.allowSubagents ? "allowed" : "not authorized"}.`
-    );
-  }
-  return lines.join("\n");
+function buildSessionContext(source, session, mode, ledger) {
+  if (source !== "compact") return "";
+  if (ledger?.compactionCapsule?.text) return ledger.compactionCapsule.text;
+  if (!session?.complexity) return "";
+  return `Maestro resume: complexity=${session.complexity}; skills=${(session.selectedSkills || []).join(",") || "none"}; subagents=${session.allowSubagents ? "allowed" : "not-authorized"}; mode=${mode}.`;
 }
 
 function increment(value) {
@@ -89,8 +87,10 @@ function handleOpenAIHookEvent(event, options = {}) {
   const pluginData = options.pluginData || process.env.PLUGIN_DATA || null;
   const eventName = String(event?.hook_event_name || "");
   const sessionId = event?.session_id || null;
+  const turnId = event?.turn_id || null;
   const cwd = event?.cwd || process.cwd();
   const current = getSession(pluginData, sessionId) || {};
+  const ledger = readLedger(pluginData, sessionId) || {};
 
   if (mode === "off") return {};
 
@@ -102,7 +102,8 @@ function handleOpenAIHookEvent(event, options = {}) {
       starts: increment(current.starts)
     });
     if (mode === "observe") return {};
-    return contextResponse("SessionStart", buildSessionContext(event?.source, next, mode));
+    const context = buildSessionContext(event?.source, next, mode, ledger);
+    return context ? contextResponse("SessionStart", context) : {};
   }
 
   if (eventName === "UserPromptSubmit") {
@@ -111,31 +112,55 @@ function handleOpenAIHookEvent(event, options = {}) {
     const routed = routePrompt(prompt, cwd, options);
     const complexity = routed?.complexity || {};
     const selectedSkills = selectedSkillIds(routed);
-    const context = trimToBudget(buildTurnContext(routed, mode), injectionBudget(complexity.level));
-    updateSession(pluginData, sessionId, {
+    const allowSubagents = Boolean(complexity.budget?.allowSubagents);
+    const routeRecord = recordRoute(pluginData, sessionId, {
       cwd,
+      turnId,
+      prompt,
       mode,
       complexity: complexity.level || "STANDARD",
       profile: routed?.profile || "standard",
       selectedSkills,
-      allowSubagents: Boolean(complexity.budget?.allowSubagents),
+      allowSubagents
+    });
+    const context = trimToBudget(buildTurnContext(routed, mode), injectionBudget(complexity.level));
+    const tokens = approximateTokens(context);
+    updateSession(pluginData, sessionId, {
+      cwd,
+      mode,
+      turnId,
+      complexity: complexity.level || "STANDARD",
+      profile: routed?.profile || "standard",
+      selectedSkills,
+      allowSubagents,
       explicitMultiagent: Boolean(complexity.explicitMultiagent),
       prompts: increment(current.prompts),
-      lastInjectedTokens: approximateTokens(context),
-      injectedTokensApprox: (Number(current.injectedTokensApprox) || 0) + approximateTokens(context)
+      lastPolicyDigest: routeRecord.digest,
+      lastInjectedTokens: routeRecord.repeated ? 0 : tokens,
+      injectedTokensApprox: (Number(current.injectedTokensApprox) || 0) + (routeRecord.repeated ? 0 : tokens)
     });
     if (mode === "observe") return {};
+    if (routeRecord.repeated) {
+      recordPolicyInjection(pluginData, sessionId, { injected: false });
+      return {};
+    }
+    recordPolicyInjection(pluginData, sessionId, { injected: true, approximateTokens: tokens });
     return contextResponse("UserPromptSubmit", context);
   }
 
-  if (eventName === "PreToolUse" && ["Agent", "spawn_agent"].includes(String(event?.tool_name || ""))) {
-    if (current.allowSubagents) return {};
-    const level = String(current.complexity || "STANDARD").toUpperCase();
-    const reason = `Maestro budget for ${level} does not authorize subagents for this turn. Continue in the current agent unless the user explicitly requests multi-agent execution.`;
-    if (mode === "strict" || (mode === "optimize" && ["MICRO", "SIMPLE"].includes(level))) {
-      return denyTool(reason);
-    }
-    return mode === "optimize" ? preToolContext(reason) : {};
+  if (eventName === "PreToolUse") {
+    const decision = governToolUse({
+      toolName: event?.tool_name,
+      toolInput: event?.tool_input,
+      complexity: current.complexity || ledger.complexity || "STANDARD",
+      allowSubagents: Boolean(current.allowSubagents ?? ledger.allowSubagents),
+      mode
+    });
+    recordToolDecision(pluginData, sessionId, decision);
+    if (mode === "observe") return {};
+    if (decision.action === "deny") return denyTool(decision.reason);
+    if (decision.action === "context") return preToolContext(decision.reason);
+    return {};
   }
 
   if (eventName === "SubagentStart") {
@@ -148,7 +173,17 @@ function handleOpenAIHookEvent(event, options = {}) {
   }
 
   if (eventName === "PreCompact") {
-    updateSession(pluginData, sessionId, { compactionsStarted: increment(current.compactionsStarted) });
+    const capsule = buildCompactionCapsule(readLedger(pluginData, sessionId) || {
+      complexity: current.complexity,
+      profile: current.profile,
+      selectedSkills: current.selectedSkills,
+      allowSubagents: current.allowSubagents
+    });
+    recordCompaction(pluginData, sessionId, capsule);
+    updateSession(pluginData, sessionId, {
+      compactionsStarted: increment(current.compactionsStarted),
+      lastCompactionTokens: capsule.approximateTokens
+    });
     return {};
   }
 
@@ -159,6 +194,7 @@ function handleOpenAIHookEvent(event, options = {}) {
 
   if (eventName === "SessionEnd") {
     endSession(pluginData, sessionId);
+    closeLedger(pluginData, sessionId);
     return {};
   }
 
