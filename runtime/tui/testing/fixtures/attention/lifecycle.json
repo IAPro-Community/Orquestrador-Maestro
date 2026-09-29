@@ -1,4 +1,0 @@
-[
-  {"type":"attention.created","projectId":"project-a","epoch":"epoch-a","seq":1,"eventId":"attention-1","data":{"id":"gate-1","kind":"approval","title":"Approval required"}},
-  {"type":"attention.resolved","projectId":"project-a","epoch":"epoch-a","seq":2,"eventId":"attention-2","data":{"id":"gate-1"}}
-]
