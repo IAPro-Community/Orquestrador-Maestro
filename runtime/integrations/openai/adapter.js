@@ -120,6 +120,7 @@ function handleOpenAIHookEvent(event, options = {}) {
       mode,
       complexity: complexity.level || "STANDARD",
       profile: routed?.profile || "standard",
+      contextBudget: complexity.budget?.maxContextTokens || routed?.contextBudget || null,
       selectedSkills,
       allowSubagents
     });
