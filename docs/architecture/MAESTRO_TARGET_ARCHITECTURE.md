@@ -25,15 +25,13 @@ An `ExecutionPackage` is built before provider invocation and contains the task,
 
 ## Integration and Runtime
 
-The first internal integration boundary is versioned JSON-RPC 2.0 over stdio, exposed by an additive `orquestrador-maestro bridge --stdio` command. The CLI and a future optional VS Code extension are clients of this Application API. No daemon or HTTP server is required initially.
+The supported internal integration boundary for V1 is versioned JSON-RPC 2.0 over stdio, exposed by the additive `orquestrador-maestro bridge --stdio` command. No daemon, socket transport, HTTP server, TUI, or editor client is part of the 1.0 release contract.
 
 The runtime will own child-process lifecycle, events, cancellation, timeout, signals, artifacts, repository observation, and real verification results. It will not treat an agent statement as verification evidence.
 
-## Native Terminal Sessions
+## Managed Commands
 
-`TerminalSession` is an operational entity distinct from `Run`. The `tmux` adapter provides persistent, project-scoped sessions for the optional TUI and attaches the provider's own native interface directly; Maestro never captures or redraws that interface. The VS Code adapter stores authorization, locks, lifecycle and presentation metadata while the extension creates the terminal through VS Code's native API.
-
-Neither `tmux` nor Bun is installed by Maestro. `@opentui/core` is an optional project dependency obtained by the project package manager, while Bun remains a manual prerequisite for the experimental renderer. The Node 20 textual TUI remains the universal fallback. Multiple shell sessions are valid in one project, while a single writable agent session is allowed per workspace until worktree isolation is delivered.
+V1 keeps a deliberately small managed-command facility. It launches an explicit executable without a shell and records bounded operational metadata. Persistent PTY sessions, tmux-backed sessions, TUI rendering, daemon/socket ownership, and editor-hosted terminals are outside the 1.0 contract and were removed from the release line.
 
 ## Skills and Context
 
