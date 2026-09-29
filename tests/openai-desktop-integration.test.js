@@ -7,7 +7,10 @@ const path = require("node:path");
 const test = require("node:test");
 const {
   buildTurnContext,
+  desktopPluginStatus,
   handleOpenAIHookEvent,
+  installDesktopPlugin,
+  removeDesktopPlugin,
   resolveMode
 } = require("../runtime/integrations/openai");
 
@@ -80,4 +83,34 @@ test("explicitly budgeted subagents are not blocked", () => {
     tool_name: "Agent"
   }, { pluginData, mode: "optimize" });
   assert.deepEqual(result, {});
+});
+
+
+test("personal installer preserves unrelated marketplace entries", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-plugin-home-"));
+  const marketplacePath = path.join(home, ".agents", "plugins", "marketplace.json");
+  fs.mkdirSync(path.dirname(marketplacePath), { recursive: true });
+  fs.writeFileSync(marketplacePath, JSON.stringify({
+    name: "personal",
+    plugins: [{
+      name: "existing-plugin",
+      source: { source: "local", path: "./existing" },
+      policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" },
+      category: "Productivity"
+    }]
+  }), "utf8");
+
+  installDesktopPlugin({ home, packageRoot: path.resolve(__dirname, "..") });
+  const installed = desktopPluginStatus({ home, packageRoot: path.resolve(__dirname, "..") });
+  assert.equal(installed.installed, true);
+  assert.equal(installed.registered, true);
+
+  const afterInstall = JSON.parse(fs.readFileSync(marketplacePath, "utf8"));
+  assert.equal(afterInstall.plugins.some((plugin) => plugin.name === "existing-plugin"), true);
+  assert.equal(afterInstall.plugins.some((plugin) => plugin.name === "orquestrador-maestro"), true);
+
+  removeDesktopPlugin({ home, packageRoot: path.resolve(__dirname, "..") });
+  const afterRemove = JSON.parse(fs.readFileSync(marketplacePath, "utf8"));
+  assert.equal(afterRemove.plugins.some((plugin) => plugin.name === "existing-plugin"), true);
+  assert.equal(afterRemove.plugins.some((plugin) => plugin.name === "orquestrador-maestro"), false);
 });
