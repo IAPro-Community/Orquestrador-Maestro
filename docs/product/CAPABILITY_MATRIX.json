@@ -446,7 +446,7 @@
       "id": "openai-desktop-governor",
       "name": "Governança de contexto para Codex Desktop e ChatGPT Work",
       "category": "runtime",
-      "status": "stable",
+      "status": "experimental",
       "surface": "runtime",
       "implementationEvidence": [
         "runtime/integrations/openai/adapter.js",
@@ -465,7 +465,7 @@
         "docs/openai-desktop-integration.md"
       ],
       "publicClaimAllowed": true,
-      "notes": "Integração local fail-open: policy deduplicada por sessão, Context Ledger, compact capsule, governor de ferramentas e MCP stdio sob demanda. Não controla o system context/harness nativo do host e não promete equivalência exata de tokens com a CLI."
+      "notes": "Integração Beta 3 local fail-open: policy deduplicada por sessão, Context Ledger, compact capsule, governor de ferramentas com rewrites limitados e MCP stdio sob demanda. A implementação e os contratos automatizados estão presentes, mas o status permanece experimental até smoke/homologação real em Codex Desktop e ChatGPT Desktop Work. Não controla o system context/harness nativo do host e não promete equivalência exata de tokens com a CLI."
     }
   ],
   "tools": [
