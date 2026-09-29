@@ -47,7 +47,7 @@ These are ceilings for Maestro-added context, not provider token limits.
 Install the CLI first, then register the desktop plugin for the current user:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@1.0.0-beta.1
+npm install -g @iapro/orquestrador-maestro-cli@1.0.0-beta.2
 orquestrador-maestro desktop-plugin install
 orquestrador-maestro desktop-plugin status
 ```
