@@ -11,10 +11,10 @@
 - **Context Ledger:** estado mínimo por sessão/turno registra policy digest, complexidade, skills selecionadas, contadores e compact capsule sem persistir o transcript.
 - **Zero-repeat policy:** `UserPromptSubmit` não reinjeta contexto Maestro quando mode/complexity/profile/skills/subagent budget não mudaram.
 - **Budgets menores:** teto automático do Maestro passa para 100/140/200/300/450 tokens em MICRO/SIMPLE/STANDARD/COMPLEX/DEEP.
-- **Tool Governor:** `PreToolUse` passa a governar fan-out e expansões óbvias de leitura/busca ampla; MICRO/SIMPLE bloqueiam scans de repositório inteiro e STANDARD recebe orientação para estreitar o escopo.
+- **Tool Governor:** `PreToolUse` passa a governar fan-out e expansões óbvias de leitura/busca ampla; em `optimize`, scans Bash/PowerShell somente-leitura de MICRO/SIMPLE são reescritos via `updatedInput` com saída limitada, scans estruturados amplos exigem escopo menor, e STANDARD recebe orientação antes de expandir.
 - **Progressive disclosure:** plugin publica somente a skill bootstrap `maestro-governor` e um MCP stdio efêmero com `maestro_route`, `maestro_context` e `maestro_skill`.
 - **Compaction:** `PreCompact` grava uma cápsula curta e `SessionStart(source=compact)` reidrata apenas essa cápsula.
-- **Diagnóstico:** adicionados `desktop-plugin doctor` e `desktop-plugin stats`.
+- **Diagnóstico:** adicionados `desktop-plugin doctor` e `desktop-plugin stats`; o doctor valida consistência entre a versão da CLI e o plugin instalado e executa um `desktop-hook` sintético pelo caminho real da CLI.
 - **Contrato V1:** MCP Desktop é processo stdio iniciado pelo host; não reintroduz daemon/socket, TUI, PTY ou protocolo v2 do `cli-novo`.
 - **Capability cleanup:** removido o claim órfão `vscode-client` da matriz de capacidades.
 - **Release:** pacote e manifests promovidos para `1.0.0-beta.3`.
