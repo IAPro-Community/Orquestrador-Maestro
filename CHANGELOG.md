@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Release cleanup — cli-novo
+
+- Removida da linha 1.0 a superfície experimental `cli-novo`: TUI/OpenTUI, PTY persistente, daemon/socket, protocolo visual v2, panes e cliente VS Code associado.
+- A CLI mantém somente o terminal gerenciado `list|start|stop`; `terminal agent|shell|attach|close` e `terminals` foram retirados.
+- O Bridge suportado na V1 permanece em JSON-RPC v1 por stdio; os métodos de dashboard, agent sessions e panes não fazem mais parte do contrato.
+- Removidas as dependências `@opentui/core`, `@xterm/headless` e `node-pty`, além dos testes e claims de capability correspondentes.
+
+
 ### OpenAI Desktop integration
 
 - **Codex Desktop / ChatGPT Work:** novo plugin local do Maestro com lifecycle hooks oficiais e marketplace de repositório.
