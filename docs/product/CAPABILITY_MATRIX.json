@@ -8,8 +8,7 @@
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": [
       "protocol",
-      "runtime",
-      "cockpit"
+      "runtime"
     ]
   },
   "sources": {
@@ -244,29 +243,6 @@
       "notes": "Limitações: sem merge automático de volta; limpeza manual; não copia ignored/stash/.git."
     },
     {
-      "id": "terminals-pty",
-      "name": "Terminais PTY gerenciados",
-      "category": "runtime",
-      "status": "stable",
-      "surface": "runtime",
-      "implementationEvidence": [
-        "runtime/terminals/pty-session-manager.js",
-        "runtime/terminals/session-manager.js",
-        "runtime/terminals/terminal-manager.js",
-        "runtime/runs/run-terminal-bridge.js"
-      ],
-      "testEvidence": [
-        "tests/f8-pty-contract.test.js",
-        "tests/f8-run-terminal-bridge.test.js",
-        "runtime/terminals/__tests__/terminal-durable-privacy.test.js"
-      ],
-      "documentation": [
-        "docs/architecture/MAESTRO_COCKPIT.md"
-      ],
-      "publicClaimAllowed": true,
-      "notes": "Limitações: node-pty opcional (PTY_UNAVAILABLE); output integral só em memória; store recebe só metadados sanitizados."
-    },
-    {
       "id": "git-observation",
       "name": "Observação Git do workspace",
       "category": "runtime",
@@ -357,8 +333,7 @@
       "surface": "runtime",
       "implementationEvidence": [
         "runtime/bridge/bridge.js (PROTOCOL_VERSION=1)",
-        "runtime/protocol/protocol-v2.js (PROTOCOL_VERSION=2)",
-        "runtime/bridge/socket-server.js"
+        "runtime/bridge/stdio-server.js"
       ],
       "testEvidence": [
         "runtime/bridge/__tests__/bridge.test.js"
@@ -367,28 +342,7 @@
         "docs/architecture/MAESTRO_INTEGRATION_API.md"
       ],
       "publicClaimAllowed": true,
-      "notes": "v1 JSON-RPC sobre stdio coexiste com protocolo v2 de eventos; doc da API cobre v1 e omite métodos v2 (divergência registrada)."
-    },
-    {
-      "id": "cockpit-tui",
-      "name": "Cockpit TUI local",
-      "category": "cockpit",
-      "status": "stable",
-      "surface": "cockpit",
-      "implementationEvidence": [
-        "runtime/tui/views/cockpit-view.ts",
-        "runtime/tui/views/cockpit-model.ts",
-        "runtime/attention/"
-      ],
-      "testEvidence": [
-        "runtime/tui/__tests__/tui-cockpit.test.ts"
-      ],
-      "documentation": [
-        "docs/architecture/MAESTRO_COCKPIT.md",
-        "docs/product/PRODUCT_SPEC.md"
-      ],
-      "publicClaimAllowed": true,
-      "notes": "4 layouts por largura; 5 seções canônicas. Cockpit é uma superfície do produto, não o produto inteiro. Polish responsivo em evolução."
+      "notes": "Bridge suportado na V1: JSON-RPC v1 sobre stdio. O daemon/socket e o protocolo visual v2 foram removidos da linha 1.0 por não estarem finalizados."
     },
     {
       "id": "vscode-client",
