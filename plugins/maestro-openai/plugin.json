@@ -1,0 +1,38 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "orquestrador-maestro",
+  "version": "1.0.0-beta.1",
+  "description": "Context and workload governance for Codex Desktop and ChatGPT Work using Orquestrador Maestro.",
+  "author": {
+    "name": "IAPro Community",
+    "url": "https://github.com/IAPro-Community/Orquestrador-Maestro"
+  },
+  "homepage": "https://github.com/IAPro-Community/Orquestrador-Maestro",
+  "repository": "https://github.com/IAPro-Community/Orquestrador-Maestro",
+  "keywords": [
+    "codex",
+    "chatgpt-work",
+    "context-governance",
+    "skills",
+    "orchestration"
+  ],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Orquestrador Maestro",
+        "shortDescription": "Context-aware routing and workload governance for Codex and Work.",
+        "longDescription": "Uses Maestro Router v3 and Complexity Gate to keep context small, select only relevant skills, and limit unnecessary agent fan-out.",
+        "developerName": "IAPro Community",
+        "category": "Productivity",
+        "capabilities": [
+          "Read"
+        ],
+        "websiteURL": "https://github.com/IAPro-Community/Orquestrador-Maestro",
+        "defaultPrompt": [
+          "Use Orquestrador Maestro to keep this coding task scoped and context-efficient."
+        ]
+      }
+    }
+  }
+}

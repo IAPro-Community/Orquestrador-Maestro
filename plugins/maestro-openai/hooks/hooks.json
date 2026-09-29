@@ -1,0 +1,101 @@
+{
+  "description": "Maestro context and workload governance hooks.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 5,
+            "statusMessage": "Loading Maestro context budget",
+            "additionalContextLimit": 1200
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 5,
+            "statusMessage": "Applying Maestro routing",
+            "additionalContextLimit": 1400
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent|spawn_agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3,
+            "statusMessage": "Checking Maestro agent budget",
+            "additionalContextLimit": 500
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3,
+            "additionalContextLimit": 500
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

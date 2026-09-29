@@ -1,0 +1,20 @@
+{
+  "name": "maestro-repo",
+  "plugins": [
+    {
+      "name": "orquestrador-maestro",
+      "source": {
+        "source": "local",
+        "path": "./plugins/maestro-openai"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ],
+  "interface": {
+    "displayName": "Orquestrador Maestro"
+  }
+}

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### OpenAI Desktop integration
+
+- **Codex Desktop / ChatGPT Work:** novo plugin local do Maestro com lifecycle hooks oficiais e marketplace de repositório.
+- **Context governance:** `UserPromptSubmit` aplica Router v3 + Complexity Gate e injeta somente uma política compacta, com teto próprio por nível de complexidade.
+- **Fan-out control:** `PreToolUse` bloqueia `Agent/spawn_agent` em tarefas `MICRO/SIMPLE` no modo `optimize` quando multiagent não foi autorizado; `strict` aplica o budget em todos os níveis.
+- **Compaction:** estado mínimo da sessão é preservado em `PLUGIN_DATA` e reidratado por `SessionStart(source=compact)`, sem replay do transcript.
+- **Instalação pessoal:** novos comandos `desktop-plugin install|status|remove` registram o plugin em `~/.codex/plugins` e no marketplace pessoal sem substituir entradas existentes.
+- **Fail-open:** indisponibilidade do CLI Maestro não interrompe Codex/Work.
+- **Release:** pacote normalizado para `1.0.0-beta.1`.
+
+
 ### V1 Router & Design Intelligence
 
 - **Router v3:** novo roteamento sobre Skill Contract V2 com evidência explícita, aliases, positive/negative routing, capability matching, chaining lazy e explicação de seleção/rejeição.
