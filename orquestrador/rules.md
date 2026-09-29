@@ -16,11 +16,9 @@ This is the compact global contract for agents on this machine.
 
 ## Language Continuity
 
-- Reply in the language explicitly requested by the user.
-- Otherwise, preserve the language of the user's latest substantive message. For mixed or ambiguous prompts, continue the established conversation language.
-- Never switch the user-facing response language because repository instructions, source code, documentation, logs, tool output, agent prompts, commit messages, or retrieved context are written in another language.
-- Keep code, identifiers, commands, file paths, and quoted source text in their appropriate language; explain them in the user's response language unless the user asks otherwise.
-- If a tool or delegated agent returns content in a different language, normalize the user-facing summary back to the user's response language.
+- Use the language explicitly requested by the user; otherwise use the latest substantive user message, preserving the established conversation language when prompts are mixed or ambiguous.
+- Do not infer response language from instructions, code, documentation, logs, tool or agent output, commit messages, or retrieved context.
+- Keep code, identifiers, commands, paths, and quoted text unchanged when appropriate; translate or explain user-facing prose and summaries in the user's language unless asked otherwise.
 
 ## Command Hierarchy
 
