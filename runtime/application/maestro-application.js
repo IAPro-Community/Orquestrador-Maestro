@@ -13,7 +13,6 @@ const { SkillRegistry } = require("../skills/registry");
 const { JsonFileRunStore } = require("../store");
 const { TerminalManager } = require("../terminals");
 const { VerificationEngine, inferCommands } = require("../verification/engine");
-const { WorkspaceManager } = require("../workspaces/manager");
 const { compactContext } = require("../planner/context-compactor");
 const { buildEngineeringContract, detectQualityFindings } = require("../governance/engineering-quality");
 const { isTaskCompletionEligible, isRiskExecutionEligible, evaluateCognitiveBudget, classifyChange } = require("../governance/change-governance");
@@ -270,7 +269,6 @@ class MaestroApplication {
     this.verification = options.verification || new VerificationEngine();
     this.events = new EventEmitter();
     this.activeRuns = new Map();
-    this.workspaces = options.workspaces || new WorkspaceManager();
     this.terminals = options.terminals || new TerminalManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.governance = mergeConfig(options.governance || loadGovernanceConfig({ cwd: this.projectRoot }).config);
     // Enforce mode is a runtime-owned capability. A request/Bridge client
