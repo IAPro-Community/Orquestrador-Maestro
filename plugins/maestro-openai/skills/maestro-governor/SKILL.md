@@ -7,6 +7,7 @@ description: Keep Codex Desktop and ChatGPT Work scoped with Maestro progressive
 
 Use the Maestro policy already injected for the current turn. Do not load broad repository context or multiple skills speculatively.
 
+- Always pass the current project workspace absolute `cwd` to Maestro MCP tools.
 - Use `maestro_route` only when routing is missing or the task materially changes.
 - Use `maestro_context` only when the current working set is insufficient.
 - Use `maestro_skill` only for a skill selected by Maestro routing.
