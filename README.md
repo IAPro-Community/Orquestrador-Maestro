@@ -75,16 +75,17 @@ O Freebuff usa o mesmo contrato de `AGENTS.md` e `.agents/skills` que o Maestro 
 
 ### Codex Desktop e ChatGPT Work
 
-A V1 inclui uma integração oficial por plugin para superfícies locais compatíveis com lifecycle hooks. O plugin usa Router v3 + Complexity Gate para injetar apenas uma política compacta por turno e evitar fan-out desnecessário em tarefas pequenas.
+A V1 inclui uma integração oficial por plugin para superfícies locais compatíveis com lifecycle hooks. Na Beta 3 ela usa Router v3 + Complexity Gate, um **Context Ledger** por sessão, policy deduplicada, Tool Governor e um MCP local sob demanda. A mesma policy não é reinjetada a cada turno e o catálogo completo de skills não é carregado no plugin.
 
 ```bash
 orquestrador-maestro desktop-plugin install
 orquestrador-maestro desktop-plugin status
+orquestrador-maestro desktop-plugin doctor
 ```
 
-Depois, abra/reinicie o ChatGPT Desktop ou Codex, instale/habilite o plugin **Orquestrador Maestro** no marketplace pessoal e aprove os hooks quando o cliente solicitar confiança. A integração é fail-open: se o Maestro estiver indisponível, Codex/Work continuam funcionando sem bloqueio.
+Depois, abra/reinicie o ChatGPT Desktop ou Codex, habilite o plugin **Orquestrador Maestro** no marketplace pessoal e aprove os hooks quando o cliente solicitar confiança. A integração continua fail-open para indisponibilidade do CLI e preserva o runtime nativo do host.
 
-Veja [Integração OpenAI Desktop](docs/openai-desktop-integration.md) para modos `observe|optimize|strict`, budgets e limites.
+Veja [Integração OpenAI Desktop](docs/openai-desktop-integration.md) para Context Ledger, MCP progressivo, `desktop-plugin stats`, modos `observe|optimize|strict`, budgets e limites.
 
 Para o funcionamento técnico, consulte [como o Orquestrador funciona](docs/orquestrador-reference.md), [economia de contexto](docs/context-economy.md), [memória de projeto com DEV/](docs/project-dev-hierarchy.md) e [perfis de ferramentas](docs/tool-profiles.md).
 
