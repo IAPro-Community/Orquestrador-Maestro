@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1 - 2026-09-29
+
+Patch de compatibilidade de idioma para evitar troca involuntária da linguagem de resposta após a instalação do Maestro.
+
+- Adicionado contrato canônico de continuidade de idioma em `orquestrador/rules.md` e no `home/AGENTS.md` instalado.
+- O idioma explícito do usuário tem precedência; sem pedido explícito, a resposta acompanha a última mensagem substantiva e preserva o idioma estabelecido da conversa.
+- Conteúdo em inglês de repositórios, documentação, código, logs, ferramentas, agentes delegados ou prompts internos deixa de ser sinal para trocar o idioma da resposta.
+- A skill nativa do Codex reforça o contrato e o sincronizador público reaplica o bloco caso uma exportação futura tente removê-lo.
+- Adicionado teste de regressão para garantir que os entrypoints críticos e o fluxo de sincronização mantenham a política.
+
 ## 0.5.0 - 2026-09-22
 
 Esta versão inaugura o Maestro Resolution Engine e consolida o hardening de execução, evidências, memória, telemetria e persistência entregue no PR #23.
