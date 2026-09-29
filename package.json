@@ -13,7 +13,6 @@
     "codex/prompts/",
     "codex/skills/",
     "docs/",
-    "extensions/vscode-maestro/",
     "home/AGENTS.md",
     "install.ps1",
     "install.sh",
@@ -107,7 +106,6 @@
     "node": ">=20.19.0"
   },
   "optionalDependencies": {
-    "@opentui/core": "^0.5.1",
     "node-pty": "^1.1.0"
   },
   "dependencies": {
