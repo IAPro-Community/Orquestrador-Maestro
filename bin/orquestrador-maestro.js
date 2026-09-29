@@ -110,6 +110,7 @@ Uso:
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
+  orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
   orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
@@ -1538,19 +1539,35 @@ function hasV3SkillManifest(maestroRoot) {
 
 function handleDesktopPluginCommand(args) {
   const [subcommand = "status", ...rest] = args;
-  const options = parseRuntimeArgs(rest, ["--home-path"]);
-  if (options.values.length || !["install", "status", "remove"].includes(subcommand)) {
-    throw new Error("Uso: orquestrador-maestro desktop-plugin <install|status|remove> [--home-path PATH]");
+  const options = parseRuntimeArgs(rest, ["--home-path", "--plugin-data", "--session-id"]);
+  const supported = ["install", "status", "doctor", "stats", "remove"];
+  if (options.values.length || !supported.includes(subcommand)) {
+    throw new Error("Uso: orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [--home-path PATH] [--plugin-data PATH] [--session-id ID]");
+  }
+  if (subcommand !== "stats" && (options.pluginData || options.sessionId)) {
+    throw new Error("--plugin-data e --session-id são opções exclusivas de desktop-plugin stats");
   }
   const integration = require(path.join(rootDir, "runtime", "integrations", "openai"));
   const common = { home: options.homePath ? path.resolve(options.homePath) : os.homedir(), packageRoot: rootDir };
-  const result = subcommand === "install"
-    ? integration.installDesktopPlugin(common)
-    : subcommand === "remove"
-      ? integration.removeDesktopPlugin(common)
-      : integration.desktopPluginStatus(common);
+  let result;
+  if (subcommand === "install") result = integration.installDesktopPlugin(common);
+  else if (subcommand === "remove") result = integration.removeDesktopPlugin(common);
+  else if (subcommand === "doctor") result = integration.desktopPluginDoctor(common);
+  else if (subcommand === "stats") {
+    result = integration.desktopPluginStats({
+      pluginData: options.pluginData ? path.resolve(options.pluginData) : process.env.PLUGIN_DATA || null,
+      sessionId: options.sessionId || null
+    });
+  } else result = integration.desktopPluginStatus(common);
   console.log(JSON.stringify(result, null, 2));
-  return 0;
+  return result?.healthy === false ? 1 : 0;
+}
+
+async function handleDesktopMcpCommand(args) {
+  if (args.length !== 0) throw new Error("Uso interno: orquestrador-maestro desktop-mcp");
+  const { startMcpServer } = require(path.join(rootDir, "runtime", "integrations", "openai"));
+  const server = startMcpServer();
+  return new Promise((resolve) => server.once("close", () => resolve(0)));
 }
 
 function handleDesktopHookCommand(args) {
@@ -2744,6 +2761,7 @@ async function dispatch(command, args) {
   }
 
   if (command === "desktop-plugin") return handleDesktopPluginCommand(args);
+  if (command === "desktop-mcp") return handleDesktopMcpCommand(args);
   if (command === "desktop-hook") return handleDesktopHookCommand(args);
   if (command === "run") return handleRunCommand(args);
   if (command === "runs") return handleRunsCommand(args);
@@ -2811,7 +2829,7 @@ async function main() {
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
     "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
-    "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
+    "status", "memory", "benchmark", "adapters", "targets", "go", "plan", "desktop-plugin"
   ]);
   if (telemetryCommands.has(command)) {
     await sendTelemetry(buildTelemetryPayload(command, args, exitCode, errorName));
