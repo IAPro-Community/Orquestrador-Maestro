@@ -17,8 +17,7 @@ const { resolveGitContext } = require(path.join(rootDir, "orquestrador", "lib", 
 const workflowState = require(path.join(rootDir, "orquestrador", "bin", "workflow-state.js"));
 const { Memory } = require(path.join(rootDir, "orquestrador", "bin", "memory.js"));
 const { MaestroApplication } = require(path.join(rootDir, "runtime", "application"));
-const { createBridge, createStdioServer, startSocketRuntime } = require(path.join(rootDir, "runtime", "bridge"));
-const { createProtocolV2Server } = require(path.join(rootDir, "runtime", "protocol", "protocol-v2"));
+const { createBridge, createStdioServer } = require(path.join(rootDir, "runtime", "bridge"));
 const { resolveMaestroRoot } = require(path.join(rootDir, "runtime", "config", "maestro-paths"));
 const { loadGovernanceConfig, writeGovernanceConfig } = require(path.join(rootDir, "runtime", "governance", "compatibility"));
 const { loadInteractionCatalog, resolveInteractionProfile, setInteractionProfile, resetInteractionProfile } = require(path.join(rootDir, "runtime", "interaction"));
@@ -105,18 +104,12 @@ Uso:
   orquestrador-maestro mission create [--project-path PATH] "objetivo"
   orquestrador-maestro mission show <id> [--project-path PATH]
   orquestrador-maestro terminal list [--project-path PATH]
-  orquestrador-maestro terminals [--project-path PATH]
-  orquestrador-maestro terminal agent <codex|claude|opencode|agy> [--project-path PATH]
-  orquestrador-maestro terminal shell [--project-path PATH] -- <comando> [argumentos]
-  orquestrador-maestro terminal attach <id> [--project-path PATH]
-  orquestrador-maestro terminal close <id> [--project-path PATH]
   orquestrador-maestro terminal start [--project-path PATH] -- <comando> [argumentos]
   orquestrador-maestro terminal stop <id> [--project-path PATH]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
-  orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
   orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
@@ -790,12 +783,10 @@ async function createRuntimeApplication(projectPath) {
   const { AttentionQueue } = require(path.join(rootDir, "runtime", "attention", "attention-queue"));
   const { AttentionProducers } = require(path.join(rootDir, "runtime", "attention", "attention-producers"));
   const { TaskGraphPersistence } = require(path.join(rootDir, "runtime", "planner", "task-graph-persistence"));
-  const { RunTerminalBridge } = require(path.join(rootDir, "runtime", "runs", "run-terminal-bridge"));
   const project = await app.inspectProject({ projectPath: app.projectRoot });
   app.attention = new AttentionQueue({ store: app.store, record: (type, data) => app.record(null, type, data) });
   app.attentionProducers = new AttentionProducers({ queue: app.attention, projectId: project.id });
   app.taskGraphs = new TaskGraphPersistence({ store: app.store });
-  app.runTerminals = new RunTerminalBridge({ app, store: app.store, terminals: app.terminals, terminalSessions: app.terminalSessions, graphs: app.taskGraphs });
   return app;
 }
 
@@ -1032,39 +1023,16 @@ async function handleTerminalCommand(args) {
   if (subcommand === "list") {
     const options = parseRuntimeArgs(rest, ["--project-path"]);
     if (options.values.length) throw new Error("Uso: maestro terminal list [--project-path PATH]");
-    const app = await createRuntimeApplication(options.projectPath);
-    const project = await app.inspectProject({ projectPath: options.projectPath });
-    console.log(JSON.stringify(await app.listTerminalSessions({ projectId: project.id }), null, 2)); return 0;
-  }
-  if (subcommand === "agent" || subcommand === "shell") {
-    const separator = rest.indexOf("--");
-    const options = parseRuntimeArgs(separator === -1 ? rest : rest.slice(0, separator), ["--project-path"]);
-    const values = options.values;
-    if (subcommand === "agent") {
-      const providerId = values[0];
-      if (!providerId || values.length !== 1 || separator !== -1) throw new Error("Uso: maestro terminal agent <codex|claude|opencode|agy> [--project-path PATH]");
-      const session = await (await createRuntimeApplication(options.projectPath)).createTerminalSession({ workspacePath: options.projectPath, kind: "agent", providerId, backend: "pty" });
-      console.log(JSON.stringify(session, null, 2)); return 0;
-    }
-    if (separator === -1 || separator === rest.length - 1 || values.length) throw new Error("Uso: maestro terminal shell [--project-path PATH] -- <comando> [argumentos]");
-    const [command, ...commandArgs] = rest.slice(separator + 1);
-    const session = await (await createRuntimeApplication(options.projectPath)).createTerminalSession({ workspacePath: options.projectPath, kind: "shell", command, args: commandArgs, backend: "pty" });
-    console.log(JSON.stringify(session, null, 2)); return 0;
-  }
-  if (subcommand === "attach" || subcommand === "close") {
-    const options = parseRuntimeArgs(rest, ["--project-path"]); const terminalId = options.values[0];
-    if (!terminalId || options.values.length !== 1) throw new Error(`Uso: maestro terminal ${subcommand} <id> [--project-path PATH]`);
-    const app = await createRuntimeApplication(options.projectPath);
-    const successful = subcommand === "attach" ? await app.attachTerminalSession(terminalId) : await app.closeTerminalSession(terminalId);
-    if (!successful) throw new Error(`Sessão não encontrada ou não está disponível: ${terminalId}`);
-    if (subcommand === "close") console.log(`Sessão encerrada: ${terminalId}.`);
+    console.log(JSON.stringify(await (await createRuntimeApplication(options.projectPath)).listTerminals({ projectPath: options.projectPath }), null, 2));
     return 0;
   }
   if (subcommand === "stop") {
-    const options = parseRuntimeArgs(rest, ["--project-path"]); const terminalId = options.values[0];
+    const options = parseRuntimeArgs(rest, ["--project-path"]);
+    const terminalId = options.values[0];
     if (!terminalId || options.values.length !== 1) throw new Error("Uso: maestro terminal stop <id> [--project-path PATH]");
     if (!await (await createRuntimeApplication(options.projectPath)).stopTerminal(terminalId)) throw new Error(`Terminal ativo nao encontrado: ${terminalId}`);
-    console.log(`Encerramento solicitado para ${terminalId}.`); return 0;
+    console.log(`Encerramento solicitado para ${terminalId}.`);
+    return 0;
   }
   if (subcommand === "start") {
     const separator = rest.indexOf("--");
@@ -1076,26 +1044,10 @@ async function handleTerminalCommand(args) {
     const terminal = await app.startTerminal({ workspacePath: options.projectPath, command, args: commandArgs });
     console.log(`Comando gerenciado iniciado: ${terminal.id}. Aguarde a conclusão.`);
     const completed = await app.waitTerminal(terminal.id);
-    console.log(JSON.stringify(completed, null, 2)); return completed?.status === "completed" ? 0 : 1;
+    console.log(JSON.stringify(completed, null, 2));
+    return completed?.status === "completed" ? 0 : 1;
   }
-  throw new Error("Uso: maestro terminal <list|agent|shell|attach|close|start|stop>");
-}
-
-async function handleTerminalsCommand(args) {
-  const options = parseRuntimeArgs(args, ["--project-path"]);
-  if (options.values.length) throw new Error("Uso: maestro terminals [--project-path PATH]");
-  const app = await createRuntimeApplication(options.projectPath);
-  const project = await app.inspectProject({ projectPath: options.projectPath });
-  console.log(JSON.stringify(await app.listTerminalSessions({ projectId: project.id }), null, 2));
-  return 0;
-}
-
-function createRuntimeBridge(app, projectRoot) {
-  return createBridge({ projectRoot, services: {
-    projectInspector: { inspect: (params) => app.inspectProject(params) }, skillRegistry: app.skills,
-    providerRegistry: { list: () => app.listProviders() }, runtime: app,
-    runStore: { listRuns: (filters) => app.listRuns(filters), getRun: (id) => app.getRun(id), listArtifacts: (filters) => app.listArtifacts(filters), getArtifact: (id) => app.getArtifact(id), getVerification: (runId) => app.getVerification(runId) }
-  } });
+  throw new Error("Uso: maestro terminal <list|start|stop>");
 }
 
 async function handleSkillsCommand(args) {
@@ -1142,22 +1094,6 @@ async function handleBridgeCommand(args) {
   } });
   createStdioServer(bridge);
   return new Promise(() => {});
-}
-
-async function handleRuntimeCommand(args) {
-  const options = parseRuntimeArgs(args, ["--project-path"]);
-  if (options.values.length) throw new Error("Uso: maestro runtime [--project-path PATH]");
-  const app = await createRuntimeApplication(options.projectPath);
-  const bridge = createRuntimeBridge(app, options.projectPath);
-  const protocolV2 = createProtocolV2Server({ runtime: app, store: app.store, serverInfo: { name: "maestro-runtime", projectRoot: path.resolve(options.projectPath) } });
-  const runtime = startSocketRuntime(bridge, { projectRoot: options.projectPath, protocolV2 });
-  await runtime.ready;
-  console.log(`Runtime Maestro ativo em ${runtime.paths.socketPath}`);
-  return new Promise((resolve) => {
-    let closing = false;
-    const close = async () => { if (closing) return; closing = true; protocolV2.close(); await runtime.close(); resolve(0); };
-    process.once("SIGINT", close); process.once("SIGTERM", close);
-  });
 }
 
 function getTelemetryConfigPath() {
@@ -2817,12 +2753,10 @@ async function dispatch(command, args) {
   if (command === "missions") return handleMissionsCommand(args);
   if (command === "mission") return handleMissionCommand(args);
   if (command === "terminal") return handleTerminalCommand(args);
-  if (command === "terminals") return handleTerminalsCommand(args);
   if (command === "skills") return handleSkillsCommand(args);
   if (command === "skill-catalog") return handleSkillCatalogCommand(args);
   if (command === "providers") return handleProvidersCommand(args);
   if (command === "bridge") return handleBridgeCommand(args);
-  if (command === "runtime") return handleRuntimeCommand(args);
   if (command === "governance") return handleGovernanceCommand(args);
   if (command === "interaction") return handleInteractionCommand(args);
   if (command === "status") return handleStatusCommand(args);
@@ -2875,8 +2809,8 @@ async function main() {
   const telemetryCommands = new Set([
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
-    "runs", "usage", "projects", "project", "missions", "mission", "terminal", "terminals",
-    "skills", "skill-catalog", "providers", "bridge", "runtime", "governance", "interaction",
+    "runs", "usage", "projects", "project", "missions", "mission", "terminal",
+    "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan"
   ]);
   if (telemetryCommands.has(command)) {
