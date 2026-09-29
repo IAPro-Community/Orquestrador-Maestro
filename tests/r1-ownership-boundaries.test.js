@@ -12,11 +12,11 @@ test("ownership map covers every persistent mutation and is deeply frozen", () =
   const covered = new Set(OWNERSHIP_MAP.canonicalWriters.flatMap((entry) => entry.storeMethods));
   assert.deepEqual(storeMutations.filter((method) => !covered.has(method)), []);
   assert.ok(Object.isFrozen(OWNERSHIP_MAP));
-  assert.ok(OWNERSHIP_MAP.readOnlyConsumers.includes("runtime/tui/*"));
+  assert.ok(OWNERSHIP_MAP.readOnlyConsumers.includes("bin/orquestrador-maestro.js (read paths)"));
 });
 
-test("TUI and bin do not instantiate or mutate the run store directly", () => {
-  const files = ["runtime/tui/index.js", "runtime/tui/opentui.ts", "bin/orquestrador-maestro.js"];
+test("bin does not instantiate or mutate the run store directly", () => {
+  const files = ["bin/orquestrador-maestro.js"];
   const forbidden = /JsonFileRunStore|new\s+RunStore|\.store\.(?:create|save|append)[A-Z]|appendEvent\s*\(/;
   for (const relative of files) {
     const source = fs.readFileSync(path.join(__dirname, "..", relative), "utf8");

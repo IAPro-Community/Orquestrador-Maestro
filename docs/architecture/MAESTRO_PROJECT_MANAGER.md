@@ -1,8 +1,7 @@
 # Maestro Project Manager
 
-> Status: Historical (parcialmente superseded) — referências a tmux persistente
-> e TUI sem dependências conflitam com `MAESTRO_COCKPIT.md` (pty-primary).
-> Vale como contexto histórico; o estado atual está em `MAESTRO_COCKPIT.md`.
+> Status: Historical (parcialmente superseded) — a antiga superfície TUI não faz
+> parte da linha V1 beta. O estado atual de runtime está em `MAESTRO_RUNTIME.md`.
 
 O Project Manager é uma camada opcional sobre o Runtime. Ele não altera `DEV/`, instalações, sincronização de Skills nem comandos legados.
 
@@ -14,12 +13,11 @@ maestro project add /caminho/do/projeto
 maestro project show <project-id>
 maestro runs --project-path /caminho/do/projeto
 maestro run inspect <run-id>
-maestro tui --project-path /caminho/do/projeto
 ```
 
 O estado do projeto é evidencial: `healthy` requer o último Run concluído e Git limpo; `changes_detected` relata alterações no Git; `verification_failed` vem de uma verificação real falha; `needs_attention` vem de um Run falho; `running` vem de um Run ativo; `idle` indica que ainda não há Run conhecido.
 
-O TUI é intencionalmente leve e sem dependências. Ele é um cliente do `MaestroApplication`, não duplica execução, descoberta de Skills ou persistência.
+O cliente TUI descrito nesta seção pertence a uma superfície histórica e não é empacotado na linha V1 beta. O runtime atual permanece responsável por execução, descoberta de skills e persistência.
 
 ## Sessões nativas de terminal
 

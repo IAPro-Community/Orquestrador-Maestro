@@ -1,10 +1,10 @@
 # Plano V1 — Context & Skill Intelligence
 
-> **Status:** implementação ativa — `1.0.0-alpha.1`  
-> **Branch:** `feature/upstream-consolidated-v1`  
+> **Status:** implementação ativa — `1.0.0-beta.2`
+> **Branch:** `release/1.0.0-beta`
 > **Base:** `IAPro-Community/Orquestrador-Maestro:main` após PR #23 / release `0.5.0` (`09e7bf70306bac7dd9238089a0d845d05427bc64`)  
 > **Target:** `1.0.0`  
-> **Última atualização:** 2026-09-22
+> **Última atualização:** 2026-09-29
 
 ## 1. Objetivo da V1
 
@@ -86,7 +86,7 @@ Estratégia:
 ```text
 0.5.0 / PR #23
       ↓
-1.0.0-alpha.1  ← linha atual
+1.0.0-beta.2  ← candidato local atual
       ↓
 1.0.0-alpha.*
       ↓
@@ -797,13 +797,13 @@ Formatos internos de cache e índices podem evoluir se forem versionados, migrá
 
 ## 5.8 Estado atual do Foundation
 
-No `1.0.0-alpha.1`:
+Na linha `1.0.0-beta.2`:
 
 - manifesto canônico: V3;
 - Skill Contract: V2;
-- skills Maestro canônicas: 53;
+- skills Maestro canônicas: 56;
 - Maestro Core: 15;
-- Maestro Domain: 38;
+- Maestro Domain: 41;
 - `skill-engineering-quality`: Core multi-stack para discovery e aplicação por delta de formatter, lint/static analysis, typecheck/compile, testes, build e CI;
 - skills Maestro não nativas: 0;
 - IDs públicos conflitantes: 0;

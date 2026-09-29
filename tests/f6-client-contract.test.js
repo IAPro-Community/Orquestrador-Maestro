@@ -13,8 +13,8 @@ test("both transports expose the same TUI-facing contract", () => {
   const error = new MaestroClientError("invalid_payload"); assert.equal(error.reason, "invalid_payload");
 });
 
-test("integration hot files remain independent from the new protocol modules", () => {
-  for (const file of ["runtime/tui/index.js", "runtime/tui/opentui.ts", "bin/orquestrador-maestro.js"]) {
+test("CLI integration hot file remains independent from the new protocol modules", () => {
+  for (const file of ["bin/orquestrador-maestro.js"]) {
     const contents = fs.readFileSync(file, "utf8");
     assert.doesNotMatch(contents, /runtime\/(?:client|protocol|events)\//, file);
   }

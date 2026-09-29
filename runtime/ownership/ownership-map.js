@@ -26,7 +26,6 @@ const OWNERSHIP_MAP = deepFreeze({
     "runtime/bridge/bridge.js",
     "runtime/bridge/socket-client.js",
     "runtime/bridge/stdio-server.js",
-    "runtime/tui/*",
     "bin/orquestrador-maestro.js (read paths)",
     "runtime/git/monitor.js",
     "runtime/inspector/*"
@@ -34,7 +33,6 @@ const OWNERSHIP_MAP = deepFreeze({
   hotFiles: [
     "bin/orquestrador-maestro.js",
     "runtime/application/maestro-application.js",
-    "runtime/tui/*",
     "runtime/planner/index.js",
     "runtime/providers/index.js",
     "runtime/terminals/index.js",

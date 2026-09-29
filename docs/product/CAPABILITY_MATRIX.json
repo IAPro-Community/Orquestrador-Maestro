@@ -3,7 +3,7 @@
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "1.0.0-alpha.1",
+    "packageVersion": "1.0.0-beta.2",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": [
@@ -261,7 +261,7 @@
         "runtime/terminals/__tests__/terminal-durable-privacy.test.js"
       ],
       "documentation": [
-        "docs/architecture/MAESTRO_COCKPIT.md"
+        "docs/architecture/MAESTRO_RUNTIME.md"
       ],
       "publicClaimAllowed": true,
       "notes": "Limitações: node-pty opcional (PTY_UNAVAILABLE); output integral só em memória; store recebe só metadados sanitizados."
@@ -368,45 +368,6 @@
       ],
       "publicClaimAllowed": true,
       "notes": "v1 JSON-RPC sobre stdio coexiste com protocolo v2 de eventos; doc da API cobre v1 e omite métodos v2 (divergência registrada)."
-    },
-    {
-      "id": "cockpit-tui",
-      "name": "Cockpit TUI local",
-      "category": "cockpit",
-      "status": "stable",
-      "surface": "cockpit",
-      "implementationEvidence": [
-        "runtime/tui/views/cockpit-view.ts",
-        "runtime/tui/views/cockpit-model.ts",
-        "runtime/attention/"
-      ],
-      "testEvidence": [
-        "runtime/tui/__tests__/tui-cockpit.test.ts"
-      ],
-      "documentation": [
-        "docs/architecture/MAESTRO_COCKPIT.md",
-        "docs/product/PRODUCT_SPEC.md"
-      ],
-      "publicClaimAllowed": true,
-      "notes": "4 layouts por largura; 5 seções canônicas. Cockpit é uma superfície do produto, não o produto inteiro. Polish responsivo em evolução."
-    },
-    {
-      "id": "vscode-client",
-      "name": "Cliente VS Code",
-      "category": "cockpit",
-      "status": "stable",
-      "surface": "cockpit",
-      "implementationEvidence": [
-        "extensions/vscode-maestro/extension.js (BridgeClient sobre bridge --stdio)"
-      ],
-      "testEvidence": [
-        "runtime/bridge/__tests__/bridge.test.js (cobertura indireta)"
-      ],
-      "documentation": [
-        "docs/architecture/MAESTRO_VSCODE_EXTENSION.md"
-      ],
-      "publicClaimAllowed": true,
-      "notes": "Cliente puro: sem discovery/execução/store próprios; sem streaming/approvals em v1."
     },
     {
       "id": "resolution-engine",

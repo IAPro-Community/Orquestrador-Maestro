@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.2 - 2026-09-29
+
+### Repository and portal consolidation
+
+- **Portal:** incorpora o portal React/Docusaurus publicado na `main`, incluindo documentação, simulador de roteamento, catálogo de skills e páginas de arquitetura.
+- **Experiência visual:** incorpora o redesign editorial do branch `feat/site-visual-redesign-v2`, com navegação simplificada, showcase de skills como produto e identidade visual Maestro.
+- **Base V1:** preserva o Router v3, a integração com Codex Desktop/ChatGPT Work e a remoção das superfícies abandonadas do CLI/TUI.
+- **Origem:** candidato local montado a partir de `release/1.0.0-beta`, `main` e `feat/site-visual-redesign-v2`; ainda não publicado nem enviado ao GitHub.
+
 ## Unreleased
 
 ### OpenAI Desktop integration

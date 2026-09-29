@@ -7,39 +7,21 @@ import RouterSimulator from '@site/src/components/RouterSimulator';
 import SkillSearchShowcase from '@site/src/components/SkillSearchShowcase';
 
 const flow = [
-  ['Observe','Entenda o pedido, as regras e o estado atual.'],
-  ['Route','Encontre a skill principal pela evidência mais específica.'],
-  ['Select','Carregue contexto, dependências e capacidades necessárias.'],
-  ['Act','Execute dentro do escopo, risco e autorização disponíveis.'],
-  ['Verify','Valide resultado, invariantes e critérios de aceite.'],
-  ['Report','Registre evidência e estado útil para a próxima sessão.']
+  ['01','Observe','Pedido, regras e estado atual entram primeiro.'],
+  ['02','Route','A intenção encontra a skill pela evidência mais específica.'],
+  ['03','Select','Só o contexto necessário é carregado.'],
+  ['04','Act','A execução respeita escopo, risco e autorização.'],
+  ['05','Verify','Resultado, invariantes e aceite são verificados.'],
+  ['06','Report','Evidência e estado útil ficam para a próxima sessão.']
 ];
 
-const withoutMaestro = [
-  'A IA decide sozinha o que ler.',
-  'O contexto cresce sem critério.',
-  '“Pronto” pode ser apenas uma afirmação.',
-  'Cada ferramenta cria seu próprio ritual.'
-];
-
-const withMaestro = [
-  'Começa pelas regras, pelo estado e pela skill certa.',
-  'Lê o mínimo suficiente e aprofunda sob demanda.',
-  'Verificação e handoff fazem parte do trabalho.',
-  'O processo se mantém entre ferramentas e sessões.'
-];
-
-const tools = [
-  'Codex','Claude Code','OpenCode','Freebuff','Cursor','Gemini CLI',
-  'Grok CLI','MiMo Code','Kimi Code','Windsurf','Antigravity'
-];
+const tools = ['Codex','Claude Code','OpenCode','Cursor','Gemini CLI','Grok CLI','Windsurf','Antigravity'];
 
 const faq = [
   ['O Maestro é outro modelo de IA?','Não. Ele organiza regras, contexto, skills, execução, verificação e handoff entre ferramentas de IA existentes.'],
-  ['As skills do site são cadastradas manualmente?','Não. O catálogo público é gerado dos manifests, aliases, chains e documentação versionados no repositório.'],
-  ['O simulador executa uma tarefa real?','Não. No navegador ele reproduz apenas a decisão pública do roteador. Execução, workspace, providers e skills locais continuam no runtime do usuário.'],
-  ['Existe uma promessa fixa de economia de tokens?','Não. O projeto documenta um benchmark reproduzível e só permite claims quando a evidência passa pelo evidence gate.'],
-  ['A documentação do site pode ficar diferente do repositório?','O portal é Markdown-first: a documentação é renderizada a partir dos arquivos do próprio repositório em cada build.']
+  ['As skills são cadastradas no site?','Não. O catálogo é reconstruído dos manifests, aliases, chains e documentação versionados no repositório.'],
+  ['O simulador executa tarefas reais?','Não. No navegador ele demonstra a decisão pública do roteador. Execução, providers e workspace continuam no runtime local.'],
+  ['Existe uma promessa fixa de economia de tokens?','Não. Claims só podem ser publicados quando passam pelo evidence gate documentado pelo projeto.']
 ];
 
 export default function Home(){
@@ -55,223 +37,201 @@ export default function Home(){
   };
 
   return <Layout
-    title="Orquestração inteligente de agentes de IA"
-    description="O Orquestrador Maestro organiza contexto, roteia skills, coordena execução e exige evidência antes da conclusão."
+    title="Orquestração de agentes com contexto, skills e evidência"
+    description="O Orquestrador Maestro organiza o trabalho entre diferentes ferramentas de IA sem substituir o modelo que você já usa."
   >
     <Head>
-      <meta property="og:title" content="Orquestrador Maestro — menos contexto, mais controle"/>
-      <meta property="og:description" content="Um processo consistente para agentes de IA: contexto mínimo, skill certa, execução com limites e verificação antes da conclusão."/>
+      <meta property="og:title" content="Orquestrador Maestro — você escolhe a IA, o Maestro organiza o trabalho"/>
+      <meta property="og:description" content="Contexto mínimo, roteamento de skills, execução com limites e evidência antes de concluir."/>
       <meta property="og:image" content="https://iapro-community.github.io/Orquestrador-Maestro/img/orquestrador-maestro-logo.png"/>
       <meta name="twitter:card" content="summary_large_image"/>
       <script type="application/ld+json">{JSON.stringify(softwareJsonLd)}</script>
     </Head>
 
-    <main>
-      <section className="hero" id="inicio">
-        <div className="hero-grid-bg" aria-hidden="true"/>
-        <div className="hero-ambient hero-ambient-a" aria-hidden="true"/>
-        <div className="hero-ambient hero-ambient-b" aria-hidden="true"/>
+    <main className="marketing-v2">
+      <section className="v2-hero">
+        <div className="v2-grid" aria-hidden="true"/>
+        <div className="shell v2-hero-layout">
+          <div className="v2-hero-copy">
+            <div className="v2-kicker"><span></span> ORQUESTRAÇÃO LOCAL-FIRST PARA AGENTES DE IA</div>
+            <h1><span>Menos contexto.</span><strong>Mais controle.</strong></h1>
+            <p>Você continua escolhendo a IA. O Maestro organiza o processo: entende a intenção, encontra a skill certa, limita o contexto e exige evidência antes de considerar o trabalho concluído.</p>
 
-        <div className="shell hero-grid">
-          <div className="hero-copy">
-            <span className="eyebrow">ORQUESTRAÇÃO PARA AGENTES DE IA</span>
-            <h1><span>Menos contexto.</span><em>Mais controle.</em></h1>
-            <p className="hero-lede">Um processo consistente para entender o pedido, carregar só o contexto necessário, encontrar a skill adequada, executar com limites e verificar o resultado antes de concluir.</p>
-
-            <div className="actions hero-actions">
-              <Link className="btn primary" to="/simulador">Experimentar o roteador</Link>
-              <Link className="btn" to="/como-funciona">Entender o processo</Link>
+            <div className="v2-actions">
+              <Link className="v2-button v2-button-primary" to="/simulador">Experimentar o roteador</Link>
+              <Link className="v2-button v2-button-quiet" to="/docs/START-HERE/">Começar em 10 minutos</Link>
             </div>
 
-            <div className="hero-proof" aria-label="Dados gerados do repositório">
-              <div><strong>{data.skills.length}</strong><span>skills indexadas</span></div>
-              <div><strong>v{data.router.version}</strong><span>roteador público</span></div>
-              <div><strong>{data.benchmark.scenarioCount}</strong><span>cenários versionados</span></div>
+            <div className="v2-proof" aria-label="Dados atuais do repositório">
+              <div><b>{data.skills.length}</b><span>skills indexadas</span></div>
+              <div><b>v{data.router.version}</b><span>roteador público</span></div>
+              <div><b>{data.benchmark.scenarioCount}</b><span>cenários de benchmark</span></div>
             </div>
           </div>
 
-          <div className="maestro-visual" aria-label="Identidade oficial do Orquestrador Maestro">
-            <div className="visual-kicker">CONTEXT · SKILLS · EVIDENCE</div>
-            <div className="orbit orbit-a" aria-hidden="true"/>
-            <div className="orbit orbit-b" aria-hidden="true"/>
-            <div className="signal-node node-a" aria-hidden="true">01</div>
-            <div className="signal-node node-b" aria-hidden="true">02</div>
-            <div className="signal-node node-c" aria-hidden="true">03</div>
-            <img src="/Orquestrador-Maestro/img/orquestrador-maestro-logo.png" alt="Logo oficial do Orquestrador Maestro"/>
-            <div className="visual-caption">
-              <span>Observe</span><span>Route</span><span>Select</span><span>Verify</span>
+          <div className="v2-stage" aria-label="Representação da identidade oficial do Maestro">
+            <div className="v2-stage-label">MAESTRO / CONTROL PLANE</div>
+            <div className="v2-route-line v2-route-line-a" aria-hidden="true"/>
+            <div className="v2-route-line v2-route-line-b" aria-hidden="true"/>
+            <div className="v2-route-line v2-route-line-c" aria-hidden="true"/>
+            <div className="v2-node v2-node-intent"><small>01</small><span>INTENT</span></div>
+            <div className="v2-node v2-node-skill"><small>02</small><span>SKILL</span></div>
+            <div className="v2-node v2-node-proof"><small>03</small><span>EVIDENCE</span></div>
+            <div className="v2-brand-seal">
+              <img src="/Orquestrador-Maestro/img/orquestrador-maestro-logo.png" alt="Logo oficial do Orquestrador Maestro"/>
+            </div>
+            <div className="v2-stage-footer">
+              <span>Observe</span><i>→</i><span>Route</span><i>→</i><span>Verify</span>
             </div>
           </div>
         </div>
 
-        <div className="shell tool-marquee" aria-label="Ferramentas documentadas">
-          <span>FUNCIONA COM</span>
+        <div className="shell v2-tools">
+          <span>UMA CAMADA PARA O PROCESSO, NÃO PARA O MODELO</span>
           <div>{tools.map(tool=><b key={tool}>{tool}</b>)}</div>
         </div>
       </section>
 
-      <section className="shell section">
-        <div className="section-head">
+      <section className="v2-manifesto">
+        <div className="shell v2-manifesto-grid">
+          <div className="v2-section-index">01 / POSICIONAMENTO</div>
           <div>
-            <span className="eyebrow">UM MÉTODO, NÃO OUTRO CHAT</span>
-            <h2>Do pedido à evidência.</h2>
+            <p className="v2-big-copy">Agentes diferentes podem usar o <em>mesmo método de trabalho</em> sem reconstruir contexto e ritual a cada ferramenta.</p>
           </div>
-          <p>O Maestro não substitui Codex, Claude, OpenCode, Cursor, Gemini ou outra ferramenta. Ele organiza o caminho que todas elas podem seguir.</p>
+          <div className="v2-manifesto-aside">
+            <span>SEM MAESTRO</span>
+            <p>Contexto cresce sem critério. Cada cliente cria seu próprio fluxo. “Pronto” pode significar apenas uma afirmação.</p>
+            <span>COM MAESTRO</span>
+            <p>Regras, estado, skill, verificação e handoff fazem parte do mesmo contrato operacional.</p>
+          </div>
         </div>
-
-        <ol className="process-flow">
-          {flow.map(([title,description],i)=><li key={title}>
-            <span>{String(i+1).padStart(2,'0')}</span>
-            <h3>{title}</h3>
-            <p>{description}</p>
-          </li>)}
-        </ol>
       </section>
 
-      <section className="section contrast-section">
+      <section className="v2-process">
         <div className="shell">
-          <div className="section-head">
+          <div className="v2-section-head">
             <div>
-              <span className="eyebrow">O QUE MUDA NA PRÁTICA</span>
-              <h2>O mesmo agente. Um processo mais previsível.</h2>
+              <div className="v2-section-index">02 / PROCESSO</div>
+              <h2>Do pedido à evidência.</h2>
             </div>
-            <p>Esta comparação vem da documentação oficial do projeto. Ela descreve o processo; não transforma hipótese em métrica.</p>
+            <p>Seis etapas simples, persistentes entre ferramentas e sessões.</p>
           </div>
 
-          <div className="comparison-grid marketing-comparison">
-            <article>
-              <small>SEM ORQUESTRAÇÃO</small>
-              <ul>{withoutMaestro.map(item=><li key={item}>{item}</li>)}</ul>
-            </article>
-            <article className="comparison-positive">
-              <small>COM ORQUESTRADOR MAESTRO</small>
-              <ul>{withMaestro.map(item=><li key={item}>{item}</li>)}</ul>
-            </article>
+          <div className="v2-process-list">
+            {flow.map(([number,title,description])=><article key={title}>
+              <span>{number}</span>
+              <div><h3>{title}</h3><p>{description}</p></div>
+            </article>)}
           </div>
         </div>
       </section>
 
-      <section className="shell section" id="simulacao">
-        <div className="section-head">
-          <div>
-            <span className="eyebrow">SIMULAÇÃO FIEL AO ROTEADOR</span>
-            <h2>Veja a decisão e a evidência que levou até ela.</h2>
-          </div>
-          <p>O CI do site possui teste de paridade contra <code>runtime/planner/intent-router.js</code>. A demonstração usa aliases, triggers, capabilities e chains versionados.</p>
-        </div>
-        <RouterSimulator/>
-        <div className="section-actions split-actions">
-          <Link className="btn primary" to="/simulador">Abrir simulador completo</Link>
-          <Link className="btn" to="/arquitetura">Ver arquitetura</Link>
-        </div>
-      </section>
-
-      <section className="section skill-marketing-section">
+      <section className="v2-router-section">
         <div className="shell">
-          <div className="section-head">
+          <div className="v2-section-head">
             <div>
-              <span className="eyebrow">SKILLS DINÂMICAS</span>
-              <h2>Pesquise o catálogo que o Maestro realmente conhece.</h2>
+              <div className="v2-section-index">03 / ROTEAMENTO</div>
+              <h2>Veja por que uma skill foi escolhida.</h2>
             </div>
-            <p>Não existe uma lista de marketing separada. O que aparece aqui é reconstruído no build a partir das fontes canônicas do repositório.</p>
+            <p>O simulador usa as mesmas fontes versionadas do repositório e expõe a evidência que determinou a rota.</p>
+          </div>
+
+          <div className="v2-product-shell">
+            <div className="v2-product-bar">
+              <div><i></i><i></i><i></i></div>
+              <span>maestro / intent-router</span>
+              <b>routing v{data.router.version}</b>
+            </div>
+            <RouterSimulator/>
+          </div>
+
+          <div className="v2-inline-links">
+            <Link to="/simulador">Abrir simulador completo <span>↗</span></Link>
+            <Link to="/arquitetura">Entender a arquitetura <span>↗</span></Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="v2-skills-section">
+        <div className="shell">
+          <div className="v2-section-head">
+            <div>
+              <div className="v2-section-index">04 / SKILLS</div>
+              <h2>Um catálogo que nasce do código.</h2>
+            </div>
+            <p>Não existe catálogo paralelo de marketing. O que aparece aqui é reconstruído dos manifests e da documentação a cada build.</p>
           </div>
           <SkillSearchShowcase/>
         </div>
       </section>
 
-      <section className="shell section">
-        <div className="evidence-panel evidence-panel-marketing">
-          <div>
-            <span className="eyebrow">BENCHMARK REPRODUZÍVEL</span>
-            <h2>Números só viram claim quando existe evidência.</h2>
-            <p>O harness compara condições com o mesmo cenário, modelo e critérios de aceitação. Execução real, isolamento, tokens confiáveis e validação aprovada fazem parte do evidence gate.</p>
-            <div className="actions">
-              <Link className="btn primary" to="/benchmark">Explorar benchmark</Link>
-              <Link className="btn" to="/docs/benchmark/">Ler metodologia</Link>
+      <section className="v2-evidence">
+        <div className="shell v2-evidence-layout">
+          <div className="v2-evidence-copy">
+            <div className="v2-section-index">05 / EVIDÊNCIA</div>
+            <h2>Resultado antes de promessa.</h2>
+            <p>O benchmark só sustenta claims públicos quando execução, isolamento, tokens confiáveis e validação passam pelo evidence gate.</p>
+            <div className="v2-inline-links">
+              <Link to="/benchmark">Ver benchmark <span>↗</span></Link>
+              <Link to="/docs/benchmark/">Ler metodologia <span>↗</span></Link>
             </div>
           </div>
-          <div className="evidence-facts">
-            <div><strong>{data.benchmark.scenarioCount}</strong><span>cenários versionados</span></div>
-            <div><strong>3</strong><span>condições documentadas</span></div>
-            <div><strong>≥5</strong><span>runs para claims de significância</span></div>
+          <div className="v2-evidence-numbers">
+            <div><b>{data.benchmark.scenarioCount}</b><span>cenários versionados</span></div>
+            <div><b>3</b><span>condições documentadas</span></div>
+            <div><b>≥5</b><span>runs para claims de significância</span></div>
           </div>
         </div>
       </section>
 
-      <section className="section install-section">
-        <div className="shell install-grid">
+      <section className="v2-start">
+        <div className="shell v2-start-grid">
           <div>
-            <span className="eyebrow">COMECE EM MINUTOS</span>
-            <h2>Instale. Verifique. Use na ferramenta que você já escolheu.</h2>
-            <p>O fluxo documentado exige Node.js 20.19 ou superior no pacote atual.</p>
-            <div className="actions">
-              <Link className="btn primary" to="/docs/installation/">Guia de instalação</Link>
-              <Link className="btn" to="/docs/START-HERE/">Comece aqui</Link>
+            <div className="v2-section-index">06 / COMEÇAR</div>
+            <h2>Instale o Maestro.<br/>Mantenha sua IA.</h2>
+            <p>O pacote atual exige Node.js 20.19 ou superior.</p>
+            <div className="v2-actions">
+              <Link className="v2-button v2-button-primary" to="/docs/installation/">Guia de instalação</Link>
+              <Link className="v2-button v2-button-quiet" to="/documentation">Explorar documentação</Link>
             </div>
           </div>
-          <div className="install-terminal" aria-label="Comandos de instalação">
-            <div><i></i><i></i><i></i><span>terminal</span></div>
+          <div className="v2-terminal">
+            <header><span>TERMINAL</span><b>local-first</b></header>
             <pre><code>{`npm install -g @iapro/orquestrador-maestro-cli@latest
+
 orquestrador-maestro install
 orquestrador-maestro verify`}</code></pre>
           </div>
         </div>
       </section>
 
-      <section className="section privacy-section">
-        <div className="shell privacy-grid">
-          <div className="privacy-mark" aria-hidden="true">◎</div>
-          <div>
-            <span className="eyebrow">PRIVACIDADE POR PADRÃO</span>
-            <h2>Estrutura pública. Conteúdo privado continua local.</h2>
-            <p>O snapshot público é sanitizado. Credenciais, sessões, logs, caches, caminhos locais e memórias privadas ficam fora do repositório. A telemetria é opt-in.</p>
+      <section className="v2-faq">
+        <div className="shell">
+          <div className="v2-section-head">
+            <div>
+              <div className="v2-section-index">07 / DIRETO AO PONTO</div>
+              <h2>Sem esconder limites.</h2>
+            </div>
+            <p>Marketing bom deixa claro o que o produto faz — e o que ele não faz.</p>
           </div>
-          <Link className="btn" to="/docs/privacy-model/">Modelo de privacidade</Link>
-        </div>
-      </section>
-
-      <section className="shell section">
-        <div className="section-head">
-          <div>
-            <span className="eyebrow">PERGUNTAS DIRETAS</span>
-            <h2>Sem esconder as limitações.</h2>
-          </div>
-          <p>O site distingue claramente demonstração, runtime real e evidência publicável.</p>
-        </div>
-        <div className="faq-grid">
-          {faq.map(([q,a])=><details key={q}>
-            <summary>{q}</summary>
-            <p>{a}</p>
-          </details>)}
-        </div>
-      </section>
-
-      <section className="section docs-callout">
-        <div className="shell docs-callout-grid">
-          <div>
-            <span className="eyebrow">MARKDOWN FIRST</span>
-            <h2>Documentação e produto evoluem juntos.</h2>
-            <p>As páginas são renderizadas dos arquivos Markdown do repositório. Atualizou documentação, skills ou benchmark: o próximo build atualiza o portal.</p>
-          </div>
-          <div className="docs-links">
-            <Link to="/docs/START-HERE/">Comece aqui <span>→</span></Link>
-            <Link to="/skills">Portal de skills <span>→</span></Link>
-            <Link to="/benchmark">Benchmark <span>→</span></Link>
-            <Link to="/documentation">Toda a documentação <span>→</span></Link>
+          <div className="v2-faq-list">
+            {faq.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}
           </div>
         </div>
       </section>
 
-      <section className="final-cta">
-        <div className="shell final-cta-inner">
-          <img src="/Orquestrador-Maestro/img/orquestrador-maestro-logo.png" alt=""/>
-          <div>
-            <span className="eyebrow">OPEN SOURCE</span>
-            <h2>Você escolhe a IA.<br/>O Maestro organiza o trabalho.</h2>
+      <section className="v2-final">
+        <div className="shell v2-final-grid">
+          <div className="v2-final-brand">
+            <img src="/Orquestrador-Maestro/img/orquestrador-maestro-logo.png" alt=""/>
           </div>
-          <div className="actions">
-            <a className="btn primary" href="https://github.com/IAPro-Community/Orquestrador-Maestro">Ver no GitHub</a>
-            <Link className="btn" to="/docs/START-HERE/">Começar agora</Link>
+          <div>
+            <div className="v2-section-index">OPEN SOURCE</div>
+            <h2>Você escolhe a IA.<br/><span>O Maestro organiza o trabalho.</span></h2>
+          </div>
+          <div className="v2-actions">
+            <a className="v2-button v2-button-primary" href="https://github.com/IAPro-Community/Orquestrador-Maestro">Ver no GitHub</a>
+            <Link className="v2-button v2-button-quiet" to="/docs/START-HERE/">Começar agora</Link>
           </div>
         </div>
       </section>

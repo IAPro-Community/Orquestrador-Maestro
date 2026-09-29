@@ -1,11 +1,11 @@
-# Migração 0.4.x → 1.0.0-alpha
+# Migração 0.4.x → 1.0.0-beta
 
 A linha 1.0 introduz uma quebra deliberada no contrato das **skills canônicas do Maestro**. Para usuários do CLI, a atualização continua sendo versionada e autocontida: instale a nova versão e rode a verificação normal.
 
 ## Usuário do Maestro
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@1.0.0-alpha.1
+npm install -g @iapro/orquestrador-maestro-cli@1.0.0-beta.2
 orquestrador-maestro verify
 ```
 
