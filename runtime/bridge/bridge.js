@@ -28,7 +28,6 @@ function createBridge(options = {}) {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
-    "projects.dashboard": (params) => invokeCall(services.runtime, "dashboard", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
     "projects.register": (params) => invokeCall(services.runtime, "registerProject", params),
     "missions.list": (params) => invokeList(services.runtime, "listMissions", params),
@@ -51,29 +50,10 @@ function createBridge(options = {}) {
     "artifacts.list": (params) => invokeList(services.runStore, "listArtifacts", params),
     "artifacts.get": (params) => invokeGet(services.runStore, "getArtifact", params, "artifactId"),
     "verification.get": (params) => invokeGet(services.runStore, "getVerification", params, "runId"),
-    "terminals.list": (params) => invokeList(services.runtime, "listTerminalSessions", params),
-    "terminals.get": (params) => invokeGet(services.runtime, "getTerminalSession", params, "terminalId"),
-    "terminals.create": (params) => invokeCall(services.runtime, "createTerminalSession", params),
-    "terminals.attach": (params) => invokeCall(services.runtime, "attachTerminalSession", params, "terminalId"),
-    "terminals.close": (params) => invokeCall(services.runtime, "closeTerminalSession", params, "terminalId"),
-    "terminals.registerClient": (params) => invokeCall(services.runtime, "registerTerminalClient", params),
-    "terminals.updateClientStatus": (params) => invokeCall(services.runtime, "updateTerminalClientStatus", params),
-    "terminals.capabilities": () => invokeCall(services.runtime, "terminalCapabilities", {}),
     // Compatibilidade com o contrato inicial de comandos gerenciados.
     "terminals.start": (params) => invokeCall(services.runtime, "startTerminal", params),
     "terminals.stop": (params) => invokeCall(services.runtime, "stopTerminal", params, "terminalId"),
     "terminals.input": (params) => invokeTerminalInput(services.runtime, params),
-    "agentSessions.create": (params) => invokeCall(services.runtime, "createTerminalSession", { ...params, backend: "pty" }),
-    "agentSessions.list": (params) => invokeList(services.runtime, "listTerminalSessions", { ...params, backend: "pty" }),
-    "agentSessions.get": (params) => invokeGet(services.runtime, "getTerminalSession", params, "terminalId"),
-    "agentSessions.close": (params) => invokeCall(services.runtime, "closeTerminalSession", params, "terminalId"),
-    "agentSessions.input": (params) => invokeAgentInput(services.runtime, params),
-    "agentSessions.resize": (params) => invokeAgentResize(services.runtime, params),
-    "agentSessions.focus": (params) => invokeCall(services.runtime, "focusTerminalSession", params, "terminalId"),
-    "agentSessions.snapshot": (params) => invokeGet(services.runtime, "snapshotTerminalSession", params, "terminalId"),
-    "panes.list": (params) => invokeList(services.runtime, "listPanes", params),
-    "panes.updateLayout": (params) => invokePaneUpdate(services.runtime, params),
-    "panes.page": (params) => invokeList(services.runtime, "pagePanes", params),
     "events.subscribe": () => Object.freeze({ subscribed: true }),
     "approvals.respond": () => unsupported("Approvals are not available in protocol version 1")
   };
@@ -207,36 +187,10 @@ async function invokeCall(service, method, params, idName) {
 }
 
 async function invokeTerminalInput(service, params) {
-  if (service && typeof service.inputTerminalSession === "function") {
-    const session = await service.getTerminalSession?.(params.terminalId);
-    if (session?.backend === "pty") return service.inputTerminalSession(params.terminalId, params.input);
-  }
   requireNonEmptyString(params.terminalId, "terminalId");
   requireTerminalData(params.input, "input");
   if (!service || typeof service.sendTerminalInput !== "function") return unsupported("sendTerminalInput is unavailable");
   return service.sendTerminalInput(params.terminalId, params.input);
-}
-
-async function invokePaneUpdate(service, params) {
-  requireNonEmptyString(params.terminalId, "terminalId");
-  if (!service || typeof service.updatePane !== "function") return unsupported("updatePane is unavailable");
-  const patch = { ...params }; delete patch.terminalId;
-  return service.updatePane(params.terminalId, patch);
-}
-
-async function invokeAgentInput(service, params) {
-  requireNonEmptyString(params.terminalId, "terminalId");
-  const input = params.input ?? params.data;
-  requireTerminalData(input, "input");
-  if (!service || typeof service.inputTerminalSession !== "function") return unsupported("inputTerminalSession is unavailable");
-  return service.inputTerminalSession(params.terminalId, input);
-}
-
-async function invokeAgentResize(service, params) {
-  requireNonEmptyString(params.terminalId, "terminalId");
-  if (!Number.isInteger(params.columns) || !Number.isInteger(params.rows)) throw invalidParams("columns and rows must be integers");
-  if (!service || typeof service.resizeTerminalSession !== "function") return unsupported("resizeTerminalSession is unavailable");
-  return service.resizeTerminalSession(params.terminalId, params.columns, params.rows);
 }
 
 async function invokeRunCreate(service, params) {
