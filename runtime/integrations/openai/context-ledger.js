@@ -10,6 +10,7 @@ function stablePolicyShape({ mode, complexity, profile, selectedSkills, allowSub
     mode: String(mode || "optimize"),
     complexity: String(complexity || "STANDARD"),
     profile: String(profile || "standard"),
+    contextBudget: Number.isFinite(Number(arguments[0]?.contextBudget)) ? Number(arguments[0].contextBudget) : null,
     selectedSkills: [...new Set((selectedSkills || []).filter(Boolean))].sort(),
     allowSubagents: Boolean(allowSubagents)
   };
