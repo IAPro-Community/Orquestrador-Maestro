@@ -4,11 +4,11 @@
 
 Patch de compatibilidade de idioma para evitar troca involuntária da linguagem de resposta após a instalação do Maestro.
 
-- Adicionado contrato canônico de continuidade de idioma em `orquestrador/rules.md` e no `home/AGENTS.md` instalado.
+- O contrato canônico de continuidade de idioma fica somente em `orquestrador/rules.md`; `home/AGENTS.md` mantém apenas uma referência curta para evitar duplicação de contexto.
 - O idioma explícito do usuário tem precedência; sem pedido explícito, a resposta acompanha a última mensagem substantiva e preserva o idioma estabelecido da conversa.
 - Conteúdo em inglês de repositórios, documentação, código, logs, ferramentas, agentes delegados ou prompts internos deixa de ser sinal para trocar o idioma da resposta.
-- A skill nativa do Codex reforça o contrato e o sincronizador público reaplica o bloco caso uma exportação futura tente removê-lo.
-- Adicionado teste de regressão para garantir que os entrypoints críticos e o fluxo de sincronização mantenham a política.
+- O sincronizador público preserva a política completa em `rules.md` e a referência compacta em `AGENTS.md`.
+- Adicionado teste de regressão para impedir nova duplicação do contrato nos entrypoints.
 
 ## 0.5.0 - 2026-09-22
 
