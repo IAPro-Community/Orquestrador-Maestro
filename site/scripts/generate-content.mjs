@@ -53,7 +53,14 @@ function slugFor(relativePath) {
   if (normalized === 'README.md') return 'overview';
   if (normalized === 'README-technical-reference.md') return 'technical-reference';
   const noExt = normalized.replace(/\.md$/i, '').replace(/^docs\//, '');
-  return noExt.endsWith('/README') ? noExt.slice(0, -7) : noExt;
+  const parts = noExt.split('/');
+  const basename = parts.pop();
+  // Docusaurus removes numeric document prefixes from the generated route.
+  // Keep the search index and its links aligned with the actual doc routes.
+  const routeBasename = basename.replace(/^\d+[-_]/, '');
+  parts.push(routeBasename);
+  const route = parts.join('/');
+  return route.endsWith('/README') ? route.slice(0, -7) : route;
 }
 
 async function walkMarkdown(dir, prefix = '') {

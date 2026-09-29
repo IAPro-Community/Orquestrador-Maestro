@@ -4,7 +4,7 @@
 
 This harness lets you compare an AI workflow with and without Maestro under the same scenario, model, and acceptance criteria. It is a reproducible method, not a leaderboard and not proof that one result applies to every model or project.
 
-Use the [quick start](#quick-start) to run your own comparison. Read the [claims policy](#claims-policy) before publishing a number: the useful question is not “who wins forever?”, but “what happened under these recorded conditions?”
+Use the [quick start](#151-quick-start) to run your own comparison. Read the [claims policy](#14-claims-policy) before publishing a number: the useful question is not “who wins forever?”, but “what happened under these recorded conditions?”
 
 ---
 
@@ -494,8 +494,6 @@ Planned heuristics to detect gaming:
 
 ---
 
-<a id="claims-policy"></a>
-
 ## 14. Claims Policy
 
 This section defines what can and cannot be claimed based on benchmark results.
@@ -534,8 +532,6 @@ A claim must reference all of the following:
 ---
 
 ## 15. Reproducibility
-
-<a id="quick-start"></a>
 
 ### 15.1 Quick Start
 
