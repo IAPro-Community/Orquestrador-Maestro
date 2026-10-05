@@ -9,6 +9,22 @@ param(
 $ErrorActionPreference = "Stop"
 
 $issues = New-Object System.Collections.Generic.List[string]
+$profileScopeActive = $false
+$profileRoots = @()
+
+function Test-ProfilePath {
+  param([string]$Path)
+  if (-not $profileScopeActive) { return $true }
+  $candidate = [IO.Path]::GetFullPath($Path)
+  foreach ($root in @($orquestrador) + @($profileRoots | ForEach-Object { Join-Path $HomePath $_ })) {
+    $absoluteRoot = [IO.Path]::GetFullPath($root).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($candidate.Equals($absoluteRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        $candidate.StartsWith($absoluteRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+      return $true
+    }
+  }
+  return $false
+}
 
 function Add-Issue {
   param([string]$Message)
@@ -17,6 +33,7 @@ function Add-Issue {
 
 function Assert-Path {
   param([string]$Path, [string]$Label)
+  if (-not (Test-ProfilePath -Path $Path)) { return }
   if (-not (Test-Path -LiteralPath $Path)) {
     Add-Issue "$Label missing: $Path"
   }
@@ -24,6 +41,7 @@ function Assert-Path {
 
 function Assert-FileContains {
   param([string]$Path, [string]$Pattern, [string]$Label)
+  if (-not (Test-ProfilePath -Path $Path)) { return }
   if (-not (Test-Path -LiteralPath $Path)) { return }
   $content = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
   if ($content -notmatch $Pattern) {
@@ -33,6 +51,7 @@ function Assert-FileContains {
 
 function Assert-FileLineCountAtMost {
   param([string]$Path, [int]$MaxLines, [string]$Label)
+  if (-not (Test-ProfilePath -Path $Path)) { return }
   if (-not (Test-Path -LiteralPath $Path)) { return }
   $content = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
   $lineCount = if ([string]::IsNullOrEmpty($content)) { 0 } else { ([regex]::Matches($content, "(`r`n|`n)")).Count + 1 }
@@ -43,6 +62,7 @@ function Assert-FileLineCountAtMost {
 
 function Assert-FileNotContains {
   param([string]$Path, [string]$Pattern, [string]$Label)
+  if (-not (Test-ProfilePath -Path $Path)) { return }
   if (-not (Test-Path -LiteralPath $Path)) { return }
   $content = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
   if ($content -match $Pattern) {
@@ -141,6 +161,11 @@ if (-not $CoreOnly) {
 }
 
 if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
+  if (Test-Path -LiteralPath (Join-Path $orquestrador "INSTALL_PROFILES.json")) {
+    $profileRoots = @(& node (Join-Path $PSScriptRoot "install-profile-state.js") roots $orquestrador)
+    if ($LASTEXITCODE -ne 0) { throw "Install verification failed: invalid install profile metadata" }
+    $profileScopeActive = $true
+  }
   Assert-Path -Path (Join-Path $HomePath ".codex\AGENTS.md") -Label "Codex AGENTS profile"
   Assert-Path -Path (Join-Path $HomePath ".config\opencode\AGENTS.md") -Label "OpenCode global AGENTS profile"
   Assert-Path -Path (Join-Path $HomePath ".config\opencode\opencode.json") -Label "OpenCode global config"
@@ -205,7 +230,7 @@ if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
   }
 
   $opencodeConfig = Join-Path $HomePath ".config\opencode\opencode.json"
-  if (Test-Path -LiteralPath $opencodeConfig) {
+  if ((Test-ProfilePath -Path $opencodeConfig) -and (Test-Path -LiteralPath $opencodeConfig)) {
     try {
       $config = Get-Content -LiteralPath $opencodeConfig -Raw -Encoding UTF8 | ConvertFrom-Json
       $instructions = @($config.instructions)
@@ -249,6 +274,7 @@ $summary = [pscustomobject]@{
   WindsurfSkills = Count-Dirs -Path (Join-Path $HomePath ".windsurf\skills")
   AntigravitySkills = Count-Dirs -Path (Join-Path $HomePath ".antigravity-skills\skills")
   ToolProfilesChecked = (-not $CoreOnly) -and (-not $SkipToolProfiles)
+  ToolProfileScope = if ($profileScopeActive) { "recorded installation ($($profileRoots.Count) profiles)" } else { "all supported profiles (legacy installation or skipped)" }
   CoreOnly = $CoreOnly
 }
 

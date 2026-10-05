@@ -18,13 +18,6 @@ NON_INTERACTIVE=false
 ALL_TARGETS=false
 VERBOSE_PATHS=false
 
-if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
-  echo "Error: installer was run as root via sudo." >&2
-  echo "Run it again as the normal user, without sudo:" >&2
-  echo "  orquestrador-maestro install" >&2
-  exit 1
-fi
-
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --home-path)
@@ -93,6 +86,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$(id -u)" -eq 0 ] && [ "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" != "1" ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ]; then
+  echo "Error: run the installer as a normal user, without sudo/root (or set ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 explicitly)." >&2
+  exit 1
+fi
 
 if [ -z "$HOME_PATH" ]; then
   echo "Error: HOME is not set. Pass --home-path PATH." >&2
@@ -551,6 +549,8 @@ if [ "$SKIP_EXTRA_SKILLS" = false ]; then
   fi
 fi
 
+INSTALLED_PROFILES=()
+SKIPPED_PROFILES=()
 if [ "$INSTALL_TOOL_PROFILES" = true ]; then
   tool_is_present() {
     local tool_cmd="$1"
@@ -613,14 +613,28 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
         grok) config_dir=".grok" ;;
       esac
       if tool_should_install "$component" "$tool_cmd" "$config_dir"; then
+        if [ ! -d "$SOURCE_TOOL_PROFILES/$src_sub" ]; then
+          echo "Error: missing tool profile source: $src_sub" >&2
+          exit 1
+        fi
         add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component"
+        INSTALLED_PROFILES+=("$src_sub")
+      else
+        SKIPPED_PROFILES+=("$src_sub")
       fi
     fi
   done
 
   if selected_component tool-profiles antigravity; then
     if tool_should_install "antigravity" "" ".antigravity"; then
+      if [ ! -f "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" ]; then
+        echo "Error: missing tool profile source: antigravity-home" >&2
+        exit 1
+      fi
       add_file_target "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" "$HOME_PATH/antigravity-rules.json" "antigravity-rules.json" "antigravity"
+      INSTALLED_PROFILES+=("antigravity-home")
+    else
+      SKIPPED_PROFILES+=("antigravity-home")
     fi
   fi
 fi
@@ -635,6 +649,7 @@ if [ "$LIST_TARGETS" = true ] || [ "$DRY_RUN" = true ]; then
   fi
   if [ "$DRY_RUN" = true ] && [ "$UNINSTALL" = false ]; then
     echo "Planned post-copy steps (not executed in dry-run):"
+    echo "- Would record installed tool profiles: $TARGET_ORQUESTRADOR_NAME/INSTALL_PROFILES.json"
     if [ "$VERBOSE_PATHS" = true ]; then
       echo "- Would create logs directory: $TARGET_ORQUESTRADOR/logs"
     else
@@ -886,6 +901,8 @@ if [ -f "$DISCOVERY_SCRIPT" ]; then
     --output "$TARGET_ORQUESTRADOR/SKILLS_DISCOVERY.json"
 fi
 
+node "$REPO_ROOT/scripts/install-profile-state.js" write "$TARGET_ORQUESTRADOR" "${INSTALLED_PROFILES[@]+"${INSTALLED_PROFILES[@]}"}"
+
 echo "Installation complete."
 if [ "$VERBOSE_PATHS" = true ]; then
   echo "HomePath: $HOME_PATH"
@@ -904,5 +921,12 @@ if [ -d "$BACKUP_DIR" ]; then
   fi
 fi
 echo "SkillSync: $([ "$SKIP_SKILL_SYNC" = false ] && echo true || echo false)"
-echo "ToolProfiles: $INSTALL_TOOL_PROFILES"
+echo "ToolProfilesRequested: $INSTALL_TOOL_PROFILES"
+echo "ToolProfiles: $([ "${#INSTALLED_PROFILES[@]}" -gt 0 ] && echo true || echo false)"
+echo "ToolProfilesInstalled: ${#INSTALLED_PROFILES[@]}"
+echo "InstalledProfiles: ${INSTALLED_PROFILES[*]:-none}"
+echo "SkippedProfiles (not detected): ${SKIPPED_PROFILES[*]:-none}"
+if [ "${#SKIPPED_PROFILES[@]}" -gt 0 ]; then
+  echo "Use --all-targets to install every supported tool profile."
+fi
 echo "ExtraSkillTargets: $(count_args "${TARGETS[@]+"${TARGETS[@]}"}")"

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0 - 2026-10-05
+
+A V1 passa a ser a linha pública estável: branch padrão `v1`, release `v1.0.0` e canal npm `latest`. As versões 0.x e pré-releases permanecem disponíveis no histórico.
+
+- Corrigida a contradição entre instalação não interativa e `verify`: os instaladores Windows/Linux registram os perfis aplicados em `INSTALL_PROFILES.json`, e a verificação exige somente essa seleção. Perfis registrados com arquivos ausentes ou conteúdo inválido continuam reprovando; instalações antigas sem registro mantêm a checagem completa.
+- O sumário diferencia perfis solicitados, aplicados e ignorados; uma instalação sem ferramentas detectadas informa zero perfis aplicados. Fontes de perfis ausentes geram erro explícito.
+- Os instaladores Unix recusam root com ou sem sudo, salvo liberação explícita; dry-run e listagem continuam disponíveis.
+- Bootstraps, plugin Desktop, manifesto do produto e instruções npm/clone alinhados à versão estável. Documentada a migração de 0.x e V1 alpha/beta, incluindo reaplicação do snapshot, verificação e backup.
+- A publicação testa instalação e reaplicação do pacote em home isolado. A graduação da 1.0.0 também move o canal npm `beta` para a versão estável, permitindo atualizar CLIs beta já instaladas.
+- O auto-tag dispara a publicação, que distribui o mesmo artefato validado no npm e na release GitHub com checksum. Retomadas conferem a integridade do pacote já publicado e execuções da mesma tag são serializadas.
+- Testes de portabilidade isolam o workspace do roteador e aceitam as mensagens de rejeição de chaves duplicadas dos parsers YAML suportados.
+
 ## 1.0.0-beta.3 - 2026-09-29
 
 ### Desktop Context Governor

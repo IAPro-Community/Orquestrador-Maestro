@@ -57,7 +57,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `-AllTargets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `-VerbosePaths` | Mostra paths completos em listagem/dry-run. |
 
-> Elevação: `scripts/install.ps1` e `scripts/bootstrap-install.ps1` recusam Administrador salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1` (mesma variável libera `install.sh` sob sudo).
+> Elevação: `scripts/install.ps1` e `scripts/bootstrap-install.ps1` recusam Administrador salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1` (a mesma variável libera `install.sh` como root).
 
 ## Wrapper Linux/macOS
 
@@ -77,7 +77,22 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--all-targets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `--verbose-paths` | Mostra paths completos em listagem/dry-run. |
 
-> Elevação: `scripts/install.sh` recusa `sudo` root salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1`.
+> Elevação: `install.sh` e `scripts/install.sh` recusam root, com ou sem sudo, salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1`. Dry-run e listagem continuam disponíveis sem essa liberação.
+
+## Perfis E Verificação Em Automação
+
+`--non-interactive` instala apenas os perfis detectados antes da cópia. Em um home isolado, sem ferramentas no PATH, nenhum perfil pode ser selecionado. O sumário distingue `ToolProfilesRequested` de `ToolProfiles`, informa a quantidade em `ToolProfilesInstalled` e lista os perfis aplicados e ignorados.
+
+O instalador grava IDs de perfis em `.orquestrador-maestro/INSTALL_PROFILES.json` (ou `.orquestrador/INSTALL_PROFILES.json` para instalações legadas). O `verify` usa esse registro para exigir os arquivos e o conteúdo dos perfis selecionados. Perfis não selecionados não são exigidos; apagar um arquivo de um perfil registrado continua reprovando a verificação. Sem o registro, o verificador mantém a checagem completa das instalações antigas.
+
+Para aplicar todos os perfis na release v1, inclusive em homes isolados:
+
+```bash
+bash install.sh --home-path /tmp/maestro-home --non-interactive --all-targets
+node bin/orquestrador-maestro.js verify --home-path /tmp/maestro-home
+```
+
+No Windows, use `-NonInteractive -AllTargets`. As flags `--no-tool-profiles` e `--core-only` continuam disponíveis; instalações sem sync de skills ainda exigem `verify --core-only` ou a instalação prévia das skills.
 
 ## IDs Para `Only`
 

@@ -7,12 +7,12 @@ Instale o Maestro no seu usuário e passe a usar o mesmo processo em ferramentas
 Com Node.js 20.19 ou superior:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@beta
+npm install -g @iapro/orquestrador-maestro-cli@latest
 orquestrador-maestro install
 orquestrador-maestro verify
 ```
 
-Este repositório está na linha V1 beta. O canal `beta` acompanha automaticamente as versões `1.0.0-beta.N`; use `@latest` apenas para a linha estável anterior.
+A V1 estável é a versão padrão no canal npm `latest`, na branch `v1` e na release `v1.0.0`. A linha 0.x permanece no histórico; pré-releases continuam identificadas por seus canais próprios.
 
 Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue neste guia. Depois de instalar, use o [guia operacional para IAs](ai-agent-operating-guide.md).
 
@@ -39,7 +39,7 @@ bash install.sh --dry-run
 ### Windows
 
 ```powershell
-git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
+git clone --branch v1 https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
@@ -47,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ### Linux/macOS
 
 ```bash
-git clone https://github.com/IAPro-Community/Orquestrador-Maestro.git
+git clone --branch v1 https://github.com/IAPro-Community/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 bash install.sh
 ```
@@ -60,6 +60,43 @@ Linux/macOS: $HOME
 ```
 
 Em uma máquina de exemplo, se o usuário for `maria`, os destinos ficam abaixo do home dela. Se o usuário for `joao`, ficam abaixo do home dele.
+
+## Atualizar Uma Instalação Existente
+
+Pelo npm, inclusive para migrar da linha 0.x ou de alpha/beta para a versão estável:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@latest --prefer-online
+orquestrador-maestro update
+orquestrador-maestro verify
+orquestrador-maestro version --check
+```
+
+Depois dessa migração, atualizações estáveis podem usar apenas `orquestrador-maestro update`, seguido de `verify`. A instalação faz backup dos arquivos existentes antes de reaplicar o snapshot; projetos e credenciais das ferramentas permanecem fora do pacote.
+
+Pelo clone, com o diretório de trabalho limpo:
+
+```bash
+git fetch origin
+git switch v1
+git pull --ff-only origin v1
+```
+
+No Linux/macOS, reaplique e verifique:
+
+```bash
+bash install.sh --non-interactive
+node bin/orquestrador-maestro.js verify
+```
+
+No Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -NonInteractive
+node .\bin\orquestrador-maestro.js verify
+```
+
+`--non-interactive` aplica os perfis detectados e registra a seleção para o verificador. Use `--all-targets` (Windows: `-AllTargets`) se quiser todos os perfis. Quando houver alterações locais no clone, preserve-as antes de trocar a branch; `--ff-only` evita um merge automático.
 
 ## Pastas Instaladas
 

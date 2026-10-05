@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: auto-tag-release
@@ -26,7 +27,7 @@ jobs:
         run: git fetch --force --tags origin
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           package-manager-cache: false
@@ -115,3 +116,14 @@ jobs:
           git tag -a "$tag" -m "Release $tag"
           git push origin "$tag"
           echo "Created and pushed $tag"
+
+      # Tags pushed with GITHUB_TOKEN do not trigger another push workflow.
+      # Explicit dispatch connects the validated tag to npm and GitHub releases.
+      - name: Dispatch release publication
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          LOCAL_VERSION: ${{ steps.check.outputs.local_version }}
+        run: gh workflow run release.yml --ref "$RELEASE_BRANCH" -f "tag=v$LOCAL_VERSION"

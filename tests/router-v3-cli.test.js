@@ -2,15 +2,19 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const fs = require("node:fs");
+const os = require("node:os");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cli = path.join(repoRoot, "bin", "orquestrador-maestro.js");
+const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-route-cli-"));
+test.after(() => fs.rmSync(projectRoot, { recursive: true, force: true }));
 
 function run(...args) {
   return spawnSync(process.execPath, [cli, ...args], {
-    cwd: repoRoot,
+    cwd: projectRoot,
     encoding: "utf8",
     env: {
       ...process.env,

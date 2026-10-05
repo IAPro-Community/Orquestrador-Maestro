@@ -48,12 +48,14 @@ Quando uma IA recebe só um prompt, ela pode abrir contexto demais, improvisar o
 Requer Node.js 20.19 ou superior.
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@beta
+npm install -g @iapro/orquestrador-maestro-cli@latest
 orquestrador-maestro install
 orquestrador-maestro verify
 ```
 
 Prefere instalar pelo repositório? Use o [guia de instalação](docs/installation.md), que inclui Windows, Linux, macOS, bootstrap, dry-run e rollback.
+
+A **V1 estável (1.0.0)** é a versão padrão: branch `v1`, release `v1.0.0` e canal npm `latest`. Para atualizar uma instalação existente, rode `orquestrador-maestro update`, seguido de `orquestrador-maestro verify` e `orquestrador-maestro version --check`. Quem usava alpha/beta pode migrar explicitamente com `npm install -g @iapro/orquestrador-maestro-cli@latest` antes desses comandos. Veja a [migração para V1](docs/migration-v1.md).
 
 **Próximo passo:** [verifique a instalação](docs/installation.md#verificação) e [configure o primeiro projeto](docs/project-dev-hierarchy.md).
 
@@ -75,7 +77,7 @@ O Freebuff usa o mesmo contrato de `AGENTS.md` e `.agents/skills` que o Maestro 
 
 ### Codex Desktop e ChatGPT Work
 
-A V1 inclui uma integração oficial por plugin para superfícies locais compatíveis com lifecycle hooks. Na Beta 3 ela usa Router v3 + Complexity Gate, um **Context Ledger** por sessão, policy deduplicada, Tool Governor e um MCP local sob demanda. A mesma policy não é reinjetada a cada turno e o catálogo completo de skills não é carregado no plugin.
+A V1 inclui uma integração oficial por plugin para superfícies locais compatíveis com lifecycle hooks. Ela usa Router v3 + Complexity Gate, um **Context Ledger** por sessão, policy deduplicada, Tool Governor e um MCP local sob demanda. A mesma policy não é reinjetada a cada turno e o catálogo completo de skills não é carregado no plugin.
 
 ```bash
 orquestrador-maestro desktop-plugin install

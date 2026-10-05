@@ -9,6 +9,18 @@ SKIP_TOOL_PROFILES=false
 CORE_ONLY=false
 VERBOSE_PATHS=false
 ISSUES=()
+PROFILE_SCOPE_ACTIVE=false
+PROFILE_ROOTS=()
+
+should_check_profile_path() {
+  local candidate="$1" root
+  if [ "$PROFILE_SCOPE_ACTIVE" = false ]; then return 0; fi
+  case "$candidate" in "$ORQUESTRADOR"/*) return 0 ;; esac
+  for root in "${PROFILE_ROOTS[@]+"${PROFILE_ROOTS[@]}"}"; do
+    case "$candidate" in "$HOME_PATH/$root"|"$HOME_PATH/$root"/*) return 0 ;; esac
+  done
+  return 1
+}
 
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
   echo "Warning: verification is running as root via sudo and may inspect /var/root." >&2
@@ -64,6 +76,7 @@ add_issue() {
 assert_path() {
   local path="$1"
   local label="$2"
+  should_check_profile_path "$path" || return 0
   if [ ! -e "$path" ]; then
     add_issue "$label missing: $path"
   fi
@@ -73,6 +86,7 @@ assert_file_contains() {
   local path="$1"
   local pattern="$2"
   local label="$3"
+  should_check_profile_path "$path" || return 0
   if [ ! -f "$path" ]; then return 0; fi
   if ! grep -Eq "$pattern" "$path"; then
     add_issue "$label does not include expected content: $path"
@@ -84,6 +98,7 @@ assert_file_line_count_at_most() {
   local max_lines="$2"
   local label="$3"
   local line_count
+  should_check_profile_path "$path" || return 0
   if [ ! -f "$path" ]; then return 0; fi
   line_count="$(wc -l < "$path" | tr -d ' ')"
   if [ "${line_count:-0}" -gt "$max_lines" ]; then
@@ -95,6 +110,7 @@ assert_file_not_contains() {
   local path="$1"
   local pattern="$2"
   local label="$3"
+  should_check_profile_path "$path" || return 0
   if [ ! -f "$path" ]; then return 0; fi
   if grep -Eqi "$pattern" "$path"; then
     add_issue "$label still contains a legacy hook catalog marker: $path"
@@ -195,6 +211,16 @@ EOF
 fi
 
 if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
+  if [ -f "$ORQUESTRADOR/INSTALL_PROFILES.json" ]; then
+    if ! profile_roots_output="$(node "$(dirname "${BASH_SOURCE[0]}")/install-profile-state.js" roots "$ORQUESTRADOR")"; then
+      echo "Install verification failed: invalid install profile metadata." >&2
+      exit 1
+    fi
+    while IFS= read -r profile_root; do
+      if [ -n "$profile_root" ]; then PROFILE_ROOTS+=("$profile_root"); fi
+    done <<< "$profile_roots_output"
+    PROFILE_SCOPE_ACTIVE=true
+  fi
   assert_path "$HOME_PATH/.codex/AGENTS.md" "Codex AGENTS profile"
   assert_path "$HOME_PATH/.config/opencode/AGENTS.md" "OpenCode global AGENTS profile"
   assert_path "$HOME_PATH/.config/opencode/opencode.json" "OpenCode global config"
@@ -259,7 +285,7 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
   done
 
   OPENCODE_CONFIG="$HOME_PATH/.config/opencode/opencode.json"
-  if [ -f "$OPENCODE_CONFIG" ]; then
+  if should_check_profile_path "$OPENCODE_CONFIG" && [ -f "$OPENCODE_CONFIG" ]; then
     if ! grep -q "~/$MAESTRO_REFERENCE/rules.md" "$OPENCODE_CONFIG"; then
       add_issue "OpenCode global config does not include Orquestrador rules: $OPENCODE_CONFIG"
     fi
@@ -301,4 +327,9 @@ echo "GeminiSkills: $(count_dirs "$HOME_PATH/.gemini/skills")"
 echo "WindsurfSkills: $(count_dirs "$HOME_PATH/.windsurf/skills")"
 echo "AntigravitySkills: $(count_dirs "$HOME_PATH/.antigravity-skills/skills")"
 echo "ToolProfilesChecked: $TOOL_PROFILES_CHECKED"
+if [ "$PROFILE_SCOPE_ACTIVE" = true ]; then
+  echo "ToolProfileScope: recorded installation (${#PROFILE_ROOTS[@]} profiles)"
+else
+  echo "ToolProfileScope: all supported profiles (legacy installation or skipped)"
+fi
 echo "CoreOnly: $CORE_ONLY"

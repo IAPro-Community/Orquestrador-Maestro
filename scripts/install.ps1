@@ -496,6 +496,8 @@ if (-not $SkipExtraSkills) {
   }
 }
 
+$installedProfiles = New-Object System.Collections.Generic.List[string]
+$skippedProfiles = New-Object System.Collections.Generic.List[string]
 if ($InstallToolProfiles) {
   $toolProfileTargets = @(
     @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex"; ToolCommand = "codex"; ToolConfigDir = ".codex" },
@@ -513,30 +515,44 @@ if ($InstallToolProfiles) {
     @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok"; ToolCommand = "grok"; ToolConfigDir = ".grok" }
   )
   foreach ($target in $toolProfileTargets) {
+    if (-not (Test-SelectedComponent -Names @("tool-profiles", $target.Component))) { continue }
     # -AllTargets installs everything; -NonInteractive installs only
     # detected tools (mirrors install.sh tool_should_install).
     if (-not $AllTargets -and $NonInteractive) {
-      if (-not (Test-ToolPresent -Command $target.ToolCommand -ConfigDir $target.ToolConfigDir)) { continue }
+      if (-not (Test-ToolPresent -Command $target.ToolCommand -ConfigDir $target.ToolConfigDir)) {
+        $skippedProfiles.Add($target.Source)
+        continue
+      }
     }
     if (Test-SelectedComponent -Names @("tool-profiles", $target.Component)) {
+      if (-not (Test-Path -LiteralPath (Join-Path $SourceToolProfiles $target.Source) -PathType Container)) {
+        throw "Missing tool profile source: $($target.Source)"
+      }
       Add-InstallTarget `
         -Targets $extraTargets `
         -Source (Join-Path $SourceToolProfiles $target.Source) `
         -Destination (Join-Path $HomePath $target.Destination) `
         -Label $target.Label `
         -Component $target.Component
+      $installedProfiles.Add($target.Source)
     }
   }
 
   if (Test-SelectedComponent -Names @("tool-profiles", "antigravity")) {
     $antigravityDetected = $AllTargets -or -not $NonInteractive -or (Test-ToolPresent -Command "antigravity" -ConfigDir ".antigravity")
     if ($antigravityDetected) {
+      if (-not (Test-Path -LiteralPath (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") -PathType Leaf)) {
+        throw "Missing tool profile source: antigravity-home"
+      }
       Add-InstallFileTarget `
         -Targets $extraFileTargets `
         -Source (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") `
         -Destination (Join-Path $HomePath "antigravity-rules.json") `
         -Label "antigravity-rules.json" `
         -Component "antigravity"
+      $installedProfiles.Add("antigravity-home")
+    } else {
+      $skippedProfiles.Add("antigravity-home")
     }
   }
 }
@@ -546,6 +562,7 @@ if ($ListTargets -or $DryRun) {
   Write-InstallPlan -CoreTargets $coreTargets -DirectoryTargets $extraTargets.ToArray() -FileTargets $extraFileTargets.ToArray() -Mode $mode
   if ($DryRun -and -not $Uninstall) {
     Write-Output "Planned post-copy steps (not executed in dry-run):"
+    Write-Output "- Would record installed tool profiles: $TargetOrquestradorName\INSTALL_PROFILES.json"
     $logsDisplay = if ($VerbosePaths) { Join-Path $TargetOrquestrador "logs" } else { "$TargetOrquestradorName\logs" }
     Write-Output "- Would create logs directory: $logsDisplay"
     if ($SkipSkillSync) {
@@ -743,12 +760,22 @@ if (Test-Path -LiteralPath $discoveryScript) {
   & node $discoveryScript --home-path $HomePath --maestro-root $TargetOrquestrador --output (Join-Path $TargetOrquestrador "SKILLS_DISCOVERY.json")
 }
 
+& node (Join-Path $PSScriptRoot "install-profile-state.js") write $TargetOrquestrador @($installedProfiles.ToArray())
+if ($LASTEXITCODE -ne 0) { throw "Failed to record installed tool profiles" }
+if ($skippedProfiles.Count -gt 0) {
+  Write-Output "Use -AllTargets to install every supported tool profile."
+}
+
 [pscustomobject]@{
   HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
   InstalledOrquestrador = if ($VerbosePaths) { $TargetOrquestrador } else { $TargetOrquestradorName }
   InstalledAgents = if ($VerbosePaths) { $TargetAgents } else { "AGENTS.md" }
   Backup = if (Test-Path -LiteralPath $BackupDir) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
   SkillSync = -not $SkipSkillSync
-  ToolProfiles = $InstallToolProfiles
+  ToolProfilesRequested = [bool]$InstallToolProfiles
+  ToolProfiles = $installedProfiles.Count -gt 0
+  ToolProfilesInstalled = $installedProfiles.Count
+  InstalledProfiles = if ($installedProfiles.Count) { $installedProfiles -join ", " } else { "none" }
+  SkippedProfiles = if ($skippedProfiles.Count) { $skippedProfiles -join ", " } else { "none" }
   ExtraSkillTargets = $extraTargets.Count
 } | Format-List

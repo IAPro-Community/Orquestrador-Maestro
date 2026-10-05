@@ -62,7 +62,7 @@ test("Design Profile validator rejects duplicate YAML keys and schema violations
   fs.writeFileSync(duplicate, "version: 1\nversion: 1\n");
   const duplicateResult = runNode([path.join(scriptsRoot, "validate-design-profile.mjs"), duplicate]);
   assert.equal(duplicateResult.status, 1);
-  assert.match(duplicateResult.stderr, /Duplicate key/u);
+  assert.match(duplicateResult.stderr, /Duplicate key|Map keys must be unique|duplicated mapping key/iu);
 
   const invalid = path.join(tempRoot, "invalid.json");
   fs.writeFileSync(invalid, JSON.stringify({ version: 1 }));

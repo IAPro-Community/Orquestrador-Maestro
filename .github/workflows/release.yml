@@ -7,12 +7,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag de release a validar (ex.: v1.0.0-beta.3)'
+        description: 'Tag de release a validar (ex.: v1.0.0)'
         required: true
         type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -139,6 +143,12 @@ jobs:
           HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets sync --home-path "$temp_home"
           HOME="$temp_home" PATH="$fake_bin:$PATH" orquestrador-maestro targets remove codex --home-path "$temp_home"
           rm -rf "$temp_home"
+          temp_home="$(mktemp -d)"
+          orquestrador-maestro install --home-path "$temp_home" --non-interactive
+          orquestrador-maestro verify --home-path "$temp_home"
+          ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE=1 orquestrador-maestro update --home-path "$temp_home" --non-interactive
+          orquestrador-maestro verify --home-path "$temp_home"
+          rm -rf "$temp_home"
           npm uninstall -g @iapro/orquestrador-maestro-cli
 
   publish:
@@ -170,6 +180,9 @@ jobs:
           test "$(sha256sum "$tarball" | awk '{print $1}')" = "$(cat package.sha256)"
           echo "TARBALL=$tarball" >> "$GITHUB_ENV"
 
+      - name: Set up npm with trusted dist-tag support
+        run: npm install --global npm@12.2.0
+
       - name: Publish package with safe dist-tag
         shell: bash
         run: |
@@ -183,6 +196,73 @@ jobs:
             *-*) dist_tag="next" ;;
           esac
           echo "Publishing $version with npm dist-tag $dist_tag"
-          npm publish "./$TARBALL" --access public --tag "$dist_tag"
+          package="@iapro/orquestrador-maestro-cli"
+          if published_integrity="$(npm view "$package@$version" dist.integrity --json 2>/dev/null)"; then
+            artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log(JSON.stringify('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64')))" "./$TARBALL")"
+            if [[ "$published_integrity" != "$artifact_integrity" ]]; then
+              echo "ERROR: Existing npm version differs from the validated artifact."
+              exit 1
+            fi
+            echo "Validated artifact already published; resuming dist-tag updates."
+            npm dist-tag add "$package@$version" "$dist_tag"
+          else
+            npm publish "./$TARBALL" --access public --tag "$dist_tag"
+          fi
+          # Let existing V1 beta CLIs graduate through their normal update
+          # command. Future beta releases may move this tag again.
+          if [[ "$version" == "1.0.0" ]]; then
+            npm dist-tag add "$package@$version" beta
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-release:
+    name: Publish GitHub release
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout validated release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Download validated package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-package-${{ needs.validate.outputs.release_sha }}
+          path: release-artifact
+
+      - name: Publish release notes and validated package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          tarball="$(cat release-artifact/package.name)"
+          test "$(sha256sum "release-artifact/$tarball" | awk '{print $1}')" = "$(cat release-artifact/package.sha256)"
+          node <<'NODE' > release-notes.md
+          const fs = require('node:fs');
+          const version = require('./package.json').version;
+          const lines = fs.readFileSync('CHANGELOG.md', 'utf8').split(/\r?\n/);
+          const start = lines.findIndex(line => line.startsWith(`## ${version} `) || line === `## ${version}`);
+          if (start < 0) throw new Error(`Missing changelog for ${version}`);
+          const end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
+          console.log(lines.slice(start + 1, end < 0 ? undefined : end).join('\n').trim());
+          console.log('\nInstalação e atualização: [guia](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/docs/installation.md) · [migração V1](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/docs/migration-v1.md).');
+          NODE
+          release_flags=(--latest)
+          if [[ "$version" == *-* ]]; then
+            release_flags=(--prerelease --latest=false)
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "Orquestrador Maestro $tag" --notes-file release-notes.md "${release_flags[@]}"
+            gh release upload "$tag" "release-artifact/$tarball" release-artifact/package.sha256 --clobber
+          else
+            gh release create "$tag" "release-artifact/$tarball" release-artifact/package.sha256 --verify-tag --title "Orquestrador Maestro $tag" --notes-file release-notes.md "${release_flags[@]}"
+          fi

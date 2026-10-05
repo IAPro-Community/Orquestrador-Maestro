@@ -1,13 +1,19 @@
-# Migração 0.4.x → 1.0.0-alpha
+# Migração 0.x ou V1 alpha/beta → V1 estável
 
 A linha 1.0 introduz uma quebra deliberada no contrato das **skills canônicas do Maestro**. Para usuários do CLI, a atualização continua sendo versionada e autocontida: instale a nova versão e rode a verificação normal.
 
 ## Usuário do Maestro
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@1.0.0-alpha.1
+npm install -g @iapro/orquestrador-maestro-cli@latest --prefer-online
+orquestrador-maestro update
 orquestrador-maestro verify
+orquestrador-maestro version --check
 ```
+
+O comando npm muda explicitamente para o canal estável. Depois, `update` atualiza a CLI nesse canal e reaplica os arquivos do Maestro com backup automático. Para instalações por clone, siga o [guia de atualização](installation.md#atualizar-uma-instalação-existente), usando a branch `v1` e `git pull --ff-only`.
+
+A correção da 1.0.0 registra os perfis aplicados em `INSTALL_PROFILES.json`. O verificador exige os arquivos desses perfis; não exige perfis ignorados pela detecção. Instalações antigas sem esse registro mantêm a verificação completa até reaplicar o instalador.
 
 Você não precisa converter skills externas, skills instaladas diretamente em Codex/Claude/OpenCode nem skills locais do projeto.
 
