@@ -218,7 +218,9 @@ jobs:
             fi
           }
           if published_integrity="$(npm view "$package@$version" dist.integrity --json 2>/dev/null)"; then
-            artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log(JSON.stringify('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64')))" "./$TARBALL")"
+            # npm 12 wraps field queries in an array; older CLIs return a scalar.
+            published_integrity="$(node -e "let value=JSON.parse(process.argv[1]); if(Array.isArray(value)&&value.length===1)value=value[0]; if(typeof value!=='string')throw new Error('Invalid registry integrity response'); process.stdout.write(value)" "$published_integrity")"
+            artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64'))" "./$TARBALL")"
             if [[ "$published_integrity" != "$artifact_integrity" ]]; then
               echo "ERROR: Existing npm version differs from the validated artifact."
               exit 1
