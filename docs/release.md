@@ -40,6 +40,8 @@ Configure o secret `NPM_TOKEN` no ambiente `npm-release`, com permissão de publ
 
 Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. Execuções da mesma tag são serializadas para evitar publicação concorrente.
 
+A tag permanece imutável mesmo quando a branch avança. A checagem de ancestralidade exige que o commit da tag esteja no histórico da linha de release; não exige que a tag contenha commits posteriores da branch. Assim, uma retomada preserva o pacote original.
+
 ## Rollback
 
 Uma versão publicada no npm não deve ser sobrescrita. Em caso de problema, publique uma nova versão corrigida e, se necessário, use `npm deprecate` com uma mensagem objetiva. A tag GitHub permanece como registro imutável do artefato publicado.

@@ -88,7 +88,10 @@ jobs:
           sha256sum "$tarball" | awk '{print $1}' > package.sha256
           printf '%s\n' "$tarball" > package.name
         env:
-          VERIFY_BASE_REF: origin/${{ steps.release.outputs.release_branch }}
+          # Release ancestry was checked above in the correct direction:
+          # the immutable tag must be contained in the release branch.
+          # A PR gate cannot use the moving branch tip as this tag's base.
+          VERIFY_BASE_REF: ${{ steps.release.outputs.release_sha }}
 
       - name: Upload validated package artifact
         uses: actions/upload-artifact@v4
