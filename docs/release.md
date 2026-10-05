@@ -36,7 +36,7 @@ Releases estáveis usam o dist-tag npm `latest`; `alpha` usa `alpha`, `beta` usa
 - publica exatamente o artefato validado no canal npm correspondente;
 - cria a release GitHub com changelog, tarball e checksum; versões estáveis viram `Latest`, pré-releases ficam identificadas como tal.
 
-Configure o secret `NPM_TOKEN` no ambiente `npm-release`, com permissão de publicação e atualização de dist-tags para `@iapro/orquestrador-maestro-cli`. Como alternativa, configure trusted publishing para este repositório e workflow com `id-token: write`; habilite também a permissão `Allow npm dist-tag` do trusted publisher. O job usa npm 12.2.0, compatível com essa operação via OIDC.
+Configure o secret `NPM_TOKEN` no ambiente `npm-release`, com permissão de publicação e atualização de dist-tags para `@iapro/orquestrador-maestro-cli`. Como alternativa, configure trusted publishing para este repositório e workflow com `id-token: write`; habilite também a permissão `Allow npm dist-tag` do trusted publisher. O job usa npm 12.2.0, compatível com essa operação via OIDC. Dist-tags que já apontam para a versão desejada dispensam escrita. Para alterações, OIDC tem prioridade; se essa operação for recusada e houver um token configurado, o job tenta a autenticação tradicional com esse token.
 
 Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. Execuções da mesma tag são serializadas para evitar publicação concorrente.
 

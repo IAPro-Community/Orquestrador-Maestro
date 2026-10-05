@@ -197,6 +197,23 @@ jobs:
           esac
           echo "Publishing $version with npm dist-tag $dist_tag"
           package="@iapro/orquestrador-maestro-cli"
+          update_dist_tag() {
+            local tag_name="$1" current_version
+            current_version="$(npm view "$package" "dist-tags.$tag_name" --prefer-online 2>/dev/null || true)"
+            if [[ "$current_version" == "$version" ]]; then
+              echo "npm dist-tag $tag_name already points to $version."
+              return 0
+            fi
+            if npm dist-tag add "$package@$version" "$tag_name"; then
+              return 0
+            fi
+            if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
+              echo "Retrying dist-tag update with the configured npm-release token."
+              env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN npm dist-tag add "$package@$version" "$tag_name"
+            else
+              return 1
+            fi
+          }
           if published_integrity="$(npm view "$package@$version" dist.integrity --json 2>/dev/null)"; then
             artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log(JSON.stringify('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64')))" "./$TARBALL")"
             if [[ "$published_integrity" != "$artifact_integrity" ]]; then
@@ -204,14 +221,14 @@ jobs:
               exit 1
             fi
             echo "Validated artifact already published; resuming dist-tag updates."
-            npm dist-tag add "$package@$version" "$dist_tag"
+            update_dist_tag "$dist_tag"
           else
             npm publish "./$TARBALL" --access public --tag "$dist_tag"
           fi
           # Let existing V1 beta CLIs graduate through their normal update
           # command. Future beta releases may move this tag again.
           if [[ "$version" == "1.0.0" ]]; then
-            npm dist-tag add "$package@$version" beta
+            update_dist_tag beta
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
