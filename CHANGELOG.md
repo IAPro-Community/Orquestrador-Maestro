@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.1 - 2026-10-12
+
+### Instalação e migração do núcleo
+
+- Unificada a raiz instalada do núcleo em `.orquestrador`, alinhando os instaladores, CLI, doctor, memória, descoberta de skills, sincronizadores e verificadores.
+- `orquestrador-maestro update` agora faz backup e reaplica o núcleo automaticamente. Instalações em `.orquestrador-maestro` migram para `.orquestrador`; arquivos de memória são preservados e configurações são mescladas, com os valores da raiz canônica prevalecendo em conflitos.
+- A remoção da raiz antiga ocorre depois da publicação da nova instalação. Cada execução cria um diretório de backup exclusivo em `.orquestrador-public-backups`, evitando colisões entre atualizações rápidas.
+- Configurações antigas com nome `maestro-config.json` e skills de projeto no caminho legado continuam sendo lidas durante a transição; novas gravações usam a raiz e os nomes canônicos.
+- Adicionada cobertura de migração para instaladores PowerShell e Bash, incluindo preservação de memória/configuração, backup e remoção da raiz antiga.
+- A validação pós-atualização é explícita: execute `orquestrador-maestro verify` depois de `orquestrador-maestro update`.
+
+### Precisão no Windows e roteamento de skills
+
+- Corrigidas as instruções do perfil OpenCode para usar comandos PowerShell nativos, caminhos literais e a grafia exata `.orquestrador`.
+- Reforçado que skills devem ser invocadas pelo ID canônico registrado em `SKILLS_ROUTER.json`, sem inventar nomes nem acrescentar texto diretamente ao manifesto JSON.
+- O comando `update` preserva o comportamento de backup padrão dos wrappers nos dois sistemas e rejeita `--no-force`, opção incompatível com uma atualização.
+
 ## 1.0.0 - 2026-10-05
 
 A V1 passa a ser a linha pública estável: branch padrão `v1`, release `v1.0.0` e canal npm `latest`. As versões 0.x e pré-releases permanecem disponíveis no histórico.

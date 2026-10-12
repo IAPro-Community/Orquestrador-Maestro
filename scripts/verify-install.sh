@@ -129,13 +129,15 @@ count_files() {
   find "$path" -maxdepth 1 -type f | wc -l | tr -d ' '
 }
 
-if [ -d "$HOME_PATH/.orquestrador-maestro" ]; then
-  ORQUESTRADOR="$HOME_PATH/.orquestrador-maestro"
-else
-  ORQUESTRADOR="$HOME_PATH/.orquestrador"
+ORQUESTRADOR="$HOME_PATH/.orquestrador"
+LEGACY_ORQUESTRADOR="$HOME_PATH/.orquestrador-maestro"
+if [ ! -d "$ORQUESTRADOR" ] && [ -d "$LEGACY_ORQUESTRADOR" ]; then
+  ORQUESTRADOR="$LEGACY_ORQUESTRADOR"
 fi
-MAESTRO_REFERENCE=".orquestrador-maestro"
-if [ "$(basename "$ORQUESTRADOR")" = ".orquestrador" ]; then MAESTRO_REFERENCE=".orquestrador"; fi
+MAESTRO_REFERENCE="$(basename "$ORQUESTRADOR")"
+if [ -d "$LEGACY_ORQUESTRADOR" ]; then
+  add_issue "Legacy Orquestrador directory remains: $LEGACY_ORQUESTRADOR. Run orquestrador-maestro update to consolidate it into .orquestrador."
+fi
 CODEX="$HOME_PATH/.codex"
 INSTALL_POLICY="$ORQUESTRADOR/SKILL_INSTALL_POLICY.json"
 NATIVE_ROOT_SPECS=(

@@ -67,7 +67,7 @@ ORQUESTRADOR MAESTRO
 | Resolution Contract / Outcome | Política, estratégia, budget, Evidence, DoD e estado de resolução de uma Task | `runtime/resolution/` + `run.metadata.resolution` |
 | Evidence | Evidência produzida pelo Runtime e evidência imutável de benchmark | RunStore + `benchmark-harness/` |
 | Proof Bundle | Projeção auditável de Task/Mission sobre Runs, Verification, Artifacts, Evidence e outcomes | `runtime/resolution/evidence/proof-bundle.js` |
-| Memory | Episódica JSONL redigida + DEV curada por humanos | `~/.orquestrador-maestro/memory` + `DEV/` |
+| Memory | Episódica JSONL redigida + DEV curada por humanos | `~/.orquestrador/memory` + `DEV/` |
 | DEV | Memória operacional canônica do projeto | `DEV/` (gitignored neste espelho) |
 | Governance | Portões de mudança, compatibilidade, revisão independente | `runtime/governance/` |
 | Interaction/Execution Profile | Como a IA interage / quantas skills carrega | `INTERACTION_PROFILES.json` / `SKILL_EXECUTION_PROFILES.json` |

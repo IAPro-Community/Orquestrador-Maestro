@@ -45,9 +45,21 @@ test("configuration writes to the canonical project file and preserves legacy ru
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-governance-config-"));
   fs.mkdirSync(path.join(project, ".orquestrador", "runtime"), { recursive: true });
   const result = writeGovernanceConfig({ cwd: project, patch: { mode: "strict" } });
-  assert.equal(result.path, path.join(project, ".orquestrador-maestro", "config.json"));
+  assert.equal(result.path, path.join(project, ".orquestrador", "config.json"));
   assert.equal(loadGovernanceConfig({ cwd: project }).config.mode, "strict");
   assert.equal(fs.existsSync(path.join(project, ".orquestrador", "runtime")), true);
+  fs.rmSync(project, { recursive: true, force: true });
+});
+
+test("governance reads an existing Maestro-named config but writes to the canonical root", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-legacy-governance-config-"));
+  const legacyConfig = path.join(project, ".orquestrador-maestro", "config.json");
+  fs.mkdirSync(path.dirname(legacyConfig), { recursive: true });
+  fs.writeFileSync(legacyConfig, JSON.stringify({ mode: "strict" }));
+  assert.equal(loadGovernanceConfig({ cwd: project }).config.mode, "strict");
+  const result = writeGovernanceConfig({ cwd: project, patch: { warningFrequency: "never" } });
+  assert.equal(result.path, path.join(project, ".orquestrador", "config.json"));
+  assert.equal(result.config.mode, "strict");
   fs.rmSync(project, { recursive: true, force: true });
 });
 

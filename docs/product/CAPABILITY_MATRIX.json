@@ -3,7 +3,7 @@
   "product": {
     "name": "Orquestrador Maestro",
     "npmPackage": "@iapro/orquestrador-maestro-cli",
-    "packageVersion": "1.0.0",
+    "packageVersion": "1.0.1",
     "tagline": "Você escolhe a IA. O Maestro organiza o trabalho.",
     "definition": "Control plane local-first para desenvolvimento de software com agentes de IA. Não é um LLM e não substitui Codex, Claude Code, OpenCode, Cursor ou outras ferramentas.",
     "surfaces": [
@@ -98,7 +98,7 @@
         "docs/product/PRODUCT_SPEC.md"
       ],
       "publicClaimAllowed": true,
-      "notes": "JSONL por repositório sob ~/.orquestrador-maestro/memory, redigido, retenção 90d/1000."
+      "notes": "JSONL por repositório sob ~/.orquestrador/memory, redigido, retenção 90d/1000."
     },
     {
       "id": "skill-routing",

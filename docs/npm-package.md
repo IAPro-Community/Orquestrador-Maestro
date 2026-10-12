@@ -79,9 +79,15 @@ orquestrador-maestro check-dev-gates --project-path . --max-entries 12 --strict
 orquestrador-maestro compact-worklog --project-path . --keep 12
 ```
 
-## Canal De Release
+## Canais de Release
 
-O canal público da linha V1 em pré-release é o `beta`. Esse é o caminho recomendado enquanto a versão `1.0.0` não estiver estável:
+A versão estável atual da linha V1 é distribuída pelo canal `latest`:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@latest
+```
+
+O canal `beta` é reservado para versões pré-release e pode conter mudanças ainda não graduadas para produção:
 
 ```bash
 npm install -g @iapro/orquestrador-maestro-cli@beta

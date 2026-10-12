@@ -15,6 +15,8 @@ O comando npm muda explicitamente para o canal estável. Depois, `update` atuali
 
 A correção da 1.0.0 registra os perfis aplicados em `INSTALL_PROFILES.json`. O verificador exige os arquivos desses perfis; não exige perfis ignorados pela detecção. Instalações antigas sem esse registro mantêm a verificação completa até reaplicar o instalador.
 
+Na atualização para 1.0.1, a única raiz canônica do núcleo passa a ser `~/.orquestrador` (no Windows, `%USERPROFILE%\.orquestrador`). O comando `orquestrador-maestro update` faz backup e migra automaticamente instalações em `~/.orquestrador-maestro`, preservando os arquivos de memória e mesclando a configuração; os valores da raiz canônica têm precedência em conflitos. A raiz antiga só é removida depois que a nova instalação foi publicada. O backup fica em `~/.orquestrador-public-backups`.
+
 Você não precisa converter skills externas, skills instaladas diretamente em Codex/Claude/OpenCode nem skills locais do projeto.
 
 Essas origens continuam na fronteira de compatibilidade:

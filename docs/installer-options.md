@@ -44,7 +44,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | Opção | Efeito |
 |---|---|
 | `-HomePath <path>` | Instala em outro home. Útil para teste. |
-| `-NoForce` | Não sobrescreve `.orquestrador` e `AGENTS.md` existentes. |
+| `-NoForce` | Recusa substituir `.orquestrador`, a raiz legada `.orquestrador-maestro` ou `AGENTS.md` existentes. Por padrão, o wrapper faz backup antes da atualização. |
 | `-NoToolProfiles` | Não instala perfis/hook files das ferramentas. |
 | `-CoreOnly` | Instala apenas `.orquestrador` e `AGENTS.md`. |
 | `-SkipCommunitySkills` | Não copia a biblioteca comunitária para raízes de compatibilidade. |
@@ -83,7 +83,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 
 `--non-interactive` instala apenas os perfis detectados antes da cópia. Em um home isolado, sem ferramentas no PATH, nenhum perfil pode ser selecionado. O sumário distingue `ToolProfilesRequested` de `ToolProfiles`, informa a quantidade em `ToolProfilesInstalled` e lista os perfis aplicados e ignorados.
 
-O instalador grava IDs de perfis em `.orquestrador-maestro/INSTALL_PROFILES.json` (ou `.orquestrador/INSTALL_PROFILES.json` para instalações legadas). O `verify` usa esse registro para exigir os arquivos e o conteúdo dos perfis selecionados. Perfis não selecionados não são exigidos; apagar um arquivo de um perfil registrado continua reprovando a verificação. Sem o registro, o verificador mantém a checagem completa das instalações antigas.
+O instalador grava IDs de perfis em `.orquestrador/INSTALL_PROFILES.json`. Na atualização, ele faz backup de `.orquestrador` e da raiz legada `.orquestrador-maestro`, migra memória e configuração e remove a raiz legada após concluir a instalação. O `verify` usa esse registro para exigir os arquivos e o conteúdo dos perfis selecionados; também sinaliza se a raiz legada ainda existe. Sem o registro, o verificador mantém a checagem completa das instalações antigas.
 
 Para aplicar todos os perfis na release v1, inclusive em homes isolados:
 
@@ -129,7 +129,7 @@ Exemplos:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only codex -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only antigravity
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only freebuff -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only freebuff
 orquestrador-maestro install --only codex,cursor,claude --dry-run
 ```
 

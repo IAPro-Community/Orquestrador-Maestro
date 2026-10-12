@@ -77,10 +77,10 @@ fi
 mkdir -p "$HOME_PATH"
 HOME_PATH="$(CDPATH= cd -- "$HOME_PATH" && pwd -P)"
 
-if [ -d "$HOME_PATH/.orquestrador-maestro" ]; then
-  MAESTRO_ROOT="$HOME_PATH/.orquestrador-maestro"
-else
+if [ -d "$HOME_PATH/.orquestrador" ]; then
   MAESTRO_ROOT="$HOME_PATH/.orquestrador"
+else
+  MAESTRO_ROOT="$HOME_PATH/.orquestrador-maestro"
 fi
 
 resolve_home_relative() {

@@ -56,17 +56,18 @@ $SourceAgents = Join-Path $RepoRoot "home\AGENTS.md"
 $SourceCodex = Join-Path $RepoRoot "codex"
 $SourceCommunitySkills = Join-Path $RepoRoot "skill-library\community-skills"
 $SourceToolProfiles = Join-Path $RepoRoot "tool-profiles"
-$CanonicalOrquestradorName = ".orquestrador-maestro"
-$LegacyOrquestradorName = ".orquestrador"
+$CanonicalOrquestradorName = ".orquestrador"
+$LegacyOrquestradorName = ".orquestrador-maestro"
 $CanonicalOrquestrador = Join-Path $HomePath $CanonicalOrquestradorName
 $LegacyOrquestrador = Join-Path $HomePath $LegacyOrquestradorName
-$TargetOrquestrador = if (Test-Path -LiteralPath $CanonicalOrquestrador) { $CanonicalOrquestrador } elseif (Test-Path -LiteralPath $LegacyOrquestrador) { $LegacyOrquestrador } else { $CanonicalOrquestrador }
+$TargetOrquestrador = $CanonicalOrquestrador
 $TargetOrquestradorName = Split-Path -Leaf $TargetOrquestrador
 $TargetSkillLibrary = Join-Path $TargetOrquestrador "skill-library"
 $TargetAgents = Join-Path $HomePath "AGENTS.md"
 $BackupRoot = Join-Path $HomePath ".orquestrador-public-backups"
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$BackupDir = Join-Path $BackupRoot $Stamp
+$BackupDir = Join-Path $BackupRoot "$Stamp-$PID-$([guid]::NewGuid().ToString('N'))"
+$script:BackupDirCreated = $false
 
 $SelectedComponents = @(
   $Only |
@@ -229,15 +230,72 @@ function Copy-TreeWithPlaceholders {
 function Backup-Path {
   param([string]$Path, [string]$Label)
   if (-not (Test-Path -LiteralPath $Path)) { return }
-  New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+  $item = Get-Item -LiteralPath $Path -Force
+  $pending = New-Object System.Collections.Generic.Stack[string]
+  if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Refusing to replace a reparse point without a verified backup: $Path"
+  }
+  if ($item.PSIsContainer) { $pending.Push($item.FullName) }
+  while ($pending.Count -gt 0) {
+    $current = $pending.Pop()
+    foreach ($child in Get-ChildItem -LiteralPath $current -Force) {
+      if (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to replace a directory containing a reparse point: $($child.FullName)"
+      }
+      if ($child.PSIsContainer) { $pending.Push($child.FullName) }
+    }
+  }
+  Ensure-BackupDirectory
   $dest = Join-Path $BackupDir $Label
   Copy-Item -LiteralPath $Path -Destination $dest -Recurse -Force
+}
+
+function Ensure-BackupDirectory {
+  if ($script:BackupDirCreated) { return }
+  New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
+  New-Item -ItemType Directory -Path $BackupDir -ErrorAction Stop | Out-Null
+  $script:BackupDirCreated = $true
+}
+
+function Restore-MissingFilesFromTree {
+  param([string]$SourceDir, [string]$DestinationDir)
+  if (-not (Test-Path -LiteralPath $SourceDir -PathType Container)) { return }
+  foreach ($sourceFile in Get-ChildItem -LiteralPath $SourceDir -File -Recurse -Force) {
+    if (($sourceFile.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+    $relative = Get-RelativePath -BasePath $SourceDir -Path $sourceFile.FullName
+    $destinationFile = Join-Path $DestinationDir $relative
+    if (-not (Test-Path -LiteralPath $destinationFile)) {
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destinationFile) | Out-Null
+      Copy-Item -LiteralPath $sourceFile.FullName -Destination $destinationFile -Force
+    }
+  }
+}
+
+function Restore-MergedConfigFromBackup {
+  param([string[]]$SourceFiles, [string]$DestinationFile)
+  $merged = [ordered]@{}
+  $foundConfig = $false
+  foreach ($sourceFile in $SourceFiles) {
+    if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) { continue }
+    try {
+      $config = Get-Content -LiteralPath $sourceFile -Raw -Encoding UTF8 | ConvertFrom-Json
+      if ($null -eq $config -or $config -is [System.Array] -or $config -is [string]) { continue }
+      foreach ($property in $config.PSObject.Properties) { $merged[$property.Name] = $property.Value }
+      $foundConfig = $true
+    } catch {
+      Write-Warning "Could not migrate invalid config from backup: $sourceFile"
+    }
+  }
+  if (-not $foundConfig) { return }
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DestinationFile) | Out-Null
+  $json = $merged | ConvertTo-Json -Depth 100
+  [System.IO.File]::WriteAllText($DestinationFile, "$json`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Backup-MappedDirectory {
   param([string]$SourceDir, [string]$DestinationDir, [string]$Label)
   if (-not (Test-Path -LiteralPath $DestinationDir)) { return }
-  New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+  Ensure-BackupDirectory
   $backupTarget = Join-Path $BackupDir $Label
   foreach ($sourceFile in Get-TreeFiles -SourceDir $SourceDir) {
     $relative = Get-RelativePath -BasePath $SourceDir -Path $sourceFile.FullName
@@ -253,7 +311,7 @@ function Backup-MappedDirectory {
 function Backup-MappedFile {
   param([string]$DestinationFile, [string]$Label)
   if (-not (Test-Path -LiteralPath $DestinationFile)) { return }
-  New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
+  Ensure-BackupDirectory
   Copy-Item -LiteralPath $DestinationFile -Destination (Join-Path $BackupDir $Label) -Force
 }
 
@@ -439,8 +497,8 @@ if (-not (Test-Path -LiteralPath $SourceAgents)) {
   throw "Missing home AGENTS template: $SourceAgents. Run scripts\sync-from-local.ps1 first."
 }
 
-if ((Test-Path -LiteralPath $TargetOrquestrador) -and -not $Force -and -not $DryRun -and -not $ListTargets -and -not $Uninstall) {
-  throw "Target already exists: $TargetOrquestrador. Re-run with -Force to overwrite after backup."
+if (((Test-Path -LiteralPath $TargetOrquestrador) -or (Test-Path -LiteralPath $LegacyOrquestrador)) -and -not $Force -and -not $DryRun -and -not $ListTargets -and -not $Uninstall) {
+  throw "An Orquestrador core directory already exists. Re-run with -Force to back it up and consolidate the installation at $TargetOrquestrador."
 }
 if ((Test-Path -LiteralPath $TargetAgents) -and -not $Force -and -not $DryRun -and -not $ListTargets -and -not $Uninstall) {
   throw "Target already exists: $TargetAgents. Re-run with -Force to overwrite after backup."
@@ -463,6 +521,13 @@ if ($includeCore) {
       Label = "AGENTS.md"
       Component = "core"
       Kind = "file"
+    },
+    [pscustomobject]@{
+      Source = $LegacyOrquestrador
+      Destination = $LegacyOrquestrador
+      Label = "$LegacyOrquestradorName (legacy migration)"
+      Component = "core"
+      Kind = "directory"
     }
   )
 }
@@ -599,6 +664,7 @@ if ($ListTargets -or $DryRun) {
 if ($Uninstall) {
   if ($includeCore) {
     Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
+    Backup-Path -Path $LegacyOrquestrador -Label $LegacyOrquestradorName
     Backup-Path -Path $TargetAgents -Label "AGENTS.md"
   }
   foreach ($target in $extraTargets) {
@@ -613,6 +679,12 @@ if ($Uninstall) {
       throw "Refusing to remove target outside home: $TargetOrquestrador"
     }
     Remove-Item -LiteralPath $TargetOrquestrador -Recurse -Force
+  }
+  if ($includeCore -and (Test-Path -LiteralPath $LegacyOrquestrador)) {
+    if (-not (Test-PathUnderRoot -Path $LegacyOrquestrador -Root $HomePath)) {
+      throw "Refusing to remove legacy target outside home: $LegacyOrquestrador"
+    }
+    Remove-Item -LiteralPath $LegacyOrquestrador -Recurse -Force
   }
   if ($includeCore -and (Test-Path -LiteralPath $TargetAgents)) {
     if (-not (Test-PathUnderRoot -Path $TargetAgents -Root $HomePath)) {
@@ -648,7 +720,7 @@ if ($Uninstall) {
   [pscustomobject]@{
     HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
     UninstalledCore = $includeCore
-    Backup = if (Test-Path -LiteralPath $BackupDir) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
+    Backup = if ($script:BackupDirCreated -and (Test-Path -LiteralPath $BackupDir)) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
     ExtraTargets = $extraTargets.Count
     FileTargets = $extraFileTargets.Count
   } | Format-List
@@ -656,6 +728,7 @@ if ($Uninstall) {
 }
 
 Backup-Path -Path $TargetOrquestrador -Label $TargetOrquestradorName
+Backup-Path -Path $LegacyOrquestrador -Label $LegacyOrquestradorName
 Backup-Path -Path $TargetAgents -Label "AGENTS.md"
 $backedUpExtraTargets = @{}
 foreach ($target in $extraTargets) {
@@ -707,6 +780,15 @@ try {
     }
   }
 
+  Restore-MissingFilesFromTree -SourceDir (Join-Path $BackupDir "$TargetOrquestradorName\memory") -DestinationDir (Join-Path $StagedOrquestrador "memory")
+  Restore-MissingFilesFromTree -SourceDir (Join-Path $BackupDir "$LegacyOrquestradorName\memory") -DestinationDir (Join-Path $StagedOrquestrador "memory")
+  Restore-MergedConfigFromBackup -SourceFiles @(
+    (Join-Path $BackupDir "$LegacyOrquestradorName\maestro-config.json"),
+    (Join-Path $BackupDir "$LegacyOrquestradorName\config.json"),
+    (Join-Path $BackupDir "$TargetOrquestradorName\maestro-config.json"),
+    (Join-Path $BackupDir "$TargetOrquestradorName\config.json")
+  ) -DestinationFile (Join-Path $StagedOrquestrador "config.json")
+
   $previousMoved = $false
   if (Test-Path -LiteralPath $TargetOrquestrador) {
     if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
@@ -727,6 +809,12 @@ try {
 
   if (Test-Path -LiteralPath $PreviousOrquestrador) {
     Remove-Item -LiteralPath $PreviousOrquestrador -Recurse -Force
+  }
+  if (Test-Path -LiteralPath $LegacyOrquestrador) {
+    if (-not (Test-PathUnderRoot -Path $LegacyOrquestrador -Root $HomePath)) {
+      throw "Refusing to remove legacy target outside home: $LegacyOrquestrador"
+    }
+    Remove-Item -LiteralPath $LegacyOrquestrador -Recurse -Force
   }
 } finally {
   if (Test-Path -LiteralPath $StagedOrquestrador) {
@@ -770,7 +858,7 @@ if ($skippedProfiles.Count -gt 0) {
   HomePath = if ($VerbosePaths) { $HomePath } else { "[redacted]" }
   InstalledOrquestrador = if ($VerbosePaths) { $TargetOrquestrador } else { $TargetOrquestradorName }
   InstalledAgents = if ($VerbosePaths) { $TargetAgents } else { "AGENTS.md" }
-  Backup = if (Test-Path -LiteralPath $BackupDir) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
+  Backup = if ($script:BackupDirCreated -and (Test-Path -LiteralPath $BackupDir)) { if ($VerbosePaths) { $BackupDir } else { "[created]" } } else { $null }
   SkillSync = -not $SkipSkillSync
   ToolProfilesRequested = [bool]$InstallToolProfiles
   ToolProfiles = $installedProfiles.Count -gt 0

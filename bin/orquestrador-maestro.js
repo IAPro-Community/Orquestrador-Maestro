@@ -123,7 +123,7 @@ Uso:
 
 Opcoes de install/update/uninstall:
   --home-path <path>          Instala em outro home para teste
-  --core-only                 Instala somente .orquestrador-maestro e AGENTS.md
+  --core-only                 Instala somente .orquestrador e AGENTS.md
   --only <component>          Limita a um componente: core, codex, agents,
                               claude, opencode, cursor, gemini, windsurf,
                               antigravity
@@ -2741,6 +2741,10 @@ async function dispatch(command, args) {
     if (args.includes("--dry-run") || args.includes("--list-targets")) {
       return await runInstall(args);
     }
+    if (args.includes("--no-force")) {
+      throw new Error("update sempre reaplica o núcleo com backup; use install --no-force para impedir a substituição.");
+    }
+    // The public install wrappers back up and replace managed files by default.
     const childResult = runCliUpdate(args);
     if (childResult) {
       if (childResult.error) throw childResult.error;

@@ -22,10 +22,12 @@ orquestrador-maestro governance set --project-path . --warning-frequency always
 
 O primeiro arquivo existente vence:
 
-1. `.orquestrador-maestro/config.json` no projeto;
-2. `.orquestrador/maestro-config.json` legado no projeto;
-3. `~/.orquestrador-maestro/config.json`;
-4. `~/.orquestrador/maestro-config.json` legado.
+1. `.orquestrador/config.json` no projeto;
+2. `.orquestrador/maestro-config.json` com nome de arquivo legado no projeto;
+3. `.orquestrador-maestro/config.json` em raiz legada no projeto;
+4. `~/.orquestrador/config.json`;
+5. `~/.orquestrador/maestro-config.json` com nome de arquivo legado;
+6. `~/.orquestrador-maestro/config.json` em raiz legada.
 
 ## Diagnóstico rápido
 
@@ -46,9 +48,9 @@ Depois revise critérios de aceite, verificação e evidências antes de reativa
 
 O Maestro não deve trocar o modelo. Compare a configuração do CLI favorito e o provider efetivamente selecionado; `providerModel` é informativo.
 
-### A instalação antiga não foi renomeada
+### A raiz legada continua presente
 
-Isso é intencional. O fallback legado evita quebrar referências existentes. Migre somente com backup e validação.
+Rode `orquestrador-maestro update`. O comando faz backup e reinstala automaticamente o núcleo na raiz canônica `.orquestrador` e migra memória e configuração de `.orquestrador-maestro`. Em seguida, rode `orquestrador-maestro verify` para validar a instalação. Para aplicar o snapshot diretamente, use `install.ps1` no Windows ou `bash install.sh` no Linux/macOS; os wrappers fazem backup por padrão.
 
 ### `validate` não funciona
 

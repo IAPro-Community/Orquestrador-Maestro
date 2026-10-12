@@ -55,7 +55,7 @@ orquestrador-maestro verify
 
 Prefere instalar pelo repositório? Use o [guia de instalação](docs/installation.md), que inclui Windows, Linux, macOS, bootstrap, dry-run e rollback.
 
-A **V1 estável (1.0.0)** é a versão padrão: branch `v1`, release `v1.0.0` e canal npm `latest`. Para atualizar uma instalação existente, rode `orquestrador-maestro update`, seguido de `orquestrador-maestro verify` e `orquestrador-maestro version --check`. Quem usava alpha/beta pode migrar explicitamente com `npm install -g @iapro/orquestrador-maestro-cli@latest` antes desses comandos. Veja a [migração para V1](docs/migration-v1.md).
+A **V1 estável (1.0.1)** é a versão padrão: branch `v1`, release `v1.0.1` e canal npm `latest`. Para atualizar uma instalação existente, rode `orquestrador-maestro update`, seguido de `orquestrador-maestro verify` e `orquestrador-maestro version --check`. O update faz backup e consolida o núcleo em `.orquestrador`, preservando memória/configuração ao migrar de `.orquestrador-maestro`. Veja a [migração para V1](docs/migration-v1.md).
 
 **Próximo passo:** [verifique a instalação](docs/installation.md#verificação) e [configure o primeiro projeto](docs/project-dev-hierarchy.md).
 

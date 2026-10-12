@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME } = require("../config/maestro-paths");
+const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME } = require("../config/maestro-paths");
 const { normalizeCognitiveBudgetConfig } = require("./change-governance");
 
 const DEFAULT_CONFIG = Object.freeze({
@@ -50,9 +50,13 @@ function readJson(filePath) {
 function loadGovernanceConfig({ cwd = process.cwd(), home = process.env.HOME || process.env.USERPROFILE } = {}) {
   const candidates = [
     path.join(cwd, CANONICAL_DIR_NAME, "config.json"),
-    path.join(cwd, LEGACY_DIR_NAME, "maestro-config.json"),
+    path.join(cwd, CANONICAL_DIR_NAME, LEGACY_CONFIG_FILE_NAME),
+    path.join(cwd, LEGACY_DIR_NAME, "config.json"),
+    path.join(cwd, LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME),
     home ? path.join(home, CANONICAL_DIR_NAME, "config.json") : null,
-    home ? path.join(home, LEGACY_DIR_NAME, "maestro-config.json") : null
+    home ? path.join(home, CANONICAL_DIR_NAME, LEGACY_CONFIG_FILE_NAME) : null,
+    home ? path.join(home, LEGACY_DIR_NAME, "config.json") : null,
+    home ? path.join(home, LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME) : null
   ].filter(Boolean);
   const found = candidates.find((candidate) => fs.existsSync(candidate));
   return { config: mergeConfig(found ? readJson(found) : undefined), source: found || "default" };

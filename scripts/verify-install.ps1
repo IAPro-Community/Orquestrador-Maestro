@@ -109,11 +109,15 @@ function Get-InstallPolicy {
   return Get-DefaultInstallPolicy
 }
 
-$canonicalOrquestrador = Join-Path $HomePath ".orquestrador-maestro"
-$legacyOrquestrador = Join-Path $HomePath ".orquestrador"
-$orquestrador = if (Test-Path -LiteralPath $canonicalOrquestrador) { $canonicalOrquestrador } else { $legacyOrquestrador }
+$canonicalOrquestrador = Join-Path $HomePath ".orquestrador"
+$legacyOrquestrador = Join-Path $HomePath ".orquestrador-maestro"
+$orquestrador = if (Test-Path -LiteralPath $canonicalOrquestrador) { $canonicalOrquestrador } elseif (Test-Path -LiteralPath $legacyOrquestrador) { $legacyOrquestrador } else { $canonicalOrquestrador }
 $maestroReference = Split-Path -Leaf $orquestrador
 $codex = Join-Path $HomePath ".codex"
+
+if (Test-Path -LiteralPath $legacyOrquestrador) {
+  Add-Issue "Legacy Orquestrador directory remains: $legacyOrquestrador. Run orquestrador-maestro update to consolidate it into .orquestrador."
+}
 
 Assert-Path -Path (Join-Path $orquestrador "rules.md") -Label "Orquestrador rules"
 Assert-Path -Path (Join-Path $orquestrador "maestro.md") -Label "Orquestrador maestro"

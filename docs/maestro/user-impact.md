@@ -16,8 +16,8 @@
 | aviso novo | recomendação após uma tarefa | `once-per-session`, `never` ou revisão da política |
 | gate rigoroso | conclusão bloqueada em `strict` | voltar para `compatibility` ou ajustar critérios |
 | hook inesperado | ação local extra | manter hooks desligados |
-| arquivo de configuração | novo `.orquestrador-maestro/config.json` | revisar e versionar apenas se desejado |
-| instalação legada | arquivos continuam em `.orquestrador` | não renomear automaticamente |
+| raiz de instalação | `.orquestrador-maestro` é consolidada em `.orquestrador` | `orquestrador-maestro update` cria backup e migra automaticamente |
+| arquivo de configuração | configuração antiga é transferida para `.orquestrador/config.json` | revisar e versionar apenas se desejado |
 | custo de contexto | prompt maior em `strict`/opt-in | manter compatibilidade e medir antes |
 | plataforma | PowerShell ausente | usar validação Node e CI/Windows |
 

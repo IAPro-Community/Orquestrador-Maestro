@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME } = require("../config/maestro-paths");
+const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME } = require("../config/maestro-paths");
 
 const CATALOG_PATH = path.resolve(__dirname, "../../orquestrador/INTERACTION_PROFILES.json");
 const IDS = Object.freeze(["default", "focus"]);
@@ -49,9 +49,13 @@ function loadInteractionCatalog(catalogPath = CATALOG_PATH) {
 function configCandidates({ cwd = process.cwd(), home = os.homedir() } = {}) {
   return [
     { source: "project", scope: "project", path: path.join(path.resolve(cwd), CANONICAL_DIR_NAME, "config.json") },
-    { source: "project", scope: "project", path: path.join(path.resolve(cwd), LEGACY_DIR_NAME, "maestro-config.json") },
+    { source: "project", scope: "project", path: path.join(path.resolve(cwd), CANONICAL_DIR_NAME, LEGACY_CONFIG_FILE_NAME) },
+    { source: "project", scope: "project", path: path.join(path.resolve(cwd), LEGACY_DIR_NAME, "config.json") },
+    { source: "project", scope: "project", path: path.join(path.resolve(cwd), LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME) },
     { source: "user", scope: "user", path: path.join(path.resolve(home), CANONICAL_DIR_NAME, "config.json") },
-    { source: "user", scope: "user", path: path.join(path.resolve(home), LEGACY_DIR_NAME, "maestro-config.json") }
+    { source: "user", scope: "user", path: path.join(path.resolve(home), CANONICAL_DIR_NAME, LEGACY_CONFIG_FILE_NAME) },
+    { source: "user", scope: "user", path: path.join(path.resolve(home), LEGACY_DIR_NAME, "config.json") },
+    { source: "user", scope: "user", path: path.join(path.resolve(home), LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME) }
   ];
 }
 
@@ -69,7 +73,10 @@ function resolveInteractionProfile({ cwd = process.cwd(), home = os.homedir(), c
     if (!IDS.includes(cliProfile)) throw new Error(`Interaction profile desconhecido: ${cliProfile}`);
     return { id: cliProfile, profile: resolvedCatalog.profiles[cliProfile], source: "cli", scope: "invocation" };
   }
-  for (const candidate of configCandidates({ cwd, home })) {
+  const candidates = configCandidates({ cwd, home });
+  for (const source of ["project", "user"]) {
+    const candidate = candidates.find((item) => item.source === source && fs.existsSync(item.path));
+    if (!candidate) continue;
     const found = readInteractionConfig(candidate);
     if (found) return { id: found.config.interactionProfile, profile: resolvedCatalog.profiles[found.config.interactionProfile], source: found.source, scope: found.scope, path: found.path };
   }
@@ -90,7 +97,14 @@ function setInteractionProfile({ cwd = process.cwd(), home = os.homedir(), id, s
   const base = scope === "project" ? path.resolve(cwd) : path.resolve(home);
   const filePath = path.join(base, CANONICAL_DIR_NAME, "config.json");
   let config = {};
-  if (fs.existsSync(filePath)) config = readJson(filePath, "Configuração Maestro");
+  if (fs.existsSync(filePath)) {
+    config = readJson(filePath, "Configuração Maestro");
+  } else {
+    const candidates = configCandidates({ cwd, home }).filter((candidate) => candidate.source === scope);
+    for (const candidate of candidates.reverse()) {
+      if (fs.existsSync(candidate.path)) Object.assign(config, readJson(candidate.path, "Configuração Maestro"));
+    }
+  }
   config.interactionProfile = id;
   writeConfig(filePath, config);
   return { id, scope, path: filePath, config };
@@ -100,8 +114,10 @@ function resetInteractionProfile({ cwd = process.cwd(), home = os.homedir(), sco
   if (!["project", "user"].includes(scope)) throw new Error("scope deve ser project ou user.");
   const base = scope === "project" ? path.resolve(cwd) : path.resolve(home);
   const filePath = path.join(base, CANONICAL_DIR_NAME, "config.json");
-  if (!fs.existsSync(filePath)) return { scope, path: filePath, changed: false };
-  const config = readJson(filePath, "Configuração Maestro");
+  const candidates = configCandidates({ cwd, home }).filter((candidate) => candidate.source === scope);
+  const candidate = candidates.find((item) => fs.existsSync(item.path));
+  if (!candidate) return { scope, path: filePath, changed: false };
+  const config = readJson(candidate.path, "Configuração Maestro");
   if (!("interactionProfile" in config)) return { scope, path: filePath, changed: false };
   delete config.interactionProfile; writeConfig(filePath, config);
   return { scope, path: filePath, changed: true, config };

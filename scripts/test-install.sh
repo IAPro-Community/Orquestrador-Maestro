@@ -50,6 +50,65 @@ fi
 bash "$REPO_ROOT/install.sh" "${INSTALL_ARGS[@]}" --dry-run
 bash "$REPO_ROOT/install.sh" "${INSTALL_ARGS[@]}"
 
+if [ ! -f "$TEMP_HOME/.orquestrador/rules.md" ]; then
+  echo "Error: installer did not create the canonical Orquestrador root." >&2
+  exit 1
+fi
+if [ -e "$TEMP_HOME/.orquestrador-maestro" ]; then
+  echo "Error: fresh install created the legacy Maestro-named root." >&2
+  exit 1
+fi
+
+mkdir -p "$TEMP_HOME/.orquestrador/memory"
+printf 'canonical-memory-preserved\n' > "$TEMP_HOME/.orquestrador/memory/canonical-fixture.jsonl"
+printf '{"mode":"compatibility","interactionProfile":"default","collision":"canonical","canonicalMarker":"kept"}\n' > "$TEMP_HOME/.orquestrador/config.json"
+mkdir -p "$TEMP_HOME/.orquestrador-maestro/memory"
+printf 'legacy-memory-preserved\n' > "$TEMP_HOME/.orquestrador-maestro/memory/migration-fixture.jsonl"
+printf '{"mode":"strict","interactionProfile":"focus","collision":"legacy","legacyMarker":"kept"}\n' > "$TEMP_HOME/.orquestrador-maestro/config.json"
+ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE=1 node "$REPO_ROOT/bin/orquestrador-maestro.js" update \
+  --home-path "$TEMP_HOME" --core-only --skip-skill-sync
+if [ -e "$TEMP_HOME/.orquestrador-maestro" ]; then
+  echo "Error: update left the legacy Maestro-named root behind." >&2
+  exit 1
+fi
+if [ ! -f "$TEMP_HOME/.orquestrador/memory/migration-fixture.jsonl" ]; then
+  echo "Error: update did not preserve legacy memory in the canonical root." >&2
+  exit 1
+fi
+if [ ! -f "$TEMP_HOME/.orquestrador/memory/canonical-fixture.jsonl" ]; then
+  echo "Error: update did not preserve canonical memory while migrating the legacy root." >&2
+  exit 1
+fi
+node - "$TEMP_HOME/.orquestrador/config.json" <<'NODE'
+const fs = require("node:fs");
+const config = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+if (config.mode !== "compatibility" || config.interactionProfile !== "default" ||
+    config.collision !== "canonical" || config.canonicalMarker !== "kept" || config.legacyMarker !== "kept") {
+  throw new Error("Update did not merge configuration with canonical values taking precedence.");
+}
+NODE
+ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE=1 node "$REPO_ROOT/bin/orquestrador-maestro.js" update \
+  --home-path "$TEMP_HOME" --core-only --skip-skill-sync
+mapfile -t BACKUP_DIRS < <(find "$TEMP_HOME/.orquestrador-public-backups" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)
+if [ "${#BACKUP_DIRS[@]}" -lt 2 ]; then
+  echo "Error: repeated updates did not create separate backup directories." >&2
+  exit 1
+fi
+for backup_dir in "${BACKUP_DIRS[@]}"; do
+  if [ -e "$backup_dir/.orquestrador/.orquestrador" ]; then
+    echo "Error: a repeated update nested the canonical root inside a backup." >&2
+    exit 1
+  fi
+done
+if ! find "$TEMP_HOME/.orquestrador-public-backups" -path '*/.orquestrador-maestro/memory/migration-fixture.jsonl' -print -quit 2>/dev/null | grep -q .; then
+  echo "Error: update did not back up the legacy core before migration." >&2
+  exit 1
+fi
+if ! find "$TEMP_HOME/.orquestrador-public-backups" -path '*/.orquestrador/memory/canonical-fixture.jsonl' -print -quit 2>/dev/null | grep -q .; then
+  echo "Error: update did not back up the canonical core before migration." >&2
+  exit 1
+fi
+
 if [ "$FULL" = true ]; then
   if find "$TEMP_HOME/.orquestrador-public-backups" -path '*/.codex__profile/sessions/personal.jsonl' -print -quit 2>/dev/null | grep -q .; then
     echo "Error: installer backed up a personal Codex session." >&2

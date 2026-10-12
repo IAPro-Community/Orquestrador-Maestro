@@ -1,10 +1,10 @@
 # Plano V1 — Context & Skill Intelligence
 
-> **Status:** implementação ativa — `1.0.0-beta.3`
+> **Status:** V1 estável desde `1.0.0`; manutenção contínua na branch `v1` (`1.0.1`)
 > **Branch:** `v1` (branch padrão do repositório)
 > **Base:** `IAPro-Community/Orquestrador-Maestro:main` após PR #23 / release `0.5.0` (`09e7bf70306bac7dd9238089a0d845d05427bc64`)  
 > **Target:** `1.0.0`  
-> **Última atualização:** 2026-09-29
+> **Última atualização:** 2026-10-12
 
 ## 1. Objetivo da V1
 

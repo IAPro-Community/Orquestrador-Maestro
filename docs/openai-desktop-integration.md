@@ -89,7 +89,7 @@ It teaches the host to use progressive disclosure and the three MCP tools. The f
 Install the CLI first, then register the desktop plugin:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@1.0.0-beta.3
+npm install -g @iapro/orquestrador-maestro-cli@latest
 orquestrador-maestro desktop-plugin install
 orquestrador-maestro desktop-plugin status
 orquestrador-maestro desktop-plugin doctor

@@ -13,11 +13,11 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 Também é possível validar e criar a tag pelo script local:
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.0.0
+   .\scripts\release.ps1 -Version 1.0.1
    ```
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.0.0 -CreateTag -PushTag
+   .\scripts\release.ps1 -Version 1.0.1 -CreateTag -PushTag
    ```
 
 O script exige working tree limpo, verifica a versão dos manifestos, confere o changelog, executa `npm run validate`, gera a prévia do pacote e valida espaços inválidos.
@@ -57,3 +57,5 @@ orquestrador-maestro verify
 ```
 
 O comando `orquestrador-maestro update` preserva o canal da versão instalada. Na graduação para `1.0.0`, o canal `beta` também aponta para a estável, permitindo que instalações beta migrem pelo comando habitual. Após a migração, o CLI estável consulta `latest`. Futuras betas podem mover `beta` novamente; para escolher a linha estável explicitamente, use `@latest`.
+
+Ao atualizar, `orquestrador-maestro update` faz backup e reaplica o núcleo. A versão 1.0.1 também consolida a instalação na raiz `.orquestrador`, migrando memória e configuração de `.orquestrador-maestro` antes de remover a raiz antiga.

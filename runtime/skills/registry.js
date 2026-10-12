@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME } = require("../config/maestro-paths");
 const { discoverSkills, parseFrontmatter } = require("./discovery");
 const { createCanonicalSkillContract, projectLegacySkill } = require("./contract-v2");
 
@@ -132,8 +133,8 @@ class SkillRegistry {
       { provider: "gemini", path: path.join(this.userHome, ".gemini", "skills") }
     ];
     this.projectSources = options.projectSources || [
-      path.join(this.projectRoot, ".orquestrador-maestro", "skills"),
-      path.join(this.projectRoot, ".orquestrador", "skills"),
+      path.join(this.projectRoot, CANONICAL_DIR_NAME, "skills"),
+      path.join(this.projectRoot, LEGACY_DIR_NAME, "skills"),
       path.join(this.projectRoot, ".codex", "skills"),
       path.join(this.projectRoot, ".claude", "skills")
     ];

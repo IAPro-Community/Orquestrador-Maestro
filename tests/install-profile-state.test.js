@@ -49,7 +49,7 @@ test("non-interactive install verifies only recorded profiles and still detects 
   fs.mkdirSync(path.join(home, ".codex"));
   const install = cli(home, "install", ["--non-interactive"]);
   passed(install);
-  const core = path.join(home, ".orquestrador-maestro");
+  const core = path.join(home, ".orquestrador");
   const state = JSON.parse(fs.readFileSync(path.join(core, STATE_FILE), "utf8"));
   assert.ok(state.profiles.includes("codex"));
   assert.match(install.stdout, /ToolProfilesInstalled\s*:/u);
@@ -77,7 +77,7 @@ test("disabled profiles verify with an empty scope; legacy installs remain stric
   const home = fixture(t);
   const install = cli(home, "install", ["--non-interactive", "--no-tool-profiles"]);
   passed(install);
-  const core = path.join(home, ".orquestrador-maestro");
+  const core = path.join(home, ".orquestrador");
   assert.deepEqual(readRoots(core), []);
   assert.match(install.stdout, /ToolProfiles\s*:\s*false/iu);
   passed(cli(home, "verify"));
@@ -90,7 +90,7 @@ test("disabled profiles verify with an empty scope; legacy installs remain stric
 test("all-targets installs every profile and verification rejects missing files", t => {
   const home = fixture(t);
   passed(cli(home, "install", ["--non-interactive", "--all-targets"]));
-  const core = path.join(home, ".orquestrador-maestro");
+  const core = path.join(home, ".orquestrador");
   const roots = readRoots(core);
   assert.deepEqual(new Set(roots), new Set(Object.values(PROFILE_ROOTS)));
   passed(cli(home, "verify"));

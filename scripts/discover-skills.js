@@ -27,9 +27,9 @@ function main() {
     return;
   }
   const homePath = path.resolve(options.homePath || os.homedir());
-  const maestroRoot = options.maestroRoot ? path.resolve(options.maestroRoot) : fs.existsSync(path.join(homePath, ".orquestrador-maestro"))
-    ? path.join(homePath, ".orquestrador-maestro")
-    : path.join(homePath, ".orquestrador");
+  const maestroRoot = options.maestroRoot ? path.resolve(options.maestroRoot) : fs.existsSync(path.join(homePath, ".orquestrador"))
+    ? path.join(homePath, ".orquestrador")
+    : path.join(homePath, ".orquestrador-maestro");
   const output = path.resolve(options.output || path.join(maestroRoot, "SKILLS_DISCOVERY.json"));
   const inventory = buildInventory({ userHome: homePath, maestroRoot });
   fs.mkdirSync(path.dirname(output), { recursive: true });

@@ -134,23 +134,17 @@ SOURCE_CODEX="$REPO_ROOT/codex"
 SOURCE_COMMUNITY_SKILLS="$REPO_ROOT/skill-library/community-skills"
 SOURCE_TOOL_PROFILES="$REPO_ROOT/tool-profiles"
 
-CANONICAL_ORQUESTRADOR_NAME=".orquestrador-maestro"
-LEGACY_ORQUESTRADOR_NAME=".orquestrador"
-if [ -d "$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME" ]; then
-  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
-elif [ -d "$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME" ]; then
-  TARGET_ORQUESTRADOR="$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$LEGACY_ORQUESTRADOR_NAME"
-else
-  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
-fi
+CANONICAL_ORQUESTRADOR_NAME=".orquestrador"
+LEGACY_ORQUESTRADOR_NAME=".orquestrador-maestro"
+TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
+TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
+LEGACY_ORQUESTRADOR="$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME"
 TARGET_SKILL_LIBRARY="$TARGET_ORQUESTRADOR/skill-library"
 TARGET_AGENTS="$HOME_PATH/AGENTS.md"
 BACKUP_ROOT="$HOME_PATH/.orquestrador-public-backups"
 STAMP="$(date +"%Y%m%d-%H%M%S")"
-BACKUP_DIR="$BACKUP_ROOT/$STAMP"
+BACKUP_DIR="$BACKUP_ROOT/$STAMP-$$-$RANDOM"
+BACKUP_DIR_CREATED=false
 USER_NAME="$(basename "$HOME_PATH")"
 
 TARGETS=()
@@ -289,15 +283,85 @@ backup_path() {
 
   [ -e "$path" ] || return 0
 
+  if [ -L "$path" ] || { [ -d "$path" ] && find "$path" -type l -print -quit 2>/dev/null | grep -q .; }; then
+    echo "Error: refusing to replace a path containing a symbolic link: $path" >&2
+    return 1
+  fi
+
   for seen in "${BACKED_UP_DESTINATIONS[@]+"${BACKED_UP_DESTINATIONS[@]}"}"; do
     if [ "$seen" = "$path" ]; then
       return 0
     fi
   done
 
-  mkdir -p "$BACKUP_DIR"
+  ensure_backup_dir
   cp -R "$path" "$BACKUP_DIR/$label"
   BACKED_UP_DESTINATIONS+=("$path")
+}
+
+ensure_backup_dir() {
+  if [ "$BACKUP_DIR_CREATED" = true ]; then
+    return 0
+  fi
+
+  mkdir -p "$BACKUP_ROOT"
+  local attempt candidate
+  for ((attempt = 0; attempt < 10; attempt++)); do
+    candidate="$BACKUP_ROOT/$STAMP-$$-$RANDOM"
+    if mkdir "$candidate" 2>/dev/null; then
+      BACKUP_DIR="$candidate"
+      BACKUP_DIR_CREATED=true
+      return 0
+    fi
+  done
+
+  echo "Error: could not create a unique backup directory under $BACKUP_ROOT" >&2
+  return 1
+}
+
+restore_missing_tree() {
+  local source_dir="$1"
+  local destination_dir="$2"
+  local source_file relative destination_file
+
+  [ -d "$source_dir" ] || return 0
+  while IFS= read -r -d '' source_file; do
+    relative="${source_file#"$source_dir"/}"
+    destination_file="$destination_dir/$relative"
+    if [ ! -e "$destination_file" ]; then
+      mkdir -p "$(dirname "$destination_file")"
+      cp -p "$source_file" "$destination_file"
+    fi
+  done < <(find "$source_dir" -type f -print0)
+}
+
+restore_merged_config() {
+  local destination_file="$1"
+  shift
+  local source_files=("$@")
+
+  node - "$destination_file" "${source_files[@]}" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [destination, ...sources] = process.argv.slice(2);
+const merged = {};
+let found = false;
+for (const source of sources) {
+  if (!fs.existsSync(source)) continue;
+  try {
+    const value = JSON.parse(fs.readFileSync(source, "utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    Object.assign(merged, value);
+    found = true;
+  } catch {
+    process.stderr.write(`Warning: skipped invalid backed-up config: ${source}\n`);
+  }
+}
+if (found) {
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(destination, `${JSON.stringify(merged, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+}
+NODE
 }
 
 backup_mapped_directory() {
@@ -313,6 +377,7 @@ backup_mapped_directory() {
     relative="${src_file#$src_dir/}"
     existing_file="$dest_dir/$relative"
     if [ -f "$existing_file" ] || [ -L "$existing_file" ]; then
+      ensure_backup_dir
       backup_file="$BACKUP_DIR/$label/$relative"
       mkdir -p "$(dirname "$backup_file")"
       cp -p "$existing_file" "$backup_file"
@@ -368,6 +433,7 @@ list_install_plan() {
   fi
   if [ "$INCLUDE_CORE" = true ]; then
     print_target_row "$mode" "$TARGET_ORQUESTRADOR_NAME" "core" "directory" "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
+    print_target_row "$mode" "$LEGACY_ORQUESTRADOR_NAME (legacy migration)" "core-migration" "directory" "$LEGACY_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
     print_target_row "$mode" "AGENTS.md" "core" "file" "$TARGET_AGENTS" "$SOURCE_AGENTS"
   fi
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -522,8 +588,8 @@ if [ ! -f "$SOURCE_AGENTS" ]; then
   exit 1
 fi
 
-if [ -e "$TARGET_ORQUESTRADOR" ] && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
-  echo "Error: target already exists: $TARGET_ORQUESTRADOR. Re-run with --force to overwrite after backup." >&2
+if { [ -e "$TARGET_ORQUESTRADOR" ] || [ -e "$LEGACY_ORQUESTRADOR" ]; } && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
+  echo "Error: an Orquestrador core directory already exists. Re-run with --force to back it up and consolidate the installation at $TARGET_ORQUESTRADOR." >&2
   exit 1
 fi
 if [ -e "$TARGET_AGENTS" ] && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
@@ -694,6 +760,7 @@ fi
 if [ "$UNINSTALL" = true ]; then
   if [ "$INCLUDE_CORE" = true ]; then
     backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
+    backup_path "$LEGACY_ORQUESTRADOR" "$LEGACY_ORQUESTRADOR_NAME"
     backup_path "$TARGET_AGENTS" "AGENTS.md"
   fi
 
@@ -717,6 +784,13 @@ EOF
       exit 1
     fi
     rm -rf "$TARGET_ORQUESTRADOR"
+  fi
+  if [ "$INCLUDE_CORE" = true ] && [ -e "$LEGACY_ORQUESTRADOR" ]; then
+    if ! path_under_root "$LEGACY_ORQUESTRADOR" "$HOME_PATH"; then
+      echo "Error: refusing to remove legacy target outside home: $LEGACY_ORQUESTRADOR" >&2
+      exit 1
+    fi
+    rm -rf "$LEGACY_ORQUESTRADOR"
   fi
   if [ "$INCLUDE_CORE" = true ] && [ -f "$TARGET_AGENTS" ]; then
     if ! path_under_root "$TARGET_AGENTS" "$HOME_PATH"; then
@@ -791,6 +865,7 @@ EOF
 fi
 
 backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
+backup_path "$LEGACY_ORQUESTRADOR" "$LEGACY_ORQUESTRADOR_NAME"
 backup_path "$TARGET_AGENTS" "AGENTS.md"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -841,6 +916,14 @@ for (const [id, entry] of entries) {
 }
 NODE
 
+restore_missing_tree "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/memory" "$STAGED_ORQUESTRADOR/memory"
+restore_missing_tree "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/memory" "$STAGED_ORQUESTRADOR/memory"
+restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
+  "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/maestro-config.json" \
+  "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/config.json" \
+  "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/maestro-config.json" \
+  "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/config.json"
+
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
   if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
     echo "Error: refusing to replace target outside home: $TARGET_ORQUESTRADOR" >&2
@@ -858,6 +941,13 @@ if ! mv "$STAGED_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"; then
 fi
 
 rm -rf "$PREVIOUS_ORQUESTRADOR"
+if [ -e "$LEGACY_ORQUESTRADOR" ]; then
+  if ! path_under_root "$LEGACY_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to remove legacy target outside home: $LEGACY_ORQUESTRADOR" >&2
+    exit 1
+  fi
+  rm -rf "$LEGACY_ORQUESTRADOR"
+fi
 trap - EXIT
 
 copy_with_placeholders "$SOURCE_AGENTS" "$TARGET_AGENTS"

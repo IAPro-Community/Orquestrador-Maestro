@@ -15,7 +15,7 @@ O padrão instalado é conservador:
 - hooks permanecem desligados até ativação explícita;
 - somente riscos críticos ou o modo `strict` podem bloquear uma conclusão.
 
-O diretório canônico de instalação é `~/.orquestrador-maestro`. Instalações existentes em `~/.orquestrador` continuam sendo lidas e atualizadas nesse local até uma migração explícita. Não há renomeação automática.
+O diretório canônico de instalação é `~/.orquestrador`. A atualização migra instalações existentes em `~/.orquestrador-maestro` após criar um backup e valida que reste somente a raiz canônica.
 
 ## Navegação
 
