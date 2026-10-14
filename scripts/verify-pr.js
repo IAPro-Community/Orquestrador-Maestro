@@ -122,10 +122,10 @@ runCheck("No obvious secrets in tracked files", () => {
 console.log("\n5. No concrete user paths in source");
 runCheck("No concrete Windows/Unix home paths in tracked source", () => {
   const userPathPatterns = [
-    /C:\\Users\\(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\\/,
-    /C\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
-    /\/home\/(?!<user>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
-    /\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//
+    /C:\\Users\\(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\\/,
+    /C\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /\/home\/(?!<user>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//
   ];
   for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);

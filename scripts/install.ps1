@@ -117,11 +117,24 @@ function Test-PathUnderRoot {
 function Get-RelativePath {
   param([string]$BasePath, [string]$Path)
   $baseFull = Get-FullPath -Path $BasePath
+  $pathFull = Get-FullPath -Path $Path
+
+  # Path.GetRelativePath exists on modern .NET (pwsh / .NET Core). Windows
+  # PowerShell 5.1 ships an older runtime, so keep the URI fallback for that
+  # host. Without the guard, the URI fallback throws on Linux/macOS where a
+  # path is not a legal absolute file URI.
+  $relativePathMethod = [System.IO.Path].GetMethods() |
+    Where-Object { $_.Name -eq "GetRelativePath" } |
+    Select-Object -First 1
+  if ($null -ne $relativePathMethod) {
+    return [System.IO.Path]::GetRelativePath($baseFull, $pathFull)
+  }
+
   if (-not $baseFull.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
     $baseFull += [System.IO.Path]::DirectorySeparatorChar
   }
   $baseUri = [Uri]$baseFull
-  $pathUri = [Uri](Get-FullPath -Path $Path)
+  $pathUri = [Uri]$pathFull
   return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace("/", [System.IO.Path]::DirectorySeparatorChar)
 }
 
@@ -622,7 +635,12 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    $syncHost = $null
+    foreach ($candidate in @("pwsh", "powershell")) {
+      if (Get-Command $candidate -ErrorAction SilentlyContinue) { $syncHost = $candidate; break }
+    }
+    if (-not $syncHost) { throw "PowerShell not found (tried pwsh, powershell)." }
+    & $syncHost -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
   }
 }
 
@@ -655,7 +673,8 @@ foreach ($pair in $nativeMinimum) {
       if (Test-Path -LiteralPath $srcSkill) {
         $destDir = Split-Path -Parent $destMaestro
         New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-        Copy-Item -LiteralPath (Join-Path $srcMaestro "*") -Destination $destDir -Recurse -Force
+        # -Path (not -LiteralPath): -LiteralPath treats "*" literally and fails.
+        Copy-Item -Path (Join-Path $srcMaestro "*") -Destination $destDir -Recurse -Force
         break
       }
     }

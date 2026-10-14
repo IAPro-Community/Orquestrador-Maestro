@@ -6,6 +6,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Resolve the PowerShell host to re-invoke. Hardcoding `powershell` made this
+# smoke test unrunnable on Linux/macOS where only `pwsh` (Core) exists.
+$psHost = $null
+foreach ($candidate in @("pwsh", "powershell")) {
+  if (Get-Command $candidate -ErrorAction SilentlyContinue) { $psHost = $candidate; break }
+}
+if (-not $psHost) { throw "PowerShell not found (tried pwsh, powershell)." }
+function Invoke-MaestroScript {
+  param([string]$ScriptPath, [string[]]$ScriptArgs)
+  & $psHost -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @ScriptArgs
+}
+
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $TempHome = Join-Path ([System.IO.Path]::GetTempPath()) ("orquestrador-install-test-" + [Guid]::NewGuid().ToString("N"))
 
@@ -23,10 +35,10 @@ try {
     Set-Content -LiteralPath (Join-Path $sessionDir "personal.jsonl") -Value "personal-session-must-survive" -Encoding UTF8
   }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs -DryRun
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs ($installArgs + "-DryRun")
   if ($LASTEXITCODE -ne 0) { throw "DryRun failed." }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs $installArgs
   if ($LASTEXITCODE -ne 0) { throw "Install failed." }
 
   if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\runtime")) {
@@ -45,16 +57,16 @@ try {
     }
   }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\verify-install.ps1") @verifyArgs
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "scripts\verify-install.ps1") -ScriptArgs $verifyArgs
   if ($LASTEXITCODE -ne 0) { throw "Verify failed." }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -ListTargets
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-ListTargets")
   if ($LASTEXITCODE -ne 0) { throw "ListTargets failed." }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall -DryRun
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-Uninstall", "-DryRun")
   if ($LASTEXITCODE -ne 0) { throw "Uninstall DryRun failed." }
 
-  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall
+  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-Uninstall")
   if ($LASTEXITCODE -ne 0) { throw "Uninstall failed." }
 
   if ($Full) {

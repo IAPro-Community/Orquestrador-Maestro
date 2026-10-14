@@ -188,6 +188,22 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1
           if ($LASTEXITCODE -ne 0) { throw "validate-public.ps1 failed" }
 
+      - name: PowerShell installer E2E (--Full)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-install.ps1 -Full
+          if ($LASTEXITCODE -ne 0) { throw "test-install.ps1 -Full failed" }
+
+      - name: doctor --strict (loss detection)
+        shell: pwsh
+        run: |
+          $tempHome = Join-Path $env:RUNNER_TEMP "maestro-doctor-$env:GITHUB_RUN_ID"
+          New-Item -ItemType Directory -Force -Path $tempHome | Out-Null
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -HomePath $tempHome -NonInteractive | Out-Null
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./orquestrador/doctor.ps1 -HomePath $tempHome -Strict | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "doctor --strict failed on a healthy install" }
+          Remove-Item -LiteralPath $tempHome -Recurse -Force
+
       - name: Cleanup
         if: always()
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
