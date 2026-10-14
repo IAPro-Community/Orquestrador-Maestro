@@ -4,8 +4,21 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { RunStore } = require("./run-store");
+// Lockfile primitive lives in the installed CLI tree, not in the repo snapshot
+// that becomes ~/.orquestrador-maestro. Resolution is lazy+best-effort: when the
+// library is unavailable (e.g. a source-only checkout) the store degrades to its
+// previous in-process-only serialisation instead of failing to load.
+function resolveWithLockAsync() {
+  try {
+    return require("../../orquestrador/lib/lock-async.js").withLockAsync;
+  } catch {
+    return async (_lockPath, fn) => fn();
+  }
+}
 
 const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention"]);
+
+const withLockAsync = resolveWithLockAsync();
 
 function emptyState() {
   return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [] };
@@ -181,8 +194,14 @@ class JsonFileRunStore extends RunStore {
   async _mutate(operation) {
     const next = this._mutation.then(async () => {
       await this.initialize();
-      await this._reloadIfChanged();
-      return operation();
+      // 1.2.0: cross-process mutual exclusion. The in-process promise chain alone
+      // cannot serialise two daemons (or two processes) sharing this file; the
+      // exclusive lockfile does, and reload-after-lock keeps the lost-update
+      // window closed.
+      return withLockAsync(`${this.filePath}.lock`, async () => {
+        await this._reloadIfChanged();
+        return operation();
+      });
     });
     this._mutation = next.catch(() => undefined);
     return next;
@@ -230,10 +249,39 @@ class JsonFileRunStore extends RunStore {
 
   async _flush() {
     const temporaryPath = `${this.filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
-    await fs.writeFile(temporaryPath, `${JSON.stringify(this._state, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    // 1.2.0 durability: write to a unique temp file, fsync it so the bytes are
+    // on disk, then rename, then fsync the parent directory so the rename itself
+    // is durable. Without the fsyncs a power loss could leave a renamed-but-empty
+    // runs.json (rename is atomic but not durable).
+    const handle = await fs.open(temporaryPath, "wx", 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(this._state, null, 2)}\n`, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
     await fs.rename(temporaryPath, this.filePath);
+    await this._syncDirectory(path.dirname(this.filePath));
     try { await fs.chmod(this.filePath, 0o600); } catch { /* Windows does not implement POSIX modes. */ }
     try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch { /* best-effort */ }
+  }
+
+  // Directory fsync is unavailable on Windows (and unsupported on some
+  // filesystems); failure there is not a durability regression we can act on.
+  async _syncDirectory(directory) {
+    let handle;
+    try {
+      handle = await fs.open(directory, "r");
+    } catch {
+      return;
+    }
+    try {
+      await handle.sync();
+    } catch {
+      /* best-effort: Windows and some filesystems reject directory fsync */
+    } finally {
+      await handle.close();
+    }
   }
 }
 

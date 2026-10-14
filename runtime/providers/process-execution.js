@@ -1,6 +1,7 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { isDeniedCommand } = require("../governance/policy-enforcer");
 
 function requiredPrompt(request) {
   if (!request || typeof request !== "object" || Array.isArray(request)) {
@@ -49,6 +50,18 @@ function startProcess({ executable, args, request, providerId }) {
   const timeoutMs = optionalPositiveInteger(request.timeoutMs, "execution request.timeoutMs");
   const startedAt = Date.now();
   const commandArgs = [...args, prompt];
+  // Deterministic deny policy on the provider spawn path. Previously the deny
+  // rules only guarded post-run verification commands, so a provider CLI could
+  // still be launched with a denied git/rm/pipe-to-shell invocation in its args.
+  // The prompt is deliberately NOT scanned: it is model-authored task content,
+  // not an operator-authored command line.
+  const denial = isDeniedCommand([executable, ...args].join(" "));
+  if (denial) {
+    const error = new Error(`Denied by ${denial.rule}: ${denial.description}`);
+    error.code = "POLICY_DENIED";
+    error.rule = denial.rule;
+    throw error;
+  }
   const child = spawn(executable, commandArgs, {
     cwd: request.workspacePath,
     env: safeEnvironment(request.environment),

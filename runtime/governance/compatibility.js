@@ -10,7 +10,13 @@ const DEFAULT_CONFIG = Object.freeze({
   tone: "preserved",
   warningFrequency: "once-per-session",
   checks: { missingVerification: "warn", missingEvidence: "recommend" },
-  hooks: { enabled: false },
+  // NOT YET IMPLEMENTED. `hooks.enabled` is currently only surfaced in run
+  // telemetry (`hooksActive`); there is no hook runtime in this codebase, so
+  // enabling it changes no behaviour. Real enforcement points today are the
+  // deny policy (runtime/governance/policy-enforcer.js), the sandbox contract
+  // (runtime/providers/sandbox-contract.js) and the preflight gates in
+  // maestro-application.js. Do not advertise hooks as an active control.
+  hooks: { enabled: false, implemented: false },
   features: { independentReview: false },
   cognitiveBudget: {},
   scope: "project",
@@ -37,7 +43,9 @@ function mergeConfig(value = {}) {
       missingEvidence: ["off", "recommend", "block"].includes(checks.missingEvidence)
         ? checks.missingEvidence : DEFAULT_CONFIG.checks.missingEvidence
     }),
-    hooks: Object.freeze({ enabled: hooks.enabled === true }),
+    // `implemented: false` is intentional and load-bearing: there is no hook
+    // runtime yet, so `enabled` must never be presented as an active control.
+    hooks: Object.freeze({ enabled: hooks.enabled === true, implemented: false }),
     features: Object.freeze({ independentReview: features.independentReview === true }),
     cognitiveBudget
   });

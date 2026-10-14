@@ -44,6 +44,15 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 - Novos testes: `update-preservation-1-1-0`, `policy-drift-1-1-0`, `alias-deprecated`, `path-contract`, `policy-enforcer`, `router-determinism`; `test-install.sh --full` no CI.
 - Suite: 1177 passed, 0 failed; `skill-catalog validate/check` + `public-skill-catalog check` verdes.
 
+### Hardening de governança (1.1.0, fases A-C)
+
+- **Sandbox fail-closed**: `agy` recusava silenciosamente `sandbox: "read-only"` (só aceitava `true`/"enabled") e rodava com escrita total; `opencode` não expunha controle nenhum. Novo `runtime/providers/sandbox-contract.js` — sandbox pedido e não aplicável agora **falha** em vez de degradar. `opencode` reporta `sandboxControl: false` honestamente.
+- **Deny policy no spawn do provider**: as 6 regras (`git push/commit`, yolo, `rm` destrutivo, segredo inline, pipe-to-shell) agora também valem no caminho de execução do provider, não só na verificação pós-run. O prompt autoral do modelo não é varrido.
+- **`hooks.enabled` marcado como não implementado** (`implemented: false`): não existe runtime de hooks; o campo não deve ser vendido como controle ativo.
+- **Contrato de budget enxuto**: `maxIntelligentRetries` e `maxOverheadPercent` foram removidos — declarados e validados, porém com **zero** enforcement (falsa garantia). Restam `contextTokens`, `maxSkills` e `maxReviewers`, cada um com consumidor real e coberto por teste.
+- **Durabilidade do run store**: `_flush` agora faz `fsync` do arquivo temporário e do diretório pai antes/depois do `rename` (antes o rename era atômico mas não durável).
+- **Concorrência cross-process**: `_mutate` segura um lockfile exclusivo durante reload+operação. Novo `orquestrador/lib/lock-async.js` combina mutex in-process (necessário porque `acquireLock` faz busy-wait com `Atomics.wait` e deadlock intra-processo) com o lockfile cross-process.
+
 ### Segurança (follow-up documentado, fora desta release)
 
 - `.env` com segredo vivo + identificador de chave no histórico: rotação imediata obrigatória; purga histórica (`filter-repo` + push forçado coordenado) planejada em janela separada, não executada aqui.
