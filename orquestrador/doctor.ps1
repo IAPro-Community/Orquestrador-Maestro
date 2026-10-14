@@ -468,7 +468,17 @@ $canonicalSkillNames = @($skillQuality | Where-Object { $_.Exists } | Select-Obj
 $installPolicy = Get-InstallPolicy -HomePath $HomePath
 $nativeSkillRootHealth = @(Get-NativeSkillRootHealth -HomePath $HomePath -InstallPolicy $installPolicy -CanonicalSkills $canonicalSkillNames)
 
-$port3001 = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue
+# Get-NetTCPConnection is Windows-only. On POSIX pwsh it throws under
+# $ErrorActionPreference="Stop", which would abort the whole report.
+$port3001 = $null
+try {
+  if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+    $port3001 = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue
+  }
+} catch { $port3001 = $null }
+if (-not $port3001 -and (Get-Command ss -ErrorAction SilentlyContinue)) {
+  try { $port3001 = @(ss -ltn 2>$null | Select-String ":3001\b") } catch { $port3001 = $null }
+}
 $versions = [ordered]@{}
 try { $versions.codex = (codex --version 2>$null) } catch { $versions.codex = "unavailable" }
 try { $versions.opencode = (opencode --version 2>$null) } catch { $versions.opencode = "unavailable" }
@@ -489,11 +499,16 @@ $report = [pscustomobject]@{
 }
 $report | ConvertTo-Json -Depth 8
 
-# 1.1.0: --strict fails on loss signals (routing breaks, mirror drift, unhealthy roots).
+# 1.1.0: --strict fails on real loss signals only.
+# Drift semantics: Different=true means an INSTALLED mirror diverges from its
+# canonical source (corruption/partial copy). Exists=false is NOT loss by
+# itself — SKILL_INSTALL_POLICY.allowDirectories deliberately keeps different
+# skill subsets per native root, and only mirrorEverywhere skills go everywhere
+# (that absence is covered by `verify --strict`, not by doctor).
 if ($Strict) {
   $routingIssueCount = 0
-  if ($routingHealth -and $routingHealth.IssueCount) { $routingIssueCount = [int]$routingIssueCount }
-  $drifted = @($skillMirrorDrift | Where-Object { $_.Exists -eq $false -or $_.Different -eq $true })
+  if ($routingHealth -and $routingHealth.IssueCount) { $routingIssueCount = [int]$routingHealth.IssueCount }
+  $drifted = @($skillMirrorDrift | Where-Object { $_.Different -eq $true })
   $unhealthyRoots = @($nativeSkillRootHealth | Where-Object { -not $_.Healthy })
   if ($routingIssueCount -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0) {
     Write-Error "doctor --strict: $routingIssueCount routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots."

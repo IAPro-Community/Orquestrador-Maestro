@@ -19,6 +19,7 @@ const STEPS = [
     "tests/alias-deprecated.test.js",
     "tests/policy-drift-1-1-0.test.js",
     "tests/policy-enforcer.test.js",
+    "tests/doctor-strict.test.js",
     "tests/router-determinism.test.js",
     "tests/skill-routing.test.js",
     "tests/public-skill-catalog.test.js",
