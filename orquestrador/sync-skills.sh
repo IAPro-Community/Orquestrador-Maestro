@@ -105,17 +105,10 @@ COMMUNITY_LIBRARY="$(resolve_home_relative ".orquestrador/skill-library/communit
 CODEX_LIBRARY="$(resolve_home_relative ".orquestrador/skill-library/codex-skills")"
 DISABLED_NATIVE_ROOT="$(resolve_home_relative ".orquestrador/skill-library/disabled-native")"
 
-TARGET_SPECS=(
-  "codex|.codex/skills|64|.system,ask-claude,ask-gemini,autopilot,cancel,code-review,deep-interview,doctor,orquestrador-maestro,plan,ralplan,ralph,security-review,team,ultrawork,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "opencode|.opencode/skills|64|orquestrador-maestro,code-review,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "agents|.agents/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "claude|.claude/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "cursor|.cursor/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "gemini|.gemini/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "windsurf|.windsurf/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-  "antigravity|.antigravity-skills/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
-)
-
+# No hardcoded fallback TARGET_SPECS: when node is unavailable or policy is
+# missing, fall back to a minimal safe set (orquestrador-maestro only) instead
+# of duplicating the full policy. This prevents drift between the JSON policy
+# and shell copies.
 if [ -f "$POLICY_PATH" ] && command -v node >/dev/null 2>&1; then
   PARSED_TARGET_SPECS=()
   while IFS= read -r entry; do
@@ -154,6 +147,21 @@ if [ -f "$POLICY_PATH" ] && command -v node >/dev/null 2>&1; then
   if [ "${#PARSED_TARGET_SPECS[@]}" -gt 0 ]; then
     TARGET_SPECS=("${PARSED_TARGET_SPECS[@]}")
   fi
+fi
+
+# Minimal safe fallback when policy/node unavailable: sync only orquestrador-maestro.
+if [ "${#TARGET_SPECS[@]}" -eq 0 ]; then
+  echo "Warning: SKILL_INSTALL_POLICY.json unavailable or node missing — syncing orquestrador-maestro only." >&2
+  TARGET_SPECS=(
+    "codex|.codex/skills|64|orquestrador-maestro"
+    "opencode|.opencode/skills|64|orquestrador-maestro"
+    "agents|.agents/skills|64|orquestrador-maestro"
+    "claude|.claude/skills|64|orquestrador-maestro"
+    "cursor|.cursor/skills|64|orquestrador-maestro"
+    "gemini|.gemini/skills|64|orquestrador-maestro"
+    "windsurf|.windsurf/skills|64|orquestrador-maestro"
+    "antigravity|.antigravity-skills/skills|64|orquestrador-maestro"
+  )
 fi
 
 CANONICAL_SOURCES=(

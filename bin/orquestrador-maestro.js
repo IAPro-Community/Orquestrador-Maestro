@@ -585,13 +585,25 @@ function runRollback(args) {
   const copyEntry = (name, isDir) => {
     const from = path.join(src, name);
     if (!fs.existsSync(from)) return false;
-    const toPath = name === "AGENTS.md" ? path.join(homePath, "AGENTS.md") : path.join(dest, name === ".orquestrador-maestro" || name === ".orquestrador" ? "" : name);
-    // name may be ".orquestrador-maestro" dir backup (whole core) or "AGENTS.md"
-    if (name === ".orquestrador-maestro" || name === ".orquestrador") {
-      fs.cpSync(from, dest, { recursive: true });
+    if (name === "AGENTS.md") {
+      fs.copyFileSync(from, path.join(homePath, "AGENTS.md"));
       return true;
     }
-    if (isDir) fs.cpSync(from, toPath, { recursive: true });
+    if (name === ".orquestrador-maestro" || name === ".orquestrador") {
+      // Copy CONTENTS of the backed-up core into dest, not the dir itself.
+      for (const inner of fs.readdirSync(from)) {
+        const innerFrom = path.join(from, inner);
+        const innerTo = path.join(dest, inner);
+        if (fs.statSync(innerFrom).isDirectory()) {
+          fs.cpSync(innerFrom, innerTo, { recursive: true, force: true });
+        } else {
+          fs.copyFileSync(innerFrom, innerTo);
+        }
+      }
+      return true;
+    }
+    const toPath = path.join(dest, name);
+    if (isDir) fs.cpSync(from, toPath, { recursive: true, force: true });
     else fs.copyFileSync(from, toPath);
     return true;
   };

@@ -5,6 +5,7 @@
 // enforced in code before spawn (see runtime/verification/engine.js).
 // Rule definitions live in orquestrador/POLICY_DENY.json; this module embeds
 // the same patterns so enforcement works from any installed root.
+// Parity is checked by tests/policy-enforcer.test.js.
 
 const DENY_RULES = Object.freeze([
   Object.freeze({
@@ -25,17 +26,17 @@ const DENY_RULES = Object.freeze([
   Object.freeze({
     id: "deny:destructive-rm",
     description: "Forbid recursive removal of filesystem roots, home, or with --no-preserve-root.",
-    pattern: /(^|[\s;&|])rm\s+[^\n]*(-r[f]?\b[^\n]*--no-preserve-root|(-r[f]?\s+|--recursive\s+)(\/|~|\$HOME|%USERPROFILE%|\$env:USERPROFILE))(?=$|[\s;&|/])/i
+    pattern: /(^|[\s;&|])rm\s+(-[a-zA-Z]*r[a-zA-Z]*f?|-[a-zA-Z]*f[a-zA-Z]*r?|--recursive|--force)\s+[^\n]*?(--no-preserve-root|(\/|~|\$HOME|%USERPROFILE%|\$env:USER_PROFILE))(?=$|[\s;&|/])/i
   }),
   Object.freeze({
     id: "deny:secret-in-command",
-    description: "Forbid service-role credentials inline in spawned commands.",
-    pattern: /(service_role|service-role).{0,64}(eyJ[A-Za-z0-9_-]{8,}|sk-[A-Za-z0-9-_]{8,}|[A-Za-z0-9]{32,})/i
+    description: "Forbid service-role credentials or bearer tokens inline in spawned commands.",
+    pattern: /((service_role|service-role).{0,64}(eyJ[A-Za-z0-9_-]{8,}|sk-[A-Za-z0-9-_]{8,})|(Bearer\s+eyJ[A-Za-z0-9_-]{8,})|(sk-[A-Za-z0-9_-]{20,}))/i
   }),
   Object.freeze({
     id: "deny:pipe-to-shell",
     description: "Forbid curl/wget piped directly into a shell.",
-    pattern: /\b(curl|wget)\b[^\n|]*\|\s*(sh|bash|pwsh|powershell)\b/i
+    pattern: /\b(curl|wget)\b[^\n|]*\|\s*\/?(bin\/(ba)?sh|(ba)?sh|pwsh|powershell|zsh|dash)\b/i
   })
 ]);
 

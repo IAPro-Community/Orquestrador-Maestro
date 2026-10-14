@@ -215,7 +215,8 @@ is_text_file() {
   if [ "$leaf" = ".gitignore" ]; then return 0; fi
   if [ "$ext" = "$leaf" ]; then
     # Extensionless files: only treat as text when they look like text.
-    if head -c 8000 "$file" 2>/dev/null | LC_ALL=C grep -q "[^[:print:][:space:]]" 2>/dev/null; then
+    # Use grep without LC_ALL=C so UTF-8 multi-byte (ç, ã, é) is not flagged as binary.
+    if head -c 8000 "$file" 2>/dev/null | grep -qP "[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]" 2>/dev/null; then
       return 1
     fi
     return 0
@@ -698,7 +699,7 @@ if [ -d "$TARGET_ORQUESTRADOR" ]; then
           const resolved = path.resolve(dest);
           const root = path.resolve(target);
           if (resolved === root || resolved.startsWith(root + path.sep)) {
-            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
+            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true, recursive: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
           }
         }
       }

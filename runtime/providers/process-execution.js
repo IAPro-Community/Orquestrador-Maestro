@@ -101,14 +101,20 @@ function startProcess({ executable, args, request, providerId }) {
     resolveResult(completed);
   };
 
+  const MAX_OUTPUT = 512 * 1024;
+  const truncate = (store, text) => {
+    const next = store + text;
+    return next.length > MAX_OUTPUT ? next.slice(-MAX_OUTPUT) : next;
+  };
+
   child.stdout.on("data", (chunk) => {
     const text = chunk.toString("utf8");
-    stdout += text;
+    stdout = truncate(stdout, text);
     emit(request.onEvent, "provider.output", { providerId, stream: "stdout", chunk: text });
   });
   child.stderr.on("data", (chunk) => {
     const text = chunk.toString("utf8");
-    stderr += text;
+    stderr = truncate(stderr, text);
     emit(request.onEvent, "provider.output", { providerId, stream: "stderr", chunk: text });
   });
   child.once("error", (error) => finish({ exitCode: null, signal: null, error: error.message }));

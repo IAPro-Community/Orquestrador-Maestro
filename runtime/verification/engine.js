@@ -14,29 +14,62 @@ function inferCommands(packageJson) {
     .map(([name]) => ({ name, command: `npm run ${name}` }));
 }
 
+// Parse a shell command string into argv, respecting single/double quotes.
+// Used to avoid shell:true (which allows injection via metacharacters).
+function parseShellCommand(command) {
+  const tokens = [];
+  let current = "";
+  let inSingle = false;
+  let inDouble = false;
+  let hasToken = false;
+  for (let i = 0; i < command.length; i += 1) {
+    const ch = command[i];
+    if (inSingle) {
+      if (ch === "'") inSingle = false;
+      else current += ch;
+    } else if (inDouble) {
+      if (ch === '"') inDouble = false;
+      else if (ch === "\\" && i + 1 < command.length && command[i + 1] === '"') { current += '"'; i += 1; }
+      else current += ch;
+    } else if (ch === "'") { inSingle = true; hasToken = true; }
+    else if (ch === '"') { inDouble = true; hasToken = true; }
+    else if (/\s/.test(ch)) {
+      if (hasToken || current) { tokens.push(current); current = ""; hasToken = false; }
+    } else current += ch;
+  }
+  if (hasToken || current) tokens.push(current);
+  return tokens;
+}
+
 function runCommand(command, options = {}) {
   return new Promise((resolve) => {
     const startedAt = Date.now();
-    // 1.1.0 (SEC-03): deterministic deny policy before spawn. Prompt-level
-    // bans are advisory; this never executes a denied command.
     const denial = isDeniedCommand(command);
     if (denial) {
       resolve({ exitCode: 1, stdout: "", stderr: `Denied by ${denial.rule}: ${denial.description}`, durationMs: Date.now() - startedAt, timedOut: false, denied: denial.rule });
       return;
     }
     const MAX_OUTPUT = 512 * 1024;
-    let spawnCommand = command;
-    let spawnArgs;
+    // Always use shell:false to prevent injection. Parse into argv manually.
+    const argv = parseShellCommand(command);
+    if (argv.length === 0) {
+      resolve({ exitCode: 1, stdout: "", stderr: "Empty command", durationMs: Date.now() - startedAt, timedOut: false, error: "Empty command" });
+      return;
+    }
+    let spawnCommand = argv[0];
+    let spawnArgs = argv.slice(1);
+    // On Windows, resolve .cmd/.bat shims via PATH (shell:false needs explicit resolution).
     if (process.platform === "win32") {
-      const nodeEval = command.match(/^\s*(.+?)\s+-e\s+\\?"([\s\S]*?)\\?"\s*$/u);
-      if (nodeEval) {
-        spawnCommand = nodeEval[1].replace(/^"|"$/gu, "");
-        spawnArgs = ["-e", nodeEval[2]];
+      const base = spawnCommand.replace(/\.(cmd|bat|exe)$/iu, "");
+      if (base !== spawnCommand) spawnCommand = base;
+      else if (!/\.(cmd|bat|exe)$/iu.test(spawnCommand)) {
+        // Likely a .cmd shim (npm, npx, etc.) — append .cmd for Windows CreateProcess.
+        spawnCommand = `${spawnCommand}.cmd`;
       }
     }
     let child;
     try {
-      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: !spawnArgs, windowsHide: true });
+      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: false, windowsHide: true });
     } catch (error) {
       resolve({ exitCode: 1, stdout: "", stderr: String((error && error.message) || error), durationMs: Date.now() - startedAt, timedOut: false, error: String((error && error.message) || error) });
       return;

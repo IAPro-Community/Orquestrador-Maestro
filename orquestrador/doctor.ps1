@@ -491,11 +491,12 @@ $report | ConvertTo-Json -Depth 8
 
 # 1.1.0: --strict fails on loss signals (routing breaks, mirror drift, unhealthy roots).
 if ($Strict) {
-  $routingIssues = @($routingHealth | Where-Object { $_.Status -ne "ok" })
-  $drifted = @($skillMirrorDrift | Where-Object { $_.Status -ne "ok" })
+  $routingIssueCount = 0
+  if ($routingHealth -and $routingHealth.IssueCount) { $routingIssueCount = [int]$routingIssueCount }
+  $drifted = @($skillMirrorDrift | Where-Object { $_.Exists -eq $false -or $_.Different -eq $true })
   $unhealthyRoots = @($nativeSkillRootHealth | Where-Object { -not $_.Healthy })
-  if ($routingIssues.Count -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0) {
-    Write-Error "doctor --strict: $($routingIssues.Count) routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots."
+  if ($routingIssueCount -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0) {
+    Write-Error "doctor --strict: $routingIssueCount routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots."
     exit 1
   }
 }

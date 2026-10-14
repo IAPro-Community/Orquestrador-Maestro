@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "purpose": "Deterministic deny rules for shell commands spawned by the Maestro runtime. Prompt-level bans (SKILL.md) are advisory; this policy is enforced in code before spawn. Each rule has an id, a description, and test evidence in tests/policy-enforcer.test.js.",
+  "purpose": "Deterministic deny rules for shell commands spawned by the Maestro runtime. Prompt-level bans (SKILL.md) are advisory; this policy is enforced in code before spawn. Each rule has an id, a description, and test evidence in tests/policy-enforcer.test.js. Patterns here must stay in sync with runtime/governance/policy-enforcer.js (parity checked by tests/policy-enforcer.test.js).",
   "rules": [
     {
       "id": "deny:git-push",
@@ -20,17 +20,17 @@
     {
       "id": "deny:destructive-rm",
       "description": "Forbid recursive removal of filesystem roots, home, or with --no-preserve-root.",
-      "pattern": "(^|[\\s;&|])rm\\s+[^\\n]*(-r[f]?\\b[^\\n]*--no-preserve-root|(-r[f]?\\s+|--recursive\\s+)(/|~|\\$HOME|%USERPROFILE%|\\$env:USERPROFILE))(?=$|[\\s;&|/])"
+      "pattern": "(^|[\\s;&|])rm\\s+(-[a-zA-Z]*r[a-zA-Z]*f?|-[a-zA-Z]*f[a-zA-Z]*r?|--recursive|--force)\\s+[^\\n]*?(--no-preserve-root|(\\/|~|\\$HOME|%USERPROFILE%|\\$env:USER_PROFILE))(?=$|[\\s;&|\\/])"
     },
     {
       "id": "deny:secret-in-command",
-      "description": "Forbid service-role credentials inline in spawned commands.",
-      "pattern": "(service_role|service-role).{0,64}(eyJ[A-Za-z0-9_-]{8,}|sk-[A-Za-z0-9-_]{8,}|[A-Za-z0-9]{32,})"
+      "description": "Forbid service-role credentials or bearer tokens inline in spawned commands.",
+      "pattern": "((service_role|service-role).{0,64}(eyJ[A-Za-z0-9_-]{8,}|sk-[A-Za-z0-9_-]{8,})|(Bearer\\s+eyJ[A-Za-z0-9_-]{8,})|(sk-[A-Za-z0-9_-]{20,}))"
     },
     {
       "id": "deny:pipe-to-shell",
       "description": "Forbid curl/wget piped directly into a shell.",
-      "pattern": "\\b(curl|wget)\\b[^\\n|]*\\|\\s*(sh|bash|pwsh|powershell)\\b"
+      "pattern": "\\b(curl|wget)\\b[^\\n|]*\\|\\s*\\/?(bin\\/(ba)?sh|(ba)?sh|pwsh|powershell|zsh|dash)\\b"
     }
   ]
 }

@@ -75,8 +75,9 @@ function startSocketRuntime(bridge, { projectRoot = process.cwd(), protocolV2 } 
     socket.on("error", () => {});
     socket.on("close", () => { unsubscribe?.(); unsubscribe = undefined; unsubscribeV2?.(); unsubscribeV2 = undefined; });
     socket.on("data", async (chunk) => {
+      // 1.1.0: reject oversized single chunks BEFORE accumulating (anti-OOM).
+      if (String(chunk).length > 2 * 1048576) { try { socket.destroy(); } catch {} return; }
       pending += chunk;
-      // 1.1.0: bound pre-newline buffer (flood sem newline não pode OOMar).
       if (pending.length > 2 * 1048576) { try { socket.destroy(); } catch {} pending = ""; return; }
       let newline;
       while ((newline = pending.indexOf("\n")) >= 0) {

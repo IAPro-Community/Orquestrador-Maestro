@@ -42,6 +42,15 @@ test("1.1.0 (#38): update preserves custom core files and custom native skills",
   assert.ok(fs.existsSync(path.join(maestroRoot, "WORKLOG.md")), "WORKLOG.md must survive update");
   assert.ok(fs.existsSync(path.join(maestroRoot, "templates", "user.md")), "templates/user.md must survive update");
   assert.ok(fs.existsSync(path.join(customSkill, "SKILL.md")), "custom native skill must survive update (preserve by default)");
+
+  // Managed files must be REFRESHED on update (not just preserved).
+  const managedFile = path.join(maestroRoot, "rules.md");
+  const originalContent = fs.readFileSync(managedFile, "utf8");
+  // Corrupt the managed file, then re-install — update must restore it from snapshot.
+  fs.writeFileSync(managedFile, "CORRUPTED\n", "utf8");
+  const res3 = runInstaller(home);
+  assert.equal(res3.status, 0, `re-install after corruption failed: ${res3.stderr?.slice(0, 2000)}`);
+  assert.notEqual(fs.readFileSync(managedFile, "utf8"), "CORRUPTED\n", "managed file must be refreshed from snapshot on update");
 });
 
 test("1.1.0: sync --apply preserves extra-native without --prune", () => {

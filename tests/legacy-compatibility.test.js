@@ -96,7 +96,7 @@ test("skill manifest, router, aliases, and chains preserve coherent public refer
     assert.ok(fs.existsSync(path.join(repoRoot, "orquestrador", "skills", skillId, "SKILL.md")), `${skillId} must retain its canonical skill file`);
   }
   for (const [alias, skillId] of Object.entries(aliases.aliases)) {
-    assert.ok(router.skills[skillId], `alias ${alias} must target a routed skill`);
+    assert.ok(router.skills[skillId] || router.librarySkills?.[skillId], `alias ${alias} must target a routed skill`);
   }
   for (const [skillId, chain] of Object.entries(chains.chains)) {
     assert.ok(router.skills[skillId], `chain ${skillId} must start with a routed skill`);
