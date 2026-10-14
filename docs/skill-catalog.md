@@ -3,8 +3,8 @@
 
 Este catálogo compacto é gerado a partir de [`orquestrador/SKILLS_MANIFEST.json`](../orquestrador/SKILLS_MANIFEST.json). Para orientação, consulte o [portal de skills](skills/README.md); para detalhes, abra a [referência individual](skills/reference/README.md).
 
-Total canônico: 52
-Catálogo público deduplicado: 75 skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).
+Total canônico: 54
+Catálogo público deduplicado: 77 skills ([manifesto público](../skill-library/PUBLIC_SKILLS_MANIFEST.json)).
 
 Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `check` e `validate` (ou `orquestrador-maestro skill-catalog <comando>`).
 
@@ -35,6 +35,8 @@ Atualize e valide este catálogo com `node scripts/skill-catalog.js generate`, `
 | [skill-melhorar-ux-ui-por-referencia](skills/reference/skill-melhorar-ux-ui-por-referencia.md) | frontend | low | Sob demanda | Melhorar interfaces por screenshots/referências; separar análise, prompt e implementação autorizada. Confirmar o contexto visual após a seleção textual. |
 | [skill-modern-ui-patterns](skills/reference/skill-modern-ui-patterns.md) | frontend | low | Sob demanda | Professional frontend UI implementation with modern component composition, interaction states, forms, tables, cards, navigation, dashboards, SaaS surfaces, and maintainable design-system consistency. |
 | [skill-multiagent-orchestration](skills/reference/skill-multiagent-orchestration.md) | orchestration | medium | Nativa | Multiagent and subagent orchestration for splitting independent engineering work, assigning ownership, reducing token waste, and integrating results safely. |
+| [skill-open-code-delegate](skills/reference/skill-open-code-delegate.md) | orchestration | low | Sob demanda | Deprecated alias: route to skill-multiagent-orchestration. |
+| [skill-open-code-review](skills/reference/skill-open-code-review.md) | review | low | Sob demanda | Deprecated alias: route to code-review. |
 | [skill-open-design-ui](skills/reference/skill-open-design-ui.md) | frontend | low | Sob demanda | Frontend visual-system workflow for design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after experience strategy is clear. |
 | [skill-optimize-images](skills/reference/skill-optimize-images.md) | media | low | Sob demanda | Otimiza imagens para blogs e sites, incluindo conversão de formato, redimensionamento, compressão, responsividade, acessibilidade e validação visual. Use quando pedirem para otimizar, reduzir, preparar, converter ou melhorar imagens para web. |
 | [skill-preflight](skills/reference/skill-preflight.md) | workflow | medium | Nativa | Preflight de escopo, baseline, riscos, ownership e testes. |

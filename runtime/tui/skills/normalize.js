@@ -13,7 +13,7 @@ const CATEGORY_MAP = Object.freeze({
   Other: [
     "media", "marketing", "communication", "analytics", "testing", "quality",
     "observability", "governance", "workflow", "delivery", "maintenance", "verification",
-    "operations", "documentation", "research"
+    "operations", "documentation", "research", "review"
   ]
 });
 

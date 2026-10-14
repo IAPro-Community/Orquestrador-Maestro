@@ -2232,7 +2232,7 @@
         "examples": [
           "Use para webapp testing.",
           "Use para teste e2e.",
-        "Use para teste E2E.",
+          "Use para teste E2E.",
           "Use para teste de aplicação web."
         ],
         "prerequisites": [
@@ -3313,6 +3313,112 @@
         "license": "repository-license",
         "legacyCompatible": true,
         "notes": "Contribuição original adaptada ao contrato canônico; roteamento sob demanda sem alterar o runtime."
+      },
+      "priority": 0
+    },
+    "skill-open-code-review": {
+      "description": "DEPRECATED alias for code-review. Compatibility shim for pre-1.1.0 installs (issue #38). Will be removed in a future release.",
+      "category": "review",
+      "risk": "low",
+      "source": "orquestrador-compat-1.1.0",
+      "mirrorEverywhere": false,
+      "triggers": [
+        "open code review",
+        "skill-open-code-review"
+      ],
+      "aliases": [
+        "skill-open-code-review"
+      ],
+      "status": "deprecated",
+      "deprecated": true,
+      "redirect": "code-review",
+      "tags": [
+        "review",
+        "compat",
+        "deprecated"
+      ],
+      "routerSummary": "Deprecated alias: route to code-review.",
+      "documentation": {
+        "bestFor": [
+          "Legacy references to skill-open-code-review."
+        ],
+        "notFor": [
+          "New work; use code-review."
+        ],
+        "examples": [
+          "Use para code-review."
+        ],
+        "prerequisites": [
+          "Nenhum."
+        ],
+        "expectedEvidence": [
+          "Roteamento para code-review."
+        ]
+      },
+      "provenance": {
+        "evidence": [
+          "orquestrador/skills/skill-open-code-review/SKILL.md"
+        ],
+        "steward": "orquestrador-maintainers",
+        "reviewedAt": "2026-10-13",
+        "upstream": "orquestrador-native",
+        "version": "bundled",
+        "license": "repository-license",
+        "legacyCompatible": true,
+        "notes": "Compat shim 1.1.0 (issue #38). Redirect: code-review."
+      },
+      "priority": 0
+    },
+    "skill-open-code-delegate": {
+      "description": "DEPRECATED alias for skill-multiagent-orchestration. Compatibility shim for pre-1.1.0 installs (issue #38). Will be removed in a future release.",
+      "category": "orchestration",
+      "risk": "low",
+      "source": "orquestrador-compat-1.1.0",
+      "mirrorEverywhere": false,
+      "triggers": [
+        "open code delegate",
+        "skill-open-code-delegate"
+      ],
+      "aliases": [
+        "skill-open-code-delegate"
+      ],
+      "status": "deprecated",
+      "deprecated": true,
+      "redirect": "skill-multiagent-orchestration",
+      "tags": [
+        "orchestration",
+        "compat",
+        "deprecated"
+      ],
+      "routerSummary": "Deprecated alias: route to skill-multiagent-orchestration.",
+      "documentation": {
+        "bestFor": [
+          "Legacy references to skill-open-code-delegate."
+        ],
+        "notFor": [
+          "New work; use skill-multiagent-orchestration."
+        ],
+        "examples": [
+          "Use para delegar com multiagent."
+        ],
+        "prerequisites": [
+          "Nenhum."
+        ],
+        "expectedEvidence": [
+          "Roteamento para skill-multiagent-orchestration."
+        ]
+      },
+      "provenance": {
+        "evidence": [
+          "orquestrador/skills/skill-open-code-delegate/SKILL.md"
+        ],
+        "steward": "orquestrador-maintainers",
+        "reviewedAt": "2026-10-13",
+        "upstream": "orquestrador-native",
+        "version": "bundled",
+        "license": "repository-license",
+        "legacyCompatible": true,
+        "notes": "Compat shim 1.1.0 (issue #38). Redirect: skill-multiagent-orchestration."
       },
       "priority": 0
     }

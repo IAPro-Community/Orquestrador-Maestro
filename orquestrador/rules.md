@@ -1,7 +1,7 @@
 # Orquestrador Rules
 
 Status: ativo
-Local: `{{USER_HOME}}/.orquestrador\rules.md`
+Local: `{{USER_HOME}}/.orquestrador/rules.md`
 
 This is the compact global contract for agents on this machine.
 
@@ -15,9 +15,9 @@ This is the compact global contract for agents on this machine.
 
 ## Command Hierarchy
 
-1. `{{USER_HOME}}/.orquestrador\rules.md`
-2. `{{USER_HOME}}/.orquestrador\maestro.md`
-3. `{{USER_HOME}}/.orquestrador\PERSISTENCE.md`
+1. `{{USER_HOME}}/.orquestrador/rules.md`
+2. `{{USER_HOME}}/.orquestrador/maestro.md`
+3. `{{USER_HOME}}/.orquestrador/PERSISTENCE.md`
 4. `{{USER_HOME}}/AGENTS.md`
 5. nearest project `AGENTS.md`
 6. current project `DEV/` documentation, when present
@@ -52,7 +52,7 @@ Open the pack index first. Do not bulk-load the whole library by default. Treat 
 
 ## Skill Discipline
 
-Use `{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json` before opening skill files.
+Use `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` before opening skill files.
 
 Load only the skill files needed for the task. Load long references only when the selected skill requires them.
 

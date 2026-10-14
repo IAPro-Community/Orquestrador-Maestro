@@ -76,10 +76,12 @@ function startSocketRuntime(bridge, { projectRoot = process.cwd(), protocolV2 } 
     socket.on("close", () => { unsubscribe?.(); unsubscribe = undefined; unsubscribeV2?.(); unsubscribeV2 = undefined; });
     socket.on("data", async (chunk) => {
       pending += chunk;
+      // 1.1.0: bound pre-newline buffer (flood sem newline não pode OOMar).
+      if (pending.length > 2 * 1048576) { try { socket.destroy(); } catch {} pending = ""; return; }
       let newline;
       while ((newline = pending.indexOf("\n")) >= 0) {
         const line = pending.slice(0, newline); pending = pending.slice(newline + 1);
-        if (line.length > 1048576) { socket.destroy(); return; }
+        if (line.length > 1048576) { try { socket.destroy(); } catch {} return; }
         processing = processing.then(() => handleLine(line, socket, token, authenticated, protocolV2, bridge, unsubscribe, unsubscribeV2)).then((result) => { if (result) { authenticated = result.authenticated ?? authenticated; unsubscribe = result.unsubscribe ?? unsubscribe; unsubscribeV2 = result.unsubscribeV2 ?? unsubscribeV2; } }).catch(() => {});
       }
     });

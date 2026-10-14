@@ -63,16 +63,16 @@ You are operating on {{USER_NAME}}'s Windows workstation.
 
 Before broad work, read:
 1. {{USER_HOME}}/AGENTS.md
-2. {{USER_HOME}}/.orquestrador\rules.md
-3. {{USER_HOME}}/.orquestrador\maestro.md
-4. {{USER_HOME}}/.orquestrador\SKILLS_INDEX.md
-5. {{USER_HOME}}/.orquestrador\SKILL_EXECUTION_PROFILES.json
-6. {{USER_HOME}}/.orquestrador\SKILL_ALIASES.json
-7. {{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json
-8. {{USER_HOME}}/.orquestrador\SKILL_CHAINS.json
+2. {{USER_HOME}}/.orquestrador/rules.md
+3. {{USER_HOME}}/.orquestrador/maestro.md
+4. {{USER_HOME}}/.orquestrador/SKILLS_INDEX.md
+5. {{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json
+6. {{USER_HOME}}/.orquestrador/SKILL_ALIASES.json
+7. {{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json
+8. {{USER_HOME}}/.orquestrador/SKILL_CHAINS.json
 
 Use the smallest relevant skill set. Do not load full skill catalogs.
-Do not edit mirror skill roots directly; edit {{USER_HOME}}/.orquestrador\skills first and run sync.
+Do not edit mirror skill roots directly; edit {{USER_HOME}}/.orquestrador/skills first and run sync.
 Do not auto-commit or auto-push.
 Do not enable full-auto/YOLO for code, secrets, payments, auth, production, database migrations, RLS, cron, or customer data.
 Codex is the default executor. Other agents should review, research, verify, or work on explicitly assigned independent lanes.
@@ -131,13 +131,13 @@ Before starting a heavy AionUi team run:
 After adding or changing AionUi integration:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\doctor.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/doctor.ps1
 ```
 
 For skill changes:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\sync-skills.ps1 -Apply
+powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/sync-skills.ps1 -Apply
 ```
 
 ## Related Skills

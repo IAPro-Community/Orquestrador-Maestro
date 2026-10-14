@@ -1,6 +1,54 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-10-14
+
+Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback e hardening de runtime.
+
+### Correções de instalação e atualização (issues #38, #39)
+
+- Fixed #39: fresh install com `--skip-skill-sync` ou `--only` parcial agora sempre cria as 8 raízes nativas e `~/.agents/skills/orquestrador-maestro/SKILL.md` (mínimo fail-closed no instalador sh/ps1).
+- Fixed #38: `install`/`update` deixam de fazer `rm -rf` no core; merge por cima + tombstones via `MANAGED_FILES.json` (só remove gerenciado-ausente-no-novo-snapshot; desconhecido = usuário, sempre preservado).
+- `sync --apply` preserva skills/arquivos desconhecidos por padrão; quarentena para `disabled-native/` só com `--prune`/`-Prune` explícito (ADR-001).
+- Novo comando `orquestrador-maestro rollback [--to STAMP] [--list]` restaura o core a partir de `~/.orquestrador-public-backups/`.
+- `SKILL_INSTALL_POLICY.json` v2 como fonte única (`maxDirectories: 64` nas 8 raízes); fallbacks sh/ps1/verify/doctor unificados (antes 40/30 e 48).
+- Paridade sh/ps1 nos tool profiles (presença + `.maestro-managed` + `--all-targets`) e aviso de execução elevada no Windows.
+- Correção de `hasOnly` com sintaxe `--only=` e `runCliUpdate` com verificação anti-regressão de versão.
+- `verify`/`doctor` ganham `--strict`: espelho `MUST_HAVE` completo, `MANAGED_FILES.json`, policy v2 e aliases deprecated; `doctor --strict` sai non-zero em perda.
+
+### Compatibilidade
+
+- `skill-open-code-review` → alias deprecated para `code-review`/`review-agent`; `skill-open-code-delegate` → alias deprecated para `skill-multiagent-orchestration` (aviso de remoção futura, issue #38).
+- Catálogo público: 77 skills únicas de 176 arquivos; manifesto canônico com 54 skills; matriz de capabilities sem contagens hardcoded.
+
+### Hardening
+
+- `runtime/verification/engine.js`: cap de saída 512KB, `SIGTERM`→`SIGKILL`, guards de spawn nulo.
+- `runtime/bridge/socket-server.js`: teto de buffer pré-newline (anti-OOM).
+- `runtime/providers/process-execution.js`: `BLOCKED_ENV_KEYS` expandida (AWS/OpenAI/Anthropic/GitHub/Azure/Google + `BASH_ENV`/`PYTHONPATH`).
+- `diagnostic-sanitizer`: `ASIA/ABIA/glpat-/AIza/dop_v1` + blocos PEM.
+- `tool-adapters render` com `--refresh`; `benchmark run --profile official` exige `--container`; CSV com coluna `claim_eligible`; extensão VS Code com backoff e dispose completo.
+- Instalador: detecção de binários por conteúdo (não só extensão) e guarda de newline em `--home-path`.
+
+### Quick wins arquiteturais (RFC, mesma release)
+
+- `orquestrador/PATH_CONTRACT.md`: prosa e JSON sempre com `/`; 156 linhas normalizadas; lint `path-contract` no gate.
+- `npm run validate` portátil (`scripts/validate.js` com modo degradado sem PowerShell); `validate-skills.sh` com paridade ps1.
+- `scripts/validate-contracts.js` + job `contracts` no CI (catálogos + testes de contrato + `test-install --full`).
+- `orquestrador/POLICY_DENY.json` + `runtime/governance/policy-enforcer.js` aplicados em `verification/engine` (git push/commit, yolo, `rm` destrutivo, segredo inline, pipe-to-shell nunca executam).
+- Roteamento determinístico formalizado (`normalization` + `tieBreak` no router) com teste de 18 prompts ambíguos.
+- `orquestrador/SKILL_TEMPLATE.md` (Template v2: frontmatter fechado, ≤120 linhas, `references/`, regras de triggers).
+- Correção do validador público em arquivo vazio (null-deref pré-existente).
+
+### Verificação
+
+- Novos testes: `update-preservation-1-1-0`, `policy-drift-1-1-0`, `alias-deprecated`, `path-contract`, `policy-enforcer`, `router-determinism`; `test-install.sh --full` no CI.
+- Suite: 1177 passed, 0 failed; `skill-catalog validate/check` + `public-skill-catalog check` verdes.
+
+### Segurança (follow-up documentado, fora desta release)
+
+- `.env` com segredo vivo + identificador de chave no histórico: rotação imediata obrigatória; purga histórica (`filter-repo` + push forçado coordenado) planejada em janela separada, não executada aqui.
+
+### Skills (antes em Unreleased)
 
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.

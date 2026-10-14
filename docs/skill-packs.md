@@ -12,16 +12,16 @@ Este repositório publica o máximo prático de conteúdo textual reutilizável 
 
 | Pacote | Fonte local | Destino no repo | Conteúdo |
 |---|---|---|---|
-| Orquestrador | `~/.orquestrador` | `orquestrador/` | Regras, hooks, roteadores, índices, scripts, skills canônicas e bibliotecas offload |
+| Orquestrador | `~/.orquestrador-maestro` (legado: `~/.orquestrador`) | `orquestrador/` | Regras, hooks, roteadores, índices, scripts, skills canônicas e bibliotecas offload |
 | Codex | `~/.codex/skills`, `~/.codex/agents`, `~/.codex/prompts` | `codex/` | Snapshot público do catálogo OMX/Codex, agentes nativos e prompts |
-| Community Skills | `~/.orquestrador/skill-library/community-skills` | `skill-library/community-skills/` | Biblioteca deduplicada grande, instalada fora das raízes nativas |
+| Community Skills | `~/.orquestrador-maestro/skill-library/community-skills` | `skill-library/community-skills/` | Biblioteca deduplicada grande, instalada fora das raízes nativas |
 | Tool Profiles | perfis textuais selecionados | `tool-profiles/` | Hooks, regras e prompts globais reaproveitáveis de ferramentas |
 
 Para ver o que cada skill publicada faz, consulte a [referência individual](skills/reference/README.md) ou o [catálogo compacto compatível](skill-catalog.md). Para entender como essas skills são escolhidas e combinadas, consulte o [portal](skills/README.md) e a [referência técnica](orquestrador-reference.md).
 
 ## Por Que Não Copiar Cada Raiz Inteira
 
-As raízes `.agents`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` e `.antigravity-skills` têm muita duplicação. O repositório guarda uma biblioteca deduplicada, mas o instalador não replica mais esse volume inteiro nas pastas nativas. Ele instala a biblioteca em `.orquestrador/skill-library/` e usa `sync-skills` para manter apenas o conjunto mínimo necessário em cada client.
+As raízes `.agents`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` e `.antigravity-skills` têm muita duplicação. O repositório guarda uma biblioteca deduplicada, mas o instalador não replica mais esse volume inteiro nas pastas nativas. Ele instala a biblioteca em `.orquestrador-maestro/skill-library/` e usa `sync-skills` para manter apenas o conjunto mínimo necessário em cada client. Desde a 1.1.0, o instalador faz merge (nunca `rm -rf` no core) e o `sync --apply` preserva conteúdo desconhecido; use `--prune` para quarentenar extras em `disabled-native/`.
 
 Perfis como `.claude`, `.cursor`, `.gemini` e `.opencode` também costumam conter histórico, estado local, OAuth, configurações de IDE e dados de projetos. Por isso o pacote `tool-profiles/` é uma seleção controlada de arquivos textuais.
 
@@ -98,3 +98,5 @@ bash scripts/install.sh --force --skip-community-skills
 ```
 
 Em máquinas que já têm essas pastas, use `-Force` no PowerShell ou `--force` no Bash para fazer backup e mesclar a instalação.
+
+> Nota: prefira os wrappers (`.\install.ps1`, `bash install.sh`, `orquestrador-maestro install`) às invocações diretas do engine (`scripts/install.*`), que usam outro esquema de flags (`-InstallToolProfiles`/`-SkipExtraSkills` vs `-NoToolProfiles`/`-CoreOnly`) e outros defaults de `--force`/tool-profiles. Os exemplos avançados abaixo chamam o engine diretamente.

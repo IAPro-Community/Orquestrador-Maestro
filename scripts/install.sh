@@ -99,6 +99,11 @@ if [ -z "$HOME_PATH" ]; then
   exit 1
 fi
 
+if [ "$HOME_PATH" != "${HOME_PATH%$'\n'*}" ]; then
+  echo "Error: --home-path must not contain newlines." >&2
+  exit 1
+fi
+
 if printf '%s' "$HOME_PATH" | grep -Eq '^[A-Za-z]:[\\/]'; then
   if command -v cygpath >/dev/null 2>&1; then
     HOME_PATH="$(cygpath -u "$HOME_PATH")"
@@ -151,7 +156,7 @@ fi
 TARGET_SKILL_LIBRARY="$TARGET_ORQUESTRADOR/skill-library"
 TARGET_AGENTS="$HOME_PATH/AGENTS.md"
 BACKUP_ROOT="$HOME_PATH/.orquestrador-public-backups"
-STAMP="$(date +"%Y%m%d-%H%M%S")"
+STAMP="$(date +"%Y%m%d-%H%M%S")-$$"
 BACKUP_DIR="$BACKUP_ROOT/$STAMP"
 USER_NAME="$(basename "$HOME_PATH")"
 
@@ -202,8 +207,19 @@ is_text_file() {
   leaf="$(basename "$file")"
   ext="${leaf##*.}"
 
+  # Binary guard for extensionless files: control bytes (incl. NUL) mean binary.
+  # (Files with known text extensions keep extension-based classification;
+  # a NUL pre-check via command substitution is unreliable because the shell
+  # strips NUL bytes from $(...) expansions, yielding an empty pattern.)
+
   if [ "$leaf" = ".gitignore" ]; then return 0; fi
-  if [ "$ext" = "$leaf" ]; then return 0; fi
+  if [ "$ext" = "$leaf" ]; then
+    # Extensionless files: only treat as text when they look like text.
+    if head -c 8000 "$file" 2>/dev/null | LC_ALL=C grep -q "[^[:print:][:space:]]" 2>/dev/null; then
+      return 1
+    fi
+    return 0
+  fi
 
   case "$ext" in
     md|mdc|txt|json|jsonl|toml|yaml|yml|ps1|cmd|sh|js|jsx|ts|tsx|mjs|cjs|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|html|css|scss|svg|xsd|xml|csv|patch|template|rules|ini|cfg|conf|sql)
@@ -216,7 +232,8 @@ is_text_file() {
 }
 
 escape_sed_replacement() {
-  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+  # Escape \, &, | and newlines for sed replacement with | delimiter.
+  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g' -e ':a;N;$!ba;s/\n/\\n/g'
 }
 
 copy_with_placeholders() {
@@ -651,10 +668,42 @@ done
 
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
   if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
-    echo "Error: refusing to remove target outside home: $TARGET_ORQUESTRADOR" >&2
+    echo "Error: refusing to touch target outside home: $TARGET_ORQUESTRADOR" >&2
     exit 1
   fi
-  rm -rf "$TARGET_ORQUESTRADOR"
+  # 1.1.0 (ADR-001): merge, never wipe. Unknown user files (WORKLOG.md,
+  # templates/, windows-dev-tune/, disabled-native/ history, custom skills)
+  # stay untouched. Stale managed files are removed only via MANAGED_FILES.json
+  # tombstones from a previous 1.1.0+ install; first 1.1.0 upgrade never deletes.
+  if [ -f "$TARGET_ORQUESTRADOR/MANAGED_FILES.json" ] && command -v node >/dev/null 2>&1; then
+    node -e '
+      const fs = require("fs");
+      const path = require("path");
+      const [target, source] = [process.argv[1], process.argv[2]];
+      let old = {};
+      try { old = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8")).files || {}; } catch { process.exit(0); }
+      const next = new Set();
+      const walk = (dir) => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          const p = path.join(dir, e.name);
+          if (e.isDirectory()) walk(p);
+          else if (e.isFile()) next.add(path.relative(source, p));
+        }
+      };
+      try { walk(source); } catch { process.exit(0); }
+      for (const rel of Object.keys(old)) {
+        if (rel === "MANAGED_FILES.json" || rel.startsWith("logs/")) continue;
+        if (!next.has(rel)) {
+          const dest = path.join(target, rel);
+          const resolved = path.resolve(dest);
+          const root = path.resolve(target);
+          if (resolved === root || resolved.startsWith(root + path.sep)) {
+            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
+          }
+        }
+      }
+    ' "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
+  fi
 fi
 
 copy_tree_with_placeholders "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
@@ -681,6 +730,35 @@ chmod +x \
   "$TARGET_ORQUESTRADOR/bin/compact-worklog.sh" \
   "$TARGET_ORQUESTRADOR/bin/check-dev-gates.sh" 2>/dev/null || true
 
+# 1.1.0: record managed snapshot for future tombstone deletes + verify/doctor diff.
+if command -v node >/dev/null 2>&1; then
+  node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const crypto = require("crypto");
+    const target = process.argv[1];
+    const files = {};
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "logs" && dir === target) continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!e.isFile()) continue;
+        const rel = path.relative(target, p).replace(/\\/g, "/");
+        if (rel === "MANAGED_FILES.json") continue;
+        try {
+          const buf = fs.readFileSync(p);
+          files[rel] = { sha256: crypto.createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
+        } catch {}
+      }
+    };
+    try {
+      walk(target);
+      fs.writeFileSync(path.join(target, "MANAGED_FILES.json"), JSON.stringify({ version: 1, generator: "orquestrador-maestro 1.1.0", files }, null, 2));
+    } catch (e) { console.error("MANAGED_FILES warning: " + (e.message || e)); }
+  ' "$TARGET_ORQUESTRADOR" || true
+fi
+
 if [ "$SKIP_SKILL_SYNC" = false ]; then
   SYNC_SCRIPT="$TARGET_ORQUESTRADOR/sync-skills.sh"
   if [ -f "$SYNC_SCRIPT" ]; then
@@ -691,6 +769,39 @@ if [ "$SKIP_SKILL_SYNC" = false ]; then
     bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
   fi
 fi
+
+# 1.1.0 (#39): native roots + shared maestro skill must exist even when sync is
+# skipped or narrowed by --only. Sync remains the full mirror; this is the
+# fail-closed minimum so `verify` never reports a fresh install as missing.
+ensure_native_minimum() {
+  local roots="codex:.codex/skills agents:.agents/skills opencode:.opencode/skills claude:.claude/skills cursor:.cursor/skills gemini:.gemini/skills windsurf:.windsurf/skills antigravity:.antigravity-skills/skills"
+  local pair program rel root src_maestro dest_maestro
+  local maestro_sources=(
+    "$TARGET_SKILL_LIBRARY/codex-skills/orquestrador-maestro"
+    "$TARGET_ORQUESTRADOR/skill-library/codex-skills/orquestrador-maestro"
+    "$SOURCE_CODEX/skills/orquestrador-maestro"
+  )
+  for pair in $roots; do
+    program="${pair%%:*}"
+    rel="${pair#*:}"
+    if ! selected_component "$program" freebuff agents codex claude opencode cursor gemini windsurf antigravity skills community-skills all; then
+      continue
+    fi
+    root="$HOME_PATH/$rel"
+    mkdir -p "$root"
+    dest_maestro="$root/orquestrador-maestro"
+    if [ ! -f "$dest_maestro/SKILL.md" ]; then
+      for src_maestro in "${maestro_sources[@]}"; do
+        if [ -f "$src_maestro/SKILL.md" ]; then
+          mkdir -p "$dest_maestro"
+          cp -R "$src_maestro"/. "$dest_maestro"/
+          break
+        fi
+      done
+    fi
+  done
+}
+ensure_native_minimum
 
 DISCOVERY_SCRIPT="$REPO_ROOT/scripts/discover-skills.js"
 if [ -f "$DISCOVERY_SCRIPT" ]; then

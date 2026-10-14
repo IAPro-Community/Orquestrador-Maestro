@@ -6,15 +6,15 @@ This index is intentionally compact. Use it to find the router, not as a full ca
 
 Read these compact files before loading skill catalogs:
 
-`{{USER_HOME}}/.orquestrador\SKILL_EXECUTION_PROFILES.json`
+`{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json`
 
-`{{USER_HOME}}/.orquestrador\SKILL_ALIASES.json`
+`{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json`
 
-`{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json`
+`{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`
 
-`{{USER_HOME}}/.orquestrador\SKILL_CHAINS.json`
+`{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json`
 
-`{{USER_HOME}}/.orquestrador\SKILLS_MANIFEST.json`
+`{{USER_HOME}}/.orquestrador/SKILLS_MANIFEST.json`
 
 Then open only the selected `SKILL.md` files and their directly referenced files.
 
@@ -22,12 +22,12 @@ Then open only the selected `SKILL.md` files and their directly referenced files
 
 | Purpose | Path |
 |---|---|
-| Canonical orchestrator skills | `{{USER_HOME}}/.orquestrador\skills` |
-| Codex active skills | `{{USER_HOME}}/.codex\skills` |
-| Claude active skills | `{{USER_HOME}}/.claude\skills` |
-| OpenCode active skills | `{{USER_HOME}}/.opencode\skills` |
-| Legacy compatibility skills | `{{USER_HOME}}/.agents\skills` |
-| Antigravity skills | `{{USER_HOME}}/.antigravity-skills\skills` |
+| Canonical orchestrator skills | `{{USER_HOME}}/.orquestrador/skills` |
+| Codex active skills | `{{USER_HOME}}/.codex/skills` |
+| Claude active skills | `{{USER_HOME}}/.claude/skills` |
+| OpenCode active skills | `{{USER_HOME}}/.opencode/skills` |
+| Legacy compatibility skills | `{{USER_HOME}}/.agents/skills` |
+| Antigravity skills | `{{USER_HOME}}/.antigravity-skills/skills` |
 
 ## High-Value Routes
 
@@ -85,8 +85,8 @@ Then open only the selected `SKILL.md` files and their directly referenced files
 
 Sync shared skills to Codex, Claude, OpenCode, Antigravity, and compatibility roots:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\sync-skills.ps1 -Apply`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/sync-skills.ps1 -Apply`
 
 Run health checks:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\doctor.ps1`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/doctor.ps1`

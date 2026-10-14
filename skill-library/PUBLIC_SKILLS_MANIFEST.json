@@ -8,8 +8,8 @@
     "community"
   ],
   "counts": {
-    "sourceSkillFiles": 174,
-    "uniqueSkills": 75,
+    "sourceSkillFiles": 176,
+    "uniqueSkills": 77,
     "shadowedDuplicates": 99,
     "conflictingIds": 7
   },
@@ -100,7 +100,7 @@
       "description": "Aplica o contrato compartilhado do Orquestrador Maestro ao trabalho de código e projeto.",
       "source": "codex",
       "relativePath": "codex/skills/orquestrador-maestro",
-      "contentHash": "4186b108ec870f0a01de810309516c34fee81d001ace973e4e5baadf0fea3ea1"
+      "contentHash": "cbb1e7de1abc8c98bc137b82eff23ccb616d0bd9e9b2fda6d85817c4c0475af3"
     },
     {
       "id": "plan",
@@ -156,7 +156,7 @@
       "description": "Integrate AbacatePay PIX/card billing, customers, QRCode PIX, billing webhooks, CPF/CNPJ validation, BRL SaaS checkout, payment receipts, refunds, cancellations, and entitlement sync for Brazilian SaaS products.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-abacatepay-integration",
-      "contentHash": "025b401b5754c05e22d13ececc6ff239eb5bc25bbc54e15009d3b7f20ba0da42"
+      "contentHash": "0897b6a70d5ef89cc5140df128515ed8a3d2a44ea267a94915b9033e549d9e8e"
     },
     {
       "id": "skill-adr",
@@ -188,7 +188,7 @@
       "description": "Use when integrating AionUi into the {{USER_NAME}} orchestrator workflow, coordinating Codex, Claude, Gemini, OpenCode, or other CLI agents through AionUi without breaking local skills, hooks, MCPs, permissions, or existing Codex workflows.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-aionui-cowork-orchestration",
-      "contentHash": "84fab605f41a552e23f27bfbe9f93964121b6ecb90b6cd899c25c851e00a4565"
+      "contentHash": "2b71a98122a9014c88fe2e3b0bf6802b5f70c0926b90cb8336b07247da683e06"
     },
     {
       "id": "skill-browser-agent",
@@ -367,6 +367,22 @@
       "contentHash": "5777a3af46bec82418394f75a1d23bc634f837ce41d57f9109b2dc7c4c22da6d"
     },
     {
+      "id": "skill-open-code-delegate",
+      "name": "skill-open-code-delegate",
+      "description": "DEPRECATED — use skill-multiagent-orchestration. Alias de compatibilidade para instalações pré-1.1.0. Será removido futuramente.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-open-code-delegate",
+      "contentHash": "29a535d13225c9757092293f2df9bbc681f1fc79b091c36e4d0cfe8557c3e380"
+    },
+    {
+      "id": "skill-open-code-review",
+      "name": "skill-open-code-review",
+      "description": "DEPRECATED — use code-review. Alias de compatibilidade para instalações pré-1.1.0. Será removido futuramente.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-open-code-review",
+      "contentHash": "7b813b77eda01378a49a0359c448e786d6c8ed13542797cd24ea4d4603d569cf"
+    },
+    {
       "id": "skill-open-design-ui",
       "name": "skill-open-design-ui",
       "description": "Use for defining and implementing a distinctive frontend visual system with design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after the experience strategy is clear.",
@@ -444,7 +460,7 @@
       "description": "Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-core-limits",
-      "contentHash": "bc6fe8b2d6bf22f04bd19ec5b806f82fa26020e4816f3cdda2555cdb21aeb768"
+      "contentHash": "cf534d9be973ceb60ddb3bde8ea44540768e13ad3eb7e3c9d0b91e1a846005cb"
     },
     {
       "id": "skill-saas-dast-recon",
@@ -452,7 +468,7 @@
       "description": "Run defensive, explicitly authorized SaaS DAST and recon with scope controls. Use when asked to scan an owned local, staging, preview, or approved production URL, API endpoint, SaaS app, tenant boundary, public web surface, auth flow, exposed files, headers, TLS, or OWASP Top 10 behavior using tools such as ZAP, Nuclei, Katana, httpx, and Subfinder.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-dast-recon",
-      "contentHash": "74d7f5d3c46a652fba6d0eb41b914f339715b035e0384970d1623e0f5e20d070"
+      "contentHash": "49be68424a1bb174ca75427df6b0d69b79c83bdecbb22c1bea3f0ff4e83518ce"
     },
     {
       "id": "skill-saas-factory",
@@ -468,7 +484,7 @@
       "description": "Run defensive, authorized local security scans for owned SaaS repositories. Use when asked to scan local code, dependencies, secrets, containers, IaC, API handlers, Supabase projects, multi-tenant SaaS isolation, or release/security gates with maintained OSS tools such as Semgrep, Gitleaks, Trivy, OSV-Scanner, and OWASP Dependency-Check.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-security-scan",
-      "contentHash": "71cf32c0e8d381f83a6ccd1819834f094e293fd1d688faea38cd5d49005dff3a"
+      "contentHash": "30e688f298d7a9f9bee2b6121753865ea7ff7d9e0d87aaec9f16bfa6a3fb306c"
     },
     {
       "id": "skill-scope-control",
@@ -484,7 +500,7 @@
       "description": "Install and maintain defensive security hooks and CI gates for authorized SaaS projects. Use when asked to add pre-commit hooks, pre-push hooks, CI security scans, GitHub Actions hardening, secret scanning, dependency scanning, SAST, DAST gates, or security automation around existing repositories.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-security-hooks",
-      "contentHash": "072f1060b6d927962f478f100afd1b2d06c771f009c146525d4313981320e489"
+      "contentHash": "49ebb1918bb975da2d3d28880eb4ea5e5653c2d2c8ea83b7ead9f8992793de72"
     },
     {
       "id": "skill-skill-development",

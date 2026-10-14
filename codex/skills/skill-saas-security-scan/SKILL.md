@@ -35,7 +35,7 @@ Do not scan third-party targets from this skill. Use `skill-saas-dast-recon` for
 ## Default command
 
 ```bat
-"{{USER_HOME}}/.orquestrador\skills\skill-saas-security-scan\scripts\saas-security-scan.cmd" "C:\path\to\repo" --authorized-local-repo
+"{{USER_HOME}}/.orquestrador/skills/skill-saas-security-scan/scripts/saas-security-scan.cmd" "C:/path/to/repo" --authorized-local-repo
 ```
 
 ## Severity and gates

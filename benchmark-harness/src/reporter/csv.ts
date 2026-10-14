@@ -16,9 +16,10 @@ interface CsvRow {
   duration: string;
   accepted: string;
   evidence_gate: string;
+  claim_eligible: string;
 }
 
-const CSV_HEADER = 'scenario,condition,run,model,tokens,duration,accepted,evidence_gate';
+const CSV_HEADER = 'scenario,condition,run,model,tokens,duration,accepted,evidence_gate,claim_eligible';
 
 function escapeCsvField(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -37,7 +38,28 @@ function rowToCsv(row: CsvRow): string {
     escapeCsvField(row.duration),
     escapeCsvField(row.accepted),
     escapeCsvField(row.evidence_gate),
+    escapeCsvField(row.claim_eligible),
   ].join(',');
+}
+
+function claimEligibleForRow(run: BenchmarkRunReport): string {
+  try {
+    // 1.1.0: CSV passa a expor elegibilidade de claim (fail-closed: sem evidência = false).
+    const evidence = (run as unknown as { evidence?: { publicClaimEligible?: boolean; executionType?: string; reproducible?: boolean; isolated?: boolean } }).evidence;
+    const usage = (run as unknown as { usage?: { tokenSource?: string }; tokens?: { source?: string } }).usage
+      ?? (run as unknown as { tokens?: { source?: string } }).tokens;
+    const validation = (run as unknown as { validation?: { passed?: boolean }; results?: { accepted?: boolean } }).validation;
+    if (!evidence || evidence.publicClaimEligible !== true) return "false";
+    if (evidence.executionType !== "real-execution") return "false";
+    const tokenSource = (usage as { tokenSource?: string } | undefined)?.tokenSource
+      ?? (usage as { source?: string } | undefined)?.source;
+    if (tokenSource !== "provider-reported") return "false";
+    if (evidence.reproducible !== true || evidence.isolated !== true) return "false";
+    if (validation && validation.passed !== true) return "false";
+    return "true";
+  } catch {
+    return "false";
+  }
 }
 
 function runToRow(run: BenchmarkRunReport): CsvRow {
@@ -53,6 +75,7 @@ function runToRow(run: BenchmarkRunReport): CsvRow {
     duration: String(run.timing.durationMs),
     accepted: accepted ? 'true' : 'false',
     evidence_gate: allPassed ? 'pass' : 'fail',
+    claim_eligible: claimEligibleForRow(run),
   };
 }
 
@@ -68,6 +91,7 @@ function pairToRows(pair: BenchmarkReport['pairs'][number]): CsvRow[] {
     duration: String(pair.vanilla.durationMs),
     accepted: pair.vanilla.accepted ? 'true' : 'false',
     evidence_gate: pair.vanilla.acceptanceRate === 1 ? 'pass' : 'fail',
+    claim_eligible: 'false',
   });
 
   rows.push({
@@ -79,6 +103,7 @@ function pairToRows(pair: BenchmarkReport['pairs'][number]): CsvRow[] {
     duration: String(pair.maestro.durationMs),
     accepted: pair.maestro.accepted ? 'true' : 'false',
     evidence_gate: pair.maestro.acceptanceRate === 1 ? 'pass' : 'fail',
+    claim_eligible: 'false',
   });
 
   if (pair.maestroFocus) {
@@ -91,6 +116,7 @@ function pairToRows(pair: BenchmarkReport['pairs'][number]): CsvRow[] {
       duration: String(pair.maestroFocus.durationMs),
       accepted: pair.maestroFocus.accepted ? 'true' : 'false',
       evidence_gate: pair.maestroFocus.acceptanceRate === 1 ? 'pass' : 'fail',
+      claim_eligible: 'false',
     });
   }
 

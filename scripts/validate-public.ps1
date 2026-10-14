@@ -195,6 +195,7 @@ foreach ($file in Get-ScannableFiles -CurrentPath $repoRootFull -BasePath $repoR
   } catch {
     continue
   }
+  if ($null -eq $text) { $text = "" }
 
   if ($text -match "C:\\Users\\[A-Za-z0-9._-]+") {
     Add-Issue -Kind "concrete-windows-home" -Path $relative -Detail "Use {{USER_HOME}} or %USERPROFILE% instead of a concrete user path."

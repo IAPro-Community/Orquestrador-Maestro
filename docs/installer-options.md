@@ -50,6 +50,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `-SkipCommunitySkills` | Não copia a biblioteca comunitária para raízes de compatibilidade. |
 | `-SkipSkillSync` | Não roda o sincronizador de skills ao final. |
 | `-Only <id>` | Limita extras a um componente simbólico, mantendo o core. |
+| `-AllTargets` | Instala em todos os targets suportados (opt-in; com `-NonInteractive`, instala só ferramentas detectadas). |
 | `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup. |
 | `-ListTargets` | Lista os alvos que seriam tratados. |
 | `-Uninstall` | Remove de forma conservadora os arquivos mapeados pelo snapshot. |
@@ -67,6 +68,7 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--skip-community-skills` | Não copia a biblioteca comunitária para `.orquestrador/skill-library/community-skills`. |
 | `--skip-skill-sync` | Não roda sync ao final. |
 | `--only ID` | Limita extras a um componente simbólico. |
+| `--all-targets` | Instala em todos os targets suportados (opt-in; com `--non-interactive`, instala só ferramentas detectadas). |
 | `--dry-run` | Mostra o plano sem efeitos colaterais. |
 | `--list-targets` | Lista alvos planejados. |
 | `--uninstall` | Remove arquivos mapeados pelo snapshot e preserva backups. |

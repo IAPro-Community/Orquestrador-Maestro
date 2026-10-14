@@ -35,7 +35,7 @@ test("published package carries the public catalog and refreshes its installed i
 
   assert.ok(packageJson.files.includes("codex/skills/"));
   assert.ok(packageJson.files.includes("skill-library/PUBLIC_SKILLS_MANIFEST.json"));
-  assert.equal(publicManifest.counts.uniqueSkills, 75);
+  assert.equal(publicManifest.counts.uniqueSkills, 77);
   assert.match(powershellInstaller, /discover-skills\.js/u);
   assert.match(shellInstaller, /discover-skills\.js/u);
   assert.doesNotMatch(powershellInstaller, /plugins[\\/]cache/u);

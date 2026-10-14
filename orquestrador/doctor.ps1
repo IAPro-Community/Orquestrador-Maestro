@@ -1,5 +1,6 @@
 param(
-  [string]$HomePath = [Environment]::GetFolderPath("UserProfile")
+  [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
+  [switch]$Strict
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,22 +141,27 @@ function Get-DefaultInstallPolicy {
           "cancel",
           "code-review",
           "deep-interview",
+          "doctor",
+          "orquestrador-maestro",
           "plan",
+          "ralplan",
           "ralph",
           "security-review",
           "team",
           "ultrawork",
           "web-clone",
-          "worker"
+          "worker",
+        "skill-open-code-review",
+        "skill-open-code-delegate"
         )
-      }
-      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "code-review", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
+        }
+      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "code-review", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
     }
   }
 }
@@ -469,7 +475,7 @@ try { $versions.opencode = (opencode --version 2>$null) } catch { $versions.open
 try { $versions.ohMyCodexInstalled = (npm list -g oh-my-codex --depth=0 2>$null | Select-String "oh-my-codex@").ToString().Trim() } catch { $versions.ohMyCodexInstalled = "unavailable" }
 try { $versions.opencodeInstalled = (npm list -g opencode-ai --depth=0 2>$null | Select-String "opencode-ai@").ToString().Trim() } catch { $versions.opencodeInstalled = "unavailable" }
 
-[pscustomobject]@{
+$report = [pscustomobject]@{
   GeneratedAt = (Get-Date).ToString("s")
   Entrypoints = $rows
   OmxMcpFiles = $omx
@@ -480,4 +486,16 @@ try { $versions.opencodeInstalled = (npm list -g opencode-ai --depth=0 2>$null |
   NativeSkillRootHealth = $nativeSkillRootHealth
   AntigravityPort3001Listening = ($null -ne $port3001)
   Versions = $versions
-} | ConvertTo-Json -Depth 8
+}
+$report | ConvertTo-Json -Depth 8
+
+# 1.1.0: --strict fails on loss signals (routing breaks, mirror drift, unhealthy roots).
+if ($Strict) {
+  $routingIssues = @($routingHealth | Where-Object { $_.Status -ne "ok" })
+  $drifted = @($skillMirrorDrift | Where-Object { $_.Status -ne "ok" })
+  $unhealthyRoots = @($nativeSkillRootHealth | Where-Object { -not $_.Healthy })
+  if ($routingIssues.Count -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0) {
+    Write-Error "doctor --strict: $($routingIssues.Count) routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots."
+    exit 1
+  }
+}

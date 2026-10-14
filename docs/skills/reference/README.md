@@ -1,7 +1,7 @@
 <!-- GENERATED FILE: scripts/skill-catalog.js; DO NOT EDIT. -->
 # Referência de skills
 
-Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../../orquestrador/SKILLS_MANIFEST.json). Total: 52.
+Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../../orquestrador/SKILLS_MANIFEST.json). Total: 54.
 
 ## Por objetivo
 
@@ -17,6 +17,8 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-melhorar-ux-ui-por-referencia](./skill-melhorar-ux-ui-por-referencia.md)
 - [skill-modern-ui-patterns](./skill-modern-ui-patterns.md)
 - [skill-multiagent-orchestration](./skill-multiagent-orchestration.md)
+- [skill-open-code-delegate](./skill-open-code-delegate.md)
+- [skill-open-code-review](./skill-open-code-review.md)
 - [skill-open-design-ui](./skill-open-design-ui.md)
 - [skill-preflight](./skill-preflight.md)
 - [skill-premium-web-experience](./skill-premium-web-experience.md)
@@ -169,6 +171,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 
 - [skill-aionui-cowork-orchestration](./skill-aionui-cowork-orchestration.md)
 - [skill-multiagent-orchestration](./skill-multiagent-orchestration.md)
+- [skill-open-code-delegate](./skill-open-code-delegate.md)
 
 ### payments
 
@@ -183,6 +186,10 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 ### research
 
 - [skill-research-and-synthesis](./skill-research-and-synthesis.md)
+
+### review
+
+- [skill-open-code-review](./skill-open-code-review.md)
 
 ### saas
 
@@ -303,6 +310,11 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 
 - [skill-evolution-api](./skill-evolution-api.md)
 
+### compat
+
+- [skill-open-code-delegate](./skill-open-code-delegate.md)
+- [skill-open-code-review](./skill-open-code-review.md)
+
 ### completion
 
 - [skill-verification-before-completion](./skill-verification-before-completion.md)
@@ -350,6 +362,11 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 ### dependency
 
 - [skill-dependency-upgrade](./skill-dependency-upgrade.md)
+
+### deprecated
+
+- [skill-open-code-delegate](./skill-open-code-delegate.md)
+- [skill-open-code-review](./skill-open-code-review.md)
 
 ### design
 
@@ -545,6 +562,7 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 - [skill-ai-orchestration](./skill-ai-orchestration.md)
 - [skill-aionui-cowork-orchestration](./skill-aionui-cowork-orchestration.md)
 - [skill-multiagent-orchestration](./skill-multiagent-orchestration.md)
+- [skill-open-code-delegate](./skill-open-code-delegate.md)
 
 ### patterns
 
@@ -601,6 +619,10 @@ Páginas geradas deterministicamente a partir de [`SKILLS_MANIFEST.json`](../../
 ### response
 
 - [skill-incident-response](./skill-incident-response.md)
+
+### review
+
+- [skill-open-code-review](./skill-open-code-review.md)
 
 ### rls
 

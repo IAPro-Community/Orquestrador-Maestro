@@ -2,10 +2,13 @@
 set -eo pipefail
 
 # Orquestrador Maestro - Unix skill synchronizer
-# Usage: bash ~/.orquestrador/sync-skills.sh [--check|--dry-run|--apply] [--home-path PATH]
+# Usage: bash ~/.orquestrador/sync-skills.sh [--check|--dry-run|--apply] [--home-path PATH] [--prune] [--only PROG]
+# 1.1.0: --apply preserva skills/arquivos desconhecidos por padrão (ADR-001).
+# Quarentena para disabled-native/ só com --prune explícito.
 
 MODE="check"
 HOME_PATH="${HOME:-}"
+PRUNE=false
 ONLY_PROGRAMS=()
 
 while [ "$#" -gt 0 ]; do
@@ -18,6 +21,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --apply)
       MODE="apply"
+      ;;
+    --prune)
+      PRUNE=true
       ;;
     --only)
       if [ "$#" -lt 2 ]; then
@@ -100,14 +106,14 @@ CODEX_LIBRARY="$(resolve_home_relative ".orquestrador/skill-library/codex-skills
 DISABLED_NATIVE_ROOT="$(resolve_home_relative ".orquestrador/skill-library/disabled-native")"
 
 TARGET_SPECS=(
-  "codex|.codex/skills|64|.system,ask-claude,ask-gemini,autopilot,cancel,code-review,deep-interview,doctor,orquestrador-maestro,plan,ralplan,ralph,security-review,team,ultrawork,web-clone,worker"
-  "opencode|.opencode/skills|48|orquestrador-maestro,code-review"
-  "agents|.agents/skills|48|"
-  "claude|.claude/skills|48|"
-  "cursor|.cursor/skills|48|"
-  "gemini|.gemini/skills|48|"
-  "windsurf|.windsurf/skills|48|"
-  "antigravity|.antigravity-skills/skills|48|"
+  "codex|.codex/skills|64|.system,ask-claude,ask-gemini,autopilot,cancel,code-review,deep-interview,doctor,orquestrador-maestro,plan,ralplan,ralph,security-review,team,ultrawork,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "opencode|.opencode/skills|64|orquestrador-maestro,code-review,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "agents|.agents/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "claude|.claude/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "cursor|.cursor/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "gemini|.gemini/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "windsurf|.windsurf/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
+  "antigravity|.antigravity-skills/skills|64|orquestrador-maestro,plan,ralplan,ralph,team,ultrawork,deep-interview,security-review,web-clone,worker,skill-open-code-review,skill-open-code-delegate"
 )
 
 if [ -f "$POLICY_PATH" ] && command -v node >/dev/null 2>&1; then
@@ -404,8 +410,8 @@ EOF
       fi
 
       action="extra-native"
-      detail=""
-      if [ "$MODE" = "apply" ]; then
+      detail="preserved (use --prune to offload)"
+      if [ "$MODE" = "apply" ] && [ "$PRUNE" = true ]; then
         detail="$(move_native_extra "$native_dir" "$target_root" "$DISABLED_NATIVE_ROOT" "$program" "$stamp")"
         action="offloaded"
       fi

@@ -3,6 +3,7 @@
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const { createVerification, createVerificationCheck } = require("../core");
+const { isDeniedCommand } = require("../governance/policy-enforcer");
 
 const SAFE_SCRIPT_NAMES = new Set(["lint", "typecheck", "test", "tests", "build"]);
 
@@ -16,6 +17,14 @@ function inferCommands(packageJson) {
 function runCommand(command, options = {}) {
   return new Promise((resolve) => {
     const startedAt = Date.now();
+    // 1.1.0 (SEC-03): deterministic deny policy before spawn. Prompt-level
+    // bans are advisory; this never executes a denied command.
+    const denial = isDeniedCommand(command);
+    if (denial) {
+      resolve({ exitCode: 1, stdout: "", stderr: `Denied by ${denial.rule}: ${denial.description}`, durationMs: Date.now() - startedAt, timedOut: false, denied: denial.rule });
+      return;
+    }
+    const MAX_OUTPUT = 512 * 1024;
     let spawnCommand = command;
     let spawnArgs;
     if (process.platform === "win32") {
@@ -25,23 +34,38 @@ function runCommand(command, options = {}) {
         spawnArgs = ["-e", nodeEval[2]];
       }
     }
-    const child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: !spawnArgs, windowsHide: true });
-    let stdout = "";
-    let stderr = "";
+    let child;
+    try {
+      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: !spawnArgs, windowsHide: true });
+    } catch (error) {
+      resolve({ exitCode: 1, stdout: "", stderr: String((error && error.message) || error), durationMs: Date.now() - startedAt, timedOut: false, error: String((error && error.message) || error) });
+      return;
+    }
+    const append = (store, chunk) => {
+      const next = store.value + chunk;
+      store.value = next.length > MAX_OUTPUT ? next.slice(-MAX_OUTPUT) : next;
+      store.truncated = store.truncated || next.length >= MAX_OUTPUT;
+    };
+    const out = { value: "", truncated: false };
+    const err = { value: "", truncated: false };
     let timedOut = false;
     let settled = false;
-    const timeout = options.timeoutMs ? setTimeout(() => {
+    const killTimer = options.timeoutMs ? setTimeout(() => {
       timedOut = true;
-      child.kill("SIGTERM");
+      try { child.kill("SIGTERM"); } catch {}
+      setTimeout(() => { try { if (!settled) child.kill("SIGKILL"); } catch {} }, 2000);
     }, options.timeoutMs) : null;
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.on("error", (error) => { stderr += error.message; if (!settled) { settled = true; if (timeout) clearTimeout(timeout); resolve({ exitCode: 1, stdout, stderr, durationMs: Date.now() - startedAt, timedOut, error: error.message }); } });
-    child.on("close", (code) => {
-      if (timeout) clearTimeout(timeout);
+    const done = (result) => {
       if (settled) return;
       settled = true;
-      resolve({ exitCode: Number.isInteger(code) ? code : 1, stdout, stderr, durationMs: Date.now() - startedAt, timedOut });
+      if (killTimer) clearTimeout(killTimer);
+      resolve(result);
+    };
+    if (child.stdout) child.stdout.on("data", (chunk) => append(out, String(chunk)));
+    if (child.stderr) child.stderr.on("data", (chunk) => append(err, String(chunk)));
+    child.on("error", (error) => { done({ exitCode: 1, stdout: out.value, stderr: err.value + String((error && error.message) || error), durationMs: Date.now() - startedAt, timedOut, truncated: out.truncated || err.truncated, error: String((error && error.message) || error) }); });
+    child.on("close", (code) => {
+      done({ exitCode: Number.isInteger(code) ? code : 1, stdout: out.value, stderr: err.value, durationMs: Date.now() - startedAt, timedOut, truncated: out.truncated || err.truncated });
     });
   });
 }

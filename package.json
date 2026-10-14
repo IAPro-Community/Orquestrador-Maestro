@@ -1,6 +1,6 @@
 {
   "name": "@iapro/orquestrador-maestro-cli",
-  "version": "0.4.4",
+  "version": "1.1.0",
   "description": "CLI npm para instalar, atualizar, verificar e remover o Orquestrador Maestro no usuário atual, com catálogo público deduplicado de skills versionadas.",
   "bin": {
     "orquestrador-maestro": "bin/orquestrador-maestro.js"
@@ -56,7 +56,7 @@
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
     "verify:pr": "node scripts/verify-pr.js",
-    "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-skills.ps1",
+    "validate": "node scripts/validate.js",
     "bench:list": "node --import tsx benchmark-harness/src/cli/index.ts list --dir benchmark-harness/scenarios",
     "bench:validate": "node --import tsx benchmark-harness/src/cli/index.ts validate",
     "bench:run": "node --import tsx benchmark-harness/src/cli/index.ts run",

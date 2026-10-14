@@ -3,6 +3,7 @@ param(
   [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
   [switch]$SkipToolProfiles,
   [switch]$CoreOnly,
+  [switch]$Strict,
   [switch]$VerbosePaths
 )
 
@@ -65,14 +66,14 @@ function Count-Files {
 function Get-DefaultInstallPolicy {
   return [pscustomobject]@{
     nativeRoots = [pscustomobject]@{
-      codex = [pscustomobject]@{ path = ".codex/skills"; maxDirectories = 40 }
-      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 30 }
-      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 30 }
-      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 30 }
-      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 30 }
-      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 30 }
-      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 30 }
-      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 30 }
+      codex = [pscustomobject]@{ path = ".codex/skills"; maxDirectories = 64 }
+      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64 }
+      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64 }
+      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64 }
+      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64 }
+      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64 }
+      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64 }
+      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64 }
     }
   }
 }
@@ -107,8 +108,18 @@ Assert-Path -Path (Join-Path $orquestrador "SKILLS_INDEX.md") -Label "Orquestrad
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_ROUTER.json") -Label "Orquestrador skills router"
 Assert-Path -Path (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Label "Orquestrador skill install policy"
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_DISCOVERY.json") -Label "Orquestrador local skills inventory"
+Assert-Path -Path (Join-Path $orquestrador "MANAGED_FILES.json") -Label "Orquestrador managed files manifest (1.1.0+)"
 Assert-Path -Path (Join-Path $orquestrador "skills") -Label "Orquestrador canonical skills"
+Assert-Path -Path (Join-Path $orquestrador "skills\skill-open-code-review\SKILL.md") -Label "Deprecated alias skill-open-code-review (1.1.0 compat)"
+Assert-Path -Path (Join-Path $orquestrador "skills\skill-open-code-delegate\SKILL.md") -Label "Deprecated alias skill-open-code-delegate (1.1.0 compat)"
 Assert-Path -Path (Join-Path $HomePath "AGENTS.md") -Label "Global AGENTS.md"
+
+try {
+  $policyJson = Get-Content -LiteralPath (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ([int]$policyJson.version -ne 2) {
+    Add-Issue "Orquestrador skill install policy is not v2 (found v$($policyJson.version)); re-run update to 1.1.0"
+  }
+} catch { }
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/WORKLOG\.md" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $orquestrador "rules.md") -Pattern "DEV/WORKLOG\.md" -Label "Orquestrador rules"
@@ -138,6 +149,19 @@ if (-not $CoreOnly) {
     }
   }
   Assert-Path -Path (Join-Path $HomePath ".agents\skills\orquestrador-maestro\SKILL.md") -Label "Freebuff shared Maestro skill"
+  if ($Strict) {
+    try {
+      $manifest = Get-Content -LiteralPath (Join-Path $orquestrador "SKILLS_MANIFEST.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+      $mustHave = @("orquestrador-maestro") + @($manifest.skills.PSObject.Properties | Where-Object { $_.Value.mirrorEverywhere -eq $true } | ForEach-Object { $_.Name })
+      foreach ($skill in ($mustHave | Sort-Object -Unique)) {
+        foreach ($root in $nativeRootSpecs) {
+          if (-not (Test-Path -LiteralPath (Join-Path $root.Path "$skill\SKILL.md"))) {
+            Add-Issue "Strict: skill $skill missing in native root $($root.Program): $($root.Path)\$skill\SKILL.md (re-run sync --apply)"
+          }
+        }
+      }
+    } catch { }
+  }
 }
 
 if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {

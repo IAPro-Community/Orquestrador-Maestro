@@ -2,11 +2,13 @@
 set -eo pipefail
 
 # Orquestrador Maestro - Unix install verification
-# Usage: bash scripts/verify-install.sh [--home-path PATH] [--skip-tool-profiles] [--core-only]
+# Usage: bash scripts/verify-install.sh [--home-path PATH] [--skip-tool-profiles] [--core-only] [--strict] [--verbose-paths]
+# 1.1.0: --strict also asserts full MUST_HAVE mirror + MANAGED_FILES + policy v2 (loss detection, issues #38/#39).
 
 HOME_PATH="${HOME:-}"
 SKIP_TOOL_PROFILES=false
 CORE_ONLY=false
+STRICT=false
 VERBOSE_PATHS=false
 ISSUES=()
 
@@ -34,6 +36,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --core-only)
       CORE_ONLY=true
+      ;;
+    --strict)
+      STRICT=true
       ;;
     --verbose-paths)
       VERBOSE_PATHS=true
@@ -123,14 +128,14 @@ if [ "$(basename "$ORQUESTRADOR")" = ".orquestrador" ]; then MAESTRO_REFERENCE="
 CODEX="$HOME_PATH/.codex"
 INSTALL_POLICY="$ORQUESTRADOR/SKILL_INSTALL_POLICY.json"
 NATIVE_ROOT_SPECS=(
-  "codex|$HOME_PATH/.codex/skills|40"
-  "opencode|$HOME_PATH/.opencode/skills|30"
-  "agents|$HOME_PATH/.agents/skills|30"
-  "claude|$HOME_PATH/.claude/skills|30"
-  "cursor|$HOME_PATH/.cursor/skills|30"
-  "gemini|$HOME_PATH/.gemini/skills|30"
-  "windsurf|$HOME_PATH/.windsurf/skills|30"
-  "antigravity|$HOME_PATH/.antigravity-skills/skills|30"
+  "codex|$HOME_PATH/.codex/skills|64"
+  "opencode|$HOME_PATH/.opencode/skills|64"
+  "agents|$HOME_PATH/.agents/skills|64"
+  "claude|$HOME_PATH/.claude/skills|64"
+  "cursor|$HOME_PATH/.cursor/skills|64"
+  "gemini|$HOME_PATH/.gemini/skills|64"
+  "windsurf|$HOME_PATH/.windsurf/skills|64"
+  "antigravity|$HOME_PATH/.antigravity-skills/skills|64"
 )
 
 if [ -f "$INSTALL_POLICY" ] && command -v node >/dev/null 2>&1; then
@@ -167,8 +172,19 @@ assert_path "$ORQUESTRADOR/SKILLS_INDEX.md" "Orquestrador skills index"
 assert_path "$ORQUESTRADOR/SKILLS_ROUTER.json" "Orquestrador skills router"
 assert_path "$ORQUESTRADOR/SKILL_INSTALL_POLICY.json" "Orquestrador skill install policy"
 assert_path "$ORQUESTRADOR/SKILLS_DISCOVERY.json" "Orquestrador local skills inventory"
+assert_path "$ORQUESTRADOR/MANAGED_FILES.json" "Orquestrador managed files manifest (1.1.0+)"
 assert_path "$ORQUESTRADOR/skills" "Orquestrador canonical skills"
+assert_path "$ORQUESTRADOR/skills/skill-open-code-review/SKILL.md" "Deprecated alias skill-open-code-review (1.1.0 compat)"
+assert_path "$ORQUESTRADOR/skills/skill-open-code-delegate/SKILL.md" "Deprecated alias skill-open-code-delegate (1.1.0 compat)"
 assert_path "$HOME_PATH/AGENTS.md" "Global AGENTS.md"
+
+# 1.1.0: policy must be v2 (aliases + 64 dirs). Pre-1.1.0 installs warn to update.
+if [ -f "$INSTALL_POLICY" ] && command -v node >/dev/null 2>&1; then
+  policy_version="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version||0)}catch{console.log(0)}' "$INSTALL_POLICY")"
+  if [ "${policy_version:-0}" != "2" ]; then
+    add_issue "Orquestrador skill install policy is not v2 (found v${policy_version:-unknown}); re-run update to 1.1.0: $INSTALL_POLICY"
+  fi
+fi
 
 assert_file_contains "$HOME_PATH/AGENTS.md" "DEV/" "Global AGENTS.md"
 assert_file_contains "$HOME_PATH/AGENTS.md" "DEV/WORKLOG\\.md" "Global AGENTS.md"
@@ -192,6 +208,20 @@ EOF
     fi
   done
   assert_path "$HOME_PATH/.agents/skills/orquestrador-maestro/SKILL.md" "Freebuff shared Maestro skill"
+  if [ "$STRICT" = true ] && [ -f "$ORQUESTRADOR/SKILLS_MANIFEST.json" ] && command -v node >/dev/null 2>&1; then
+    # --strict: every MUST_HAVE skill must exist in every native root (loss detection).
+    while IFS='|' read -r skill_name; do
+      [ -z "$skill_name" ] && continue
+      for spec in "${NATIVE_ROOT_SPECS[@]+"${NATIVE_ROOT_SPECS[@]}"}"; do
+        IFS='|' read -r program root_path _max <<EOF
+$spec
+EOF
+        if [ ! -f "$root_path/$skill_name/SKILL.md" ]; then
+          add_issue "Strict: skill $skill_name missing in native root $program: $root_path/$skill_name/SKILL.md (re-run sync --apply)"
+        fi
+      done
+    done < <(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const out=new Set(["orquestrador-maestro"]); for (const [n,e] of Object.entries(m.skills||{})) if(e.mirrorEverywhere) out.add(n); for (const n of [...out].sort()) console.log(n+"|");' "$ORQUESTRADOR/SKILLS_MANIFEST.json")
+  fi
 fi
 
 if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then

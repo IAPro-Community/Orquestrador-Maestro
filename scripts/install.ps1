@@ -17,6 +17,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# 1.1.0: paridade com sh — avisa instalação elevada sem override explícito.
+try {
+  $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+  if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL) {
+    Write-Warning "Instalador rodando elevado (Administrator). Prefira o usuário normal ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para confirmar."
+  }
+} catch { }
+
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $SourceOrquestrador = Join-Path $RepoRoot "orquestrador"
 $SourceAgents = Join-Path $RepoRoot "home\AGENTS.md"
@@ -32,7 +40,7 @@ $TargetOrquestradorName = Split-Path -Leaf $TargetOrquestrador
 $TargetSkillLibrary = Join-Path $TargetOrquestrador "skill-library"
 $TargetAgents = Join-Path $HomePath "AGENTS.md"
 $BackupRoot = Join-Path $HomePath ".orquestrador-public-backups"
-$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$Stamp = "$(Get-Date -Format "yyyyMMdd-HHmmss")-$PID"
 $BackupDir = Join-Path $BackupRoot $Stamp
 
 $SelectedComponents = @(
@@ -398,23 +406,45 @@ if (-not $SkipExtraSkills) {
 }
 
 if ($InstallToolProfiles) {
+  function Test-ToolPresent {
+    param([string]$ToolCommand, [string]$ConfigDir)
+    if ($ToolCommand -and (Get-Command $ToolCommand -ErrorAction SilentlyContinue)) { return $true }
+    if ($ConfigDir) {
+      $full = Join-Path $HomePath $ConfigDir
+      if (Test-Path -LiteralPath $full) {
+        if (Test-Path -LiteralPath (Join-Path $full ".maestro-managed")) {
+          $items = @(Get-ChildItem -LiteralPath $full -Force -ErrorAction SilentlyContinue)
+          if ($items.Count -eq 1) { return $false }
+        }
+        return $true
+      }
+    }
+    return $false
+  }
+  function Test-ToolShouldInstall {
+    param([string]$Component, [string]$ToolCommand, [string]$ConfigDir)
+    if ($AllTargets) { return $true }
+    if ($NonInteractive) { return (Test-ToolPresent -ToolCommand $ToolCommand -ConfigDir $ConfigDir) }
+    return $true
+  }
   $toolProfileTargets = @(
-    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex" },
-    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode" },
-    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode" },
-    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude" },
-    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor" },
-    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini" },
-    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf" },
-    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf" },
-    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity" },
-    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity" },
-    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo" },
-    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi" },
-    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok" }
+    @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex"; ToolCommand = "codex"; ConfigDir = ".codex" },
+    @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode"; ToolCommand = "opencode"; ConfigDir = ".opencode" },
+    @{ Source = "opencode-global"; Destination = ".config\opencode"; Label = ".config__opencode"; Component = "opencode"; ToolCommand = "opencode"; ConfigDir = ".config\opencode" },
+    @{ Source = "claude"; Destination = ".claude"; Label = ".claude"; Component = "claude"; ToolCommand = "claude"; ConfigDir = ".claude" },
+    @{ Source = "cursor"; Destination = ".cursor"; Label = ".cursor"; Component = "cursor"; ToolCommand = ""; ConfigDir = ".cursor" },
+    @{ Source = "gemini"; Destination = ".gemini"; Label = ".gemini"; Component = "gemini"; ToolCommand = "gemini"; ConfigDir = ".gemini" },
+    @{ Source = "windsurf"; Destination = ".windsurf"; Label = ".windsurf"; Component = "windsurf"; ToolCommand = ""; ConfigDir = ".windsurf" },
+    @{ Source = "windsurf-global"; Destination = ".codeium\windsurf\memories"; Label = ".codeium__windsurf__memories"; Component = "windsurf"; ToolCommand = ""; ConfigDir = ".codeium\windsurf\memories" },
+    @{ Source = "antigravity"; Destination = ".antigravity"; Label = ".antigravity"; Component = "antigravity"; ToolCommand = ""; ConfigDir = ".antigravity" },
+    @{ Source = "ai-standards"; Destination = ".ai-standards"; Label = ".ai-standards"; Component = "antigravity"; ToolCommand = ""; ConfigDir = ".antigravity" },
+    @{ Source = "mimo"; Destination = ".mimo"; Label = ".mimo"; Component = "mimo"; ToolCommand = "mimo"; ConfigDir = ".mimo" },
+    @{ Source = "kimi"; Destination = ".kimi-code"; Label = ".kimi-code"; Component = "kimi"; ToolCommand = "kimi"; ConfigDir = ".kimi-code" },
+    @{ Source = "grok"; Destination = ".grok"; Label = ".grok"; Component = "grok"; ToolCommand = "grok"; ConfigDir = ".grok" }
   )
   foreach ($target in $toolProfileTargets) {
     if (Test-SelectedComponent -Names @("tool-profiles", $target.Component)) {
+      if (-not (Test-ToolShouldInstall -Component $target.Component -ToolCommand $target.ToolCommand -ConfigDir $target.ConfigDir)) { continue }
       Add-InstallTarget `
         -Targets $extraTargets `
         -Source (Join-Path $SourceToolProfiles $target.Source) `
@@ -508,14 +538,74 @@ foreach ($target in $extraFileTargets) {
 
 if (Test-Path -LiteralPath $TargetOrquestrador) {
   if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
-    throw "Refusing to remove target outside home: $TargetOrquestrador"
+    throw "Refusing to touch target outside home: $TargetOrquestrador"
   }
-  Remove-Item -LiteralPath $TargetOrquestrador -Recurse -Force
+  # 1.1.0 (ADR-001): merge, never wipe. Remove stale managed files only via
+  # MANAGED_FILES.json tombstones from a previous 1.1.0+ install.
+  $managedPath = Join-Path $TargetOrquestrador "MANAGED_FILES.json"
+  if ((Test-Path -LiteralPath $managedPath) -and (Get-Command node -ErrorAction SilentlyContinue)) {
+    & node -e '
+      const fs = require("fs");
+      const path = require("path");
+      const [target, source] = [process.argv[1], process.argv[2]];
+      let old = {};
+      try { old = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8")).files || {}; } catch { process.exit(0); }
+      const next = new Set();
+      const walk = (dir) => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          const p = path.join(dir, e.name);
+          if (e.isDirectory()) walk(p);
+          else if (e.isFile()) next.add(path.relative(source, p));
+        }
+      };
+      try { walk(source); } catch { process.exit(0); }
+      for (const rel of Object.keys(old)) {
+        if (rel === "MANAGED_FILES.json" || rel.startsWith("logs/")) continue;
+        if (!next.has(rel)) {
+          const dest = path.join(target, rel);
+          const resolved = path.resolve(dest);
+          const root = path.resolve(target);
+          if (resolved === root || resolved.startsWith(root + path.sep)) {
+            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
+          }
+        }
+      }
+    ' $TargetOrquestrador $SourceOrquestrador
+  }
 }
 
 Copy-TreeWithPlaceholders -SourceDir $SourceOrquestrador -DestinationDir $TargetOrquestrador
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetOrquestrador "logs") | Out-Null
+
+# 1.1.0: record managed snapshot for future tombstone deletes.
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  & node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const crypto = require("crypto");
+    const target = process.argv[1];
+    const files = {};
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "logs" && dir === target) continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { walk(p); continue; }
+        if (!e.isFile()) continue;
+        const rel = path.relative(target, p).replace(/\\/g, "/");
+        if (rel === "MANAGED_FILES.json") continue;
+        try {
+          const buf = fs.readFileSync(p);
+          files[rel] = { sha256: crypto.createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
+        } catch {}
+      }
+    };
+    try {
+      walk(target);
+      fs.writeFileSync(path.join(target, "MANAGED_FILES.json"), JSON.stringify({ version: 1, generator: "orquestrador-maestro 1.1.0", files }, null, 2));
+    } catch (e) { console.error("MANAGED_FILES warning: " + (e.message || e)); }
+  ' $TargetOrquestrador
+}
 
 foreach ($target in $extraTargets) {
   Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
@@ -533,6 +623,42 @@ if (-not $SkipSkillSync) {
       $syncArgs += ($SelectedComponents -join ",")
     }
     & powershell -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+  }
+}
+
+# 1.1.0 (#39): garante mínimo nativo mesmo com -SkipSkillSync ou -Only parcial.
+$nativeMinimum = @(
+  @("codex", ".codex/skills"),
+  @("agents", ".agents/skills"),
+  @("opencode", ".opencode/skills"),
+  @("claude", ".claude/skills"),
+  @("cursor", ".cursor/skills"),
+  @("gemini", ".gemini/skills"),
+  @("windsurf", ".windsurf/skills"),
+  @("antigravity", ".antigravity-skills/skills")
+)
+$maestroSources = @(
+  (Join-Path $TargetSkillLibrary "codex-skills\orquestrador-maestro"),
+  (Join-Path $TargetOrquestrador "skill-library\codex-skills\orquestrador-maestro"),
+  (Join-Path $SourceCodex "skills\orquestrador-maestro")
+)
+foreach ($pair in $nativeMinimum) {
+  $program = $pair[0]
+  $rel = $pair[1]
+  if (-not (Test-SelectedComponent @($program, "freebuff", "agents", "codex", "claude", "opencode", "cursor", "gemini", "windsurf", "antigravity", "skills", "community-skills", "all"))) { continue }
+  $root = Join-Path $HomePath $rel
+  New-Item -ItemType Directory -Force -Path $root | Out-Null
+  $destMaestro = Join-Path $root "orquestrador-maestro\SKILL.md"
+  if (-not (Test-Path -LiteralPath $destMaestro)) {
+    foreach ($srcMaestro in $maestroSources) {
+      $srcSkill = Join-Path $srcMaestro "SKILL.md"
+      if (Test-Path -LiteralPath $srcSkill) {
+        $destDir = Split-Path -Parent $destMaestro
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+        Copy-Item -LiteralPath (Join-Path $srcMaestro "*") -Destination $destDir -Recurse -Force
+        break
+      }
+    }
   }
 }
 

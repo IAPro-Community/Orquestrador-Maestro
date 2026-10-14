@@ -35,6 +35,7 @@ const defaultTelemetryEndpointUrl = "";
 
 const installFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
+  "--force": { ps: "-Force", sh: "--force" },
   "--no-force": { ps: "-NoForce", sh: "--no-force" },
   "--no-tool-profiles": { ps: "-NoToolProfiles", sh: "--no-tool-profiles" },
   "--core-only": { ps: "-CoreOnly", sh: "--core-only" },
@@ -53,6 +54,7 @@ const verifyFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
   "--skip-tool-profiles": { ps: "-SkipToolProfiles", sh: "--skip-tool-profiles" },
   "--core-only": { ps: "-CoreOnly", sh: "--core-only" },
+  "--strict": { ps: "-Strict", sh: "--strict" },
   "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" }
 };
 
@@ -66,6 +68,7 @@ function printHelp() {
 Uso:
   orquestrador-maestro install [opcoes]
   orquestrador-maestro update [opcoes]
+  orquestrador-maestro rollback [--home-path PATH] [--to STAMP] [--list]
   orquestrador-maestro verify [opcoes]
   orquestrador-maestro doctor [opcoes]
   orquestrador-maestro init-dev [--project-path PATH]
@@ -73,7 +76,7 @@ Uso:
   orquestrador-maestro check-dev-gates [--project-path PATH] [--max-entries N] [--strict]
   orquestrador-maestro context brief [--project-path PATH] [--task TEXT] [--max-chars N] [--since COMMIT] [--json]
   orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
-  orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
+  orquestrador-maestro run [--provider ID] [--profile ID] [--policy ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go|plan [--auto] [--project-path PATH] "objetivo"
   orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro tui [--project-path PATH] [--classic]
@@ -90,10 +93,8 @@ Uso:
   orquestrador-maestro memory status
   orquestrador-maestro memory cleanup [--project PATH]
   orquestrador-maestro benchmark list
-  orquestrador-maestro benchmark run [--scenario ID] [--condition CONDITION]
+  orquestrador-maestro benchmark run [--scenario ID] [--condition CONDITION] [opcoes]
   orquestrador-maestro benchmark validate <scenario>
-  orquestrador-maestro benchmark run [scenario] [opcoes]
-  orquestrador-maestro run [--provider ID] [--profile ID] [--policy ID] [--workspace PATH] "tarefa"
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
@@ -115,12 +116,10 @@ Uso:
   orquestrador-maestro terminal close <id> [--project-path PATH]
   orquestrador-maestro terminal start [--project-path PATH] -- <comando> [argumentos]
   orquestrador-maestro terminal stop <id> [--project-path PATH]
-  orquestrador-maestro tui [--project-path PATH] [--classic]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
-  orquestrador-maestro runtime [--project-path PATH]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
   orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
@@ -157,10 +156,12 @@ Opcoes de verify:
   --home-path <path>
   --core-only
   --skip-tool-profiles
+  --strict                    Verifica espelho completo + MANAGED_FILES + policy v2
   --verbose-paths
 
 Opcoes de doctor:
   --home-path <path>          Diagnostica outro home
+  --strict                    Falha em routing breaks, mirror drift, roots unhealthy
   --repair-ui                 Mostra a correção para Bun/OpenTUI/node-pty
 
 Opcoes de init-dev:
@@ -359,7 +360,8 @@ function runCliUpdate(args) {
     return null;
   }
 
-  console.log(`Atualizando a CLI npm para ${packageJson.name}@latest...`);
+  const beforeVersion = packageJson.version;
+  console.log(`Atualizando a CLI npm para ${packageJson.name}@latest (atual: ${beforeVersion})...`);
   const result = runNpm([
     "install", "-g", `${packageJson.name}@latest`, "--force", "--prefer-online"
   ], { stdio: "inherit" });
@@ -374,7 +376,12 @@ function runCliUpdate(args) {
   const cliPath = resolveGlobalCliPath();
   const installedVersion = readGlobalCliVersion(cliPath);
   if (installedVersion) {
-    console.log(`CLI npm instalada após a atualização: ${installedVersion}`);
+    console.log(`CLI npm instalada após a atualização: ${installedVersion} (antes: ${beforeVersion})`);
+    if (compareVersions(installedVersion, beforeVersion) < 0) {
+      throw new Error(`A atualização regrediu a CLI (${beforeVersion} -> ${installedVersion}). Abortando antes de tocar o home.`);
+    }
+  } else {
+    console.warn("Aviso: não foi possível ler a versão instalada após o update; seguindo com runInstall.");
   }
   const childEnv = { ...process.env, ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE: "1" };
   return spawnSync(process.execPath, [cliPath, "update", ...args], {
@@ -392,9 +399,10 @@ async function runInstall(args, injectedFlags = []) {
     throw new Error(`Instalador nao encontrado: ${script}`);
   }
 
-  const isNonInteractive = args.includes("--non-interactive") || injectedFlags.includes("--non-interactive");
-  const isAllTargets = args.includes("--all-targets") || injectedFlags.includes("--all-targets");
-  const hasOnly = args.some(a => a === "--only") || injectedFlags.some(a => a === "--only");
+  const normalizedForOnly = [...args, ...injectedFlags].flatMap((a) => a.startsWith("--only=") ? ["--only", a.slice("--only=".length)] : [a]);
+  const isNonInteractive = normalizedForOnly.includes("--non-interactive");
+  const isAllTargets = normalizedForOnly.includes("--all-targets");
+  const hasOnly = normalizedForOnly.includes("--only");
 
   if (!isNonInteractive && !isAllTargets && !hasOnly && process.stdin.isTTY) {
     const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
@@ -483,10 +491,12 @@ function parseDoctorArgs(args) {
   const normalized = normalizeArgs(args);
   let homePath = "";
   let repairUi = false;
+  let strict = false;
 
   for (let i = 0; i < normalized.length; i += 1) {
     const arg = normalized[i];
     if (arg === "--repair-ui") { repairUi = true; continue; }
+    if (arg === "--strict") { strict = true; continue; }
     if (arg === "--home-path") {
       const value = normalized[i + 1];
       if (!value || value.startsWith("--")) {
@@ -499,7 +509,7 @@ function parseDoctorArgs(args) {
     throw new Error(`Parametro desconhecido: ${arg}`);
   }
 
-  return { homePath, repairUi };
+  return { homePath, repairUi, strict };
 }
 
 function runDoctor(args) {
@@ -508,12 +518,13 @@ function runDoctor(args) {
     throw new Error(`Diagnostico nao encontrado: ${script}`);
   }
 
-  const { homePath, repairUi } = parseDoctorArgs(args);
+  const { homePath, repairUi, strict } = parseDoctorArgs(args);
   const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script];
   if (homePath) {
     psArgs.push("-HomePath", homePath);
   }
   if (repairUi) psArgs.push("-RepairUi");
+  if (strict) psArgs.push("-Strict");
 
   if (process.platform === "win32") {
     return run("powershell", psArgs);
@@ -531,6 +542,68 @@ function runDoctor(args) {
   }
 
   throw new Error("O comando doctor requer PowerShell. Instale pwsh ou use orquestrador-maestro verify.");
+}
+
+function runRollback(args) {
+  const normalized = normalizeArgs(args);
+  let homePath = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  let to = "";
+  let list = false;
+  for (let i = 0; i < normalized.length; i += 1) {
+    const a = normalized[i];
+    if (a === "--home-path") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --home-path exige um valor.");
+      homePath = v;
+      i += 1;
+    } else if (a === "--to") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --to exige um valor.");
+      to = v;
+      i += 1;
+    } else if (a === "--list") {
+      list = true;
+    } else {
+      throw new Error(`Parametro desconhecido: ${a}`);
+    }
+  }
+  const backupRoot = path.join(homePath, ".orquestrador-public-backups");
+  if (!fs.existsSync(backupRoot)) throw new Error(`Nenhum backup encontrado: ${backupRoot}`);
+  const stamps = fs.readdirSync(backupRoot).filter((d) => {
+    try { return fs.statSync(path.join(backupRoot, d)).isDirectory(); } catch { return false; }
+  }).sort();
+  if (list || stamps.length === 0) {
+    console.log(stamps.length ? stamps.join("\n") : "Nenhum backup disponível.");
+    return 0;
+  }
+  const stamp = to || stamps[stamps.length - 1];
+  const src = path.join(backupRoot, stamp);
+  if (!fs.existsSync(src)) throw new Error(`Backup não encontrado: ${src}`);
+  const canonical = path.join(homePath, ".orquestrador-maestro");
+  const legacy = path.join(homePath, ".orquestrador");
+  const dest = fs.existsSync(canonical) ? canonical : (fs.existsSync(legacy) ? legacy : canonical);
+  const copyEntry = (name, isDir) => {
+    const from = path.join(src, name);
+    if (!fs.existsSync(from)) return false;
+    const toPath = name === "AGENTS.md" ? path.join(homePath, "AGENTS.md") : path.join(dest, name === ".orquestrador-maestro" || name === ".orquestrador" ? "" : name);
+    // name may be ".orquestrador-maestro" dir backup (whole core) or "AGENTS.md"
+    if (name === ".orquestrador-maestro" || name === ".orquestrador") {
+      fs.cpSync(from, dest, { recursive: true });
+      return true;
+    }
+    if (isDir) fs.cpSync(from, toPath, { recursive: true });
+    else fs.copyFileSync(from, toPath);
+    return true;
+  };
+  // Backup layout: backup_path stores whole core as <stamp>/.orquestrador-maestro (or .orquestrador) + AGENTS.md
+  let restored = false;
+  for (const entry of fs.readdirSync(src)) {
+    const st = fs.statSync(path.join(src, entry));
+    if (copyEntry(entry, st.isDirectory())) restored = true;
+  }
+  if (!restored) throw new Error(`Backup vazio ou incompatível: ${src}`);
+  console.log(`Rollback concluído a partir de ${stamp}. Reexecute 'orquestrador-maestro verify' para confirmar.`);
+  return 0;
 }
 
 function runInitDev(args) {
@@ -2468,6 +2541,10 @@ async function dispatch(command, args) {
 
   if (command === "verify") {
     return runVerify(args);
+  }
+
+  if (command === "rollback") {
+    return runRollback(args);
   }
 
   if (command === "doctor") {

@@ -6,16 +6,25 @@ const readline = require("node:readline");
 const vscode = require("vscode");
 
 class BridgeClient {
-  constructor(command = "maestro") { this.command = command; this.sequence = 0; this.pending = new Map(); this._reconnectTimer = null; this._disposed = false; }
+  constructor(command = "maestro") { this.command = command; this.sequence = 0; this.pending = new Map(); this._reconnectTimer = null; this._reconnectAttempts = 0; this._reader = null; this._disposed = false; }
   start(workspacePath) {
     if (this.child) return;
     this.child = spawn(this.command, ["bridge", "--stdio", "--project-path", workspacePath], { stdio: ["pipe", "pipe", "pipe"], shell: false });
     this.child.on("error", (error) => this.rejectAll(error));
     this.child.on("exit", () => {
       this.rejectAll(new Error("Maestro bridge was stopped."));
-      if (!this._disposed) this._reconnectTimer = setTimeout(() => { this.child = null; this.start(workspacePath); }, 3000);
+      try { this._reader?.close(); } catch {}
+      this._reader = null;
+      if (this._disposed) return;
+      // 1.1.0: backoff com teto (3s, 6s, 12s, max 30s) + limite de 10 tentativas.
+      this._reconnectAttempts += 1;
+      if (this._reconnectAttempts > 10) return;
+      const delay = Math.min(3000 * 2 ** (this._reconnectAttempts - 1), 30000);
+      this._reconnectTimer = setTimeout(() => { this.child = null; this.start(workspacePath); }, delay);
     });
-    readline.createInterface({ input: this.child.stdout }).on("line", (line) => {
+    this._reconnectAttempts = 0;
+    this._reader = readline.createInterface({ input: this.child.stdout });
+    this._reader.on("line", (line) => {
       try { const response = JSON.parse(line); const pending = this.pending.get(response.id); if (pending) { this.pending.delete(response.id); response.error ? pending.reject(Object.assign(new Error(response.error.message), { code: response.error.code, data: response.error.data })) : pending.resolve(response.result); } } catch { /* Ignore non-protocol output. */ }
     });
   }
@@ -25,7 +34,20 @@ class BridgeClient {
     const id = ++this.sequence;
     return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`); });
   }
-  dispose() { this._disposed = true; if (this._reconnectTimer) clearTimeout(this._reconnectTimer); this.rejectAll(new Error("Maestro extension deactivated.")); this.child?.kill(); }
+  dispose() {
+    this._disposed = true;
+    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+    this.rejectAll(new Error("Maestro extension deactivated."));
+    try { this._reader?.close(); } catch {}
+    this._reader = null;
+    try { this.child?.stdin?.end(); } catch {}
+    try { this.child?.stdin?.destroy(); } catch {}
+    try { this.child?.stdout?.destroy(); } catch {}
+    try { this.child?.stderr?.destroy(); } catch {}
+    this.child?.removeAllListeners();
+    try { this.child?.kill(); } catch {}
+    this.child = null;
+  }
 }
 
 function item(label, state = vscode.TreeItemCollapsibleState.None, command, key) {
