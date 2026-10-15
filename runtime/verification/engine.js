@@ -58,13 +58,22 @@ function runCommand(command, options = {}) {
     }
     let spawnCommand = argv[0];
     let spawnArgs = argv.slice(1);
-    // On Windows, resolve .cmd/.bat shims via PATH (shell:false needs explicit resolution).
+    // CreateProcess does not execute .cmd/.bat files directly with shell:false.
+    // Only the fixed npm run <safe-script> form may use cmd.exe; never pass an
+    // arbitrary parsed command line into cmd.exe (metacharacter injection).
     if (process.platform === "win32") {
-      const base = spawnCommand.replace(/\.(cmd|bat|exe)$/iu, "");
-      if (base !== spawnCommand) spawnCommand = base;
-      else if (!/\.(cmd|bat|exe)$/iu.test(spawnCommand)) {
-        // Likely a .cmd shim (npm, npx, etc.) — append .cmd for Windows CreateProcess.
-        spawnCommand = `${spawnCommand}.cmd`;
+      const basename = path.win32.basename(spawnCommand).toLowerCase();
+      if (basename === "npm" || basename === "npm.cmd") {
+        if (spawnArgs.length !== 2 || spawnArgs[0] !== "run" || !SAFE_SCRIPT_NAMES.has(spawnArgs[1])) {
+          resolve({ exitCode: 1, stdout: "", stderr: "Unsupported npm invocation on Windows", durationMs: Date.now() - startedAt, timedOut: false });
+          return;
+        }
+        const script = spawnArgs[1]; // allowlisted identifier; no untrusted quoting
+        spawnCommand = "cmd.exe";
+        spawnArgs = ["/d", "/s", "/c", "npm.cmd run " + script];
+      } else if (/\\.(?:cmd|bat)$/iu.test(basename)) {
+        resolve({ exitCode: 1, stdout: "", stderr: "Batch shims are not permitted in verification commands", durationMs: Date.now() - startedAt, timedOut: false });
+        return;
       }
     }
     let child;
