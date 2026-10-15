@@ -571,7 +571,7 @@ function runRollback(args) {
   if (!fs.existsSync(backupRoot)) throw new Error(`Nenhum backup encontrado: ${backupRoot}`);
   // Only timestamp-based backups produced by the installers are valid.
   // Refuse traversal, absolute paths and symlinked backup directories.
-  const validStamp = (value) => /^\\d{8}-\\d{6}-\\d+$/.test(value);
+  const validStamp = (value) => /^\d{8}-\d{6}-\d+$/.test(value);
   if (to && !validStamp(to)) throw new Error("Identificador de backup invalido: --to exige um timestamp do instalador.");
   const stamps = fs.readdirSync(backupRoot).filter((d) => {
     if (!validStamp(d)) return false;
