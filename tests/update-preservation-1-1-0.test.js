@@ -42,6 +42,11 @@ test("1.1.0 (#38): update preserves custom core files and custom native skills",
   assert.ok(fs.existsSync(path.join(maestroRoot, "WORKLOG.md")), "WORKLOG.md must survive update");
   assert.ok(fs.existsSync(path.join(maestroRoot, "templates", "user.md")), "templates/user.md must survive update");
   assert.ok(fs.existsSync(path.join(customSkill, "SKILL.md")), "custom native skill must survive update (preserve by default)");
+  const manifest2 = JSON.parse(fs.readFileSync(path.join(maestroRoot, "MANAGED_FILES.json"), "utf8"));
+  assert.equal(manifest2.version, 2, "upgraded manifests must track source ownership");
+  assert.equal(Object.hasOwn(manifest2.files, "WORKLOG.md"), false, "custom files must not become managed");
+  assert.equal(Object.hasOwn(manifest2.files, "templates/user.md"), false, "custom nested files must not become managed");
+
 
   // Managed files must be REFRESHED on update (not just preserved).
   const managedFile = path.join(maestroRoot, "rules.md");
@@ -51,6 +56,10 @@ test("1.1.0 (#38): update preserves custom core files and custom native skills",
   const res3 = runInstaller(home);
   assert.equal(res3.status, 0, `re-install after corruption failed: ${res3.stderr?.slice(0, 2000)}`);
   assert.notEqual(fs.readFileSync(managedFile, "utf8"), "CORRUPTED\n", "managed file must be refreshed from snapshot on update");
+  assert.equal(fs.readFileSync(path.join(maestroRoot, "WORKLOG.md"), "utf8"), "# user worklog\n", "custom file must survive a third install");
+  assert.equal(fs.readFileSync(path.join(maestroRoot, "templates", "user.md"), "utf8"), "user template\n", "custom nested file must survive a third install");
+  assert.ok(fs.existsSync(path.join(customSkill, "SKILL.md")), "custom skill must survive a third install");
+
 });
 
 test("1.1.0: sync --apply preserves extra-native without --prune", () => {
