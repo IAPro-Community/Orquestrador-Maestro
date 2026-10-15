@@ -28,6 +28,8 @@ Open only the relevant skill files after routing.
 
 ## Security Automation
 
+Shortcuts for frequent needs (not exhaustive — the router below has all 50+ skills):
+
 | Need | Skill |
 |---|---|
 | Build or review a SaaS product | `/skill:skill-saas-factory` |
@@ -53,6 +55,8 @@ Open only the relevant skill files after routing.
 | Unified analytics | `/skill:skill-unified-analytics` |
 | ElevenLabs voice integration | `/skill:skill-elevenlabs-voice-cloning` |
 | Google Workspace sync | `/skill:skill-google-workspace-sync` |
+
+For anything not listed here, route via `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` (full skill list) — never assume a skill does not exist because it is absent from this shortcut table.
 
 ## Maintenance
 

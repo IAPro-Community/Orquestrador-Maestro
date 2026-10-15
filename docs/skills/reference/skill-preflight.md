@@ -17,7 +17,8 @@ Preflight de escopo, baseline, riscos, ownership e testes.
 
 ## Quando não usar
 
-- Pedidos fora do domínio workflow; use a skill específica quando houver uma intenção mais precisa.
+- Execução da implementação depois que escopo e baseline já estão claros.
+- Operação mecânica de baixo risco que não exige análise prévia.
 
 ## Exemplos de pedidos reconhecidos
 

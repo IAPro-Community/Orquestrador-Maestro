@@ -8,10 +8,10 @@
     "community"
   ],
   "counts": {
-    "sourceSkillFiles": 176,
-    "uniqueSkills": 77,
-    "shadowedDuplicates": 99,
-    "conflictingIds": 7
+    "sourceSkillFiles": 185,
+    "uniqueSkills": 79,
+    "shadowedDuplicates": 106,
+    "conflictingIds": 0
   },
   "skills": [
     {
@@ -100,7 +100,7 @@
       "description": "Aplica o contrato compartilhado do Orquestrador Maestro ao trabalho de código e projeto.",
       "source": "codex",
       "relativePath": "codex/skills/orquestrador-maestro",
-      "contentHash": "cbb1e7de1abc8c98bc137b82eff23ccb616d0bd9e9b2fda6d85817c4c0475af3"
+      "contentHash": "4186b108ec870f0a01de810309516c34fee81d001ace973e4e5baadf0fea3ea1"
     },
     {
       "id": "plan",
@@ -156,7 +156,7 @@
       "description": "Integrate AbacatePay PIX/card billing, customers, QRCode PIX, billing webhooks, CPF/CNPJ validation, BRL SaaS checkout, payment receipts, refunds, cancellations, and entitlement sync for Brazilian SaaS products.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-abacatepay-integration",
-      "contentHash": "0897b6a70d5ef89cc5140df128515ed8a3d2a44ea267a94915b9033e549d9e8e"
+      "contentHash": "025b401b5754c05e22d13ececc6ff239eb5bc25bbc54e15009d3b7f20ba0da42"
     },
     {
       "id": "skill-adr",
@@ -188,7 +188,7 @@
       "description": "Use when integrating AionUi into the {{USER_NAME}} orchestrator workflow, coordinating Codex, Claude, Gemini, OpenCode, or other CLI agents through AionUi without breaking local skills, hooks, MCPs, permissions, or existing Codex workflows.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-aionui-cowork-orchestration",
-      "contentHash": "2b71a98122a9014c88fe2e3b0bf6802b5f70c0926b90cb8336b07247da683e06"
+      "contentHash": "84fab605f41a552e23f27bfbe9f93964121b6ecb90b6cd899c25c851e00a4565"
     },
     {
       "id": "skill-browser-agent",
@@ -225,10 +225,10 @@
     {
       "id": "skill-deep-wiki",
       "name": "skill-deep-wiki",
-      "description": "Gera documentação técnica navegável de um repositório, com arquitetura, Mermaid, onboarding, AGENTS.md, llms.txt e páginas por domínio.",
+      "description": "Use when documenting or auditing a software product or repository, creating or improving README, Quick Start, guides, API/CLI/configuration references, troubleshooting, visual documentation plans, or checking documentation drift after product changes.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-deep-wiki",
-      "contentHash": "079239c31277ef5064471e222261d6d50a08dd2c3d79f0d3d927c12ab4188b03"
+      "contentHash": "34c922ce7d37f15bed7dd3eb85d0a0400c57a5fe07a3e83ce24d9772131eb288"
     },
     {
       "id": "skill-dependency-upgrade",
@@ -237,6 +237,14 @@
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-dependency-upgrade",
       "contentHash": "af5bea943d5c5e424eae775a797fa44871de69298113f7e8c101b434ab9d64c6"
+    },
+    {
+      "id": "skill-design-engineering-craft",
+      "name": "skill-design-engineering-craft",
+      "description": "High-fidelity design engineering for the implementation details that make an interface feel deliberate and expensive: optical alignment, type rhythm, density, surfaces, state fidelity, responsive detail, and component finish.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-design-engineering-craft",
+      "contentHash": "f8235c3889d622c9196dd9298fb96b52d946c0f33df853ec766cfc3be48ef682"
     },
     {
       "id": "skill-doublecheck",
@@ -255,6 +263,14 @@
       "contentHash": "550d4c952286a02a0c65a61db19c479e4e4ffa6eff4d30cad456ab64bda09582"
     },
     {
+      "id": "skill-engineering-quality",
+      "name": "skill-engineering-quality",
+      "description": "Use when a repository needs a quality baseline or modernization across one or more detected application stacks, especially linting, formatting, type checking, tests, build validation, developer tooling, hooks, or CI consistency.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-engineering-quality",
+      "contentHash": "a992a5ddcadd5f791bcb0f0f5bf591e306302c09efb9e888a679d9ee9c90f2e1"
+    },
+    {
       "id": "skill-evolution-api",
       "name": "skill-evolution-api",
       "description": "Use for WhatsApp automation with Evolution API, including instance lifecycle, QR pairing, inbound and outbound messages, webhooks, consent, tenant isolation, queues, idempotency, rate limits, retries, audit logs, and reliable delivery.",
@@ -268,7 +284,7 @@
       "description": "Use for product frontend work: classify intent, discover the project's design system and Design Profile, preserve or evolve UI, run Visual QA, and refuse to mark frontend done from build-only evidence.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-frontend-excellence",
-      "contentHash": "dd9d400bf667e72996a8401414477ae47777c653f5b806dd17db02adf9a78bb5"
+      "contentHash": "7b6bcaa148fb8ae12aef4121221178f747eb9f638448636f30f2cf69dd39fe2e"
     },
     {
       "id": "skill-frontend-ux-guardrails",
@@ -292,7 +308,7 @@
       "description": "Orquestra melhorias de frontend inspiradas no Impeccable a partir de pedidos conversacionais de design, UX, acessibilidade, responsividade, tipografia, layout, cor, motion, clareza, hardening e polish.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-impeccable",
-      "contentHash": "c442dc99f61bc4e0bc1c4c79bc12686cf72b871eaf81f2a00619b840abea430c"
+      "contentHash": "5e179a2fe0c857ca478e59c9ca5b1b72103c92d9027cc90d6c0fdd059ff4e121"
     },
     {
       "id": "skill-incident-response",
@@ -359,28 +375,20 @@
       "contentHash": "d5e1ec006cc3326a3df92e562dea46e12f631e514488b9366e79784d944800ba"
     },
     {
+      "id": "skill-motion-design-principles",
+      "name": "skill-motion-design-principles",
+      "description": "Design and review UI motion systems for purpose, timing, easing, choreography, interruption, feedback, reduced motion, performance, and responsive behavior without decorative animation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-motion-design-principles",
+      "contentHash": "2bdf9813658e8cc3d601835150158ba67e40f192505a6519f254f788e61c52d0"
+    },
+    {
       "id": "skill-multiagent-orchestration",
       "name": "skill-multiagent-orchestration",
       "description": "Use when a task mentions subagents, multiagents, parallel agents, team execution, swarm, delegation, or requires dividing independent engineering work across agents while preserving integration safety and token efficiency.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-multiagent-orchestration",
-      "contentHash": "5777a3af46bec82418394f75a1d23bc634f837ce41d57f9109b2dc7c4c22da6d"
-    },
-    {
-      "id": "skill-open-code-delegate",
-      "name": "skill-open-code-delegate",
-      "description": "DEPRECATED — use skill-multiagent-orchestration. Alias de compatibilidade para instalações pré-1.1.0. Será removido futuramente.",
-      "source": "maestro",
-      "relativePath": "orquestrador/skills/skill-open-code-delegate",
-      "contentHash": "29a535d13225c9757092293f2df9bbc681f1fc79b091c36e4d0cfe8557c3e380"
-    },
-    {
-      "id": "skill-open-code-review",
-      "name": "skill-open-code-review",
-      "description": "DEPRECATED — use code-review. Alias de compatibilidade para instalações pré-1.1.0. Será removido futuramente.",
-      "source": "maestro",
-      "relativePath": "orquestrador/skills/skill-open-code-review",
-      "contentHash": "7b813b77eda01378a49a0359c448e786d6c8ed13542797cd24ea4d4603d569cf"
+      "contentHash": "8532c9532b9e63891eb0bff5c762f6d2ff9bbfacec003fd5154f5576c7ba8058"
     },
     {
       "id": "skill-open-design-ui",
@@ -388,7 +396,7 @@
       "description": "Use for defining and implementing a distinctive frontend visual system with design direction, tokens, component patterns, responsive UI, anti-generic decisions, and visual QA after the experience strategy is clear.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-open-design-ui",
-      "contentHash": "5b4ef2136758a74e8cd1c4d40ae246f7c7aa53f07c784f469f75150a89328736"
+      "contentHash": "d6f8bfb704924aa371fa422b309aca383cfa5b941faad866e31dfc2ab8b69575"
     },
     {
       "id": "skill-optimize-images",
@@ -413,6 +421,14 @@
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-premium-web-experience",
       "contentHash": "99e84d1e3ee18e6f479037c02d78197f3611de9f910948b0777b342aa5afe475"
+    },
+    {
+      "id": "skill-product-ux-architecture",
+      "name": "skill-product-ux-architecture",
+      "description": "Plan the UX architecture of an entire product or application across screens, navigation, journeys, states, responsive behavior, information architecture, and design-system needs before implementation.",
+      "source": "maestro",
+      "relativePath": "orquestrador/skills/skill-product-ux-architecture",
+      "contentHash": "1669f924df8081dfa18c5ed0182d8ad92cb4debb9487dee9b212e19ff0a30528"
     },
     {
       "id": "skill-quality-gate",
@@ -460,7 +476,7 @@
       "description": "Implement SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, blocked accounts, usage counters, and access checks after AbacatePay, Stripe, webhook, or manual admin subscription changes.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-core-limits",
-      "contentHash": "cf534d9be973ceb60ddb3bde8ea44540768e13ad3eb7e3c9d0b91e1a846005cb"
+      "contentHash": "bc6fe8b2d6bf22f04bd19ec5b806f82fa26020e4816f3cdda2555cdb21aeb768"
     },
     {
       "id": "skill-saas-dast-recon",
@@ -468,7 +484,7 @@
       "description": "Run defensive, explicitly authorized SaaS DAST and recon with scope controls. Use when asked to scan an owned local, staging, preview, or approved production URL, API endpoint, SaaS app, tenant boundary, public web surface, auth flow, exposed files, headers, TLS, or OWASP Top 10 behavior using tools such as ZAP, Nuclei, Katana, httpx, and Subfinder.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-dast-recon",
-      "contentHash": "49be68424a1bb174ca75427df6b0d69b79c83bdecbb22c1bea3f0ff4e83518ce"
+      "contentHash": "74d7f5d3c46a652fba6d0eb41b914f339715b035e0384970d1623e0f5e20d070"
     },
     {
       "id": "skill-saas-factory",
@@ -484,7 +500,7 @@
       "description": "Run defensive, authorized local security scans for owned SaaS repositories. Use when asked to scan local code, dependencies, secrets, containers, IaC, API handlers, Supabase projects, multi-tenant SaaS isolation, or release/security gates with maintained OSS tools such as Semgrep, Gitleaks, Trivy, OSV-Scanner, and OWASP Dependency-Check.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-saas-security-scan",
-      "contentHash": "30e688f298d7a9f9bee2b6121753865ea7ff7d9e0d87aaec9f16bfa6a3fb306c"
+      "contentHash": "71cf32c0e8d381f83a6ccd1819834f094e293fd1d688faea38cd5d49005dff3a"
     },
     {
       "id": "skill-scope-control",
@@ -500,7 +516,7 @@
       "description": "Install and maintain defensive security hooks and CI gates for authorized SaaS projects. Use when asked to add pre-commit hooks, pre-push hooks, CI security scans, GitHub Actions hardening, secret scanning, dependency scanning, SAST, DAST gates, or security automation around existing repositories.",
       "source": "maestro",
       "relativePath": "orquestrador/skills/skill-security-hooks",
-      "contentHash": "49ebb1918bb975da2d3d28880eb4ea5e5653c2d2c8ea83b7ead9f8992793de72"
+      "contentHash": "072f1060b6d927962f478f100afd1b2d06c771f009c146525d4313981320e489"
     },
     {
       "id": "skill-skill-development",
@@ -631,13 +647,5 @@
       "contentHash": "bb46b31f275a7ec4006d43bba9bf5d0e05955c846a3b58e66b82dc930ac0ac70"
     }
   ],
-  "conflicts": [
-    "skill-browser-agent",
-    "skill-frontend-ux-guardrails",
-    "skill-impeccable",
-    "skill-modern-ui-patterns",
-    "skill-multiagent-orchestration",
-    "skill-open-design-ui",
-    "skill-saas-factory"
-  ]
+  "conflicts": []
 }

@@ -1,64 +1,74 @@
 "use strict";
 
 class ContextBudget {
-  /**
-   * Applies the budget constraint to the context items.
-   * Prioritizes USER_DECISION, high relevance, and high confidence.
-   * Does NOT just discard large files.
-   *
-   * @param {Array} items - List of ContextItems.
-   * @param {number} maxTokens - The maximum allowed tokens (estimated).
-   * @returns {Array} The budgeted ContextItems.
-   */
-  static applyBudget(items, maxTokens = 8000) {
-    if (!Array.isArray(items)) return [];
+  static serialize(value) {
+    if (typeof value === "string") return value;
+    try {
+      const serialized = JSON.stringify(value);
+      return serialized === undefined ? String(value ?? "") : serialized;
+    } catch {
+      return String(value ?? "");
+    }
+  }
 
-    // Sort items by priority:
-    // 1. USER_DECISION always wins
-    // 2. High relevance
-    // 3. High confidence
-    // 4. Smaller token cost (simulated by string length for now)
+  static estimateSerializedTokens(value) {
+    const serialized = ContextBudget.serialize(value);
+    return Math.ceil(Buffer.byteLength(serialized, "utf8") / 4);
+  }
+
+  static estimateCost(value) {
+    return ContextBudget.estimateSerializedTokens(value);
+  }
+
+  static estimateItemTokens(item) {
+    return ContextBudget.estimateSerializedTokens(item);
+  }
+
+  static estimateContextTokens(intent, items) {
+    return ContextBudget.estimateSerializedTokens({ intent, items });
+  }
+
+  static isPriorityItem(item) {
+    return item?.kind === "USER_DECISION"
+      || String(item?.key || "").startsWith("critical.")
+      || String(item?.key || "").startsWith("blocking.");
+  }
+
+  static applyBudget(items, maxTokens = 8000, { intent = "", ensureOne = true } = {}) {
+    if (!Array.isArray(items)) return [];
+    if (!Number.isInteger(maxTokens) || maxTokens < 0) {
+      throw new TypeError("maxTokens must be a non-negative integer");
+    }
 
     const sorted = [...items].sort((a, b) => {
-      if (a.kind === "USER_DECISION" && b.kind !== "USER_DECISION") return -1;
-      if (b.kind === "USER_DECISION" && a.kind !== "USER_DECISION") return 1;
+      const priorityA = ContextBudget.isPriorityItem(a) ? (a.kind === "USER_DECISION" ? 2 : 1) : 0;
+      const priorityB = ContextBudget.isPriorityItem(b) ? (b.kind === "USER_DECISION" ? 2 : 1) : 0;
+      if (priorityA !== priorityB) return priorityB - priorityA;
 
       const relA = a.relevance !== undefined ? a.relevance : 1;
       const relB = b.relevance !== undefined ? b.relevance : 1;
-      if (relA !== relB) return relB - relA; // Descending relevance
+      if (relA !== relB) return relB - relA;
 
       const confA = a.confidence !== undefined ? a.confidence : 1;
       const confB = b.confidence !== undefined ? b.confidence : 1;
-      if (confA !== confB) return confB - confA; // Descending confidence
+      if (confA !== confB) return confB - confA;
 
-      // Secondary: string length cost
-      const lenA = typeof a.value === "string" ? a.value.length : 100;
-      const lenB = typeof b.value === "string" ? b.value.length : 100;
-      return lenA - lenB; // Ascending length
+      return ContextBudget.estimateItemTokens(a) - ContextBudget.estimateItemTokens(b);
     });
 
     const result = [];
-    let currentCost = 0;
-
     for (const item of sorted) {
-      // Estimate cost
-      const valueCost = typeof item.value === "string" ? Math.ceil(item.value.length / 4) : 25;
-      const itemCost = 10 + valueCost; // base cost + value cost
-
-      // USER_DECISION and critical blocking facts are ALWAYS preserved regardless of budget
-      const isCritical = item.kind === "USER_DECISION" || item.key.startsWith("critical.") || item.key.startsWith("blocking.");
-
-      if (isCritical) {
-        result.push(item);
-        currentCost += itemCost;
-      } else {
-        if (currentCost + itemCost <= maxTokens) {
-          result.push(item);
-          currentCost += itemCost;
-        }
-      }
+      const candidate = [...result, item];
+      const candidateCost = ContextBudget.estimateContextTokens(intent, candidate);
+      if (candidateCost <= maxTokens || (ensureOne && result.length === 0)) result.push(item);
     }
 
+    const actualCost = ContextBudget.estimateContextTokens(intent, result);
+    Object.defineProperty(result, "overBudget", {
+      value: actualCost > maxTokens,
+      enumerable: false,
+      writable: false
+    });
     return result;
   }
 }

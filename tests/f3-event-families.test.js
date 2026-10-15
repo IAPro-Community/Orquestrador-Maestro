@@ -7,7 +7,7 @@ test("event families are exhaustive, unique and reject unknown types", () => {
   const { FAMILIES_TYPES, RESERVED_FAMILIES, familyOf } = require("../runtime/events/event-families");
   const all = Object.values(FAMILIES_TYPES).flat();
   assert.equal(new Set(all).size, all.length);
-  for (const type of ["mission.created", "run.started", "artifact.created", "agentSession.output", "task.completed"]) {
+  for (const type of ["mission.created", "run.started", "artifact.created", "provider.output", "task.completed"]) {
     assert.equal(typeof familyOf(type), "string");
   }
   assert.equal(familyOf("run.started"), "task.*");

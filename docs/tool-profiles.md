@@ -15,7 +15,7 @@ The installer writes `~/.grok/config.toml` and points Grok at `~/.orquestrador/s
 
 Freebuff usa `AGENTS.md`, `knowledge.md` e `.agents/skills` como contrato de contexto. O Maestro registra o componente `freebuff` e deixa a skill compartilhada disponível sem instalar, alterar ou copiar autenticação, sessões, cache, logs ou histórico.
 
-Use `orquestrador-maestro install --only freebuff --force` e, depois de uma atualização do catálogo, `sync-skills.ps1 -Apply -Only freebuff` ou o equivalente Bash. A execução continua no CLI/desktop interativo do Freebuff; o runtime do Maestro ainda não anuncia um provider headless para ele.
+Use `orquestrador-maestro install --only freebuff` e, depois de uma atualização do catálogo, `sync-skills.ps1 -Apply -Only freebuff` ou o equivalente Bash. A execução continua no CLI/desktop interativo do Freebuff; o runtime do Maestro ainda não anuncia um provider headless para ele.
 
 ## MiMo Code e Kimi Code
 

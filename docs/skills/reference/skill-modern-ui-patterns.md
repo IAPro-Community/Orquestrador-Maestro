@@ -17,7 +17,8 @@ Professional frontend UI implementation with modern component composition, inter
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Direção visual, tokens e identidade de interface; use skill-open-design-ui.
+- Auditoria final de responsividade, acessibilidade e overflow; use skill-frontend-ux-guardrails.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -53,6 +54,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 - Chain `skill-impeccable`
 - Chain `skill-open-design-ui`
 - Chain `skill-premium-web-experience`
+- Chain `skill-product-ux-architecture`
 - Chain `skill-saas-admin-dashboard`
 - Chain `skill-saas-factory`
 

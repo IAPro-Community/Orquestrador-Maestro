@@ -14,6 +14,9 @@ class RunStore {
   async saveExecution() { throw new Error("RunStore.saveExecution must be implemented"); }
   async appendEvent() { throw new Error("RunStore.appendEvent must be implemented"); }
   async saveArtifact() { throw new Error("RunStore.saveArtifact must be implemented"); }
+  async saveEvidence() { throw new Error("RunStore.saveEvidence must be implemented"); }
+  async getEvidence() { throw new Error("RunStore.getEvidence must be implemented"); }
+  async listEvidence() { throw new Error("RunStore.listEvidence must be implemented"); }
   async saveVerification() { throw new Error("RunStore.saveVerification must be implemented"); }
   async saveTerminal() { throw new Error("RunStore.saveTerminal must be implemented"); }
   async saveProjectSnapshot() { throw new Error("RunStore.saveProjectSnapshot must be implemented"); }

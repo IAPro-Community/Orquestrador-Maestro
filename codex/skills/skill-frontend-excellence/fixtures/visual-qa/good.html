@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Visual QA fixture — pass</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        font: 16px/1.5 system-ui, sans-serif;
+        color: #102018;
+        background: #f4f7f4;
+      }
+      header,
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 16px;
+      }
+      h1 {
+        font-size: 1.75rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid #31643c;
+        border-radius: 4px;
+      }
+      button {
+        margin-top: 16px;
+        min-height: 44px;
+        padding: 0 16px;
+        background: #2f6f3e;
+        color: #fff;
+        border: 0;
+        border-radius: 4px;
+      }
+      button:focus-visible {
+        outline: 3px solid #0b3d1b;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Entrar</h1>
+      <p>Fixture controlada para o harness de Visual QA.</p>
+    </header>
+    <main>
+      <form>
+        <label for="cpf">CPF</label>
+        <input id="cpf" name="cpf" autocomplete="username" />
+        <button type="submit">Continuar</button>
+      </form>
+    </main>
+  </body>
+</html>

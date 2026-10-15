@@ -51,7 +51,7 @@ Agents should treat `SKILLS_ROUTER.json` as the automatic invocation layer:
 
 1. Read the user request and project context.
 2. Choose an execution profile.
-3. Match aliases and router triggers before loading any full skill body.
+3. Match aliases and `routing.useWhen` before loading any full skill body.
 4. Start from one top-level skill when possible, especially `skill-saas-factory`.
 5. Chain provider-specific skills only when the task touches that provider and `SKILL_CHAINS.json` allows it.
 6. Use `skill-multiagent-orchestration` when the user asks for subagents/multiagents or when independent lanes clearly reduce time or risk.
@@ -112,7 +112,7 @@ Refresh security and SaaS skills against primary sources:
 
 1. Create the canonical skill with the helper when possible:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\new-canonical-skill.ps1 -Name "skill-example" -Description "Use for ..." -Category "ai" -Risk "medium" -Trigger "example" -Alias "exemplo" -MirrorEverywhere`
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\new-canonical-skill.ps1 -Name "skill-example" -Description "Use for ..." -Category "ai" -Risk "medium" -Origin "maestro-domain" -Capability "ai-integration" -Output "verified-result" -Trigger "example" -Alias "exemplo" -MirrorEverywhere`
 
 2. Edit the generated `SKILL.md` and keep the body compact.
 3. Update `SKILL_CHAINS.json` only when the new skill should be chained by existing skills.
@@ -132,4 +132,4 @@ Refresh security and SaaS skills against primary sources:
 
 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-public.ps1`
 
-The `mirrorEverywhere` field in `SKILLS_MANIFEST.json` controls whether `sync-skills.ps1` and `sync-skills.sh` copy a skill into the minimal native roots used by Codex, Claude, OpenCode, Cursor, Gemini, Windsurf, Antigravity, and legacy compatibility paths.
+The `mirrorEverywhere` field in `SKILLS_MANIFEST.json` controls whether `sync-skills.ps1` and `sync-skills.sh` copy a Maestro-owned skill into the minimal native roots used by supported clients. External/user/project skills keep their own formats and are handled by the compatibility adapter.

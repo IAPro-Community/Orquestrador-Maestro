@@ -348,3 +348,69 @@ test("Structured JSON parsing handles markdown code blocks", async () => {
   assert.equal(res.taskGraph.tasks[0].id, "task-1");
   assert.equal(res.taskGraph.tasks[0].metadata.semantic.title, "Inspect Configuration");
 });
+
+
+test("SemanticPlanner maxAttempts bounds a single experimental planning call and returns safe telemetry", async () => {
+  const app = new MockApp("Invalid JSON output that cannot be parsed");
+  const planner = new SemanticPlanner({
+    application: app,
+    plannerTarget: { providerId: "opencode", model: "llama3.3", local: true },
+    maxRetries: 3
+  });
+  let caught;
+  try {
+    await planner.plan({
+      missionBrief: { id: "m-v3", objective: "CRUD products", requirements: [] },
+      taskRelevantContext: { items: [] },
+      allowFallback: false,
+      maxAttempts: 1
+    });
+  } catch (error) {
+    caught = error;
+  }
+  assert.ok(caught);
+  assert.equal(caught.code, "STRUCTURED_OUTPUT_FAILED");
+  assert.equal(caught.failureKind, "parse");
+  assert.equal(caught.planningTelemetry.modelCalls, 1);
+  assert.equal(caught.planningTelemetry.attempts[0].outcome, "invalid-structure");
+  assert.ok(caught.planningTelemetry.attempts[0].promptHash);
+  assert.equal(app.executeCalls.length, 1);
+});
+
+test("SemanticPlanner exposes validation blocker codes without persisting provider content", async () => {
+  const invalidGraph = JSON.stringify({
+    tasks: [{ id: "t1", title: "IMPLEMENT", objective: "Do it", type: "domain", dependsOn: [] }],
+    assumptions: [],
+    rationale: "invalid generic title"
+  });
+  const app = new MockApp(invalidGraph);
+  const planner = new SemanticPlanner({ application: app, plannerTarget: { providerId: "opencode", model: "local", local: true } });
+  let caught;
+  try {
+    await planner.plan({
+      missionBrief: { id: "m-blocker", objective: "Implement feature", requirements: [] },
+      taskRelevantContext: { items: [] },
+      allowFallback: false,
+      maxAttempts: 1
+    });
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(caught.failureKind, "validation");
+  assert.ok(caught.blockerCodes.includes("GENERIC_TASK_TITLE_REJECTED"));
+  const serialized = JSON.stringify(caught.planningTelemetry);
+  assert.doesNotMatch(serialized, /invalid generic title|Do it/u);
+});
+
+test("SemanticPlanner buildFallback can be invoked without another provider call", async () => {
+  const app = new MockApp("unused");
+  const planner = new SemanticPlanner({ application: app, plannerTarget: { providerId: "opencode", model: "local", local: true } });
+  const fallback = planner.buildFallback({
+    missionBrief: { id: "m-fallback-direct", objective: "Write developer setup documentation", requirements: ["Document prerequisites"] },
+    taskRelevantContext: { items: [] }
+  });
+  assert.equal(fallback.planningMode, "deterministic-fallback");
+  assert.equal(fallback.planningTelemetry.modelCalls, 0);
+  assert.equal(fallback.planningTelemetry.fallbackUsed, true);
+  assert.equal(app.executeCalls.length, 0);
+});

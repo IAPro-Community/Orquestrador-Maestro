@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <defs>
+    <style>
+      .bg{fill:#0b1020}.panel{fill:#121a2f;stroke:#2a3a60;stroke-width:2}.title{fill:#f8fafc;font:700 32px Arial,sans-serif}
+      .h{fill:#e2e8f0;font:700 22px Arial,sans-serif}.t{fill:#cbd5e1;font:16px Arial,sans-serif}
+      .small{fill:#94a3b8;font:14px Arial,sans-serif}.box{fill:#17233d;stroke:#4f6b9a;stroke-width:2}
+      .ok{fill:#103528;stroke:#2f9e6f;stroke-width:2}.warn{fill:#3a1f24;stroke:#c45b68;stroke-width:2}
+      .arrow{stroke:#7aa2f7;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#8b9bb5;stroke-width:2;stroke-dasharray:7 7;fill:none;marker-end:url(#m)}
+    </style>
+    <marker id="m" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7aa2f7"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="700"/>
+  <text class="title" x="55" y="60">Maestro Resolution Engine — what changes for users</text>
+
+  <rect class="panel" x="55" y="105" rx="18" width="450" height="520"/>
+  <text class="h" x="85" y="145">Before</text>
+  <text class="small" x="85" y="172">Process completion could look like task completion</text>
+  <rect class="box" x="110" y="220" rx="12" width="340" height="72"/>
+  <text class="t" x="280" y="250" text-anchor="middle">Agent executes</text>
+  <text class="small" x="280" y="273" text-anchor="middle">provider / model / tool</text>
+  <path class="arrow" d="M280 292 L280 355"/>
+  <rect class="warn" x="110" y="355" rx="12" width="340" height="92"/>
+  <text class="t" x="280" y="391" text-anchor="middle">Process exits</text>
+  <text class="small" x="280" y="417" text-anchor="middle">could be treated as “done”</text>
+  <path class="dash" d="M280 447 L280 515"/>
+  <rect class="warn" x="110" y="515" rx="12" width="340" height="72"/>
+  <text class="t" x="280" y="545" text-anchor="middle">Risk</text>
+  <text class="small" x="280" y="569" text-anchor="middle">tests / evidence / review may be missing</text>
+
+  <rect class="panel" x="545" y="105" rx="18" width="600" height="520"/>
+  <text class="h" x="575" y="145">After this PR</text>
+  <text class="small" x="575" y="172">Completion means a validated outcome with evidence</text>
+
+  <rect class="box" x="585" y="205" rx="10" width="220" height="58"/>
+  <text class="t" x="695" y="240" text-anchor="middle">Mission + Task</text>
+  <path class="arrow" d="M805 234 L870 234"/>
+  <rect class="box" x="870" y="205" rx="10" width="220" height="58"/>
+  <text class="t" x="980" y="230" text-anchor="middle">Resolution Contract</text>
+  <text class="small" x="980" y="250" text-anchor="middle">DoD · budget · strategy</text>
+
+  <path class="arrow" d="M980 263 L980 310"/>
+  <rect class="box" x="870" y="310" rx="10" width="220" height="58"/>
+  <text class="t" x="980" y="345" text-anchor="middle">Execution</text>
+  <path class="arrow" d="M870 339 L805 339"/>
+  <rect class="box" x="585" y="310" rx="10" width="220" height="58"/>
+  <text class="t" x="695" y="334" text-anchor="middle">Verification</text>
+  <text class="small" x="695" y="354" text-anchor="middle">tests / checks</text>
+
+  <path class="arrow" d="M695 368 L695 414"/>
+  <rect class="box" x="585" y="414" rx="10" width="220" height="58"/>
+  <text class="t" x="695" y="449" text-anchor="middle">Review + DoD</text>
+  <path class="arrow" d="M805 443 L870 443"/>
+  <rect class="ok" x="870" y="414" rx="10" width="220" height="58"/>
+  <text class="t" x="980" y="438" text-anchor="middle">VALIDATED</text>
+  <text class="small" x="980" y="458" text-anchor="middle">not merely “finished”</text>
+
+  <path class="arrow" d="M980 472 L980 520"/>
+  <rect class="ok" x="790" y="520" rx="10" width="300" height="64"/>
+  <text class="t" x="940" y="546" text-anchor="middle">Evidence + Proof + Telemetry</text>
+  <text class="small" x="940" y="568" text-anchor="middle">why it is done · what it cost · what happened</text>
+
+  <path class="dash" d="M870 339 C790 285 790 260 720 263"/>
+  <text class="small" x="640" y="290">provider failure → checkpoint + bounded handoff</text>
+</svg>

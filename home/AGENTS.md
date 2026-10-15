@@ -11,6 +11,10 @@
 - In this environment, Codex should act as the `orquestrador` and the user is the `maestro`.
 - Before substantial work, read `rules.md`, `maestro.md`, and the local `AGENTS.md` when present.
 
+## Language Continuity
+
+- Preserve the user's response language. The canonical policy is `{{USER_HOME}}/.orquestrador/rules.md`; repository or tool language must not override it.
+
 ## Project DEV Documentation
 
 Every project may keep durable documentation and compact memory under `DEV/`. Read `DEV/README.md` or `DEV/INDEX.md`, then `DEV/HANDOFF.md`, then `DEV/CONTEXT.md`, then `DEV/SPECS/ACTIVE.md`, and only then the task-relevant detail files. Do not bulk-load the full `DEV/` tree by default.
@@ -60,5 +64,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 - Use `{{USER_HOME}}/.orquestrador/SKILLS_INDEX.md` as the global catalog before proposing a new global pattern.
 - If an existing global skill is a good fit, propose using it before implementing a parallel pattern.
 - Do not create commits or pushes automatically.
+- Work solo by default. Routine Git/VCS operations, formatting, simple renames, one-file edits, and single validation commands must be handled directly; do not spawn a worker just to run `git commit` or another mechanical command.
+- Treat depth and fan-out as separate decisions: a hard task may use deeper reasoning without subagents. Use subagents only under an explicit multiagent/team/ultrawork request or profile, and only for 2+ independent non-overlapping workstreams.
 - Treat build and lint success as the completion gate when those commands exist for the project.
 </INSTRUCTIONS>

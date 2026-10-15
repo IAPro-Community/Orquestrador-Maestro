@@ -40,3 +40,18 @@ test("task and workspace contracts protect dependency and isolation invariants",
   assert.ok(workspace.fields.repositories.items.fields.worktree.relative);
   assert.ok(workspace.invariants.some((rule) => rule.includes("Concurrent tasks")));
 });
+
+
+test("execution profiles keep fan-out explicit and separate from depth", () => {
+  const config = readJson("orquestrador/SKILL_EXECUTION_PROFILES.json");
+  for (const [name, profile] of Object.entries(config.profiles)) {
+    if (name === "multiagent") {
+      assert.equal(profile.allowSubagents, true);
+      assert.ok(profile.maxSubagents > 0);
+    } else {
+      assert.equal(profile.allowSubagents, false, name);
+      assert.equal(profile.maxSubagents, 0, name);
+    }
+  }
+  assert.equal(config.profiles.deep.allowSubagents, false);
+});

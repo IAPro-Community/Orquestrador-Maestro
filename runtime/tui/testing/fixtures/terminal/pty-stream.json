@@ -1,5 +1,0 @@
-[
-  {"type":"agentSession.output","projectId":"project-a","epoch":"epoch-a","seq":1,"eventId":"pty-1","data":"starting build\n"},
-  {"type":"agentSession.output","projectId":"project-a","epoch":"epoch-a","seq":2,"eventId":"pty-2","data":"running tests\n"},
-  {"type":"agentSession.output","projectId":"project-a","epoch":"epoch-a","seq":3,"eventId":"pty-3","data":"build complete\n"}
-]

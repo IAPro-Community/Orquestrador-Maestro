@@ -1,0 +1,5 @@
+[features]
+hooks = true
+
+[plugins."orquestrador-maestro@maestro-repo"]
+enabled = true

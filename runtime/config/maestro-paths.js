@@ -4,8 +4,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const CANONICAL_DIR_NAME = ".orquestrador-maestro";
-const LEGACY_DIR_NAME = ".orquestrador";
+const CANONICAL_DIR_NAME = ".orquestrador";
+const LEGACY_DIR_NAME = ".orquestrador-maestro";
+const LEGACY_CONFIG_FILE_NAME = "maestro-config.json";
 
 function existingDirectory(candidates) {
   return candidates.find((candidate) => {
@@ -32,6 +33,7 @@ function resolveProjectMaestroRoot(projectRoot, { prefer = "existing" } = {}) {
 module.exports = {
   CANONICAL_DIR_NAME,
   LEGACY_DIR_NAME,
+  LEGACY_CONFIG_FILE_NAME,
   resolveMaestroRoot,
   resolveProjectMaestroRoot
 };

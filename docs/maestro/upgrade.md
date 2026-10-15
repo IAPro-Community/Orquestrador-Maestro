@@ -14,7 +14,7 @@ Guarde cópia dos arquivos gerenciados antes de uma migração relevante.
 
 ## Garantias esperadas
 
-O instalador deve preferir `.orquestrador-maestro` em instalações novas, preservar `.orquestrador` existente, não sobrescrever configuração nativa sem preview, manter hooks desligados e preservar perfil, provider, modelo e tom.
+O instalador deve usar `.orquestrador` como raiz única, manter `.orquestrador-maestro` apenas como caminho de leitura/migração, criar backup antes da consolidação, preservar memória e configuração e manter hooks, provider, modelo e tom do usuário.
 
 ## Depois da atualização
 

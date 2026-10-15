@@ -17,7 +17,8 @@ Frontend UX quality gate for responsive behavior, overflow, accessibility, inter
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Definição do sistema visual ou direção estética; use skill-open-design-ui.
+- Implementação de componentes e estados de produto; use skill-modern-ui-patterns.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -49,11 +50,14 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Recipe `complete-product-frontend`: Frontend completo com Design Profile e Visual QA
+- Chain `skill-design-engineering-craft`
 - Chain `skill-frontend-excellence`
 - Chain `skill-impeccable`
+- Chain `skill-motion-design-principles`
 - Chain `skill-multiagent-orchestration`
 - Chain `skill-open-design-ui`
 - Chain `skill-premium-web-experience`
+- Chain `skill-product-ux-architecture`
 - Chain `skill-saas-admin-dashboard`
 - Chain `skill-saas-factory`
 

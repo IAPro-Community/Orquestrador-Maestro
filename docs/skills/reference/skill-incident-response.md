@@ -17,7 +17,8 @@ Resposta a incidentes, contenção, recuperação e postmortem.
 
 ## Quando não usar
 
-- Pedidos fora do domínio operations; use a skill específica quando houver uma intenção mais precisa.
+- Bug local sem impacto operacional ou incidente ativo.
+- Mudança planejada sem necessidade de contenção/recuperação.
 
 ## Exemplos de pedidos reconhecidos
 

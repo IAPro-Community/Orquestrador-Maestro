@@ -17,7 +17,8 @@ Configura campanhas de WhatsApp no Meta Ads para gerar leads qualificados para n
 
 ## Quando não usar
 
-- Pedidos fora do domínio marketing; use a skill específica quando houver uma intenção mais precisa.
+- Implementação operacional de instâncias, webhooks e mensagens via Evolution API.
+- Campanha de marketing que não usa Meta Ads/WhatsApp.
 
 ## Exemplos de pedidos reconhecidos
 

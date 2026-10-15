@@ -1,5 +1,7 @@
 # Documentação
 
+Nunca usou o Maestro? Comece por **[Comece aqui (10 minutos)](START-HERE.md)** — é a jornada numerada: entender → instalar → configurar o projeto → usar a primeira skill → verificar.
+
 Escolha o ponto de entrada conforme o que você quer fazer:
 
 | Próximo passo | Guia |

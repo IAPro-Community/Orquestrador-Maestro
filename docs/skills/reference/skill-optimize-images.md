@@ -17,7 +17,8 @@ Otimiza imagens para blogs e sites, incluindo conversão de formato, redimension
 
 ## Quando não usar
 
-- Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa.
+- Geração ou edição criativa de uma imagem nova.
+- Mudança de layout/frontend sem necessidade de otimizar assets.
 
 ## Exemplos de pedidos reconhecidos
 

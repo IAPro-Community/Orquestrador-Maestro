@@ -20,7 +20,7 @@ const { projectIdForPath } = require("../runtime/application/maestro-application
 const CLI = path.join(__dirname, "..", "bin", "orquestrador-maestro.js");
 
 async function seedRuns(root, total) {
-  const dir = path.join(root, ".orquestrador-maestro", "runtime");
+  const dir = path.join(root, ".orquestrador", "runtime");
   fs.mkdirSync(dir, { recursive: true });
   const store = new JsonFileRunStore({ filePath: path.join(dir, "runs.json") });
   await store.initialize();
@@ -78,7 +78,7 @@ test("--model is a case-insensitive substring", async () => {
   await seedRuns(root, 5);
   // A failed/unreported run carries sentinel "unknown" everywhere (the same
   // shape MaestroApplication persists when the model was never reported).
-  const dir = path.join(root, ".orquestrador-maestro", "runtime");
+  const dir = path.join(root, ".orquestrador", "runtime");
   const store = new JsonFileRunStore({ filePath: path.join(dir, "runs.json") });
   await store.initialize();
   const projectId = projectIdForPath(root);

@@ -17,7 +17,8 @@ Clonagem de uma página web por URL com extração de estrutura, reprodução vi
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Criação de interface original sem URL de referência.
+- Melhoria de UX a partir de screenshot em vez de clonagem de página.
 
 ## Exemplos de pedidos reconhecidos
 

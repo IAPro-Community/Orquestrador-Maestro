@@ -17,15 +17,33 @@ test("interaction catalog is strict and exposes only default and focus", () => {
 test("interaction precedence and reset preserve unrelated configuration", () => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-interaction-"));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-home-"));
-  fs.mkdirSync(path.join(home, ".orquestrador-maestro"), { recursive: true });
-  fs.writeFileSync(path.join(home, ".orquestrador-maestro", "config.json"), JSON.stringify({ interactionProfile: "focus", mode: "strict" }));
+  fs.mkdirSync(path.join(home, ".orquestrador"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".orquestrador", "config.json"), JSON.stringify({ interactionProfile: "focus", mode: "strict" }));
   assert.equal(resolveInteractionProfile({ cwd: project, home }).id, "focus");
   setInteractionProfile({ cwd: project, home, id: "default" });
   assert.equal(resolveInteractionProfile({ cwd: project, home }).source, "project");
   assert.equal(resolveInteractionProfile({ cwd: project, home, cliProfile: "focus" }).source, "cli");
   resetInteractionProfile({ cwd: project, home });
-  assert.equal(JSON.parse(fs.readFileSync(path.join(project, ".orquestrador-maestro", "config.json"))).mode, undefined);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(project, ".orquestrador", "config.json"))).mode, undefined);
   assert.equal(resolveInteractionProfile({ cwd: project, home }).id, "focus");
+});
+
+test("interaction profiles read a Maestro-named config and write updates to the canonical root", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-legacy-interaction-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-legacy-home-"));
+  fs.mkdirSync(path.join(home, ".orquestrador-maestro"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".orquestrador-maestro", "config.json"), JSON.stringify({ interactionProfile: "focus", mode: "strict" }));
+  const profile = resolveInteractionProfile({ cwd: project, home });
+  assert.equal(profile.id, "focus");
+  assert.equal(profile.source, "user");
+  setInteractionProfile({ cwd: project, home, id: "default", scope: "user" });
+  const canonicalConfig = path.join(home, ".orquestrador", "config.json");
+  assert.equal(JSON.parse(fs.readFileSync(canonicalConfig)).mode, "strict");
+  assert.equal(resolveInteractionProfile({ cwd: project, home }).id, "default");
+  resetInteractionProfile({ cwd: project, home, scope: "user" });
+  assert.equal(resolveInteractionProfile({ cwd: project, home }).id, "default");
+  fs.rmSync(project, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
 });
 
 test("default is pass-through and focus injects only the compact contract", () => {

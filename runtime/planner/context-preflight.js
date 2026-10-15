@@ -8,7 +8,7 @@ const { execFileSync } = require("node:child_process");
  * Monta um snapshot de contexto do projeto sem perguntar nada ao usuário.
  * Usa o context-brief existente + leitura direta de artefatos DEV/.
  */
-function gatherPreflight(workspacePath, intent) {
+function gatherPreflight(workspacePath, intent, options = {}) {
   const facts = {
     projectName: path.basename(workspacePath),
     stack: null,
@@ -58,7 +58,8 @@ function gatherPreflight(workspacePath, intent) {
   const briefScript = path.join(__dirname, "..", "..", "orquestrador", "bin", "context-brief.js");
   if (fs.existsSync(briefScript)) {
     try {
-      const result = execFileSync("node", [briefScript, "brief", "--project-path", workspacePath, "--task", intent, "--json", "--max-chars", "8000"], { encoding: "utf8", timeout: 10000 });
+      const briefMaxChars = Number.isInteger(options.briefMaxChars) ? Math.max(1000, Math.min(64000, options.briefMaxChars)) : 8000;
+      const result = execFileSync("node", [briefScript, "brief", "--project-path", workspacePath, "--task", intent, "--json", "--max-chars", String(briefMaxChars)], { encoding: "utf8", timeout: 10000 });
       facts.contextBrief = JSON.parse(result);
     } catch { /* context-brief unavailable or failed */ }
   }

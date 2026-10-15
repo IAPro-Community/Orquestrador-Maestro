@@ -4,8 +4,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
-$legacyMaestroRoot = Join-Path $HomePath ".orquestrador"
+$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador"
+$legacyMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
 $script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
 
 function Test-FileMojibake {

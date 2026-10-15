@@ -8,6 +8,7 @@ const test = require("node:test");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(repoRoot, "bin", "orquestrador-maestro.js");
+const SEMVER_OUTPUT_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\s*$/u;
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -39,7 +40,7 @@ test("CLI legacy commands remain discoverable and reject unknown commands", () =
 
   const version = runCli("version");
   assert.equal(version.status, 0, version.stderr);
-  assert.match(version.stdout, /^\d+\.\d+\.\d+\s*$/u);
+  assert.match(version.stdout, SEMVER_OUTPUT_RE);
 
   const unknown = runCli("runtime-inexistente");
   assert.equal(unknown.status, 1);
@@ -88,10 +89,16 @@ test("skill manifest, router, aliases, and chains preserve coherent public refer
   const chains = readJson("orquestrador/SKILL_CHAINS.json");
 
   assert.equal(manifest.schema, "./SKILLS_MANIFEST_SCHEMA.json");
-  assert.equal(manifest.defaults.provenance.legacyCompatible, true);
-  assert.equal(manifest.defaults.workflow.legacyCompatible, true);
+  assert.equal(manifest.version, 3);
+  assert.equal(Object.prototype.hasOwnProperty.call(manifest.defaults.provenance, "legacyCompatible"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(manifest.defaults.workflow, "legacyCompatible"), false);
 
-  for (const skillId of Object.keys(manifest.skills)) {
+  for (const [skillId, skill] of Object.entries(manifest.skills)) {
+    assert.equal(skill.schemaVersion, 2, `${skillId} must use Skill Contract V2`);
+    assert.ok(["maestro-core", "maestro-domain"].includes(skill.origin), `${skillId} must declare Maestro origin`);
+    assert.equal(Object.prototype.hasOwnProperty.call(skill, "triggers"), false, `${skillId} must not keep legacy triggers`);
+    assert.equal(Object.prototype.hasOwnProperty.call(skill, "status"), false, `${skillId} must not keep legacy status`);
+    assert.ok(Array.isArray(skill.routing?.useWhen) && skill.routing.useWhen.length > 0, `${skillId} must declare routing.useWhen`);
     assert.ok(router.skills[skillId], `${skillId} must remain routable`);
     assert.ok(fs.existsSync(path.join(repoRoot, "orquestrador", "skills", skillId, "SKILL.md")), `${skillId} must retain its canonical skill file`);
   }
@@ -117,12 +124,12 @@ test("update --help and update --version do not trigger self-update", () => {
 
   const versionResult = runCli("update", "--version");
   assert.equal(versionResult.status, 0, versionResult.stderr);
-  assert.match(versionResult.stdout, /^\d+\.\d+\.\d+\s*$/u);
+  assert.match(versionResult.stdout, SEMVER_OUTPUT_RE);
   assert.ok(!versionResult.stdout.includes("Atualizando a CLI"), "update --version must not start npm update process");
 
   const shortVersionResult = runCli("update", "-v");
   assert.equal(shortVersionResult.status, 0, shortVersionResult.stderr);
-  assert.match(shortVersionResult.stdout, /^\d+\.\d+\.\d+\s*$/u);
+  assert.match(shortVersionResult.stdout, SEMVER_OUTPUT_RE);
 });
 
 test("program entrypoints and tool profiles retain native integration contracts", () => {

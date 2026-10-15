@@ -18,13 +18,6 @@ NON_INTERACTIVE=false
 ALL_TARGETS=false
 VERBOSE_PATHS=false
 
-if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
-  echo "Error: installer was run as root via sudo." >&2
-  echo "Run it again as the normal user, without sudo:" >&2
-  echo "  orquestrador-maestro install" >&2
-  exit 1
-fi
-
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --home-path)
@@ -87,6 +80,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$(id -u)" -eq 0 ] && [ "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" != "1" ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ]; then
+  echo "Error: run the installer as a normal user, without sudo/root (or set ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 explicitly)." >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ENGINE="$SCRIPT_DIR/scripts/install.sh"

@@ -7,12 +7,12 @@ const path = require("node:path");
 const test = require("node:test");
 const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME, resolveMaestroRoot, resolveProjectMaestroRoot } = require("../runtime/config/maestro-paths");
 
-test("new homes use the canonical Maestro directory", () => {
+test("new homes use the canonical Orquestrador directory", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-home-"));
   assert.equal(resolveMaestroRoot({ home }), path.join(home, CANONICAL_DIR_NAME));
 });
 
-test("existing legacy homes remain readable without automatic rename", () => {
+test("existing Maestro-named homes remain readable as legacy roots", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-legacy-home-"));
   fs.mkdirSync(path.join(home, LEGACY_DIR_NAME));
   assert.equal(resolveMaestroRoot({ home }), path.join(home, LEGACY_DIR_NAME));
@@ -25,4 +25,11 @@ test("legacy project runtime remains selected when a new config directory is add
   fs.mkdirSync(path.join(project, CANONICAL_DIR_NAME));
   assert.equal(resolveProjectMaestroRoot(project), path.join(project, LEGACY_DIR_NAME));
   assert.equal(resolveProjectMaestroRoot(project, { prefer: "canonical" }), path.join(project, CANONICAL_DIR_NAME));
+});
+
+test("canonical Orquestrador home wins when both directory names exist", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-both-roots-"));
+  fs.mkdirSync(path.join(home, CANONICAL_DIR_NAME));
+  fs.mkdirSync(path.join(home, LEGACY_DIR_NAME));
+  assert.equal(resolveMaestroRoot({ home }), path.join(home, CANONICAL_DIR_NAME));
 });

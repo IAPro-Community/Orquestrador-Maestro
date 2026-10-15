@@ -6,16 +6,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Resolve the PowerShell host to re-invoke. Hardcoding `powershell` made this
-# smoke test unrunnable on Linux/macOS where only `pwsh` (Core) exists.
-$psHost = $null
-foreach ($candidate in @("pwsh", "powershell")) {
-  if (Get-Command $candidate -ErrorAction SilentlyContinue) { $psHost = $candidate; break }
-}
-if (-not $psHost) { throw "PowerShell not found (tried pwsh, powershell)." }
-function Invoke-MaestroScript {
-  param([string]$ScriptPath, [string[]]$ScriptArgs)
-  & $psHost -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @ScriptArgs
+function Get-HostPowerShell {
+  # pwsh-only hosts have no WinPS 5.1 `powershell` binary.
+  # Mirrored in scripts/install.ps1; keep both in sync.
+  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+  if ($pwsh) { return "pwsh" }
+  return "powershell"
 }
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
@@ -35,18 +31,87 @@ try {
     Set-Content -LiteralPath (Join-Path $sessionDir "personal.jsonl") -Value "personal-session-must-survive" -Encoding UTF8
   }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs ($installArgs + "-DryRun")
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs -DryRun
   if ($LASTEXITCODE -ne 0) { throw "DryRun failed." }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs $installArgs
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") @installArgs
   if ($LASTEXITCODE -ne 0) { throw "Install failed." }
 
-  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\runtime")) {
+  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\runtime")) {
     throw "Installer copied local runtime state into the installed core."
   }
-  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro\rules.md"))) {
+  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\rules.md"))) {
     throw "Installer did not copy the public core rules."
   }
+  if (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador-maestro")) {
+    throw "Fresh install created the legacy Maestro-named root."
+  }
+
+  $canonicalRoot = Join-Path $TempHome ".orquestrador"
+  New-Item -ItemType Directory -Force -Path (Join-Path $canonicalRoot "memory") | Out-Null
+  [System.IO.File]::WriteAllText((Join-Path $canonicalRoot "memory\canonical-fixture.jsonl"), "canonical-memory-preserved`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $canonicalRoot "config.json"), '{"mode":"compatibility","interactionProfile":"default","collision":"canonical","canonicalMarker":"kept"}', [System.Text.UTF8Encoding]::new($false))
+
+  $legacyRoot = Join-Path $TempHome ".orquestrador-maestro"
+  $legacyMemory = Join-Path $legacyRoot "memory\migration-fixture.jsonl"
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $legacyMemory) | Out-Null
+  [System.IO.File]::WriteAllText($legacyMemory, "legacy-memory-preserved`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $legacyRoot "config.json"), '{"mode":"strict","interactionProfile":"focus","collision":"legacy","legacyMarker":"kept"}', [System.Text.UTF8Encoding]::new($false))
+
+  $previousSkipCliUpdate = $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE
+  $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE = "1"
+  try {
+    & node (Join-Path $RepoRoot "bin\orquestrador-maestro.js") update --home-path $TempHome --core-only --skip-skill-sync
+  } finally {
+    if ($null -eq $previousSkipCliUpdate) {
+      Remove-Item Env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE -ErrorAction SilentlyContinue
+    } else {
+      $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE = $previousSkipCliUpdate
+    }
+  }
+  if ($LASTEXITCODE -ne 0) { throw "Legacy root migration failed." }
+  if (Test-Path -LiteralPath $legacyRoot) { throw "Update left the legacy Maestro-named root behind." }
+  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\memory\migration-fixture.jsonl"))) {
+    throw "Update did not preserve legacy memory in the canonical root."
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $TempHome ".orquestrador\memory\canonical-fixture.jsonl"))) {
+    throw "Update did not preserve canonical memory while migrating the legacy root."
+  }
+  $migratedConfig = Get-Content -LiteralPath (Join-Path $TempHome ".orquestrador\config.json") -Raw | ConvertFrom-Json
+  if ($migratedConfig.mode -ne "compatibility" -or $migratedConfig.interactionProfile -ne "default" -or
+      $migratedConfig.collision -ne "canonical" -or $migratedConfig.canonicalMarker -ne "kept" -or $migratedConfig.legacyMarker -ne "kept") {
+    throw "Update did not merge both configurations with canonical values taking precedence."
+  }
+  $previousSkipCliUpdate = $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE
+  $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE = "1"
+  try {
+    & node (Join-Path $RepoRoot "bin\orquestrador-maestro.js") update --home-path $TempHome --core-only --skip-skill-sync
+  } finally {
+    if ($null -eq $previousSkipCliUpdate) {
+      Remove-Item Env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE -ErrorAction SilentlyContinue
+    } else {
+      $env:ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE = $previousSkipCliUpdate
+    }
+  }
+  if ($LASTEXITCODE -ne 0) { throw "Repeated update failed." }
+  $backupDirs = @(Get-ChildItem -LiteralPath (Join-Path $TempHome ".orquestrador-public-backups") -Directory -ErrorAction SilentlyContinue)
+  if ($backupDirs.Count -lt 2) { throw "Repeated updates did not create separate backup directories." }
+  if (@($backupDirs | ForEach-Object FullName | Select-Object -Unique).Count -ne $backupDirs.Count) {
+    throw "Repeated updates reused a backup directory."
+  }
+  foreach ($backupDir in $backupDirs) {
+    if (Test-Path -LiteralPath (Join-Path $backupDir.FullName ".orquestrador\.orquestrador")) {
+      throw "A repeated update nested the canonical root inside a backup."
+    }
+  }
+  $legacyBackup = Get-ChildItem -LiteralPath (Join-Path $TempHome ".orquestrador-public-backups") -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName ".orquestrador-maestro\memory\migration-fixture.jsonl") } |
+    Select-Object -First 1
+  if (-not $legacyBackup) { throw "Update did not back up the legacy core before migration." }
+  $canonicalBackup = Get-ChildItem -LiteralPath (Join-Path $TempHome ".orquestrador-public-backups") -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName ".orquestrador\memory\canonical-fixture.jsonl") } |
+    Select-Object -First 1
+  if (-not $canonicalBackup) { throw "Update did not back up the canonical core before migration." }
 
   if ($Full) {
     $personalBackups = Get-ChildItem -LiteralPath (Join-Path $TempHome ".orquestrador-public-backups") -Recurse -File -Filter "personal.jsonl" -ErrorAction SilentlyContinue |
@@ -57,16 +122,16 @@ try {
     }
   }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "scripts\verify-install.ps1") -ScriptArgs $verifyArgs
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts\verify-install.ps1") @verifyArgs
   if ($LASTEXITCODE -ne 0) { throw "Verify failed." }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-ListTargets")
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -ListTargets
   if ($LASTEXITCODE -ne 0) { throw "ListTargets failed." }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-Uninstall", "-DryRun")
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall -DryRun
   if ($LASTEXITCODE -ne 0) { throw "Uninstall DryRun failed." }
 
-  Invoke-MaestroScript -ScriptPath (Join-Path $RepoRoot "install.ps1") -ScriptArgs @("-HomePath", $TempHome, "-Uninstall")
+  & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "install.ps1") -HomePath $TempHome -Uninstall
   if ($LASTEXITCODE -ne 0) { throw "Uninstall failed." }
 
   if ($Full) {

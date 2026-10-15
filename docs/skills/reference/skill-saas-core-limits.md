@@ -17,7 +17,8 @@ SaaS plan limits, quotas, entitlements, feature flags, trials, grace periods, an
 
 ## Quando não usar
 
-- Pedidos fora do domínio saas; use a skill específica quando houver uma intenção mais precisa.
+- Integração do provider de pagamento ou tratamento de webhooks de cobrança.
+- Dashboard administrativo sem regras de entitlement, quota ou trial.
 
 ## Exemplos de pedidos reconhecidos
 

@@ -57,10 +57,136 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 
 - `.env` com segredo vivo + identificador de chave no histórico: rotação imediata obrigatória; purga histórica (`filter-repo` + push forçado coordenado) planejada em janela separada, não executada aqui.
 
-### Skills (antes em Unreleased)
+## 1.0.1 - 2026-10-12
 
+### Instalação e migração do núcleo
+
+- Unificada a raiz instalada do núcleo em `.orquestrador`, alinhando os instaladores, CLI, doctor, memória, descoberta de skills, sincronizadores e verificadores.
+- `orquestrador-maestro update` agora faz backup e reaplica o núcleo automaticamente. Instalações em `.orquestrador-maestro` migram para `.orquestrador`; arquivos de memória são preservados e configurações são mescladas, com os valores da raiz canônica prevalecendo em conflitos.
+- A remoção da raiz antiga ocorre depois da publicação da nova instalação. Cada execução cria um diretório de backup exclusivo em `.orquestrador-public-backups`, evitando colisões entre atualizações rápidas.
+- Configurações antigas com nome `maestro-config.json` e skills de projeto no caminho legado continuam sendo lidas durante a transição; novas gravações usam a raiz e os nomes canônicos.
+- Adicionada cobertura de migração para instaladores PowerShell e Bash, incluindo preservação de memória/configuração, backup e remoção da raiz antiga.
+- A validação pós-atualização é explícita: execute `orquestrador-maestro verify` depois de `orquestrador-maestro update`.
+
+### Precisão no Windows e roteamento de skills
+
+- Corrigidas as instruções do perfil OpenCode para usar comandos PowerShell nativos, caminhos literais e a grafia exata `.orquestrador`.
+- Reforçado que skills devem ser invocadas pelo ID canônico registrado em `SKILLS_ROUTER.json`, sem inventar nomes nem acrescentar texto diretamente ao manifesto JSON.
+- O comando `update` preserva o comportamento de backup padrão dos wrappers nos dois sistemas e rejeita `--no-force`, opção incompatível com uma atualização.
+
+## 1.0.0 - 2026-10-05
+
+A V1 passa a ser a linha pública estável: branch padrão `v1`, release `v1.0.0` e canal npm `latest`. As versões 0.x e pré-releases permanecem disponíveis no histórico.
+
+- Corrigida a contradição entre instalação não interativa e `verify`: os instaladores Windows/Linux registram os perfis aplicados em `INSTALL_PROFILES.json`, e a verificação exige somente essa seleção. Perfis registrados com arquivos ausentes ou conteúdo inválido continuam reprovando; instalações antigas sem registro mantêm a checagem completa.
+- O sumário diferencia perfis solicitados, aplicados e ignorados; uma instalação sem ferramentas detectadas informa zero perfis aplicados. Fontes de perfis ausentes geram erro explícito; o problema também foi relatado pelo colaborador Leandro Lima.
+- Os instaladores Unix recusam root com ou sem sudo, salvo liberação explícita; dry-run e listagem continuam disponíveis.
+- Bootstraps, plugin Desktop, manifesto do produto e instruções npm/clone alinhados à versão estável. Documentada a migração de 0.x e V1 alpha/beta, incluindo reaplicação do snapshot, verificação e backup.
+- A publicação testa instalação e reaplicação do pacote em home isolado. A graduação da 1.0.0 também move o canal npm `beta` para a versão estável, permitindo atualizar CLIs beta já instaladas.
+- O auto-tag dispara a publicação, que distribui o mesmo artefato validado no npm e na release GitHub com checksum. Retomadas conferem a integridade do pacote já publicado e execuções da mesma tag são serializadas.
+- Testes de portabilidade isolam o workspace do roteador e aceitam as mensagens de rejeição de chaves duplicadas dos parsers YAML suportados.
+
+## 1.0.0-beta.3 - 2026-09-29
+
+### Desktop Context Governor
+
+- **Context Ledger:** estado mínimo por sessão/turno registra policy digest, complexidade, skills selecionadas, contadores e compact capsule sem persistir o transcript.
+- **Zero-repeat policy:** `UserPromptSubmit` não reinjeta contexto Maestro quando mode/complexity/profile/skills/subagent budget não mudaram.
+- **Budgets menores:** teto automático do Maestro passa para 100/140/200/300/450 tokens em MICRO/SIMPLE/STANDARD/COMPLEX/DEEP.
+- **Tool Governor:** `PreToolUse` passa a governar fan-out e expansões óbvias de leitura/busca ampla; em `optimize`, scans Bash/PowerShell somente-leitura de MICRO/SIMPLE são reescritos via `updatedInput` com saída limitada, scans estruturados amplos exigem escopo menor, e STANDARD recebe orientação antes de expandir.
+- **Progressive disclosure:** plugin publica somente a skill bootstrap `maestro-governor` e um MCP stdio efêmero com `maestro_route`, `maestro_context` e `maestro_skill`.
+- **Compaction:** `PreCompact` grava uma cápsula curta e `SessionStart(source=compact)` reidrata apenas essa cápsula.
+- **Diagnóstico:** adicionados `desktop-plugin doctor` e `desktop-plugin stats`; o doctor valida consistência entre a versão da CLI e o plugin instalado e executa um `desktop-hook` sintético pelo caminho real da CLI.
+- **Contrato V1:** MCP Desktop é processo stdio iniciado pelo host; não reintroduz daemon/socket, TUI, PTY ou protocolo v2 do `cli-novo`.
+- **Capability cleanup:** removido o claim órfão `vscode-client` da matriz de capacidades.
+- **Release:** pacote e manifests promovidos para `1.0.0-beta.3`.
+- **Idioma:** continuidade da língua da conversa preservada com uma política canônica em `orquestrador/rules.md`; `home/AGENTS.md` usa somente uma referência curta, e o sincronizador mantém a regra nos entrypoints instalados.
+
+## 1.0.0-beta.2 - 2026-09-29
+
+### Release cleanup — cli-novo
+
+- Removida da linha 1.0 a superfície experimental `cli-novo`: TUI/OpenTUI, PTY persistente, daemon/socket, protocolo visual v2, panes e cliente VS Code associado.
+- A CLI mantém somente o terminal gerenciado `list|start|stop`; `terminal agent|shell|attach|close` e `terminals` foram retirados.
+- O Bridge suportado na V1 permanece em JSON-RPC v1 por stdio; os métodos de dashboard, agent sessions e panes não fazem mais parte do contrato.
+- Removidas as dependências `@opentui/core`, `@xterm/headless` e `node-pty`, além dos testes e claims de capability correspondentes.
+
+
+### OpenAI Desktop integration
+
+- **Codex Desktop / ChatGPT Work:** novo plugin local do Maestro com lifecycle hooks oficiais e marketplace de repositório.
+- **Context governance:** `UserPromptSubmit` aplica Router v3 + Complexity Gate e injeta somente uma política compacta, com teto próprio por nível de complexidade.
+- **Fan-out control:** `PreToolUse` bloqueia `Agent/spawn_agent` em tarefas `MICRO/SIMPLE` no modo `optimize` quando multiagent não foi autorizado; `strict` aplica o budget em todos os níveis.
+- **Compaction:** estado mínimo da sessão é preservado em `PLUGIN_DATA` e reidratado por `SessionStart(source=compact)`, sem replay do transcript.
+- **Instalação pessoal:** novos comandos `desktop-plugin install|status|remove` registram o plugin em `~/.codex/plugins` e no marketplace pessoal sem substituir entradas existentes.
+- **Fail-open:** indisponibilidade do CLI Maestro não interrompe Codex/Work.
+- **Release:** pacote normalizado para `1.0.0-beta.2`.
+
+
+### V1 Router & Design Intelligence
+
+- **Router v3:** novo roteamento sobre Skill Contract V2 com evidência explícita, aliases, positive/negative routing, capability matching, chaining lazy e explicação de seleção/rejeição.
+- **Complexity Gate:** tarefas passam por classificação determinística `MICRO | SIMPLE | STANDARD | COMPLEX | DEEP`, com budgets de skills/contexto e fan-out proibido por padrão.
+- **Router v3 default:** `go` usa Router v3 por padrão, mantém a comparação com v2 sem duplicar execução e preserva `--router-version 2` apenas como rollback explícito durante a pré-release.
+- **Context budget:** quando v3 está ativo, exploração do codebase obedece ao budget definido pelo Complexity Gate em vez de usar 8k fixos.
+- **CLI:** novo `route explain [--json] "objetivo"` expõe intenção, complexidade, skill selecionada, evidência e budget estimado de contexto.
+- **Design:** `frontend-design` passa a alias de `skill-open-design-ui`; `impeccable` mantém a skill canônica existente; adicionadas `skill-product-ux-architecture`, `skill-design-engineering-craft` e `skill-motion-design-principles`.
+- **Claude Code:** as cinco capacidades de design ficam `mirrorEverywhere` e chegam a `.claude/skills` pelo sync normal do Maestro, sem fonte canônica duplicada.
+- **Catálogo:** 56 skills Maestro canônicas e 79 skills públicas únicas, com 0 IDs conflitantes após sincronização dos mirrors.
+
+## 1.0.0-alpha.1 - 2026-09-22
+
+### V1 Skill Intelligence Foundation
+
+- **Breaking (Maestro skills):** o manifesto canônico passa para V3 e todas as 53 skills `maestro/*` passam a exigir Skill Contract V2 nativo. Não existe fallback para os campos canônicos 0.x.
+- **Compatibilidade externa preservada:** skills de biblioteca, usuário e projeto continuam aceitando seus formatos próprios e são normalizadas somente na fronteira do registry; sem routing confiável permanecem explicit-only.
+- **Fonte única:** `routing.useWhen`, `routing.doNotUseWhen`, `maturity`, `context`, `outputs` e `verification` substituem metadados canônicos duplicados como `triggers`, `status`, `workflow.validation` e campos equivalentes em `documentation`.
+- **Taxonomia:** capabilities passam a usar vocabulário controlado, já incluindo Git, CI, pull requests, issue resolution, refactoring, API design, performance, containers, Kubernetes, build tooling, developer environment e legacy modernization.
+- **Catálogo:** 53 skills Maestro classificadas explicitamente em 15 Core e 38 Domain; catálogo público passa a 76 skills únicas e 0 IDs conflitantes.
+- **Engineering Quality:** nova `skill-engineering-quality` Core detecta stack/framework/tooling antes de agir e aplica baseline multi-stack por delta para formatter, lint/static analysis, tipos/compilação, testes, build, hooks e CI, delegando UX, upgrades, debugging e E2E às skills especializadas.
+- **Product Documentation:** `skill-deep-wiki` evolui sem criar ID concorrente: passa a cobrir discovery baseado em evidência, inventário de capacidades, README/TL;DR, Quick Start, guias, API/CLI/configuração, documentação operacional, visual evidence planning, coverage e documentation drift; mirrors públicos permanecem autocontidos e sem conflito.
+- **Governança:** novo behavior harness, auditoria `skills:contract-audit:strict` e gate obrigatório no CI.
+- **Instalação:** bundle canônico é montado e validado em staging antes do swap para o destino; falha de publicação restaura o diretório anterior quando possível.
+- **CI:** stacked PRs em `feature/*` e `feat/*` passam a executar tests/benchmarks, evitando galhos intermediários sem validação completa.
+- **Planejamento:** adicionados rollout shadow/rollback, segurança do Context Compiler, progressive disclosure, coverage de capacidades do desenvolvedor e definição explícita dos contratos SemVer da 1.0.
+
+## 0.5.0 - 2026-09-22
+
+Esta versão inaugura o Maestro Resolution Engine e consolida o hardening de execução, evidências, memória, telemetria e persistência entregue no PR #23.
+
+- Orquestração: execução passa a ser solo por padrão; apenas o perfil explícito `multiagent` permite fan-out. Operações mecânicas de Git/VCS continuam solo mesmo sob solicitação de perfil multiagente, e child agents identificados em contrato solo geram `delegation.violation` e impedem `validated`.
+- Resolution: `verification.skipped` deixa de ser publicado como falha e não conta mais como prova por omissão: somente um skip explicitamente marcado como `not_applicable` pode satisfazer uma Task sem validators/DoD verificável. O estado interno `pending` não vaza na projeção pública, falhas do LaneExecutor preservam a classificação canônica e crashes de provider capturam o ChangeSet antes do handoff.
+- Benchmark: OpenCode usado pelos workflows oficiais fica fixado em `opencode-ai@1.18.31` enquanto o driver permanecer no contrato JSONL v1; upgrades de geração exigem revisão explícita do driver.
+- CI: o piso declarado do runtime passa a ser testado diretamente com Node.js 20.19.0 em vez de um Node 20.x flutuante.
+- Compat: requisito mínimo do runtime corrigido para Node.js 20.19+. O pacote é CommonJS e consome `@clack/prompts` ESM; 20.19 é o primeiro Node 20 em que `require(ESM)` fica habilitado por padrão, evitando instalações aceitas pelo `engines` mas incompatíveis em runtime.
+
+- Deps: `@clack/prompts` 1.x, `@xterm/headless` 6, `@types/node` 26, `tsx` 4.23.15 (TypeScript 7 revertido: 176 erros; `uuid` 14 irrelevante — só transitivo).
+- Memória: `export`/`import` com revalidação e sem herança de confiança; opt-out por projeto via `DEV/memory-policy.json` (`capture`, `excludedPaths`).
+- Contexto: `SemanticRanker` com scoring determinístico local (overlap de tokens, sem inventar fatos) e `localOnly` fail-closed.
+- Security (memória): `--verified` sozinho não verifica mais — vira `verifiedClaimed`; `verified:true` exige `--verifier` (+ `--verify-note`) e `promote --apply` para `DEV/` exige verificador e `verifiedAt`.
+- Security (memória): o predicado vale em leitura e escrita — linhas legadas com `verified:true` sem verificador passam a contar como não verificadas em `search`, `stats`, `timeline`, `retention`/`prune`/`dedupe` e no label do brief; `verifiedAt` inválido degrada para claim; `consolidate()` herda o escopo das fontes (sem override).
+- Security (memória): redação cobre segredos nus (AKIA, glpat-, gho-/ghu-, EC/OPENSSH, AIza); injeção checada em todos os campos (throw explícito); `consolidate()` com policy; `forget --id`; teto de 4000 em `details`; adapters com default-deny e `record()` resiliente.
+- Fix (contexto): `ContextBudget` aplica o teto a críticos (ordem de prioridade mantida, nunca vazio) e mede objetos via JSON; `SemanticRanker` com `providerId` configurável e `localOnly` fail-closed (LOCAL_ONLY_VIOLATION).
+- Security (memória): gate `<private>` passa a cobrir `files/tags/source`; `consolidate()` aplica `CapturePolicy` e só herda `verified` se todas as fontes forem verificadas com verificador.
+- Security (brief): entradas de memória episódica têm tags `episodic-memory` sanitizadas (sem break-out do wrapper); `projectId` do brief usa `gitCtx.repositoryId` como fonte única (corrige seção de memória vazia em projetos não-git).
+- Benchmark (evidence gate): `run-report.json` passa a registrar `evidence.{executionType,reproducible,isolated,publicClaimEligible}`, `validation.passed` e `usage.tokenSource`; `isClaimEligibleRun` exige proveniência ancorada (imagem + `containerId` do daemon) e consistência `isolated===container`; `orchestratePair`/`pair` respeitam `--container` (padrão: com container).
+- Benchmark: removidos 11 `.js` compilados versionados em `benchmark-harness/src/` (sombra do `.ts`); `.gitignore` bloqueia `src/**/*.js`.
+- CLI: `--help` sem linhas duplicadas (`runtime`, `tui`) + teste anti-duplicata.
+- Docs: `docs/benchmark.md §9.5` reescrito para espelhar `isClaimEligibleRun`.
+- Skills: snapshot Codex publicado passa a incluir `skill-frontend-excellence` (Nativa, estava ausente), `skill-watch-evidence` e `skill-melhorar-ux-ui-por-referencia`; `skill-impeccable` ressincronizado com a fonte canônica.
+- Skills: `skill-catalog validate` agora falha se skill `mirrorEverywhere` estiver fora do snapshot `codex/skills` + novo `tests/skill-snapshot.test.js`.
+- Install: `--dry-run` passa a listar sync/discovery/chmod/logs planejados em vez de omitir; uninstall reverte mirrors do `sync --apply`, faz backup integral no Windows (antes: só mapeados) e `Copy-ManagedDirectory` recusa destino fora da raiz.
+- Install: `install.ps1` honra `-NonInteractive` (só ferramentas detectadas) e `-AllTargets`, recusa elevação de Administrador, usa `pwsh` quando disponível; bootstraps exigem Node 20.19+ de verdade.
+- Fix: extensão VS Code (`extensions/vscode-maestro/`) passa a ir no pacote npm (`files[]`).
+- Chore: novo `npm run validate:paths` para `scripts/validate-git-paths.js` (antes órfão); `tsx` atualizado para 4.23.15.
+- Docs: índice OpenCode declara tabela como atalho + roteador como fonte completa; perfil mimo ganha regras de índice/verificação; troubleshooting cobre `PTY_UNAVAILABLE` e troca `curl|bash` por baixar-inspecionar-executar.
 - Added: skill de melhoria de UX/UI por screenshots e referências visuais, com contrato visual, modos de análise/prompt/implementação e validação baseada em evidências.
 - Added: registro sob demanda no catálogo e roteador, documentação e testes de seleção textual sem dependência de uma API específica de visão.
+
+### Compatibilidade
+
+- Requisito mínimo do runtime: Node.js `20.19.0` ou superior.
+- A versão `0.5.0` contém mudanças observáveis no ciclo de resolução, no contrato de evidências e na persistência; consumidores devem revisar integrações que dependem de estados de execução.
 
 ## 0.4.4 - 2026-09-20
 
@@ -101,6 +227,11 @@ Esta versão consolida o alinhamento do produto com a implementação e fecha po
 
 - Adicionados testes para evidências, caminhos de documentação, taxonomia de capabilities, providers integrados, adapters duplicados e sufixos de comandos.
 - CI, benchmarks, security scan, empacotamento e smoke tests passaram antes e depois do merge do PR #20.
+- Documentação para iniciantes: nova jornada numerada em `docs/START-HERE.md` (entender → instalar → configurar DEV/ → primeira skill → verificar) com mapa de onde encontrar cada informação.
+- Novo exemplo guiado `docs/skills/primeira-skill.md` com `skill-repo-health` (pedido pronto, saída esperada e checklist de verificação).
+- `docs/skills/README.md`: seção “Como ler uma página de skill (para humanos)”; `docs/skills/choose.md` linka o exemplo guiado; `docs/README.md` e `README.md` apontam para o Comece aqui.
+- `QUICKTEST.md`: seção de benchmark corrigida para `benchmark-harness/` (`bench:list`/`bench:validate`); paths `benchmarks/*` removidos.
+- `orquestrador/TUTORIAL.md`: marcado como documento histórico com ponteiros para os guias atuais.
 
 ## 0.4.2 - 2026-09-20
 
@@ -125,7 +256,7 @@ Esta versão alinha a documentação de produto ao código entregue, incorpora o
 ### Verificação
 
 - Suíte completa, smoke, empacotamento, validação pública/skills, benchmarks, auditoria de dependências e scan de segurança aprovados.
-- CI pós-merge confirmado em Ubuntu, Windows e macOS com Node 20, 22 e 24.
+- CI pós-merge confirmado em Ubuntu com Node 20, 22 e 24 e em Windows/macOS com Node 20 e 24.
 
 ## 0.4.1 - 2026-09-19
 

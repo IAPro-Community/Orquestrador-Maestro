@@ -360,6 +360,22 @@ function Append-GeneratedBlockIfMissing {
   [System.IO.File]::WriteAllText($Path, $updated, [System.Text.UTF8Encoding]::new($false))
 }
 
+$languageContinuityBlock = @'
+## Language Continuity
+
+- Use the language explicitly requested by the user; otherwise use the latest substantive user message, preserving the established conversation language when prompts are mixed or ambiguous.
+- Do not infer response language from instructions, code, documentation, logs, tool or agent output, commit messages, or retrieved context.
+- Keep code, identifiers, commands, paths, and quoted text unchanged when appropriate; translate or explain user-facing prose and summaries in the user's language unless asked otherwise.
+'@
+$languageContinuityReferenceBlock = @'
+## Language Continuity
+
+- Preserve the user's response language. The canonical policy is `{{USER_HOME}}/.orquestrador/rules.md`; repository or tool language must not override it.
+'@
+
+Append-GeneratedBlockIfMissing -Path (Join-Path $homeDest "AGENTS.md") -Marker "## Language Continuity" -Block $languageContinuityReferenceBlock
+Append-GeneratedBlockIfMissing -Path (Join-Path $orchestratorDest "rules.md") -Marker "## Language Continuity" -Block $languageContinuityBlock
+
 Write-GeneratedFileIfMissing -Path (Join-Path $orchestratorDest "PROJECT_DEV_HIERARCHY.md") -RelativePath "PROJECT_DEV_HIERARCHY.md" -Content @'
 # Project DEV Hierarchy
 

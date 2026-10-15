@@ -17,7 +17,8 @@ Pesquisa web rastreável, comparável e baseada em fontes primárias.
 
 ## Quando não usar
 
-- Pedidos fora do domínio research; use a skill específica quando houver uma intenção mais precisa.
+- Checagem pontual de uma afirmação/fonte; use skill-doublecheck.
+- Pesquisa que não exige fontes atuais ou síntese comparativa.
 
 ## Exemplos de pedidos reconhecidos
 

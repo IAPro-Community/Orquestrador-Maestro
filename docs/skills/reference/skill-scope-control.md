@@ -17,7 +17,8 @@ Analisa se alterações, diffs e PRs continuam alinhados ao objetivo declarado, 
 
 ## Quando não usar
 
-- Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa.
+- Code review para encontrar defeitos sem questão de escopo.
+- Definição inicial de arquitetura antes de existir change set/diff.
 
 ## Exemplos de pedidos reconhecidos
 

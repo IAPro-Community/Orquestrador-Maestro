@@ -17,7 +17,8 @@ Diagnóstico de saúde, stack, verificação e riscos de repositórios.
 
 ## Quando não usar
 
-- Pedidos fora do domínio engineering; use a skill específica quando houver uma intenção mais precisa.
+- Bug reproduzível e localizado; use skill-systematic-debugging.
+- Pedido mecânico como commit, branch ou pequena edição.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -47,7 +48,7 @@ A skill é sincronizada para as raízes nativas configuradas pela política de i
 ## Recipes e chains relacionadas
 
 - Recipe `systematic-debugging`: Investigação e correção sistemática
-- Nenhuma chain registrada.
+- Chain `skill-engineering-quality`
 
 ## Evidência mínima de conclusão
 

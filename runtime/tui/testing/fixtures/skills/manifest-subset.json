@@ -1,5 +1,0 @@
-[
-  {"id":"skill-saas-factory","description":"SaaS workflow","category":"saas","risk":"medium","source":"local-project-patterns"},
-  {"id":"skill-frontend-ux-guardrails","description":"Frontend UX gates","category":"frontend","risk":"low","source":"local-project-patterns"},
-  {"id":"skill-systematic-debugging","description":"Evidence-based debugging","category":"testing","risk":"low","source":"local-project-patterns"}
-]

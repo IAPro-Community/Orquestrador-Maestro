@@ -23,4 +23,6 @@ Rules:
 - Consult the router before loading skills.
 - Load only task-relevant skills.
 - Verify before claiming completion.
+- Default to solo execution. Never spawn a subagent merely to run routine Git/VCS commands, formatting, a simple rename, a one-file edit, or one validation command.
+- Deep reasoning and multiagent fan-out are separate choices. Use fan-out only for an explicit multiagent/team/parallel request with 2+ independent non-overlapping workstreams.
 - Do not commit or push unless the user explicitly asks.

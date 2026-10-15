@@ -17,7 +17,8 @@ Verificação proporcional antes de declarar conclusão.
 
 ## Quando não usar
 
-- Pedidos fora do domínio quality; use a skill específica quando houver uma intenção mais precisa.
+- Planejamento inicial ou investigação de causa raiz.
+- Review arquitetural sem uma afirmação de conclusão para validar.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -52,7 +53,9 @@ A skill é sincronizada para as raízes nativas configuradas pela política de i
 - Recipe `secure-saas-build`: Construção segura de SaaS
 - Recipe `security-review`: Revisão de segurança
 - Recipe `systematic-debugging`: Investigação e correção sistemática
+- Chain `skill-deep-wiki`
 - Chain `skill-doublecheck`
+- Chain `skill-engineering-quality`
 - Chain `skill-frontend-excellence`
 - Chain `skill-security-hooks`
 - Chain `skill-skill-development`

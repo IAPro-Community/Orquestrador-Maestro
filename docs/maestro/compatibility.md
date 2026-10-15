@@ -18,10 +18,12 @@ tenham o mesmo suporte entre sistemas operacionais.
 
 O primeiro arquivo encontrado é usado, nesta ordem:
 
-1. `.orquestrador-maestro/config.json` no projeto;
-2. `.orquestrador/maestro-config.json` no projeto, legado;
-3. `~/.orquestrador-maestro/config.json`;
-4. `~/.orquestrador/maestro-config.json`, legado.
+1. `.orquestrador/config.json` no projeto;
+2. `.orquestrador/maestro-config.json` no projeto, nome de arquivo legado;
+3. `.orquestrador-maestro/config.json` no projeto, raiz legada;
+4. `~/.orquestrador/config.json`;
+5. `~/.orquestrador/maestro-config.json`, nome de arquivo legado;
+6. `~/.orquestrador-maestro/config.json`, raiz legada.
 
 Exemplo mínimo:
 
@@ -42,11 +44,11 @@ orquestrador-maestro governance set --project-path . --mode strict
 orquestrador-maestro governance set --project-path . --hooks on --warning-frequency always
 ```
 
-O comando grava apenas `.orquestrador-maestro/config.json`. A execução nativa continua funcionando sem que esse comando seja chamado.
+O comando grava apenas `.orquestrador/config.json`. A execução nativa continua funcionando sem que esse comando seja chamado.
 
 Na TUI clássica, `g compatibility` e `g strict` fazem a mesma troca no projeto atual; `g` sozinho apenas mostra o formato aceito.
 
-Nenhum arquivo nativo é sobrescrito automaticamente. Migrações devem criar backup, apresentar preview e permitir rollback; conteúdo manual e estado desconhecido permanecem intactos.
+Nenhum arquivo nativo é sobrescrito automaticamente. A atualização do core cria backup antes de consolidar a raiz, preserva memória e configurações reconhecidas e mantém os dados anteriores no backup para rollback.
 
 ## Avisos, custo e integração
 

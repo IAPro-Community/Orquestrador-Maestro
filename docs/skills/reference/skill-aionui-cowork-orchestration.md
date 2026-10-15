@@ -17,7 +17,8 @@ Safe AionUi cowork/team integration around Codex, Claude, Gemini, OpenCode, MCPs
 
 ## Quando não usar
 
-- Pedidos fora do domínio orchestration; use a skill específica quando houver uma intenção mais precisa.
+- Orquestração genérica sem AionUi/Cowork no escopo.
+- Tarefa simples que pode ser executada por um único provider/agente.
 
 ## Exemplos de pedidos reconhecidos
 

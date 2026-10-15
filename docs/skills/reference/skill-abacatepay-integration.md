@@ -17,7 +17,8 @@ AbacatePay PIX/card billing, CPF/CNPJ, BRL checkout, billing webhooks, and entit
 
 ## Quando não usar
 
-- Pedidos fora do domínio payments; use a skill específica quando houver uma intenção mais precisa.
+- Integração Stripe ou provider de pagamento diferente da AbacatePay.
+- Motor completo de cobrança recorrente/dunning; use a skill de cobrança automatizada.
 
 ## Exemplos de pedidos reconhecidos
 

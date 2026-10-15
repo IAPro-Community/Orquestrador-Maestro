@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Evolução do catálogo e contrato de Skills</title>
+  <desc id="desc">A versão 0.5.0 possui 52 skills canônicas e 75 públicas únicas, com Manifest V2. A proposta V1 possui 56 skills canônicas e 79 públicas únicas, com Manifest V3 e Skill Contract V2.</desc>
+  <rect width="1200" height="560" rx="24" fill="#ffffff"/>
+  <text x="60" y="64" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="30" font-weight="700" fill="#111827">A V1 muda o contrato, não apenas a quantidade de Skills</text>
+  <text x="60" y="100" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" fill="#4b5563">O catálogo cresce pouco; a mudança estrutural é identidade canônica, routing positivo/negativo, contexto e verificação explícitos.</text>
+
+  <rect x="60" y="132" width="16" height="16" rx="4" fill="#9ca3af"/>
+  <text x="84" y="145" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#374151">0.5.0</text>
+  <rect x="160" y="132" width="16" height="16" rx="4" fill="#111827"/>
+  <text x="184" y="145" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#374151">V1</text>
+
+  <line x1="90" y1="420" x2="760" y2="420" stroke="#d1d5db" stroke-width="1.5"/>
+  <line x1="90" y1="330" x2="760" y2="330" stroke="#eef0f3" stroke-width="1"/>
+  <line x1="90" y1="240" x2="760" y2="240" stroke="#eef0f3" stroke-width="1"/>
+  <line x1="90" y1="150" x2="760" y2="150" stroke="#eef0f3" stroke-width="1"/>
+  <text x="55" y="426" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" fill="#6b7280">0</text>
+  <text x="45" y="336" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" fill="#6b7280">30</text>
+  <text x="45" y="246" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" fill="#6b7280">60</text>
+  <text x="45" y="156" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" fill="#6b7280">90</text>
+
+  <!-- Canonical -->
+  <rect x="170" y="264" width="80" height="156" rx="10" fill="#9ca3af"/>
+  <rect x="265" y="252" width="80" height="168" rx="10" fill="#111827"/>
+  <text x="210" y="250" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#4b5563">52</text>
+  <text x="305" y="238" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="700" fill="#111827">56</text>
+  <text x="258" y="455" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#111827">Canônicas Maestro</text>
+
+  <!-- Public -->
+  <rect x="485" y="195" width="80" height="225" rx="10" fill="#9ca3af"/>
+  <rect x="580" y="183" width="80" height="237" rx="10" fill="#111827"/>
+  <text x="525" y="181" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#4b5563">75</text>
+  <text x="620" y="169" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="700" fill="#111827">79</text>
+  <text x="573" y="455" text-anchor="middle" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#111827">Públicas únicas</text>
+
+  <rect x="815" y="170" width="320" height="250" rx="18" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="845" y="210" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" fill="#111827">Mudança estrutural</text>
+  <text x="845" y="248" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#4b5563">0.5.0</text>
+  <text x="925" y="248" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="700" fill="#111827">Manifest V2</text>
+  <text x="845" y="285" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#4b5563">V1</text>
+  <text x="925" y="285" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="700" fill="#111827">Manifest V3</text>
+  <text x="845" y="326" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#111827">+ Skill Contract V2</text>
+  <text x="845" y="356" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#111827">+ negative routing</text>
+  <text x="845" y="386" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" fill="#111827">+ context / outputs / verification</text>
+
+  <text x="60" y="520" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" fill="#6b7280">Fonte: SKILLS_MANIFEST.json e PUBLIC_SKILLS_MANIFEST.json na main 0.5.0 e no candidato V1.</text>
+</svg>

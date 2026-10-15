@@ -11,44 +11,44 @@ Depois da instalação, o Freebuff encontra o contrato do Maestro em cada novo p
 - `AGENTS.md` e `knowledge.md` na raiz do projeto: contexto específico do repositório;
 - `.agents/agents` e `.agents/mcp.json`: agentes e MCP opcionais do próprio projeto.
 
-Não há daemon do Maestro para iniciar no boot. Ao reiniciar o computador, basta abrir o Freebuff no projeto: ele relê esses arquivos persistentes. A memória operacional do projeto continua em `DEV/` e o estado do Maestro continua no diretório `.orquestrador-maestro` do usuário.
+Não há daemon do Maestro para iniciar no boot. Ao reiniciar o computador, basta abrir o Freebuff no projeto: ele relê esses arquivos persistentes. A memória operacional do projeto continua em `DEV/` e o estado do Maestro continua no diretório `.orquestrador` do usuário.
 
 ## Instalação local
 
 Em uma máquina nova, faça a instalação completa uma vez; ela prepara o contrato global e todas as raízes compatíveis:
 
 ```powershell
-orquestrador-maestro install --force
+orquestrador-maestro install
 orquestrador-maestro verify
 ```
 
 Se o Maestro já estiver instalado e você só quiser acrescentar ou atualizar o Freebuff:
 
 ```powershell
-orquestrador-maestro install --only freebuff --force
+orquestrador-maestro install --only freebuff
 orquestrador-maestro verify
 ```
 
 No clone do repositório, o fluxo completo equivalente é:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-install.ps1
 ```
 
-Para uma instalação já existente, o recorte específico é `.install.ps1 -Only freebuff -Force`; o verificador completo deve ser executado sobre uma instalação que já tenha os demais perfis ou usando o smoke test seletivo da própria skill.
+Para uma instalação já existente, o recorte específico é `orquestrador-maestro install --only freebuff`; o wrapper cria backup antes de atualizar. O verificador completo deve ser executado sobre uma instalação que já tenha os demais perfis ou usando o smoke test seletivo da própria skill.
 
 Linux/macOS:
 
 ```bash
-orquestrador-maestro install --only freebuff --force
+orquestrador-maestro install --only freebuff
 orquestrador-maestro verify
 ```
 
 Para atualizar apenas as skills depois de uma mudança no Maestro:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File $HOME\.orquestrador-maestro\sync-skills.ps1 -Apply -Only freebuff
+powershell -NoProfile -ExecutionPolicy Bypass -File $HOME\.orquestrador\sync-skills.ps1 -Apply -Only freebuff
 ```
 
 O alias `freebuff` sincroniza a raiz compatível `.agents/skills`; ele não cria uma raiz proprietária nem sobrescreve configuração do Freebuff.
@@ -88,7 +88,7 @@ O CLI oficial ainda é interativo; não registramos Freebuff como provider headl
 
 1. Publicar o commit do Maestro no GitHub.
 2. Publicar a versão da CLI no npm pelo workflow já existente.
-3. Orientar cada pessoa a instalar o Freebuff e depois executar `orquestrador-maestro install --only freebuff --force`.
+3. Orientar cada pessoa a instalar o Freebuff e depois executar `orquestrador-maestro install --only freebuff`.
 4. Em cada projeto, versionar apenas `AGENTS.md`, `knowledge.md`, `.agents/skills` selecionadas, agentes e MCP que sejam realmente compartilháveis.
 5. Manter segredos, login, cache, sessões e histórico fora do repositório.
 

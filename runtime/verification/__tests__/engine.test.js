@@ -22,3 +22,45 @@ test("verification without an executable check is explicitly skipped", async () 
   const verification = await new VerificationEngine().verify({ id: "verification-2", runId: "run-2", commands: [] });
   assert.equal(verification.status, "skipped");
 });
+
+
+test("verification redacts secrets and local paths before persistence", async () => {
+  const token = "ghp_" + "D".repeat(40);
+  const verification = await new VerificationEngine().verify({
+    id: "verification-redacted",
+    runId: "run-redacted",
+    commands: [{
+      name: "redaction",
+      command: `${process.execPath} -e "console.log('Bearer ${token} /home/alice/private')"`
+    }]
+  });
+  const serialized = JSON.stringify(verification.checks[0]);
+  assert.doesNotMatch(serialized, new RegExp(token, "u"));
+  assert.doesNotMatch(serialized, /\/home\/alice\/private/u);
+  assert.match(serialized, /redacted/u);
+});
+
+
+test("empty verification is skipped but only explicitly marked not-applicable on request", async () => {
+  const engine = new VerificationEngine();
+  const unspecified = await engine.verify({
+    id: "verification-empty",
+    runId: "run-empty",
+    commands: [],
+    cwd: process.cwd()
+  });
+  assert.equal(unspecified.status, "skipped");
+  assert.equal(unspecified.metadata.applicability, "unspecified");
+
+  const notApplicable = await engine.verify({
+    id: "verification-na",
+    runId: "run-na",
+    commands: [],
+    cwd: process.cwd(),
+    notApplicable: true,
+    notApplicableReason: "read-only analysis"
+  });
+  assert.equal(notApplicable.status, "skipped");
+  assert.equal(notApplicable.metadata.applicability, "not_applicable");
+  assert.equal(notApplicable.metadata.reason, "read-only analysis");
+});

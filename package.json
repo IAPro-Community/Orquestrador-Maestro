@@ -46,7 +46,8 @@
     "skill-library/PUBLIC_SKILLS_MANIFEST.json",
     "skill-library/community-skills/",
     "tool-profiles/",
-    "README.md"
+    "README.md",
+    "plugins/maestro-openai/"
   ],
   "scripts": {
     "audit": "node scripts/audit-dependencies.js audit",
@@ -55,6 +56,7 @@
     "test": "node scripts/run-tests.js",
     "test:smoke": "node scripts/test-smoke.js",
     "test:xkiro": "node scripts/test-xkiro.js",
+    "validate:paths": "node scripts/validate-git-paths.js",
     "verify:pr": "node scripts/verify-pr.js",
     "validate": "node scripts/validate.js",
     "bench:list": "node --import tsx benchmark-harness/src/cli/index.ts list --dir benchmark-harness/scenarios",
@@ -65,7 +67,9 @@
     "bench:help": "node --import tsx benchmark-harness/src/cli/index.ts --help",
     "bench:test": "node --import tsx --test benchmark-harness/tests/*.test.ts benchmark-harness/tests/**/*.test.ts",
     "bench:typecheck": "tsc --noEmit -p benchmark-harness/tsconfig.json",
-    "bench:build": "cd benchmark-harness && npm run build"
+    "bench:build": "cd benchmark-harness && npm run build",
+    "skills:contract-audit": "node scripts/skill-contract-audit.js",
+    "skills:contract-audit:strict": "node scripts/skill-contract-audit.js --strict"
   },
   "config": {
     "telemetryEndpoint": ""
@@ -100,20 +104,15 @@
     "url": "https://github.com/IAPro-Community/Orquestrador-Maestro/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
-  },
-  "optionalDependencies": {
-    "@opentui/core": "^0.5.1",
-    "node-pty": "^1.1.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
-    "@clack/prompts": "0.11.0",
-    "@xterm/headless": "^5.5.0",
+    "@clack/prompts": "^1.8.1",
     "node-notifier": "10.0.1",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
+    "@types/node": "^26.6.2",
     "typescript": "^5.9.3",
     "uuid": "11.1.1"
   },
@@ -121,8 +120,5 @@
     "node-notifier": {
       "uuid": "11.1.1"
     }
-  },
-  "allowScripts": {
-    "node-pty@1.1.0": true
   }
 }

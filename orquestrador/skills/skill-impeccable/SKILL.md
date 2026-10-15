@@ -51,5 +51,8 @@ Reporte o que foi alterado, quais viewports e estados foram verificados e qualqu
 - `skill-premium-web-experience`: estratégia, narrativa, conversão e coordenação de experiências web completas.
 - `skill-frontend-ux-guardrails`: qualidade, acessibilidade, responsividade e estados.
 - `skill-modern-ui-patterns`: composição de interfaces SaaS e comportamento de componentes.
+- `skill-product-ux-architecture`: planejamento de UX quando o problema atravessa telas, navegação e jornadas.
 - `skill-open-design-ui`: direção visual, tokens e QA visual.
+- `skill-design-engineering-craft`: implementação de detalhes de alta fidelidade depois da auditoria.
+- `skill-motion-design-principles`: revisão especializada quando animação/motion faz parte do problema.
 - `skill-webapp-testing`: validação E2E e regressão visual quando o fluxo mudar.

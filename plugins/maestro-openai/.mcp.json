@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "maestro": {
+      "command": "node",
+      "args": [
+        "./scripts/mcp.js"
+      ],
+      "cwd": "."
+    }
+  }
+}

@@ -18,7 +18,7 @@ providers (`codex`, `claude`, `opencode`, `agy`), verifica e registra evidência
 **Diferenciais.** Local-first com privacidade por construção; 75 skills públicas
 deduplicadas no roteador, com 52 rotas canônicas por evidência; memória DEV + episódica; evidence gate no benchmark
 (sem marketing numérico sem prova); 4 providers reais com cancelamento/timeout;
-Cockpit TUI + cliente VS Code opcionais.
+Cockpit TUI e cliente VS Code não fazem parte do contrato da V1; poderão voltar apenas como feature isolada e versionada.
 
 **Como começar?** `orquestrador-maestro install`, depois `verify` e `doctor`.
 Detalhes em `PRODUCT_SPEC.md`. Sem claims quantitativos sem evidência:

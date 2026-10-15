@@ -17,7 +17,8 @@ Use for product frontend work: classify intent, discover the project's design sy
 
 ## Quando não usar
 
-- Pedidos fora do domínio frontend; use a skill específica quando houver uma intenção mais precisa.
+- Site de marketing cinematográfico/premium; use skill-premium-web-experience.
+- Pedido guiado por screenshot/referência visual específica; use skill-melhorar-ux-ui-por-referencia.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -49,6 +50,7 @@ A skill é sincronizada para as raízes nativas configuradas pela política de i
 ## Recipes e chains relacionadas
 
 - Recipe `complete-product-frontend`: Frontend completo com Design Profile e Visual QA
+- Chain `skill-engineering-quality`
 - Chain `skill-frontend-excellence`
 
 ## Evidência mínima de conclusão

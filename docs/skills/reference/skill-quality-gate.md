@@ -17,7 +17,8 @@ Avalia skills, plugins e MCPs antes da adoção.
 
 ## Quando não usar
 
-- Pedidos fora do domínio governance; use a skill específica quando houver uma intenção mais precisa.
+- Verificação de conclusão de uma tarefa comum; use skill-verification-before-completion.
+- Diagnóstico geral de saúde do repositório; use skill-repo-health.
 
 ## Exemplos de pedidos reconhecidos
 

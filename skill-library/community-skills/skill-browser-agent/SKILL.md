@@ -10,6 +10,8 @@ source: local-browser-agent-patterns
 
 Use this skill when an agent must inspect or operate a web interface. Keep planning, decision-making, execution, and validation separate.
 
+For web-experience work, it can open public references, inspect visual structure and behavior, validate the project page, test navigation and conversion flows, and collect only the public information necessary for the task. It remains a browser-agent skill: it reports observable evidence and does not make art-direction decisions or replace `skill-premium-web-experience`.
+
 ## Operating contract
 
 Represent the page as a compact state before asking a model to act:
@@ -64,3 +66,14 @@ Handle iframes, Shadow DOM, authentication, CAPTCHAs, downloads, and file upload
 - Capture post-action state and detect progress.
 - Add deterministic tests for stale elements, disabled controls, modals, frames, and retry limits.
 - Keep screenshots and traces opt-in, redacted, and local.
+
+## Premium Web Boundary
+
+- Use it to inspect Godly Website, Awwwards, or another approved public reference when web access is available.
+- Capture principles and observable behavior rather than copying layout, code, assets, text, or branding.
+- Pair semantic state with screenshots for visual claims and report what was actually verified.
+
+## Related Skills
+
+- `skill-premium-web-experience` — decides when research or browser validation adds value.
+- `skill-webapp-testing` — deterministic E2E or visual regression coverage when a flow changes.

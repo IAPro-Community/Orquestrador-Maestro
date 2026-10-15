@@ -3,44 +3,129 @@
   "title": "BenchmarkRunReport",
   "description": "Complete report for a single benchmark run.",
   "type": "object",
-  "required": ["runId", "scenarioId", "condition", "driver", "fixture", "status", "results", "tokens", "timing", "evidence"],
+  "required": [
+    "runId",
+    "scenarioId",
+    "condition",
+    "driver",
+    "fixture",
+    "status",
+    "results",
+    "tokens",
+    "timing",
+    "evidence"
+  ],
   "additionalProperties": false,
   "properties": {
-    "runId": { "type": "string", "format": "uuid" },
-    "scenarioId": { "type": "string" },
-    "condition": { "type": "string", "enum": ["vanilla", "maestro", "maestro-focus"] },
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scenarioId": {
+      "type": "string"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "maestro",
+        "maestro-focus",
+        "maestro-adaptive"
+      ]
+    },
     "driver": {
       "type": "object",
-      "required": ["name", "version"],
+      "required": [
+        "name",
+        "version"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "version": { "type": "string" },
-        "config": { "type": "object" }
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "config": {
+          "type": "object"
+        }
       }
     },
     "fixture": {
       "type": "object",
-      "required": ["path", "hash"],
+      "required": [
+        "path",
+        "hash"
+      ],
       "properties": {
-        "path": { "type": "string" },
-        "hash": { "type": "string" }
+        "path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        }
       }
     },
-    "taskHash": { "type": "string", "description": "SHA-256 of the task prompt" },
+    "taskHash": {
+      "type": "string",
+      "description": "SHA-256 of the task prompt"
+    },
     "environment": {
       "type": "object",
       "properties": {
-        "os": { "type": "string" },
-        "arch": { "type": "string" },
-        "container": { "type": "boolean" },
-        "containerImage": { "type": "string" },
-        "nodeVersion": { "type": "string" },
-        "isolated": { "type": "boolean" }
+        "os": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "container": {
+          "type": "boolean"
+        },
+        "containerImage": {
+          "type": "string"
+        },
+        "nodeVersion": {
+          "type": "string"
+        },
+        "isolated": {
+          "type": "boolean"
+        },
+        "containerId": {
+          "type": "string"
+        },
+        "networkMode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "bridge",
+            "host"
+          ]
+        },
+        "cpuLimit": {
+          "type": "number"
+        },
+        "memoryLimit": {
+          "type": "string"
+        },
+        "forwardedEnvNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "status": {
       "type": "string",
-      "enum": ["passed", "failed", "timeout", "error", "skipped", "benchmark-integrity-violation"]
+      "enum": [
+        "passed",
+        "failed",
+        "timeout",
+        "error",
+        "skipped",
+        "benchmark-integrity-violation"
+      ]
     },
     "failureType": {
       "type": "string",
@@ -48,22 +133,47 @@
     },
     "results": {
       "type": "object",
-      "required": ["acceptanceRate", "criteria"],
+      "required": [
+        "acceptanceRate",
+        "criteria"
+      ],
       "properties": {
-        "acceptanceRate": { "type": "number", "minimum": 0, "maximum": 1 },
-        "accepted": { "type": "boolean" },
+        "acceptanceRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "accepted": {
+          "type": "boolean"
+        },
         "criteria": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["type", "name", "passed"],
+            "required": [
+              "type",
+              "name",
+              "passed"
+            ],
             "properties": {
-              "type": { "type": "string" },
-              "name": { "type": "string" },
-              "passed": { "type": "boolean" },
-              "duration": { "type": "integer" },
-              "output": { "type": "string" },
-              "error": { "type": "string" }
+              "type": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "duration": {
+                "type": "integer"
+              },
+              "output": {
+                "type": "string"
+              },
+              "error": {
+                "type": "string"
+              }
             }
           }
         }
@@ -72,48 +182,256 @@
     "tokens": {
       "type": "object",
       "properties": {
-        "input": { "type": ["integer", "null"] },
-        "output": { "type": ["integer", "null"] },
-        "reasoning": { "type": ["integer", "null"] },
-        "cacheRead": { "type": ["integer", "null"] },
-        "cacheWrite": { "type": ["integer", "null"] },
-        "total": { "type": ["integer", "null"] },
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reasoningTokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cacheReadTokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cacheWriteTokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "total": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "source": {
           "type": "string",
-          "enum": ["provider-reported", "opencode-native", "session-derived", "tokenizer-exact", "tokenizer-estimated", "unavailable"]
+          "enum": [
+            "provider-reported",
+            "opencode-native",
+            "session-derived",
+            "tokenizer-exact",
+            "tokenizer-estimated",
+            "unavailable"
+          ]
         },
         "confidence": {
           "type": "string",
-          "enum": ["exact", "reliable", "estimated", "unavailable"]
+          "enum": [
+            "exact",
+            "reliable",
+            "estimated",
+            "unavailable"
+          ]
         },
-        "rawEvidenceRef": { "type": "string" }
+        "rawEvidenceRef": {
+          "type": "string"
+        }
       }
     },
     "timing": {
       "type": "object",
       "properties": {
-        "startMs": { "type": "integer" },
-        "endMs": { "type": "integer" },
-        "durationMs": { "type": "integer" }
+        "startMs": {
+          "type": "integer"
+        },
+        "endMs": {
+          "type": "integer"
+        },
+        "durationMs": {
+          "type": "integer"
+        }
       }
     },
     "evidence": {
       "type": "object",
-      "required": ["rawDir", "agentOutput", "verifierOutput"],
+      "required": [
+        "rawDir",
+        "agentOutput",
+        "verifierOutput"
+      ],
       "properties": {
-        "rawDir": { "type": "string" },
-        "agentOutput": { "type": "string" },
-        "verifierOutput": { "type": "string" },
-        "agentExitCode": { "type": "integer" },
-        "verifierExitCode": { "type": "integer" },
+        "rawDir": {
+          "type": "string"
+        },
+        "agentOutput": {
+          "type": "string"
+        },
+        "verifierOutput": {
+          "type": "string"
+        },
+        "agentExitCode": {
+          "type": "integer"
+        },
+        "verifierExitCode": {
+          "type": "integer"
+        },
         "filesChanged": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "gitDiff": { "type": "string" },
-        "sessionFile": { "type": "string" }
+        "gitDiff": {
+          "type": "string"
+        },
+        "sessionFile": {
+          "type": "string"
+        },
+        "executionType": {
+          "type": "string"
+        },
+        "reproducible": {
+          "type": "boolean"
+        },
+        "isolated": {
+          "type": "boolean"
+        },
+        "publicClaimEligible": {
+          "type": "boolean"
+        }
       }
     },
-    "createdAt": { "type": "string", "format": "date-time" }
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pairId": {
+      "type": "string"
+    },
+    "replicate": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "model": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "scenarioHash": {
+      "type": "string"
+    },
+    "fixtureHash": {
+      "type": "string"
+    },
+    "toolUsage": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "tokenSource": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "taskCount",
+        "validatedTaskCount",
+        "failedTaskCount",
+        "blockedTaskCount",
+        "needsAttentionTaskCount"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "validated",
+            "needs_attention",
+            "blocked",
+            "failed",
+            "running"
+          ]
+        },
+        "taskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validatedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "firstPassValidatedTaskCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "failedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blockedTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "needsAttentionTaskCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "providerSwitches": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "automaticRetries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "escalations": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tokensToValidatedOutcome": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    }
   }
 }

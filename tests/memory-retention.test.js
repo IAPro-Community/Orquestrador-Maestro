@@ -77,7 +77,7 @@ describe("Memory Retention & Dedupe", () => {
       const consolidated = memory.consolidate(projectId, [obs1.id, obs2.id], {
         type: "problem",
         summary: "Authentication security bug",
-        verified: true
+        verified: true, verifier: "test"
       });
 
       assert.ok(consolidated.id);
@@ -137,7 +137,7 @@ describe("Memory Retention & Dedupe", () => {
       const projectId = "test-project";
 
       memory.record(projectId, { type: "discovery", summary: "Unverified" });
-      memory.record(projectId, { type: "decision", summary: "Verified", verified: true });
+      memory.record(projectId, { type: "decision", summary: "Verified", verified: true, verifier: "test" });
 
       const result = memory.retention(projectId, { maxCount: 1 });
       assert.ok(result.retained >= 1);

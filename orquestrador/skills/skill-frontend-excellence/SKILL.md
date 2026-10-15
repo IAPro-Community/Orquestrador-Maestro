@@ -30,7 +30,10 @@ Use one owner for each concern:
 | Concern | Primary owner | Delegation rule |
 |---|---|---|
 | Intent, posture, Design Profile, and Definition of Done | `skill-frontend-excellence` | Always load for product-frontend work. |
+| Product-wide IA, navigation, screen inventory, and journeys | `skill-product-ux-architecture` | Load when the problem spans multiple screens or the whole app. |
 | Brand direction or a new visual language | `skill-open-design-ui` | Load only for explicit exploration or a requested visual system. |
+| High-fidelity implementation craft | `skill-design-engineering-craft` | Load after direction is clear when optical alignment, density, typography rhythm, and finish are the problem. |
+| Motion-system design or animation review | `skill-motion-design-principles` | Load only when motion itself is material to the task. |
 | Component states, interaction patterns, and polish | `skill-modern-ui-patterns` | Load when the task changes interaction behavior or state coverage. |
 | Responsive/accessibility usability gate | `skill-frontend-ux-guardrails` | Load for a UX gate or when responsive/accessibility risk is material. |
 | Browser flow and E2E evidence | `skill-webapp-testing` | Load for a critical user journey or browser regression. |

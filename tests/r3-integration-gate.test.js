@@ -12,7 +12,15 @@ test("R3 integration gate exporta persistência e enriquece toda execução com 
   const requests = [];
   const app = {
     getMission: async () => ({ projectId: "p1" }),
-    executeRun: async (request) => { requests.push(request); return { ok: true }; }
+    executeRun: async (request) => {
+      requests.push(request);
+      return {
+        run: {
+          status: "completed",
+          metadata: { resolution: { outcome: { state: "validated" } } }
+        }
+      };
+    }
   };
   const executor = new LaneExecutor({ application: app, maxParallel: 2 });
   await executor.execute([

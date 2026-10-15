@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "logPath": "{{USER_HOME}}/.orquestrador/logs/skill-usage.jsonl",
-  "purpose": "Append-only JSONL schema for measuring automatic skill invocation and token discipline.",
+  "purpose": "Append-only JSONL schema for measuring skill invocation, routing decisions and token discipline in Maestro V1.",
   "requiredFields": [
     "timestamp",
     "tool",
@@ -23,7 +23,6 @@
       "kind": "task",
       "validation": "standard",
       "referencesOptional": true,
-      "legacyCompatible": true,
       "notes": "Resolved workflow metadata after manifest defaults and per-skill overrides are applied."
     },
     "provenance": {
@@ -31,8 +30,7 @@
         "orquestrador/SKILLS_MANIFEST.json"
       ],
       "steward": "orquestrador-maintainers",
-      "reviewedAt": "2026-08-06",
-      "legacyCompatible": true,
+      "reviewedAt": "2026-09-22",
       "notes": "Resolved provenance metadata after manifest defaults and per-skill overrides are applied."
     }
   },
@@ -41,8 +39,15 @@
     "tool": "codex",
     "profile": "standard",
     "task": "build SaaS admin dashboard with Stripe",
-    "selectedSkills": ["skill-saas-factory", "skill-stripe-integration", "skill-saas-admin-dashboard"],
-    "openedSkills": ["skill-saas-factory", "skill-stripe-integration"],
+    "selectedSkills": [
+      "skill-saas-factory",
+      "skill-stripe-integration",
+      "skill-saas-admin-dashboard"
+    ],
+    "openedSkills": [
+      "skill-saas-factory",
+      "skill-stripe-integration"
+    ],
     "openedReferences": [],
     "result": "completed",
     "notes": "Loaded two skills; dashboard skill not opened because SaaS factory covered the needed workflow.",
@@ -51,7 +56,6 @@
       "kind": "task",
       "validation": "standard",
       "referencesOptional": true,
-      "legacyCompatible": true,
       "notes": "Resolved from manifest defaults."
     },
     "provenance": {
@@ -60,7 +64,6 @@
       ],
       "steward": "orquestrador-maintainers",
       "reviewedAt": "2026-08-06",
-      "legacyCompatible": true,
       "notes": "Resolved from manifest defaults."
     }
   }

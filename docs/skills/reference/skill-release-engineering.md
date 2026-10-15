@@ -17,7 +17,8 @@ Engenharia de release, smoke tests, rollback e checklist operacional.
 
 ## Quando não usar
 
-- Pedidos fora do domínio delivery; use a skill específica quando houver uma intenção mais precisa.
+- Commit ou PR comum sem preparação de release.
+- Deploy experimental que não representa uma release versionada.
 
 ## Exemplos de pedidos reconhecidos
 

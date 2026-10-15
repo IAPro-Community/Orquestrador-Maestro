@@ -17,7 +17,8 @@ Registros de decisões arquiteturais com alternativas e consequências.
 
 ## Quando não usar
 
-- Pedidos fora do domínio architecture; use a skill específica quando houver uma intenção mais precisa.
+- Implementação direta quando a decisão arquitetural já está tomada.
+- Documentação geral do repositório; use skill-deep-wiki.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -47,7 +48,7 @@ A skill é sincronizada para as raízes nativas configuradas pela política de i
 ## Recipes e chains relacionadas
 
 - Recipe `research-and-decision`: Pesquisa com fontes e decisão registrada
-- Nenhuma chain registrada.
+- Chain `skill-deep-wiki`
 
 ## Evidência mínima de conclusão
 

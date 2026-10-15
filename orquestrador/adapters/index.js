@@ -38,7 +38,10 @@ class Adapter {
 
     if (noisyTypes.has(event.type)) return false;
 
-    return Object.hasOwn(DEFAULT_OBSERVATION_TYPE_MAP, event.type) || !!event.type;
+    // Default-deny: only mapped types are recorded. Unknown event types
+    // are dropped instead of spamming memory (subclasses with their own
+    // allow-list, e.g. FreebuffAdapter, are unaffected).
+    return Object.hasOwn(DEFAULT_OBSERVATION_TYPE_MAP, event.type);
   }
 
   normalizeEvent(rawEvent) {
@@ -53,8 +56,20 @@ class Adapter {
     if (this.gitContext) opts.gitContext = this.gitContext;
     if (this.taskId && !normalizedEvent.taskId) normalizedEvent.taskId = this.taskId;
 
-    const obs = this.memory.record(this.projectId, normalizedEvent, opts);
-    return obs;
+    // Agent pipelines must not crash on rejected observations, but only
+    // on *rejections* (the exact validation/policy messages below). IO,
+    // lock and programmer errors are re-thrown: silent data loss is worse
+    // than a loud pipeline failure.
+    try {
+      const obs = this.memory.record(this.projectId, normalizedEvent, opts);
+      return obs;
+    } catch (err) {
+      const msg = err && err.message ? err.message : "";
+      if (/Private content|cannot be persisted|prompt injection|Invalid (schemaVersion|observation|scope)|Summary (is required|must be)|Project is required|No valid observations|Cannot consolidate/i.test(msg)) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   processEvent(rawEvent) {

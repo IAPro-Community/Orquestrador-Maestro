@@ -17,7 +17,8 @@ Manual upload video processing with secure storage, validation, job states, and 
 
 ## Quando não usar
 
-- Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa.
+- Captura/ingestão de livestream; use skill-live-processing.
+- Somente análise de momentos ou evidência temporal de mídia já disponível; use skill-watch-evidence.
 
 ## Exemplos de pedidos reconhecidos
 

@@ -17,7 +17,8 @@ ElevenLabs voice generation/cloning integration with consent, asset handling, an
 
 ## Quando não usar
 
-- Pedidos fora do domínio ai; use a skill específica quando houver uma intenção mais precisa.
+- Orquestração genérica de LLMs sem síntese/clonagem de voz.
+- Processamento de áudio sem uso do provider ElevenLabs.
 
 ## Exemplos de pedidos reconhecidos
 

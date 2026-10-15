@@ -22,6 +22,7 @@ function optionalPositiveInteger(value, name) {
 }
 
 const BLOCKED_ENV_KEYS = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN", "BASH_ENV", "PYTHONPATH", "AZURE_OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"]);
+const BLOCKED_ENV_PREFIXES = ["MAESTRO_ADAPTIVE_", "MAESTRO_BENCHMARK_", "BENCHMARK_ADAPTIVE_"];
 
 function safeEnvironment(environment) {
   if (environment !== undefined) {
@@ -36,6 +37,9 @@ function safeEnvironment(environment) {
   }
   const env = { ...process.env, ...(environment || {}) };
   for (const key of BLOCKED_ENV_KEYS) delete env[key];
+  for (const key of Object.keys(env)) {
+    if (BLOCKED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix))) delete env[key];
+  }
   return env;
 }
 
@@ -172,4 +176,4 @@ function detectExecutable({ executable, args = [], providerId }) {
   });
 }
 
-module.exports = { detectExecutable, startProcess };
+module.exports = { detectExecutable, startProcess, safeEnvironment };

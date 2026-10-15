@@ -17,7 +17,8 @@ Unified SaaS/product analytics event taxonomy, metrics, funnels, dashboards, and
 
 ## Quando não usar
 
-- Pedidos fora do domínio analytics; use a skill específica quando houver uma intenção mais precisa.
+- Tracing/custo/latência de agentes de IA como foco principal; use skill-agent-observability.
+- Investigação de incidente operacional; use skill-incident-response.
 
 ## Exemplos de pedidos reconhecidos
 

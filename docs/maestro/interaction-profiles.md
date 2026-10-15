@@ -7,9 +7,9 @@ escolhe como o Maestro orienta e apresenta o fluxo.
 ## Precedência
 
 `--interaction` vence a configuração do projeto, que vence a configuração do
-usuário, que vence `default`. A configuração fica no arquivo Maestro existente:
-`.orquestrador-maestro/config.json` (com leitura legada de
-`.orquestrador/maestro-config.json`). `interaction reset` remove somente a chave
+usuário, que vence `default`. A configuração fica em `.orquestrador/config.json`;
+configurações de `.orquestrador-maestro` e o nome antigo `maestro-config.json`
+continuam sendo lidos durante a migração. `interaction reset` remove somente a chave
 `interactionProfile` e escreve atomicamente.
 
 ## Runtime

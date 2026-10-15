@@ -50,6 +50,7 @@ Security rule: every protected screen needs a server/session/data access check. 
 ## Surface-To-Skill Routing
 
 - Landing, public pages, responsive UX, overflow, accessibility: `skill-frontend-ux-guardrails`.
+- Premium marketing experience, narrative, conversion, and cinematic interaction: `skill-premium-web-experience`.
 - Modern app UI, component behavior, polished SaaS/admin patterns: `skill-modern-ui-patterns`.
 - Open-design/tokens/visual QA/component library: `skill-open-design-ui`.
 - Authenticated dashboard/admin/sidebar/metrics/users/plans/logs: `skill-saas-admin-dashboard`.
@@ -61,6 +62,7 @@ Security rule: every protected screen needs a server/session/data access check. 
 
 Open only the extra skill needed by the current task:
 - Landing, login, registration, onboarding, responsive/product UX: `skill-frontend-ux-guardrails`.
+- Premium brand or marketing surface inside the SaaS: `skill-premium-web-experience`.
 - Modern SaaS UI composition and component states: `skill-modern-ui-patterns`.
 - Visual design/tokens/component library workflow: `skill-open-design-ui`.
 - Brazilian PIX/card checkout or AbacatePay billing: `skill-abacatepay-integration`.
@@ -106,4 +108,3 @@ Read only what the task needs:
 - `references/architecture.md`: SaaS module, database, frontend, and backend checklist.
 - `references/payments.md`: provider selection, webhook, payment table, and entitlement checklist.
 - `references/security-infra.md`: secrets, Supabase, API, and verification checklist.
-

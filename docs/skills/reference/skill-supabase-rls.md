@@ -17,7 +17,8 @@ Supabase/Postgres RLS design, tenant isolation, policies, indexes, and verificat
 
 ## Quando não usar
 
-- Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa.
+- Autorização genérica sem Supabase/Postgres RLS.
+- Migração de banco sem mudança de política de acesso; use skill-database-migrations.
 
 ## Exemplos de pedidos reconhecidos
 

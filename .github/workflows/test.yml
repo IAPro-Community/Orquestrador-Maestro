@@ -2,10 +2,14 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, v1]
   pull_request:
-    branches: [main]
+    branches: [main, v1, "feature/*", "feat/*"]
   workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -37,7 +41,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        node-version: ["20.19.0", "22", "24"]
         os: [ubuntu-latest]
       fail-fast: false
     steps:
@@ -49,14 +53,15 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Setup Bun for OpenTUI lifecycle tests
-        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run tests
         run: npm test
+
+      - name: Validate native Maestro Skill Contract V2
+        run: npm run skills:contract-audit:strict
 
       - name: npm pack dry-run
         run: npm pack --dry-run
@@ -98,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout
@@ -125,11 +130,11 @@ jobs:
         run: npm run bench:test
 
   test-windows:
-    name: Smoke tests — Node ${{ matrix.node-version }} on Windows
+    name: Full + smoke tests — Node ${{ matrix.node-version }} on Windows
     runs-on: windows-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout
@@ -209,11 +214,11 @@ jobs:
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   test-macos:
-    name: Smoke tests — Node ${{ matrix.node-version }} on macOS
+    name: Full + smoke tests — Node ${{ matrix.node-version }} on macOS
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: ["20.19.0", "24"]
       fail-fast: false
     steps:
       - name: Checkout

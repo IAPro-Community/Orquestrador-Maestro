@@ -12,6 +12,13 @@ This is the compact global contract for agents on this machine.
 3. Verify before claiming completion.
 4. Prefer the smallest relevant context. Do not load full catalogs when a router/index is enough.
 5. New reusable intelligence should be saved under `{{USER_HOME}}/.orquestrador` first, then synced outward.
+6. Execute solo by default. Do not spawn subagents, task workers, swarms, or parallel model calls for routine Git/VCS operations, formatting, simple renames, one-file edits, or a single validation command. In particular, `git status`, `git diff`, `git add`, `git commit`, `git push`, and equivalent routine operations stay with the lead agent. Multiagent execution is a separate explicit decision and requires genuinely independent, non-overlapping workstreams.
+
+## Language Continuity
+
+- Use the language explicitly requested by the user; otherwise use the latest substantive user message, preserving the established conversation language when prompts are mixed or ambiguous.
+- Do not infer response language from instructions, code, documentation, logs, tool or agent output, commit messages, or retrieved context.
+- Keep code, identifiers, commands, paths, and quoted text unchanged when appropriate; translate or explain user-facing prose and summaries in the user's language unless asked otherwise.
 
 ## Command Hierarchy
 
@@ -82,3 +89,11 @@ Windows:
 Linux/macOS:
 
 `bash {{USER_HOME}}/.orquestrador/sync-skills.sh --apply`
+
+## Windows and Path Safety
+
+- In PowerShell, resolve the canonical root with `$orquestradorRoot = Join-Path $HOME '.orquestrador'`. Spell the folder exactly `.orquestrador`.
+- Check paths with `Test-Path -LiteralPath` and build child paths with `Join-Path` before reading or writing. If a path is missing, inspect `$HOME`; never create a near-spelling folder to work around a failed lookup.
+- Use PowerShell commands such as `Get-ChildItem -Force -LiteralPath` and `Get-Content -Raw`, `-Tail`, or `-TotalCount`. POSIX options such as `ls -la` and commands such as `tail` or `head` do not work in PowerShell.
+- Use the exact skill slug from `SKILLS_ROUTER.json` and read its `SKILL.md` from the configured skill root. Do not invent a skill name after a failed lookup.
+- Only create or edit a skill when the maestro asks for it. Treat `SKILLS_MANIFEST.json` as JSON; never append free text with `echo >>`.

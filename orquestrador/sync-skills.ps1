@@ -74,7 +74,7 @@ function Get-DefaultInstallPolicy {
 
 function Read-InstallPolicy {
   param([string]$HomePath)
-  $policyRoot = if ($script:MaestroRoot) { $script:MaestroRoot } elseif (Test-Path -LiteralPath (Join-Path $HomePath ".orquestrador-maestro")) { Join-Path $HomePath ".orquestrador-maestro" } else { Join-Path $HomePath ".orquestrador" }
+  $policyRoot = if ($script:MaestroRoot) { $script:MaestroRoot } elseif (Test-Path -LiteralPath (Join-Path $HomePath ".orquestrador")) { Join-Path $HomePath ".orquestrador" } else { Join-Path $HomePath ".orquestrador-maestro" }
   $policyPath = Join-Path $policyRoot "SKILL_INSTALL_POLICY.json"
   if (Test-Path -LiteralPath $policyPath) {
     try {
@@ -173,7 +173,10 @@ function Test-DirectoryDifferent {
 
 function Copy-ManagedDirectory {
   param([string]$SourceDir, [string]$DestDir, [string]$TargetRoot)
-  if ((Test-Path -LiteralPath $DestDir) -and (Test-PathUnderRoot -Path $DestDir -Root $TargetRoot)) {
+  if (-not (Test-PathUnderRoot -Path $DestDir -Root $TargetRoot)) {
+    throw "Refusing to copy managed directory outside target root: $DestDir"
+  }
+  if (Test-Path -LiteralPath $DestDir) {
     Remove-Item -LiteralPath $DestDir -Recurse -Force
   }
   New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
@@ -208,8 +211,8 @@ function Move-NativeExtraDirectory {
   return $destination
 }
 
-$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
-$legacyMaestroRoot = Join-Path $HomePath ".orquestrador"
+$canonicalMaestroRoot = Join-Path $HomePath ".orquestrador"
+$legacyMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
 $script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
 $policy = Read-InstallPolicy -HomePath $HomePath
 $libraryRoots = [pscustomobject]@{

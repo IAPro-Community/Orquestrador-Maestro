@@ -18,13 +18,6 @@ NON_INTERACTIVE=false
 ALL_TARGETS=false
 VERBOSE_PATHS=false
 
-if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ -z "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" ]; then
-  echo "Error: installer was run as root via sudo." >&2
-  echo "Run it again as the normal user, without sudo:" >&2
-  echo "  orquestrador-maestro install" >&2
-  exit 1
-fi
-
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --home-path)
@@ -94,6 +87,11 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
+if [ "$(id -u)" -eq 0 ] && [ "${ORQUESTRADOR_ALLOW_ROOT_INSTALL:-}" != "1" ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ]; then
+  echo "Error: run the installer as a normal user, without sudo/root (or set ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 explicitly)." >&2
+  exit 1
+fi
+
 if [ -z "$HOME_PATH" ]; then
   echo "Error: HOME is not set. Pass --home-path PATH." >&2
   exit 1
@@ -141,23 +139,17 @@ SOURCE_CODEX="$REPO_ROOT/codex"
 SOURCE_COMMUNITY_SKILLS="$REPO_ROOT/skill-library/community-skills"
 SOURCE_TOOL_PROFILES="$REPO_ROOT/tool-profiles"
 
-CANONICAL_ORQUESTRADOR_NAME=".orquestrador-maestro"
-LEGACY_ORQUESTRADOR_NAME=".orquestrador"
-if [ -d "$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME" ]; then
-  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
-elif [ -d "$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME" ]; then
-  TARGET_ORQUESTRADOR="$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$LEGACY_ORQUESTRADOR_NAME"
-else
-  TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
-  TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
-fi
+CANONICAL_ORQUESTRADOR_NAME=".orquestrador"
+LEGACY_ORQUESTRADOR_NAME=".orquestrador-maestro"
+TARGET_ORQUESTRADOR="$HOME_PATH/$CANONICAL_ORQUESTRADOR_NAME"
+TARGET_ORQUESTRADOR_NAME="$CANONICAL_ORQUESTRADOR_NAME"
+LEGACY_ORQUESTRADOR="$HOME_PATH/$LEGACY_ORQUESTRADOR_NAME"
 TARGET_SKILL_LIBRARY="$TARGET_ORQUESTRADOR/skill-library"
 TARGET_AGENTS="$HOME_PATH/AGENTS.md"
 BACKUP_ROOT="$HOME_PATH/.orquestrador-public-backups"
-STAMP="$(date +"%Y%m%d-%H%M%S")-$$"
-BACKUP_DIR="$BACKUP_ROOT/$STAMP"
+STAMP="$(date +"%Y%m%d-%H%M%S")"
+BACKUP_DIR="$BACKUP_ROOT/$STAMP-$$-$RANDOM"
+BACKUP_DIR_CREATED=false
 USER_NAME="$(basename "$HOME_PATH")"
 
 TARGETS=()
@@ -309,15 +301,85 @@ backup_path() {
 
   [ -e "$path" ] || return 0
 
+  if [ -L "$path" ] || { [ -d "$path" ] && find "$path" -type l -print -quit 2>/dev/null | grep -q .; }; then
+    echo "Error: refusing to replace a path containing a symbolic link: $path" >&2
+    return 1
+  fi
+
   for seen in "${BACKED_UP_DESTINATIONS[@]+"${BACKED_UP_DESTINATIONS[@]}"}"; do
     if [ "$seen" = "$path" ]; then
       return 0
     fi
   done
 
-  mkdir -p "$BACKUP_DIR"
+  ensure_backup_dir
   cp -R "$path" "$BACKUP_DIR/$label"
   BACKED_UP_DESTINATIONS+=("$path")
+}
+
+ensure_backup_dir() {
+  if [ "$BACKUP_DIR_CREATED" = true ]; then
+    return 0
+  fi
+
+  mkdir -p "$BACKUP_ROOT"
+  local attempt candidate
+  for ((attempt = 0; attempt < 10; attempt++)); do
+    candidate="$BACKUP_ROOT/$STAMP-$$-$RANDOM"
+    if mkdir "$candidate" 2>/dev/null; then
+      BACKUP_DIR="$candidate"
+      BACKUP_DIR_CREATED=true
+      return 0
+    fi
+  done
+
+  echo "Error: could not create a unique backup directory under $BACKUP_ROOT" >&2
+  return 1
+}
+
+restore_missing_tree() {
+  local source_dir="$1"
+  local destination_dir="$2"
+  local source_file relative destination_file
+
+  [ -d "$source_dir" ] || return 0
+  while IFS= read -r -d '' source_file; do
+    relative="${source_file#"$source_dir"/}"
+    destination_file="$destination_dir/$relative"
+    if [ ! -e "$destination_file" ]; then
+      mkdir -p "$(dirname "$destination_file")"
+      cp -p "$source_file" "$destination_file"
+    fi
+  done < <(find "$source_dir" -type f -print0)
+}
+
+restore_merged_config() {
+  local destination_file="$1"
+  shift
+  local source_files=("$@")
+
+  node - "$destination_file" "${source_files[@]}" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [destination, ...sources] = process.argv.slice(2);
+const merged = {};
+let found = false;
+for (const source of sources) {
+  if (!fs.existsSync(source)) continue;
+  try {
+    const value = JSON.parse(fs.readFileSync(source, "utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    Object.assign(merged, value);
+    found = true;
+  } catch {
+    process.stderr.write(`Warning: skipped invalid backed-up config: ${source}\n`);
+  }
+}
+if (found) {
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(destination, `${JSON.stringify(merged, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+}
+NODE
 }
 
 backup_mapped_directory() {
@@ -333,6 +395,7 @@ backup_mapped_directory() {
     relative="${src_file#$src_dir/}"
     existing_file="$dest_dir/$relative"
     if [ -f "$existing_file" ] || [ -L "$existing_file" ]; then
+      ensure_backup_dir
       backup_file="$BACKUP_DIR/$label/$relative"
       mkdir -p "$(dirname "$backup_file")"
       cp -p "$existing_file" "$backup_file"
@@ -388,6 +451,7 @@ list_install_plan() {
   fi
   if [ "$INCLUDE_CORE" = true ]; then
     print_target_row "$mode" "$TARGET_ORQUESTRADOR_NAME" "core" "directory" "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
+    print_target_row "$mode" "$LEGACY_ORQUESTRADOR_NAME (legacy migration)" "core-migration" "directory" "$LEGACY_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
     print_target_row "$mode" "AGENTS.md" "core" "file" "$TARGET_AGENTS" "$SOURCE_AGENTS"
   fi
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -444,6 +508,84 @@ uninstall_mapped_directory() {
   remove_empty_parents_under_root "$dest_dir" "$HOME_PATH"
 }
 
+sync_mirror_selected() {
+  local program="$1"
+  local wanted
+  if [ -z "${ONLY_COMPONENTS[*]-}" ]; then
+    return 0
+  fi
+  for wanted in "${ONLY_COMPONENTS[@]}"; do
+    if [ "$wanted" = "all" ]; then
+      return 0
+    fi
+    if [ "$wanted" = "$program" ]; then
+      return 0
+    fi
+    if [ "$program" = "agents" ] && [ "$wanted" = "freebuff" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+get_managed_mirror_names() {
+  local manifest="$SOURCE_ORQUESTRADOR/SKILLS_MANIFEST.json"
+  local policy="$SOURCE_ORQUESTRADOR/SKILL_INSTALL_POLICY.json"
+  if command -v node >/dev/null 2>&1 && { [ -f "$manifest" ] || [ -f "$policy" ]; }; then
+    if node -e '
+      const fs = require("fs");
+      const names = new Set(["orquestrador-maestro"]);
+      try {
+        const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        for (const [key, value] of Object.entries(manifest.skills || {})) {
+          if (value && value.mirrorEverywhere) names.add(key);
+        }
+      } catch {}
+      try {
+        const policy = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+        for (const entry of Object.values(policy.nativeRoots || {})) {
+          for (const dir of (entry.allowDirectories || [])) names.add(dir);
+        }
+      } catch {}
+      console.log([...names].sort().join("\n"));
+    ' "$manifest" "$policy" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  printf '%s\n' \
+    ".system" "ask-claude" "ask-gemini" "autopilot" "cancel" "code-review" \
+    "deep-interview" "doctor" "orquestrador-maestro" "plan" "ralplan" "ralph" \
+    "security-review" "skill-adr" "skill-ai-orchestration" "skill-frontend-excellence" \
+    "skill-multiagent-orchestration" "skill-preflight" "skill-quality-gate" \
+    "skill-release-engineering" "skill-repo-health" "skill-research-and-synthesis" \
+    "skill-saas-factory" "skill-saas-security-scan" "skill-systematic-debugging" \
+    "skill-verification-before-completion" "skill-webapp-testing" "team" \
+    "ultrawork" "web-clone" "worker"
+}
+
+uninstall_synced_mirror_dir() {
+  local dest_dir="$1"
+  local label="$2"
+  [ -d "$dest_dir" ] || return 0
+  if ! path_under_root "$dest_dir" "$HOME_PATH"; then
+    echo "Error: refusing to uninstall synced mirror outside home: $dest_dir" >&2
+    exit 1
+  fi
+  backup_path "$dest_dir" "$label"
+  rm -rf "$dest_dir"
+}
+
+SYNC_MIRROR_SPECS=(
+  "codex|.codex/skills|.codex__skills"
+  "opencode|.opencode/skills|.opencode__skills"
+  "agents|.agents/skills|.agents__skills"
+  "claude|.claude/skills|.claude__skills"
+  "cursor|.cursor/skills|.cursor__skills"
+  "gemini|.gemini/skills|.gemini__skills"
+  "windsurf|.windsurf/skills|.windsurf__skills"
+  "antigravity|.antigravity-skills/skills|.antigravity-skills__skills"
+)
+
 validate_only_components
 if [ "$UNINSTALL" = true ]; then
   if selected_component core orquestrador global-agents; then
@@ -464,8 +606,8 @@ if [ ! -f "$SOURCE_AGENTS" ]; then
   exit 1
 fi
 
-if [ -e "$TARGET_ORQUESTRADOR" ] && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
-  echo "Error: target already exists: $TARGET_ORQUESTRADOR. Re-run with --force to overwrite after backup." >&2
+if { [ -e "$TARGET_ORQUESTRADOR" ] || [ -e "$LEGACY_ORQUESTRADOR" ]; } && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
+  echo "Error: an Orquestrador core directory already exists. Re-run with --force to back it up and consolidate the installation at $TARGET_ORQUESTRADOR." >&2
   exit 1
 fi
 if [ -e "$TARGET_AGENTS" ] && [ "$FORCE" = false ] && [ "$DRY_RUN" = false ] && [ "$LIST_TARGETS" = false ] && [ "$UNINSTALL" = false ]; then
@@ -491,6 +633,8 @@ if [ "$SKIP_EXTRA_SKILLS" = false ]; then
   fi
 fi
 
+INSTALLED_PROFILES=()
+SKIPPED_PROFILES=()
 if [ "$INSTALL_TOOL_PROFILES" = true ]; then
   tool_is_present() {
     local tool_cmd="$1"
@@ -553,14 +697,28 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
         grok) config_dir=".grok" ;;
       esac
       if tool_should_install "$component" "$tool_cmd" "$config_dir"; then
+        if [ ! -d "$SOURCE_TOOL_PROFILES/$src_sub" ]; then
+          echo "Error: missing tool profile source: $src_sub" >&2
+          exit 1
+        fi
         add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component"
+        INSTALLED_PROFILES+=("$src_sub")
+      else
+        SKIPPED_PROFILES+=("$src_sub")
       fi
     fi
   done
 
   if selected_component tool-profiles antigravity; then
     if tool_should_install "antigravity" "" ".antigravity"; then
+      if [ ! -f "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" ]; then
+        echo "Error: missing tool profile source: antigravity-home" >&2
+        exit 1
+      fi
       add_file_target "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" "$HOME_PATH/antigravity-rules.json" "antigravity-rules.json" "antigravity"
+      INSTALLED_PROFILES+=("antigravity-home")
+    else
+      SKIPPED_PROFILES+=("antigravity-home")
     fi
   fi
 fi
@@ -573,12 +731,54 @@ if [ "$LIST_TARGETS" = true ] || [ "$DRY_RUN" = true ]; then
   else
     list_install_plan "list"
   fi
+  if [ "$DRY_RUN" = true ] && [ "$UNINSTALL" = false ]; then
+    echo "Planned post-copy steps (not executed in dry-run):"
+    echo "- Would record installed tool profiles: $TARGET_ORQUESTRADOR_NAME/INSTALL_PROFILES.json"
+    if [ "$VERBOSE_PATHS" = true ]; then
+      echo "- Would create logs directory: $TARGET_ORQUESTRADOR/logs"
+    else
+      echo "- Would create logs directory: $TARGET_ORQUESTRADOR_NAME/logs"
+    fi
+    echo "- Would chmod +x: sync-skills.sh and bin scripts (if present)"
+    if [ "$SKIP_SKILL_SYNC" = true ]; then
+      echo "- Would skip skill sync (--skip-skill-sync specified)."
+    else
+      sync_detail="sync-skills.sh --apply --home-path <home>"
+      if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
+        sync_detail="$sync_detail --only $(IFS=','; echo "${ONLY_COMPONENTS[*]}")"
+      fi
+      echo "- Would run skill sync: $sync_detail"
+    fi
+    if [ -f "$REPO_ROOT/scripts/discover-skills.js" ]; then
+      echo "- Would run skill discovery: node scripts/discover-skills.js -> $TARGET_ORQUESTRADOR_NAME/SKILLS_DISCOVERY.json"
+    fi
+  fi
+  if [ "$DRY_RUN" = true ] && [ "$UNINSTALL" = true ]; then
+    while IFS= read -r managed_name; do
+      [ -n "$managed_name" ] || continue
+      for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+        IFS='|' read -r program rel prefix <<< "$spec"
+        if ! sync_mirror_selected "$program"; then
+          continue
+        fi
+        candidate="$HOME_PATH/$rel/$managed_name"
+        if [ -d "$candidate" ]; then
+          if [ "$VERBOSE_PATHS" = true ]; then
+            echo "- Would remove synced mirror: $candidate"
+          else
+            echo "- Would remove synced mirror: ${prefix}__${managed_name}"
+          fi
+        fi
+      done
+    done < <(get_managed_mirror_names)
+  fi
   exit 0
 fi
 
 if [ "$UNINSTALL" = true ]; then
   if [ "$INCLUDE_CORE" = true ]; then
     backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
+    backup_path "$LEGACY_ORQUESTRADOR" "$LEGACY_ORQUESTRADOR_NAME"
     backup_path "$TARGET_AGENTS" "AGENTS.md"
   fi
 
@@ -602,6 +802,13 @@ EOF
       exit 1
     fi
     rm -rf "$TARGET_ORQUESTRADOR"
+  fi
+  if [ "$INCLUDE_CORE" = true ] && [ -e "$LEGACY_ORQUESTRADOR" ]; then
+    if ! path_under_root "$LEGACY_ORQUESTRADOR" "$HOME_PATH"; then
+      echo "Error: refusing to remove legacy target outside home: $LEGACY_ORQUESTRADOR" >&2
+      exit 1
+    fi
+    rm -rf "$LEGACY_ORQUESTRADOR"
   fi
   if [ "$INCLUDE_CORE" = true ] && [ -f "$TARGET_AGENTS" ]; then
     if ! path_under_root "$TARGET_AGENTS" "$HOME_PATH"; then
@@ -631,6 +838,31 @@ EOF
     fi
   done
 
+  while IFS= read -r managed_name; do
+    [ -n "$managed_name" ] || continue
+    for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+      IFS='|' read -r program rel prefix <<< "$spec"
+      if ! sync_mirror_selected "$program"; then
+        continue
+      fi
+      candidate="$HOME_PATH/$rel/$managed_name"
+      if [ -d "$candidate" ]; then
+        uninstall_synced_mirror_dir "$candidate" "${prefix}__${managed_name}"
+      fi
+    done
+  done < <(get_managed_mirror_names)
+
+  for spec in "${SYNC_MIRROR_SPECS[@]}"; do
+    IFS='|' read -r program rel _prefix <<< "$spec"
+    if ! sync_mirror_selected "$program"; then
+      continue
+    fi
+    mirror_root="$HOME_PATH/$rel"
+    if [ -d "$mirror_root" ]; then
+      remove_empty_parents_under_root "$mirror_root" "$HOME_PATH"
+    fi
+  done
+
   echo "Uninstall complete."
   if [ "$VERBOSE_PATHS" = true ]; then
     echo "HomePath: $HOME_PATH"
@@ -651,6 +883,7 @@ EOF
 fi
 
 backup_path "$TARGET_ORQUESTRADOR" "$TARGET_ORQUESTRADOR_NAME"
+backup_path "$LEGACY_ORQUESTRADOR" "$LEGACY_ORQUESTRADOR_NAME"
 backup_path "$TARGET_AGENTS" "AGENTS.md"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
@@ -667,49 +900,123 @@ EOF
   backup_path "$dest" "$label"
 done
 
-if [ -d "$TARGET_ORQUESTRADOR" ]; then
-  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
-    echo "Error: refusing to touch target outside home: $TARGET_ORQUESTRADOR" >&2
+STAGED_ORQUESTRADOR="$TARGET_ORQUESTRADOR.install-$STAMP-$"
+PREVIOUS_ORQUESTRADOR="$TARGET_ORQUESTRADOR.previous-$STAMP-$"
+
+cleanup_install_swap() {
+  rm -rf "$STAGED_ORQUESTRADOR" 2>/dev/null || true
+}
+trap cleanup_install_swap EXIT
+
+for swap_path in "$STAGED_ORQUESTRADOR" "$PREVIOUS_ORQUESTRADOR"; do
+  if ! path_under_root "$swap_path" "$HOME_PATH"; then
+    echo "Error: refusing install staging outside home: $swap_path" >&2
     exit 1
   fi
-  # 1.1.0 (ADR-001): merge, never wipe. Unknown user files (WORKLOG.md,
-  # templates/, windows-dev-tune/, disabled-native/ history, custom skills)
-  # stay untouched. Stale managed files are removed only via MANAGED_FILES.json
-  # tombstones from a previous 1.1.0+ install; first 1.1.0 upgrade never deletes.
-  if [ -f "$TARGET_ORQUESTRADOR/MANAGED_FILES.json" ] && command -v node >/dev/null 2>&1; then
-    node -e '
-      const fs = require("fs");
-      const path = require("path");
-      const [target, source] = [process.argv[1], process.argv[2]];
-      let old = {};
-      try { old = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8")).files || {}; } catch { process.exit(0); }
-      const next = new Set();
-      const walk = (dir) => {
-        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-          const p = path.join(dir, e.name);
-          if (e.isDirectory()) walk(p);
-          else if (e.isFile()) next.add(path.relative(source, p));
-        }
-      };
-      try { walk(source); } catch { process.exit(0); }
-      for (const rel of Object.keys(old)) {
-        if (rel === "MANAGED_FILES.json" || rel.startsWith("logs/")) continue;
-        if (!next.has(rel)) {
-          const dest = path.join(target, rel);
-          const resolved = path.resolve(dest);
-          const root = path.resolve(target);
-          if (resolved === root || resolved.startsWith(root + path.sep)) {
-            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true, recursive: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
-          }
-        }
-      }
-    ' "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
-  fi
+  rm -rf "$swap_path"
+done
+
+copy_tree_with_placeholders "$SOURCE_ORQUESTRADOR" "$STAGED_ORQUESTRADOR"
+mkdir -p "$STAGED_ORQUESTRADOR/logs"
+
+node - "$STAGED_ORQUESTRADOR/SKILLS_MANIFEST.json" <<'NODE'
+const fs = require("node:fs");
+const manifestPath = process.argv[2];
+if (!fs.existsSync(manifestPath)) throw new Error("staged Maestro bundle is missing SKILLS_MANIFEST.json");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+if (manifest.version !== 3) throw new Error(`staged Maestro manifest must be V3; received ${manifest.version}`);
+const entries = Object.entries(manifest.skills || {});
+if (entries.length === 0) throw new Error("staged Maestro manifest has no canonical skills");
+for (const [id, entry] of entries) {
+  if (entry.schemaVersion !== 2 || typeof entry.contractVersion !== "string" || !entry.contractVersion) {
+    throw new Error(`staged Maestro skill ${id} is not native Skill Contract V2`);
+  }
+}
+NODE
+
+restore_missing_tree "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/memory" "$STAGED_ORQUESTRADOR/memory"
+restore_missing_tree "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/memory" "$STAGED_ORQUESTRADOR/memory"
+restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
+  "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/maestro-config.json" \
+  "$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME/config.json" \
+  "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/maestro-config.json" \
+  "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/config.json"
+
+# 1.1.0 (#38, ADR-001): preserve unmanaged user files across the swap. The
+# staged bundle replaces the whole tree, so without this step custom files
+# living inside the maestro root (WORKLOG.md, templates/, windows-dev-tune/,
+# disabled-native/ history, ...) would be dropped. Managed content always comes
+# from the new bundle: only files the previous install did not record in
+# MANAGED_FILES.json are carried over. Pre-1.1.0 installs have no manifest, so
+# the conservative fallback keeps every file the new bundle does not ship
+# (first 1.1.0 upgrade never deletes).
+if [ -d "$TARGET_ORQUESTRADOR" ] && command -v node >/dev/null 2>&1; then
+  node - "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [oldRoot, stagedRoot] = process.argv.slice(2);
+if (!fs.existsSync(oldRoot)) process.exit(0);
+let oldManaged = null;
+try {
+  const raw = JSON.parse(fs.readFileSync(path.join(oldRoot, "MANAGED_FILES.json"), "utf8"));
+  oldManaged = new Set(Object.keys(raw.files || {}));
+} catch {
+  oldManaged = null;
+}
+let preserved = 0;
+const walk = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const src = path.join(dir, entry.name);
+    const rel = path.relative(oldRoot, src).split(path.sep).join("/");
+    if (entry.isDirectory()) { walk(src); continue; }
+    if (!entry.isFile()) continue;
+    if (rel === "MANAGED_FILES.json") continue;
+    if (rel === "logs" || rel.startsWith("logs/")) continue;
+    if (oldManaged !== null && oldManaged.has(rel)) continue;
+    const dest = path.join(stagedRoot, ...rel.split("/"));
+    if (fs.existsSync(dest)) continue;
+    try {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+      try { fs.chmodSync(dest, fs.statSync(src).mode); } catch { /* Windows does not implement POSIX modes. */ }
+      preserved += 1;
+    } catch (error) {
+      console.error(`preserve warning: ${rel}: ${error.message}`);
+    }
+  }
+};
+walk(oldRoot);
+if (preserved > 0) console.log(`Preserved user files: ${preserved}`);
+NODE
 fi
 
-copy_tree_with_placeholders "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
+if [ -d "$TARGET_ORQUESTRADOR" ]; then
+  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to replace target outside home: $TARGET_ORQUESTRADOR" >&2
+    exit 1
+  fi
+  mv "$TARGET_ORQUESTRADOR" "$PREVIOUS_ORQUESTRADOR"
+fi
+
+if ! mv "$STAGED_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"; then
+  if [ -d "$PREVIOUS_ORQUESTRADOR" ] && [ ! -e "$TARGET_ORQUESTRADOR" ]; then
+    mv "$PREVIOUS_ORQUESTRADOR" "$TARGET_ORQUESTRADOR" || true
+  fi
+  echo "Error: failed to publish staged Maestro bundle; previous install restored when possible." >&2
+  exit 1
+fi
+
+rm -rf "$PREVIOUS_ORQUESTRADOR"
+if [ -e "$LEGACY_ORQUESTRADOR" ]; then
+  if ! path_under_root "$LEGACY_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to remove legacy target outside home: $LEGACY_ORQUESTRADOR" >&2
+    exit 1
+  fi
+  rm -rf "$LEGACY_ORQUESTRADOR"
+fi
+trap - EXIT
+
 copy_with_placeholders "$SOURCE_AGENTS" "$TARGET_AGENTS"
-mkdir -p "$TARGET_ORQUESTRADOR/logs"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
   IFS='|' read -r src dest _label _component _kind <<EOF
@@ -812,6 +1119,8 @@ if [ -f "$DISCOVERY_SCRIPT" ]; then
     --output "$TARGET_ORQUESTRADOR/SKILLS_DISCOVERY.json"
 fi
 
+node "$REPO_ROOT/scripts/install-profile-state.js" write "$TARGET_ORQUESTRADOR" "${INSTALLED_PROFILES[@]+"${INSTALLED_PROFILES[@]}"}"
+
 echo "Installation complete."
 if [ "$VERBOSE_PATHS" = true ]; then
   echo "HomePath: $HOME_PATH"
@@ -830,5 +1139,12 @@ if [ -d "$BACKUP_DIR" ]; then
   fi
 fi
 echo "SkillSync: $([ "$SKIP_SKILL_SYNC" = false ] && echo true || echo false)"
-echo "ToolProfiles: $INSTALL_TOOL_PROFILES"
+echo "ToolProfilesRequested: $INSTALL_TOOL_PROFILES"
+echo "ToolProfiles: $([ "${#INSTALLED_PROFILES[@]}" -gt 0 ] && echo true || echo false)"
+echo "ToolProfilesInstalled: ${#INSTALLED_PROFILES[@]}"
+echo "InstalledProfiles: ${INSTALLED_PROFILES[*]:-none}"
+echo "SkippedProfiles (not detected): ${SKIPPED_PROFILES[*]:-none}"
+if [ "${#SKIPPED_PROFILES[@]}" -gt 0 ]; then
+  echo "Use --all-targets to install every supported tool profile."
+fi
 echo "ExtraSkillTargets: $(count_args "${TARGETS[@]+"${TARGETS[@]}"}")"

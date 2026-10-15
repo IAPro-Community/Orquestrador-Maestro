@@ -17,4 +17,5 @@ module.exports = {
   ,...require("./progress")
   ,...require("./status")
   ,...require("./interaction/errors")
+  ,...require("./resolution")
 };

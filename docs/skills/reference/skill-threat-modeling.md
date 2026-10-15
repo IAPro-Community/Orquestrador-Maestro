@@ -17,7 +17,8 @@ Conduz threat modeling estruturado com STRIDE-A, fluxos de dados, fronteiras de 
 
 ## Quando não usar
 
-- Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa.
+- Execução de scanners SAST/DAST como objetivo principal.
+- Correção pontual de vulnerabilidade já conhecida sem necessidade de modelagem.
 
 ## Exemplos de pedidos reconhecidos
 

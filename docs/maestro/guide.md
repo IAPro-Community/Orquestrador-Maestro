@@ -22,7 +22,7 @@ Com a configuração padrão:
 
 1. Governança compatível, com `compatibility` como padrão.
 2. Configuração por projeto, sem exigir o Maestro em cada tarefa.
-3. Diretório novo `.orquestrador-maestro`, mantendo leitura de instalações legadas em `.orquestrador`.
+3. Raiz canônica única `.orquestrador`, com migração assistida de instalações `.orquestrador-maestro`.
 4. Avisos sobre verificação e evidência sem alterar automaticamente a resposta original.
 5. Controle opt-in de rigor, frequência de avisos e hooks.
 6. Benchmark v2 com cenários reproduzíveis, testes ocultos e gate de evidência.
@@ -31,7 +31,7 @@ Com a configuração padrão:
 ## Instalação e atualização
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@latest
+npm install -g @iapro/orquestrador-maestro-cli@beta
 orquestrador-maestro install
 orquestrador-maestro verify
 ```
@@ -52,7 +52,7 @@ bash scripts/verify-install.sh
 
 No Windows, use os equivalentes `.ps1` com `powershell -NoProfile -ExecutionPolicy Bypass`.
 
-A atualização não renomeia automaticamente `.orquestrador`. Instalações existentes continuam válidas; novas instalações usam `.orquestrador-maestro`.
+A atualização com `orquestrador-maestro update` faz backup das duas raízes conhecidas, instala o snapshot em `.orquestrador`, restaura memória e configuração e remove `.orquestrador-maestro` somente após a nova instalação ser publicada. Os wrappers `install.ps1` e `install.sh` também fazem backup por padrão; `-NoForce`/`--no-force` impede a substituição em uma instalação manual.
 
 ## Primeira verificação
 
@@ -90,7 +90,7 @@ orquestrador-maestro governance set \
   --hooks off
 ```
 
-O comando grava `.orquestrador-maestro/config.json`. O CLI favorito continua sendo o ponto de execução da tarefa.
+O comando grava `.orquestrador/config.json`. O CLI favorito continua sendo o ponto de execução da tarefa.
 
 ## Modelo mental
 

@@ -21,6 +21,8 @@ Use multiagents only when at least one condition is true:
 
 Keep work solo when:
 
+- The task is a routine Git/VCS operation such as status, diff, add, commit, push, pull, branch inspection, or tagging. The lead agent performs it directly; do not create a Git worker for mechanical commands.
+- The task is formatting, a simple rename, a one-file edit, or running one validation command.
 - The next step is a blocking decision or a single-file change.
 - Agents would edit the same files.
 - The task requires one continuous mental model more than parallel throughput.
@@ -36,21 +38,27 @@ Keep work solo when:
 
 ### Standard
 
-- Agents: 0-1
-- Use one sidecar agent only for independent research, review, or verification.
-- Main agent keeps the implementation path.
+- Agents: 0
+- Default profile for normal engineering work.
+- Keep implementation, research, and verification in the lead process unless execution is explicitly promoted to multiagent.
 
 ### Deep
 
-- Agents: 2-4
-- Use for multi-system changes, project audits, SaaS builds, security hardening, or explicit parallel work.
-- Every agent needs a disjoint scope and a concrete output.
+- Agents: 0
+- Use for broad or difficult work that needs more reasoning, context, or verification.
+- Deep means greater reasoning depth, not automatic fan-out.
+
+### Multiagent
+
+- Subagents: 1-4
+- This is the only normal execution profile that permits provider fan-out.
+- Use only when there are at least 2 independent, non-overlapping workstreams and parallel execution materially helps.
 
 ### Team
 
-- Agents: 3-6
-- Use only when the work has clearly separable lanes such as frontend, backend, database, security, docs, and verification.
-- Require an integration owner.
+- Subagents: 2-4
+- Team is an explicit multiagent workflow, not an automatic consequence of task complexity.
+- Require disjoint ownership and a lead/integration owner.
 
 ## Delegation Rules
 
@@ -85,6 +93,8 @@ Use these lanes when they match the task:
 - `skill-premium-web-experience` may use these lanes for genuinely independent research, UX strategy, art direction, motion, implementation, and QA. Keep ownership disjoint and centralize the final integration; do not let multiple agents edit the same component tree simultaneously.
 
 Prefer fewer agents with better scopes over many agents with vague scopes.
+
+Treat reasoning depth and delegation as independent axes. Never select multiagent merely because a task is marked deep, complex, security-sensitive, or long-running. There must be parallelizable work.
 
 ## SaaS Default Split
 

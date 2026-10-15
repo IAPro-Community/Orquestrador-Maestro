@@ -44,18 +44,20 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | Opção | Efeito |
 |---|---|
 | `-HomePath <path>` | Instala em outro home. Útil para teste. |
-| `-NoForce` | Não sobrescreve `.orquestrador` e `AGENTS.md` existentes. |
+| `-NoForce` | Recusa substituir `.orquestrador`, a raiz legada `.orquestrador-maestro` ou `AGENTS.md` existentes. Por padrão, o wrapper faz backup antes da atualização. |
 | `-NoToolProfiles` | Não instala perfis/hook files das ferramentas. |
 | `-CoreOnly` | Instala apenas `.orquestrador` e `AGENTS.md`. |
 | `-SkipCommunitySkills` | Não copia a biblioteca comunitária para raízes de compatibilidade. |
 | `-SkipSkillSync` | Não roda o sincronizador de skills ao final. |
 | `-Only <id>` | Limita extras a um componente simbólico, mantendo o core. |
-| `-AllTargets` | Instala em todos os targets suportados (opt-in; com `-NonInteractive`, instala só ferramentas detectadas). |
-| `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup. |
+| `-DryRun` | Mostra o plano sem copiar, apagar ou criar backup; lista como etapas planejadas a criação de `logs`, o sync de skills e a descoberta (sem executar). |
 | `-ListTargets` | Lista os alvos que seriam tratados. |
 | `-Uninstall` | Remove de forma conservadora os arquivos mapeados pelo snapshot. |
-| `-NonInteractive` | Reservado para automação; não altera o comportamento atual porque o instalador já não pergunta. |
+| `-NonInteractive` | Reservado para automação; instala apenas os perfis de ferramentas detectados (binário no PATH ou diretório de config existente), salvo com `-AllTargets`. Vale para `scripts/install.ps1` e `scripts/install.sh`. |
+| `-AllTargets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `-VerbosePaths` | Mostra paths completos em listagem/dry-run. |
+
+> Elevação: `scripts/install.ps1` e `scripts/bootstrap-install.ps1` recusam Administrador salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1` (a mesma variável libera `install.sh` como root).
 
 ## Wrapper Linux/macOS
 
@@ -68,12 +70,29 @@ Por padrão, `DryRun`, `ListTargets`, instalação, uninstall e verificação mo
 | `--skip-community-skills` | Não copia a biblioteca comunitária para `.orquestrador/skill-library/community-skills`. |
 | `--skip-skill-sync` | Não roda sync ao final. |
 | `--only ID` | Limita extras a um componente simbólico. |
-| `--all-targets` | Instala em todos os targets suportados (opt-in; com `--non-interactive`, instala só ferramentas detectadas). |
-| `--dry-run` | Mostra o plano sem efeitos colaterais. |
+| `--dry-run` | Mostra o plano sem efeitos colaterais; lista como etapas planejadas a criação de `logs`, o `chmod +x`, o sync de skills e a descoberta (sem executar). |
 | `--list-targets` | Lista alvos planejados. |
 | `--uninstall` | Remove arquivos mapeados pelo snapshot e preserva backups. |
-| `--non-interactive` | Reservado para automação. |
+| `--non-interactive` | Reservado para automação; instala apenas os perfis de ferramentas detectados, salvo com `--all-targets`. |
+| `--all-targets` | Instala todos os perfis de ferramentas, ignorando a detecção. |
 | `--verbose-paths` | Mostra paths completos em listagem/dry-run. |
+
+> Elevação: `install.sh` e `scripts/install.sh` recusam root, com ou sem sudo, salvo com `ORQUESTRADOR_ALLOW_ROOT_INSTALL=1`. Dry-run e listagem continuam disponíveis sem essa liberação.
+
+## Perfis E Verificação Em Automação
+
+`--non-interactive` instala apenas os perfis detectados antes da cópia. Em um home isolado, sem ferramentas no PATH, nenhum perfil pode ser selecionado. O sumário distingue `ToolProfilesRequested` de `ToolProfiles`, informa a quantidade em `ToolProfilesInstalled` e lista os perfis aplicados e ignorados.
+
+O instalador grava IDs de perfis em `.orquestrador/INSTALL_PROFILES.json`. Na atualização, ele faz backup de `.orquestrador` e da raiz legada `.orquestrador-maestro`, migra memória e configuração e remove a raiz legada após concluir a instalação. O `verify` usa esse registro para exigir os arquivos e o conteúdo dos perfis selecionados; também sinaliza se a raiz legada ainda existe. Sem o registro, o verificador mantém a checagem completa das instalações antigas.
+
+Para aplicar todos os perfis na release v1, inclusive em homes isolados:
+
+```bash
+bash install.sh --home-path /tmp/maestro-home --non-interactive --all-targets
+node bin/orquestrador-maestro.js verify --home-path /tmp/maestro-home
+```
+
+No Windows, use `-NonInteractive -AllTargets`. As flags `--no-tool-profiles` e `--core-only` continuam disponíveis; instalações sem sync de skills ainda exigem `verify --core-only` ou a instalação prévia das skills.
 
 ## IDs Para `Only`
 
@@ -82,6 +101,8 @@ IDs aceitos:
 ```text
 all
 core
+orquestrador
+global-agents
 skills
 community-skills
 codex
@@ -108,7 +129,7 @@ Exemplos:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only codex -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only antigravity
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only freebuff -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Only freebuff
 orquestrador-maestro install --only codex,cursor,claude --dry-run
 ```
 
@@ -140,7 +161,9 @@ O uninstall não aceita caminhos arbitrários. Ele usa apenas os alvos conhecido
 Comportamento:
 
 - remove `.orquestrador` e `AGENTS.md` do home informado;
+- faz backup recursivo completo do core antes de remover (preserva arquivos gerados como `logs/`, `SKILLS_DISCOVERY.json` e offloads);
 - em diretórios compartilhados, remove apenas arquivos que existem no snapshot público;
+- reverte os espelhos criados por `sync --apply` (remove apenas diretórios gerenciados sob o manifesto/política, nunca arquivos do usuário fora das raízes gerenciadas);
 - cria backup antes de remover quando o destino existe;
 - recusa remover algo fora do home informado;
 - não remove credenciais, logins, caches, OAuth, projetos ou configs fora dos alvos mapeados.
@@ -205,10 +228,15 @@ Os smoke tests automatizam esse fluxo:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1 -Full
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-install.ps1 -KeepTemp
 ```
 
 Linux/macOS:
 
 ```bash
 bash scripts/test-install.sh
+bash scripts/test-install.sh --full
+bash scripts/test-install.sh --keep-temp
 ```
+
+`-Full`/`--full` executa a instalação completa no home temporário (em vez de `--core-only`); `-KeepTemp`/`--keep-temp` preserva o home temporário para inspeção. `scripts/verify-install.ps1 -VerbosePaths` e `scripts/verify-install.sh --verbose-paths` mostram o `HomePath` completo em vez de `[redacted]`.

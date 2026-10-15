@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orquestrador.local/schemas/skill-contract-v2.schema.json",
+  "title": "Maestro Skill Contract V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "origin",
+    "maturity",
+    "description",
+    "category",
+    "risk",
+    "capabilities",
+    "routing",
+    "context",
+    "outputs",
+    "verification",
+    "costProfile",
+    "compatibility"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "maestro-core",
+        "maestro-domain",
+        "external",
+        "project",
+        "user"
+      ]
+    },
+    "maturity": {
+      "type": "string",
+      "enum": [
+        "experimental",
+        "stable",
+        "deprecated"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "risk": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "useWhen",
+        "doNotUseWhen"
+      ],
+      "properties": {
+        "useWhen": {
+          "$ref": "#/$defs/stringList"
+        },
+        "doNotUseWhen": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "useful",
+        "avoid"
+      ],
+      "properties": {
+        "required": {
+          "$ref": "#/$defs/stringList"
+        },
+        "useful": {
+          "$ref": "#/$defs/stringList"
+        },
+        "avoid": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "outputs": {
+      "$ref": "#/$defs/stringList"
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "requirements"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "light",
+            "standard",
+            "strict",
+            "unknown"
+          ]
+        },
+        "requirements": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "costProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context"
+      ],
+      "properties": {
+        "context": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legacyProjected"
+      ],
+      "properties": {
+        "legacyProjected": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}

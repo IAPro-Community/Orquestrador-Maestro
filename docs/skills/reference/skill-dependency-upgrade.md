@@ -17,7 +17,8 @@ Atualização controlada de dependências e lockfiles.
 
 ## Quando não usar
 
-- Pedidos fora do domínio maintenance; use a skill específica quando houver uma intenção mais precisa.
+- Feature nova sem mudança de dependência.
+- Atualização de versão do próprio produto/release sem upgrade de dependências.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -47,7 +48,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Nenhuma recipe registrada.
-- Nenhuma chain registrada.
+- Chain `skill-engineering-quality`
 
 ## Evidência mínima de conclusão
 

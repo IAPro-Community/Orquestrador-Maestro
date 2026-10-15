@@ -17,7 +17,8 @@ Reliable web-browser agents using semantic page state, accessibility-tree inspec
 
 ## Quando não usar
 
-- Pedidos fora do domínio automation; use a skill específica quando houver uma intenção mais precisa.
+- Suite de testes E2E/regressão de uma aplicação; use skill-webapp-testing.
+- Clonagem de website a partir de URL; use skill-web-clone.
 
 ## Exemplos de pedidos reconhecidos
 
@@ -49,6 +50,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 ## Recipes e chains relacionadas
 
 - Nenhuma recipe registrada.
+- Chain `skill-deep-wiki`
 - Chain `skill-frontend-excellence`
 - Chain `skill-premium-web-experience`
 - Chain `skill-watch-evidence`

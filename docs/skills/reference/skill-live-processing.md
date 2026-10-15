@@ -17,7 +17,8 @@ Live media processing pipeline with capture, queueing, worker state, retries, an
 
 ## Quando não usar
 
-- Pedidos fora do domínio media; use a skill específica quando houver uma intenção mais precisa.
+- Upload manual/VOD sem ingestão live; use skill-manual-video-processing.
+- Seleção de melhores trechos a partir de conteúdo já processado; use skill-smart-clip-detection.
 
 ## Exemplos de pedidos reconhecidos
 

@@ -53,6 +53,26 @@ test("update dry-run does not update the global npm CLI", () => {
   assert.equal(fs.existsSync(path.join(homePath, "AGENTS.md")), false);
 });
 
+test("update keeps the wrapper's backup-by-default behavior and rejects no-force", () => {
+  const cliSource = fs.readFileSync(cliPath, "utf8");
+
+  assert.match(cliSource, /"--no-force": \{ ps: "-NoForce", sh: "--no-force" \}/u);
+  assert.match(cliSource, /if \(args\.includes\("--no-force"\)\) \{\s*throw new Error\("update sempre reaplica o núcleo com backup/u);
+  assert.match(cliSource, /const childResult = runCliUpdate\(args\)/u);
+  assert.doesNotMatch(cliSource, /updateArgs|"--force": \{ ps: "-Force"/u);
+});
+
+test("update --no-force fails before trying to update npm", () => {
+  const result = spawnSync(process.execPath, [cliPath, "update", "--no-force"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE: "1" }
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /update sempre reaplica o núcleo com backup/u);
+});
+
 test("Windows npm.cmd execution is routed through cmd.exe", () => {
   const cliSource = fs.readFileSync(cliPath, "utf8");
 
@@ -69,6 +89,6 @@ test("version --check exposes the installed and published npm versions", () => {
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+/u);
-  assert.match(result.stdout, /Versão latest no npm: \d+\.\d+\.\d+/u);
+  assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
+  assert.match(result.stdout, /Versão publicada no canal (?:latest|alpha|beta|next): \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
 });

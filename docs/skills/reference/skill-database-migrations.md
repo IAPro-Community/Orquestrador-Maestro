@@ -17,7 +17,8 @@ Migrações de banco seguras, compatíveis, idempotentes e verificáveis.
 
 ## Quando não usar
 
-- Pedidos fora do domínio database; use a skill específica quando houver uma intenção mais precisa.
+- Consulta ou ajuste de aplicação sem alteração de schema/dados persistidos.
+- Política RLS específica do Supabase como objetivo principal.
 
 ## Exemplos de pedidos reconhecidos
 

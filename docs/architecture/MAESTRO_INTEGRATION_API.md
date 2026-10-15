@@ -1,13 +1,24 @@
 # Maestro Integration API
 
-> Status: Partially superseded — cobre o protocolo v1 (`bridge --stdio`).
-> Métodos v2 (`missions.*`, `agentSessions.*`, `panes.*`, `projects.dashboard`)
-> existem no código (`runtime/protocol/protocol-v2.js`) e ainda não estão aqui.
+> Status: ativo na linha 1.0 Alpha. O contrato suportado é o protocolo v1 via
+> `orquestrador-maestro bridge --stdio`. O daemon/socket e o protocolo v2 da
+> antiga linha `cli-novo` foram removidos.
 
-`orquestrador-maestro bridge --stdio` exposes protocol version 1 as JSON-RPC 2.0 over newline-delimited JSON. `initialize` negotiates the protocol version. Read methods include `project.inspect`, `skills.list`, `providers.list`, `runs.list`, `runs.get`, `artifacts.list`, `artifacts.get`, and `verification.get`.
+`orquestrador-maestro bridge --stdio` expõe JSON-RPC 2.0 delimitado por linha.
+O método `initialize` negocia `PROTOCOL_VERSION=1`.
 
-`runs.create`, `runs.cancel`, `runs.inspect`, `projects.list`, `projects.get`, `projects.register`, `terminals.list`, `terminals.get`, `terminals.create`, `terminals.attach`, `terminals.close`, `terminals.registerClient`, `terminals.updateClientStatus` and `terminals.capabilities` are available when the runtime service is present. `terminals.start`, `terminals.stop` and `terminals.input` remain compatibility methods for the original non-interactive managed command.
+As operações suportadas cobrem o Runtime consolidado, incluindo inspeção de
+projeto, projetos, missões, skills, providers, runs, resolution/evidence,
+proof bundles, artefatos e verificação.
 
-Terminal sessions are metadata only: no prompt, screen buffer, ANSI stream or secret is persisted. A `tmux` session is persistent and attachable; a `vscode` session is rendered and owned exclusively by VS Code's native terminal API. Missing `tmux` produces the explicit JSON-RPC error `-32010` with its backend name. A second writable agent for the same workspace produces `-32011` with the existing session id.
+Para terminal, o Bridge preserva somente o contrato de comando gerenciado:
 
-The VS Code extension and the TUI use this API/application boundary as clients. The extension owns only presentation and user interaction; provider execution, Skill discovery, verification, Git observation, and persistence remain in the Runtime.
+- `terminals.start`;
+- `terminals.stop`;
+- `terminals.input`.
+
+Não fazem parte do contrato V1: `projects.dashboard`, sessões PTY,
+`agentSessions.*`, panes, attach de terminal, protocolo v2 e cliente socket.
+
+O Bridge é uma API aditiva. A execução, descoberta de Skills, verificação,
+observação Git e persistência continuam pertencendo ao Runtime.

@@ -17,7 +17,8 @@ Construção segura de MCP servers tipados e testáveis.
 
 ## Quando não usar
 
-- Pedidos fora do domínio integrations; use a skill específica quando houver uma intenção mais precisa.
+- Uso/configuração de um MCP existente sem criar ou alterar servidor.
+- Integração HTTP comum que não precisa do protocolo MCP.
 
 ## Exemplos de pedidos reconhecidos
 

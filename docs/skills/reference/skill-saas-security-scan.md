@@ -17,7 +17,8 @@ Authorized local SaaS repository security scan using maintained OSS tools.
 
 ## Quando não usar
 
-- Pedidos fora do domínio security; use a skill específica quando houver uma intenção mais precisa.
+- Scan ativo de URL/staging/produção; use skill-saas-dast-recon.
+- Modelagem de ameaças arquitetural sem execução de scanners; use skill-threat-modeling.
 
 ## Exemplos de pedidos reconhecidos
 
