@@ -19,6 +19,7 @@ Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue
 - Windows com PowerShell ou Linux/macOS com Bash.
 - Git instalado para clonar o repositório.
 - Codex, Claude, Gemini, Grok CLI, MiMo Code, Kimi Code, Cursor, OpenCode, Windsurf ou Antigravity são opcionais. O instalador prepara as pastas e os arquivos; cada ferramenta continua responsável pelo próprio login, runtime e credenciais.
+- Usando o **ChatGPT desktop (modo Codex)**? As skills já são instaladas no diretório compartilhado com o Codex CLI, mas existe uma armadilha de `CODEX_HOME` que as invisibiliza sem erro. Veja [ChatGPT desktop e o Maestro](chatgpt-desktop.md).
 
 ## Instalação Completa Recomendada
 

@@ -61,6 +61,8 @@ if [ -z "$HOME_PATH" ]; then
 fi
 
 HOME_PATH="$(CDPATH= cd -- "$HOME_PATH" && pwd -P)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 
 add_issue() {
   ISSUES+=("$1")
@@ -191,6 +193,19 @@ assert_file_contains "$HOME_PATH/AGENTS.md" "DEV/WORKLOG\\.md" "Global AGENTS.md
 assert_file_contains "$ORQUESTRADOR/rules.md" "DEV/WORKLOG\\.md" "Orquestrador rules"
 assert_file_contains "$ORQUESTRADOR/maestro.md" "PERSISTENCE\\.md" "Orquestrador maestro"
 assert_file_contains "$ORQUESTRADOR/PROJECT_DEV_HIERARCHY.md" "DEV/WORKLOG\\.md" "Project DEV hierarchy"
+
+# 1.1.0: the Codex CLI, IDE extension and ChatGPT desktop app all read
+# $CODEX_HOME (default ~/.codex). If it is set elsewhere, those clients never
+# see the skills installed here — a silent, total loss for Codex users.
+# This is an environment check, so it applies even with --core-only.
+if [ "$CORE_ONLY" = false ] || [ "$STRICT" = true ]; then
+  if command -v node >/dev/null 2>&1; then
+    CODEX_HOME_DIVERGENT="$(node -e 'const m=require(process.argv[1]);process.stdout.write(m.resolveCodexHome().divergent?"1":"0");' "$REPO_ROOT/orquestrador/lib/codex-home.js" 2>/dev/null || echo 0)"
+    if [ "$CODEX_HOME_DIVERGENT" = "1" ]; then
+      add_issue "CODEX_HOME diverges from the directory Maestro installs into (~/.codex). Codex CLI/IDE/ChatGPT desktop app read CODEX_HOME and will NOT see these skills. Set CODEX_HOME identically everywhere or unset it."
+    fi
+  fi
+fi
 
 if [ "$CORE_ONLY" = false ]; then
   assert_path "$CODEX/skills" "Codex skills"

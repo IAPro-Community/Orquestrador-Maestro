@@ -485,6 +485,20 @@ try { $versions.opencode = (opencode --version 2>$null) } catch { $versions.open
 try { $versions.ohMyCodexInstalled = (npm list -g oh-my-codex --depth=0 2>$null | Select-String "oh-my-codex@").ToString().Trim() } catch { $versions.ohMyCodexInstalled = "unavailable" }
 try { $versions.opencodeInstalled = (npm list -g opencode-ai --depth=0 2>$null | Select-String "opencode-ai@").ToString().Trim() } catch { $versions.opencodeInstalled = "unavailable" }
 
+# 1.1.0: Codex home parity. The Codex CLI, IDE extension and the ChatGPT
+# desktop app (Codex mode) all read $CODEX_HOME (default ~/.codex). Maestro
+# installs into ~/.codex, so a divergent CODEX_HOME means the desktop app
+# silently never sees the installed skills. Reported, never auto-fixed.
+$codexHomeScript = Join-Path $PSScriptRoot "lib\codex-home.js"
+$codexHome = $null
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  try {
+    $raw = & node -e "const m=require(process.argv[1]); const r=m.resolveCodexHome(); process.stdout.write(JSON.stringify({...r, platformSupport: m.desktopAppSupport()}));" $codexHomeScript 2>$null
+    if ($LASTEXITCODE -eq 0 -and $raw) { $codexHome = $raw | ConvertFrom-Json }
+  } catch { $codexHome = $null }
+}
+if (-not $codexHome) { $codexHome = [pscustomobject]@{ divergent = $false; message = "codex-home check unavailable (node not found)"; platformSupport = $null; codexHome = $null } }
+
 $report = [pscustomobject]@{
   GeneratedAt = (Get-Date).ToString("s")
   Entrypoints = $rows
@@ -495,6 +509,7 @@ $report = [pscustomobject]@{
   HookHealth = $hookHealth
   NativeSkillRootHealth = $nativeSkillRootHealth
   AntigravityPort3001Listening = ($null -ne $port3001)
+  CodexHome = $codexHome
   Versions = $versions
 }
 $report | ConvertTo-Json -Depth 8
@@ -510,8 +525,12 @@ if ($Strict) {
   if ($routingHealth -and $routingHealth.IssueCount) { $routingIssueCount = [int]$routingHealth.IssueCount }
   $drifted = @($skillMirrorDrift | Where-Object { $_.Different -eq $true })
   $unhealthyRoots = @($nativeSkillRootHealth | Where-Object { -not $_.Healthy })
-  if ($routingIssueCount -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0) {
-    Write-Error "doctor --strict: $routingIssueCount routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots."
+  # Divergent CODEX_HOME means the ChatGPT desktop app / Codex CLI read a
+  # different directory than the one Maestro installed into: the skills exist
+  # on disk but no Codex client will load them. That is real loss.
+  $codexHomeDivergent = if ($codexHome -and $codexHome.divergent) { 1 } else { 0 }
+  if ($routingIssueCount -gt 0 -or $drifted.Count -gt 0 -or $unhealthyRoots.Count -gt 0 -or $codexHomeDivergent -gt 0) {
+    Write-Error "doctor --strict: $routingIssueCount routing issues, $($drifted.Count) mirror drifts, $($unhealthyRoots.Count) unhealthy roots, $codexHomeDivergent codex home divergence."
     exit 1
   }
 }

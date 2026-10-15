@@ -126,6 +126,21 @@ Assert-FileContains -Path (Join-Path $orquestrador "rules.md") -Pattern "DEV/WOR
 Assert-FileContains -Path (Join-Path $orquestrador "maestro.md") -Pattern "PERSISTENCE\.md" -Label "Orquestrador maestro"
 Assert-FileContains -Path (Join-Path $orquestrador "PROJECT_DEV_HIERARCHY.md") -Pattern "DEV/WORKLOG\.md" -Label "Project DEV hierarchy"
 
+# 1.1.0: Codex CLI, IDE extension and ChatGPT desktop app all read $CODEX_HOME
+# (default ~/.codex). A divergent value means those clients never see the
+# installed skills. Environment check, so it runs even with -CoreOnly.
+if ((-not $CoreOnly) -or $Strict) {
+  $codexHomeScript = Join-Path $PSScriptRoot "..\orquestrador\lib\codex-home.js"
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    try {
+      $json = & node -e "const m=require(process.argv[1]);process.stdout.write(m.resolveCodexHome().divergent?'1':'0');" $codexHomeScript 2>$null
+      if ($json -eq "1") {
+        Add-Issue "CODEX_HOME diverges from the directory Maestro installs into (~/.codex). Codex CLI/IDE/ChatGPT desktop app read CODEX_HOME and will NOT see these skills. Set CODEX_HOME identically everywhere or unset it."
+      }
+    } catch { }
+  }
+}
+
 $installPolicy = Get-InstallPolicy -Path (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json")
 $nativeRootSpecs = @()
 foreach ($prop in $installPolicy.nativeRoots.PSObject.Properties) {

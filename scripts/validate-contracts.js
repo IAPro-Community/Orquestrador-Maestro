@@ -23,6 +23,7 @@ const STEPS = [
     "tests/sandbox-contract.test.js",
     "tests/run-store-durability.test.js",
     "tests/run-store-cas.test.js",
+    "tests/codex-home-parity.test.js",
     "tests/router-determinism.test.js",
     "tests/skill-routing.test.js",
     "tests/public-skill-catalog.test.js",
