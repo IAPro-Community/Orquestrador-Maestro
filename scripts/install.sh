@@ -672,38 +672,10 @@ if [ -d "$TARGET_ORQUESTRADOR" ]; then
     echo "Error: refusing to touch target outside home: $TARGET_ORQUESTRADOR" >&2
     exit 1
   fi
-  # 1.1.0 (ADR-001): merge, never wipe. Unknown user files (WORKLOG.md,
-  # templates/, windows-dev-tune/, disabled-native/ history, custom skills)
-  # stay untouched. Stale managed files are removed only via MANAGED_FILES.json
-  # tombstones from a previous 1.1.0+ install; first 1.1.0 upgrade never deletes.
+  # v1 manifests included unknown user files. The v2 pruner refuses to delete
+  # anything from v1, and only removes unchanged source-owned files from v2.
   if [ -f "$TARGET_ORQUESTRADOR/MANAGED_FILES.json" ] && command -v node >/dev/null 2>&1; then
-    node -e '
-      const fs = require("fs");
-      const path = require("path");
-      const [target, source] = [process.argv[1], process.argv[2]];
-      let old = {};
-      try { old = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8")).files || {}; } catch { process.exit(0); }
-      const next = new Set();
-      const walk = (dir) => {
-        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-          const p = path.join(dir, e.name);
-          if (e.isDirectory()) walk(p);
-          else if (e.isFile()) next.add(path.relative(source, p));
-        }
-      };
-      try { walk(source); } catch { process.exit(0); }
-      for (const rel of Object.keys(old)) {
-        if (rel === "MANAGED_FILES.json" || rel.startsWith("logs/")) continue;
-        if (!next.has(rel)) {
-          const dest = path.join(target, rel);
-          const resolved = path.resolve(dest);
-          const root = path.resolve(target);
-          if (resolved === root || resolved.startsWith(root + path.sep)) {
-            try { if (fs.existsSync(resolved)) { fs.rmSync(resolved, { force: true, recursive: true }); console.log(`tombstone removed: ${rel}`); } } catch {}
-          }
-        }
-      }
-    ' "$TARGET_ORQUESTRADOR" "$SOURCE_ORQUESTRADOR"
+    node "$REPO_ROOT/scripts/managed-files.js" prune "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
   fi
 fi
 
@@ -731,33 +703,9 @@ chmod +x \
   "$TARGET_ORQUESTRADOR/bin/compact-worklog.sh" \
   "$TARGET_ORQUESTRADOR/bin/check-dev-gates.sh" 2>/dev/null || true
 
-# 1.1.0: record managed snapshot for future tombstone deletes + verify/doctor diff.
+# Record only source-owned files, never enumerate the user's destination tree.
 if command -v node >/dev/null 2>&1; then
-  node -e '
-    const fs = require("fs");
-    const path = require("path");
-    const crypto = require("crypto");
-    const target = process.argv[1];
-    const files = {};
-    const walk = (dir) => {
-      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.name === "logs" && dir === target) continue;
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) { walk(p); continue; }
-        if (!e.isFile()) continue;
-        const rel = path.relative(target, p).replace(/\\/g, "/");
-        if (rel === "MANAGED_FILES.json") continue;
-        try {
-          const buf = fs.readFileSync(p);
-          files[rel] = { sha256: crypto.createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
-        } catch {}
-      }
-    };
-    try {
-      walk(target);
-      fs.writeFileSync(path.join(target, "MANAGED_FILES.json"), JSON.stringify({ version: 1, generator: "orquestrador-maestro 1.1.0", files }, null, 2));
-    } catch (e) { console.error("MANAGED_FILES warning: " + (e.message || e)); }
-  ' "$TARGET_ORQUESTRADOR" || true
+  node "$REPO_ROOT/scripts/managed-files.js" snapshot "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
 fi
 
 if [ "$SKIP_SKILL_SYNC" = false ]; then
