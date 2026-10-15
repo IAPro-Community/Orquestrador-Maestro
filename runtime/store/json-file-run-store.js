@@ -52,21 +52,34 @@ class JsonFileRunStore extends RunStore {
 
   async initialize() {
     if (this._state) return;
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
-    try {
-      const contents = await fs.readFile(this.filePath, "utf8");
-      this._state = this._validateState(JSON.parse(contents));
-      this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs;
-    } catch (error) {
-      if (error && error.code === "ENOENT") {
-        this._state = emptyState();
-        await this._flush();
-      } else if (error instanceof SyntaxError) {
-        throw new Error(`RunStore data is invalid JSON: ${this.filePath}`);
-      } else {
-        throw error;
+    if (this._initializing) return this._initializing;
+    // First creation must hold the same cross-process lock as all writes.
+    // Otherwise two fresh daemon instances can both flush an empty snapshot.
+    this._initializing = withLockAsync(`${this.filePath}.lock`, async () => {
+      await fs.mkdir(path.dirname(this.filePath), { recursive: true, mode: 0o700 });
+      try {
+        const contents = await fs.readFile(this.filePath, "utf8");
+        this._state = this._validateState(JSON.parse(contents));
+        this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs;
+      } catch (error) {
+        if (error && error.code === "ENOENT") {
+          this._state = emptyState();
+          await this._flush();
+        } else if (error instanceof SyntaxError) {
+          throw new Error(`RunStore data is invalid JSON: ${this.filePath}`);
+        } else {
+          throw error;
+        }
       }
-    }
+    });
+    try { await this._initializing; }
+    finally { this._initializing = null; }
+  }
+
+  async _readFresh() {
+    await this.initialize();
+    await this._mutation;
+    await this._reloadIfChanged();
   }
 
   async createProject(project) { return this._save("projects", project); }
@@ -119,7 +132,7 @@ class JsonFileRunStore extends RunStore {
   async getTerminal(id) { return this._get("terminals", id); }
 
   async getLatestProjectSnapshot(projectId) {
-    await this.initialize();
+    await this._readFresh();
     if (typeof projectId !== "string" || projectId.trim() === "") throw new TypeError("projectId must be a non-empty string");
     const snapshots = this._state.projectSnapshots.filter(s => s.projectId === projectId);
     if (snapshots.length === 0) throw new Error(`Project snapshot not found for project: ${projectId}`);
@@ -135,7 +148,7 @@ class JsonFileRunStore extends RunStore {
   async listMissions(filters) { return this._list("missions", filters, ["projectId", "status", "mode"]); }
   async listTasks(filters) { return this._list("tasks", filters); }
   async listRuns(filters = {}) {
-    await this.initialize();
+    await this._readFresh();
     let runs = this._state.runs;
     if (filters.projectId) {
       const taskIds = new Set(this._state.tasks.filter((task) => task.projectId === filters.projectId).map((task) => task.id));
@@ -166,7 +179,7 @@ class JsonFileRunStore extends RunStore {
   }
 
   async _get(collection, id) {
-    await this.initialize();
+    await this._readFresh();
     if (typeof id !== "string" || id.trim() === "") throw new TypeError("id must be a non-empty string");
     const record = this._state[collection].find((entry) => entry.id === id);
     return record ? clone(record) : undefined;
@@ -174,7 +187,7 @@ class JsonFileRunStore extends RunStore {
 
   async _list(collection, filters = {}, allowed) {
     assertKnownCollection(collection);
-    await this.initialize();
+    await this._readFresh();
     return this._filter(this._state[collection], filters, allowed);
   }
 
@@ -213,21 +226,16 @@ class JsonFileRunStore extends RunStore {
    * of concurrent runtime instances sharing the same run store file.
    */
   async _reloadIfChanged() {
-    if (this._lastWriteMtime === null) return;
-    let stat;
-    try {
-      stat = await fs.stat(this.filePath);
-    } catch {
-      return; // file is absent or unreadable; keep current state
-    }
-    if (stat.mtimeMs === this._lastWriteMtime) return;
-    try {
-      const contents = await fs.readFile(this.filePath, "utf8");
-      this._state = this._validateState(JSON.parse(contents));
-      this._lastWriteMtime = stat.mtimeMs;
-    } catch {
-      // Unreadable or invalid external write: keep current in-memory state.
-    }
+    // Read on every operation: mtimeMs can be equal for two cross-process
+    // renames on low-resolution Windows/network filesystems.
+    // An absent/corrupted store is a hard error, not permission to overwrite
+    // previously persisted data from a stale in-memory snapshot.
+    let contents;
+    try { contents = await fs.readFile(this.filePath, "utf8"); }
+    catch (error) { throw new Error(`RunStore is unavailable: ${this.filePath}: ${error.message}`); }
+    try { this._state = this._validateState(JSON.parse(contents)); }
+    catch (error) { throw new Error(`RunStore reload failed: ${this.filePath}: ${error.message}`); }
+    try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch {}
   }
 
   _validateState(state) {
