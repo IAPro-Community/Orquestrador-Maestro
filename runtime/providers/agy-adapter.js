@@ -27,6 +27,10 @@ class AgyAdapter extends ProviderAdapter {
       supported: true,
       honoursReadOnly: false
     });
+    if (request.sandbox !== undefined && request.sandbox !== null && request.sandbox !== false &&
+        request.sandbox !== "" && request.sandbox !== true && request.sandbox !== "enabled") {
+      throw new Error(`provider ${this.id} cannot enforce requested sandbox mode "${request.sandbox}"`);
+    }
     if (request.sandbox === true || request.sandbox === "enabled") args.push("--sandbox");
     return startProcess({ executable: this.executable, args, request, providerId: this.id });
   }
