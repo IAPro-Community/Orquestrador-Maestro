@@ -71,7 +71,7 @@ function runCommand(command, options = {}) {
         const script = spawnArgs[1]; // allowlisted identifier; no untrusted quoting
         spawnCommand = "cmd.exe";
         spawnArgs = ["/d", "/s", "/c", "npm.cmd run " + script];
-      } else if (/\\.(?:cmd|bat)$/iu.test(basename)) {
+      } else if (/\.(?:cmd|bat)$/iu.test(basename)) {
         resolve({ exitCode: 1, stdout: "", stderr: "Batch shims are not permitted in verification commands", durationMs: Date.now() - startedAt, timedOut: false });
         return;
       }
