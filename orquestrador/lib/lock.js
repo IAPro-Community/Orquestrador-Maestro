@@ -162,4 +162,4 @@ function getLockPath(filePath) {
 
 // Async critical sections live in ./lock-async.js: `acquireLock` busy-waits with
 // Atomics.wait, which deadlocks concurrent callers inside a single process.
-module.exports = { acquireLock, releaseLock, withLock, getLockPath };
+module.exports = { acquireLock, releaseLock, tryRecoverStaleLock, withLock, getLockPath };
