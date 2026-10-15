@@ -90,3 +90,37 @@ test("withLockAsync releases the lock even when the callback throws", async () =
   // A second acquisition must succeed immediately.
   await withLockAsync(lockPath, async () => {});
 });
+test("fresh stores initialise concurrently without overwriting each other", async () => {
+  const filePath = tempFile();
+  const a = new JsonFileRunStore({ filePath });
+  const b = new JsonFileRunStore({ filePath });
+  await Promise.all([a.initialize(), b.initialize()]);
+  await Promise.all([
+    a.saveRun({ id: "initial-a", status: "completed" }),
+    b.saveRun({ id: "initial-b", status: "completed" })
+  ]);
+  const ids = (await new JsonFileRunStore({ filePath }).listRuns()).map((run) => run.id);
+  assert.ok(ids.includes("initial-a"));
+  assert.ok(ids.includes("initial-b"));
+});
+
+test("reads observe updates committed by another store instance", async () => {
+  const filePath = tempFile();
+  const a = new JsonFileRunStore({ filePath });
+  const b = new JsonFileRunStore({ filePath });
+  await Promise.all([a.initialize(), b.initialize()]);
+  await a.saveRun({ id: "external-run", status: "running" });
+  assert.equal((await b.getRun("external-run")).status, "running");
+  await b.saveRun({ id: "external-run", status: "completed" });
+  assert.equal((await a.getRun("external-run")).status, "completed");
+});
+
+test("a removed store file fails closed instead of recreating a stale copy", async () => {
+  const filePath = tempFile();
+  const store = new JsonFileRunStore({ filePath });
+  await store.initialize();
+  await store.saveRun({ id: "before-remove", status: "completed" });
+  fs.unlinkSync(filePath);
+  await assert.rejects(store.saveRun({ id: "after-remove", status: "completed" }), /RunStore is unavailable/);
+  assert.equal(fs.existsSync(filePath), false);
+});
