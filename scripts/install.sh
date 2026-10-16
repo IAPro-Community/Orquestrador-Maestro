@@ -942,58 +942,15 @@ restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/maestro-config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/config.json"
 
-# 1.1.0 (#38, ADR-001): preserve unmanaged user files across the swap. The
-# staged bundle replaces the whole tree, so without this step custom files
-# living inside the maestro root (WORKLOG.md, templates/, windows-dev-tune/,
-# disabled-native/ history, ...) would be dropped. Managed content always comes
-# from the new bundle: only files the previous install did not record in
-# MANAGED_FILES.json are carried over. Pre-1.1.0 installs have no manifest, so
-# the conservative fallback keeps every file the new bundle does not ship
-# (first 1.1.0 upgrade never deletes).
-if [ -d "$TARGET_ORQUESTRADOR" ] && command -v node >/dev/null 2>&1; then
-  # Tombstone bookkeeping (v2 ownership): the pruner never deletes anything a
-  # v1 manifest cannot prove, refuses to touch user-modified files, and only
-  # removes stale source-owned files it can verify unchanged by sha256.
-  if [ -f "$TARGET_ORQUESTRADOR/MANAGED_FILES.json" ]; then
-    node "$REPO_ROOT/scripts/managed-files.js" prune "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
+# Stage user-owned files without modifying the active installation.
+# Version 1 manifests recorded personal files and cannot prove ownership.
+# Version 2 retires unchanged stale package files; modified files are kept.
+if [ -d "$TARGET_ORQUESTRADOR" ]; then
+  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to read target outside home: $TARGET_ORQUESTRADOR" >&2
+    exit 1
   fi
-  node - "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR" <<'NODE'
-const fs = require("node:fs");
-const path = require("node:path");
-const [oldRoot, stagedRoot] = process.argv.slice(2);
-if (!fs.existsSync(oldRoot)) process.exit(0);
-let oldManaged = null;
-try {
-  const raw = JSON.parse(fs.readFileSync(path.join(oldRoot, "MANAGED_FILES.json"), "utf8"));
-  oldManaged = new Set(Object.keys(raw.files || {}));
-} catch {
-  oldManaged = null;
-}
-let preserved = 0;
-const walk = (dir) => {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const src = path.join(dir, entry.name);
-    const rel = path.relative(oldRoot, src).split(path.sep).join("/");
-    if (entry.isDirectory()) { walk(src); continue; }
-    if (!entry.isFile()) continue;
-    if (rel === "MANAGED_FILES.json") continue;
-    if (rel === "logs" || rel.startsWith("logs/")) continue;
-    if (oldManaged !== null && oldManaged.has(rel)) continue;
-    const dest = path.join(stagedRoot, ...rel.split("/"));
-    if (fs.existsSync(dest)) continue;
-    try {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      try { fs.chmodSync(dest, fs.statSync(src).mode); } catch { /* Windows does not implement POSIX modes. */ }
-      preserved += 1;
-    } catch (error) {
-      console.error(`preserve warning: ${rel}: ${error.message}`);
-    }
-  }
-};
-walk(oldRoot);
-if (preserved > 0) console.log(`Preserved user files: ${preserved}`);
-NODE
+  node "$REPO_ROOT/scripts/managed-files.js" preserve "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR"
 fi
 
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
