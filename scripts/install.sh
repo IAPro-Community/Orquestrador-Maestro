@@ -951,6 +951,12 @@ restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
 # the conservative fallback keeps every file the new bundle does not ship
 # (first 1.1.0 upgrade never deletes).
 if [ -d "$TARGET_ORQUESTRADOR" ] && command -v node >/dev/null 2>&1; then
+  # Tombstone bookkeeping (v2 ownership): the pruner never deletes anything a
+  # v1 manifest cannot prove, refuses to touch user-modified files, and only
+  # removes stale source-owned files it can verify unchanged by sha256.
+  if [ -f "$TARGET_ORQUESTRADOR/MANAGED_FILES.json" ]; then
+    node "$REPO_ROOT/scripts/managed-files.js" prune "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
+  fi
   node - "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
@@ -1038,33 +1044,10 @@ chmod +x \
   "$TARGET_ORQUESTRADOR/bin/compact-worklog.sh" \
   "$TARGET_ORQUESTRADOR/bin/check-dev-gates.sh" 2>/dev/null || true
 
-# 1.1.0: record managed snapshot for future tombstone deletes + verify/doctor diff.
+# Record only source-owned files, never enumerate the user's destination tree;
+# the v2 manifest feeds future tombstone pruning + verify/doctor diff.
 if command -v node >/dev/null 2>&1; then
-  node -e '
-    const fs = require("fs");
-    const path = require("path");
-    const crypto = require("crypto");
-    const target = process.argv[1];
-    const files = {};
-    const walk = (dir) => {
-      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.name === "logs" && dir === target) continue;
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) { walk(p); continue; }
-        if (!e.isFile()) continue;
-        const rel = path.relative(target, p).replace(/\\/g, "/");
-        if (rel === "MANAGED_FILES.json") continue;
-        try {
-          const buf = fs.readFileSync(p);
-          files[rel] = { sha256: crypto.createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
-        } catch {}
-      }
-    };
-    try {
-      walk(target);
-      fs.writeFileSync(path.join(target, "MANAGED_FILES.json"), JSON.stringify({ version: 1, generator: "orquestrador-maestro 1.1.0", files }, null, 2));
-    } catch (e) { console.error("MANAGED_FILES warning: " + (e.message || e)); }
-  ' "$TARGET_ORQUESTRADOR" || true
+  node "$REPO_ROOT/scripts/managed-files.js" snapshot "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
 fi
 
 if [ "$SKIP_SKILL_SYNC" = false ]; then

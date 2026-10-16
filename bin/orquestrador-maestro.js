@@ -587,8 +587,16 @@ function runRollback(args) {
   }
   const backupRoot = path.join(homePath, ".orquestrador-public-backups");
   if (!fs.existsSync(backupRoot)) throw new Error(`Nenhum backup encontrado: ${backupRoot}`);
+  // Only timestamp-based backups produced by the installers are valid.
+  // Refuse traversal, absolute paths and symlinked backup directories.
+  const validStamp = (value) => /^\d{8}-\d{6}-\d+$/.test(value);
+  if (to && !validStamp(to)) throw new Error("Identificador de backup invalido: --to exige um timestamp do instalador.");
   const stamps = fs.readdirSync(backupRoot).filter((d) => {
-    try { return fs.statSync(path.join(backupRoot, d)).isDirectory(); } catch { return false; }
+    if (!validStamp(d)) return false;
+    try {
+      const info = fs.lstatSync(path.join(backupRoot, d));
+      return info.isDirectory() && !info.isSymbolicLink();
+    } catch { return false; }
   }).sort();
   if (list || stamps.length === 0) {
     console.log(stamps.length ? stamps.join("\n") : "Nenhum backup disponível.");

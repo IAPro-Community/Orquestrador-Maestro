@@ -829,6 +829,14 @@ try {
   # carried over. Pre-1.1.0 installs keep every file the new bundle does not
   # ship (first 1.1.0 upgrade never deletes).
   if ((Test-Path -LiteralPath $TargetOrquestrador) -and (Get-Command node -ErrorAction SilentlyContinue)) {
+    # Tombstone bookkeeping (v2 ownership): never deletes anything a v1
+    # manifest cannot prove, refuses user-modified files, and only removes
+    # stale source-owned files verified unchanged by sha256.
+    $managedPath = Join-Path $TargetOrquestrador "MANAGED_FILES.json"
+    if (Test-Path -LiteralPath $managedPath) {
+      & node (Join-Path $RepoRoot "scripts/managed-files.js") prune $SourceOrquestrador $TargetOrquestrador
+      if ($LASTEXITCODE -ne 0) { throw "Managed-file tombstone validation failed." }
+    }
     & node -e '
       const fs = require("fs");
       const path = require("path");
@@ -901,33 +909,11 @@ try {
 
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
-# 1.1.0: record managed snapshot for future tombstone deletes.
+# v2 manifest enumerates files shipped by source, never user-owned files;
+# feeds future tombstone pruning + verify/doctor diff.
 if (Get-Command node -ErrorAction SilentlyContinue) {
-  & node -e '
-    const fs = require("fs");
-    const path = require("path");
-    const crypto = require("crypto");
-    const target = process.argv[1];
-    const files = {};
-    const walk = (dir) => {
-      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (e.name === "logs" && dir === target) continue;
-        const p = path.join(dir, e.name);
-        if (e.isDirectory()) { walk(p); continue; }
-        if (!e.isFile()) continue;
-        const rel = path.relative(target, p).replace(/\\/g, "/");
-        if (rel === "MANAGED_FILES.json") continue;
-        try {
-          const buf = fs.readFileSync(p);
-          files[rel] = { sha256: crypto.createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
-        } catch {}
-      }
-    };
-    try {
-      walk(target);
-      fs.writeFileSync(path.join(target, "MANAGED_FILES.json"), JSON.stringify({ version: 1, generator: "orquestrador-maestro 1.1.0", files }, null, 2));
-    } catch (e) { console.error("MANAGED_FILES warning: " + (e.message || e)); }
-  ' $TargetOrquestrador
+  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
+  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
 }
 
 foreach ($target in $extraTargets) {

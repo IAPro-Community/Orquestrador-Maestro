@@ -50,6 +50,13 @@ test("agy still allows generic sandbox=true and no sandbox at all", async () => 
   }
 });
 
+test("agy rejects modes its boolean sandbox flag cannot guarantee", async () => {
+  const adapter = new AgyAdapter({ executable: "agy-does-not-exist" });
+  for (const sandbox of ["workspace-write", "danger-full-access", "unknown-mode"]) {
+    await assert.rejects(adapter.execute({ prompt: "p", sandbox }), /cannot enforce requested sandbox mode/);
+  }
+});
+
 test("opencode refuses every explicit sandbox request (no sandbox support)", async () => {
   const adapter = new OpenCodeAdapter({ executable: "opencode-does-not-exist" });
   for (const sandbox of ["read-only", "workspace-write", true]) {

@@ -14,14 +14,14 @@ function collect(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const full = path.join(directory, entry.name);
     if (entry.isDirectory()) collect(full);
-    else if (entry.isFile() && entry.name.endsWith(".test.js")) files.push(path.relative(root, full));
+    else if (entry.isFile() && /\.test\.(?:js|ts)$/.test(entry.name)) files.push(path.relative(root, full));
   }
 }
 
 for (const directory of roots) collect(path.join(root, directory));
 files.sort((a, b) => a.localeCompare(b));
 if (files.length === 0) {
-  console.error("No JavaScript test files found.");
+  console.error("No JavaScript/TypeScript test files found.");
   process.exit(1);
 }
 
