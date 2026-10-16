@@ -15,21 +15,21 @@ const test = require("node:test");
 const { resolveCodexHome, defaultCodexHome, desktopAppSupport, parseOsRelease } = require("../orquestrador/lib/codex-home");
 
 test("unset CODEX_HOME is shared and not divergent", () => {
-  const result = resolveCodexHome({ env: {}, home: "/home/u" });
-  assert.equal(result.codexHome, path.join("/home/u", ".codex"));
+  const result = resolveCodexHome({ env: {}, home: "/home/user" });
+  assert.equal(result.codexHome, path.join("/home/user", ".codex"));
   assert.equal(result.usesDefault, true);
   assert.equal(result.divergent, false);
   assert.match(result.message, /shared/i);
 });
 
 test("CODEX_HOME equal to the default home is not divergent", () => {
-  const result = resolveCodexHome({ env: { CODEX_HOME: "/home/u/.codex" }, home: "/home/u" });
+  const result = resolveCodexHome({ env: { CODEX_HOME: "/home/user/.codex" }, home: "/home/user" });
   assert.equal(result.divergent, false);
   assert.equal(result.usesDefault, false);
 });
 
 test("CODEX_HOME pointing elsewhere is flagged as divergent with an actionable message", () => {
-  const result = resolveCodexHome({ env: { CODEX_HOME: "/tmp/other-codex" }, home: "/home/u" });
+  const result = resolveCodexHome({ env: { CODEX_HOME: "/tmp/other-codex" }, home: "/home/user" });
   assert.equal(result.divergent, true);
   assert.equal(result.codexHome, path.resolve("/tmp/other-codex"));
   assert.match(result.message, /will NOT see/i);
@@ -38,19 +38,19 @@ test("CODEX_HOME pointing elsewhere is flagged as divergent with an actionable m
 
 test("blank and whitespace CODEX_HOME fall back to the default", () => {
   for (const value of ["", "   "]) {
-    const result = resolveCodexHome({ env: { CODEX_HOME: value }, home: "/home/u" });
+    const result = resolveCodexHome({ env: { CODEX_HOME: value }, home: "/home/user" });
     assert.equal(result.usesDefault, true, `blank value should fall back: ${JSON.stringify(value)}`);
     assert.equal(result.divergent, false);
   }
 });
 
 test("tilde CODEX_HOME is expanded before comparison", () => {
-  const result = resolveCodexHome({ env: { CODEX_HOME: "~/.codex" }, home: "/home/u" });
+  const result = resolveCodexHome({ env: { CODEX_HOME: "~/.codex" }, home: "/home/user" });
   assert.equal(result.divergent, false, "~/.codex must expand to the default home");
 });
 
 test("defaultCodexHome matches the path Maestro installs into", () => {
-  assert.equal(defaultCodexHome("/home/u"), path.join("/home/u", ".codex"));
+  assert.equal(defaultCodexHome("/home/user"), path.join("/home/user", ".codex"));
 });
 
 test("desktop app support is reported per platform", () => {

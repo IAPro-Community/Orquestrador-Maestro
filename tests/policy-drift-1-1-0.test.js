@@ -46,11 +46,13 @@ test("1.1.0: sync preserves by default, prune is explicit", () => {
 test("1.1.0: installer merges instead of wiping + records MANAGED_FILES", () => {
   const sh = fs.readFileSync(path.join(ROOT, "scripts", "install.sh"), "utf8");
   const ps1 = fs.readFileSync(path.join(ROOT, "scripts", "install.ps1"), "utf8");
-  // Install path merges (uninstall path legitimately still removes on explicit uninstall).
-  assert.match(sh, /merge, never wipe/i);
-  assert.match(sh, /tombstone removed/);
-  assert.match(sh, /MANAGED_FILES\.json/);
-  assert.match(ps1, /merge, never wipe/i);
-  assert.match(ps1, /tombstone removed/);
-  assert.match(ps1, /MANAGED_FILES\.json/);
+  // Install path merges (uninstall path legitimately still removes on explicit uninstall):
+  // the staged swap carries over unmanaged user files and books tombstones for the future.
+  for (const [name, source] of [["install.sh", sh], ["install.ps1", ps1]]) {
+    assert.match(source, /preserve unmanaged user files across the swap/i, `${name}: merge semantics documented`);
+    assert.match(source, /carried over/i, `${name}: only unmanaged files are preserved`);
+    assert.match(source, /never deletes/i, `${name}: first upgrade never deletes`);
+    assert.match(source, /tombstone/i, `${name}: tombstone bookkeeping recorded`);
+    assert.match(source, /MANAGED_FILES\.json/, `${name}: records managed snapshot`);
+  }
 });

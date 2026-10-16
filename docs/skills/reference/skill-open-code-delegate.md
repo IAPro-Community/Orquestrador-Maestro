@@ -51,7 +51,7 @@ A skill permanece no catálogo canônico e é disponibilizada sob demanda; ela n
 
 - Roteamento para skill-multiagent-orchestration.
 
-Perfil de workflow: `standard` (entrada: `SKILL.md`).
+Perfil de workflow: `light` (entrada: `SKILL.md`).
 
 ## Proveniência
 

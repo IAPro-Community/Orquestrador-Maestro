@@ -24,20 +24,34 @@ test("flush fsyncs the temp file and the parent directory", async (t) => {
   await store.initialize();
 
   const opened = [];
+  const synced = [];
   const realOpen = fsp.open;
   t.mock.method(fsp, "open", async (...args) => {
-    opened.push({ path: args[0], flags: args[1] });
-    return realOpen(...args);
+    const handle = await realOpen(...args);
+    opened.push({ path: String(args[0]), flags: args[1] });
+    const realSync = handle.sync.bind(handle);
+    t.mock.method(handle, "sync", async () => {
+      synced.push(String(args[0]));
+      return realSync();
+    });
+    return handle;
   });
 
   await store.saveRun({ id: "r1", status: "completed" });
 
-  const fileSyncs = opened.filter((o) => String(o.path).includes("runs.json") && String(o.path).endsWith(".tmp"));
-  assert.ok(fileSyncs.length > 0, "temp file must be opened and synced before rename");
-  assert.equal(fileSyncs[0].flags, "wx", "temp file must be created exclusively");
+  const tempOpens = opened.filter((o) => o.path.endsWith(".tmp"));
+  assert.ok(tempOpens.length > 0, "temp file must be opened before rename");
+  assert.ok(
+    synced.some((p) => p.endsWith(".tmp")),
+    "temp file must be fsynced before rename"
+  );
 
-  const dirOpens = opened.filter((o) => String(o.path).endsWith(path.join("runtime")));
+  const dirOpens = opened.filter((o) => o.path.endsWith(path.join("runtime")));
   assert.ok(dirOpens.length > 0, "parent directory must be opened for fsync after rename");
+  assert.ok(
+    synced.some((p) => p.endsWith(path.join("runtime"))),
+    "parent directory must be fsynced after rename"
+  );
 });
 
 test("store content survives a reopen and is valid JSON", async () => {

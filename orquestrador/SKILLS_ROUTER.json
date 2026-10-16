@@ -8,6 +8,18 @@
     "trigger-contained",
     "capability-route"
   ],
+  "normalization": {
+    "caseInsensitive": true,
+    "locale": "pt-BR",
+    "trim": true,
+    "note": "Applied to descriptions, aliases and triggers before matching (see runtime/planner/intent-router.js)."
+  },
+  "tieBreak": [
+    "higher-evidence-tier-wins",
+    "longer-match-wins",
+    "higher-priority-wins",
+    "lexicographically-smallest-on-tie"
+  ],
   "purpose": "Compact routing index. Read this first, then open only the matching SKILL.md and referenced files.",
   "capabilityRoutes": {
     "software-architecture": {
@@ -1382,6 +1394,34 @@
       "cost": "medium",
       "safety": "task-specific-guardrails",
       "priority": 8
+    },
+    "skill-open-code-delegate": {
+      "description": "Deprecated alias: route to skill-multiagent-orchestration.",
+      "triggers": [
+        "open code delegate",
+        "skill-open-code-delegate"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-open-code-delegate/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-open-code-delegate/SKILL.md",
+      "cost": "low",
+      "safety": "task-specific-guardrails",
+      "priority": 0,
+      "deprecated": true,
+      "redirect": "skill-multiagent-orchestration"
+    },
+    "skill-open-code-review": {
+      "description": "Deprecated alias: route to code-review.",
+      "triggers": [
+        "open code review",
+        "skill-open-code-review"
+      ],
+      "canonicalPath": "{{USER_HOME}}/.orquestrador/skills/skill-open-code-review/SKILL.md",
+      "codexPath": "{{USER_HOME}}/.codex/skills/skill-open-code-review/SKILL.md",
+      "cost": "low",
+      "safety": "task-specific-guardrails",
+      "priority": 0,
+      "deprecated": true,
+      "redirect": "code-review"
     }
   },
   "riskClasses": {

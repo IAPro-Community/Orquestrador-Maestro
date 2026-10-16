@@ -50,6 +50,7 @@ const verifyFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
   "--skip-tool-profiles": { ps: "-SkipToolProfiles", sh: "--skip-tool-profiles" },
   "--core-only": { ps: "-CoreOnly", sh: "--core-only" },
+  "--strict": { ps: "-Strict", sh: "--strict" },
   "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" }
 };
 
@@ -64,6 +65,7 @@ Uso:
   orquestrador-maestro install [opcoes]
   orquestrador-maestro update [opcoes]
   orquestrador-maestro verify [opcoes]
+  orquestrador-maestro rollback [--home-path PATH] [--to STAMP] [--list]
   orquestrador-maestro doctor [opcoes]
   orquestrador-maestro init-dev [--project-path PATH]
   orquestrador-maestro compact-worklog [--project-path PATH] [--keep N]
@@ -131,6 +133,7 @@ Opcoes de install/update/uninstall:
   --no-tool-profiles          Nao instala perfis globais das ferramentas
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
   --skip-skill-sync           Nao roda o sync de skills
+  --skip-desktop-plugin       Nao instala o plugin do app ChatGPT/Codex Desktop
   --dry-run                   Mostra o plano sem alterar arquivos
   --list-targets              Lista os destinos conhecidos
   --non-interactive           Evita prompts interativos
@@ -147,6 +150,7 @@ Opcoes de verify:
   --home-path <path>
   --core-only
   --skip-tool-profiles
+  --strict                    Verifica espelho completo + MANAGED_FILES + policy v2
   --verbose-paths
 
 Opcoes de doctor:
@@ -408,6 +412,49 @@ function runCliUpdate(args) {
   });
 }
 
+function desktopAppPresent() {
+  if (process.platform === "darwin") return fs.existsSync("/Applications/ChatGPT.app");
+  if (process.platform !== "linux") return false;
+  const candidates = (process.env.PATH || "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((dir) => path.join(dir, "chatgpt"));
+  return candidates.some((candidate) => fs.existsSync(candidate));
+}
+
+function desktopPluginTargetsCodex(args) {
+  if (args.includes("--core-only")) return false;
+  const only = [];
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === "--only") {
+      const value = args[i + 1];
+      if (value && !value.startsWith("--")) {
+        only.push(...value.split(/[,\s]+/).map((entry) => entry.trim()).filter(Boolean));
+      }
+      i += 1;
+    }
+  }
+  return only.length === 0 || only.includes("codex");
+}
+
+function maybeInstallDesktopPlugin(args, installStatus) {
+  if (installStatus !== 0) return;
+  if (process.env.ORQUESTRADOR_MAESTRO_SKIP_DESKTOP_PLUGIN === "1") return;
+  if (!desktopPluginTargetsCodex(args)) return;
+  const { desktopAppSupport } = require(path.join(rootDir, "orquestrador", "lib", "codex-home.js"));
+  const support = desktopAppSupport();
+  if (!support.supported && !desktopAppPresent()) return;
+  const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
+  try {
+    const integration = require(path.join(rootDir, "runtime", "integrations", "openai", "installer.js"));
+    const result = integration.installDesktopPlugin({ home: homePath, packageRoot: rootDir });
+    console.log(`Plugin desktop ChatGPT/Codex instalado em ${result.destination}.`);
+    console.log("Reabra o app e aprove os hooks na primeira execucao.");
+  } catch (error) {
+    console.error(`Aviso: plugin desktop nao instalado (${error.message || error}).`);
+  }
+}
+
 async function runInstall(args, injectedFlags = []) {
   const isWindows = process.platform === "win32";
   const script = path.join(rootDir, isWindows ? "install.ps1" : "install.sh");
@@ -415,9 +462,10 @@ async function runInstall(args, injectedFlags = []) {
     throw new Error(`Instalador nao encontrado: ${script}`);
   }
 
-  const isNonInteractive = args.includes("--non-interactive") || injectedFlags.includes("--non-interactive");
-  const isAllTargets = args.includes("--all-targets") || injectedFlags.includes("--all-targets");
-  const hasOnly = args.some(a => a === "--only") || injectedFlags.some(a => a === "--only");
+  const normalizedForOnly = [...args, ...injectedFlags].flatMap((a) => a.startsWith("--only=") ? ["--only", a.slice("--only=".length)] : [a]);
+  const isNonInteractive = normalizedForOnly.includes("--non-interactive");
+  const isAllTargets = normalizedForOnly.includes("--all-targets");
+  const hasOnly = normalizedForOnly.includes("--only");
 
   if (!isNonInteractive && !isAllTargets && !hasOnly && process.stdin.isTTY) {
     const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
@@ -477,13 +525,25 @@ async function runInstall(args, injectedFlags = []) {
     }
   }
 
+  const skipDesktopPlugin = normalizedForOnly.includes("--skip-desktop-plugin");
+  const scriptArgs = [...args, ...injectedFlags].filter((arg) => arg !== "--skip-desktop-plugin");
+  const runOnly = normalizedForOnly.includes("--uninstall")
+    || normalizedForOnly.includes("--list-targets")
+    || normalizedForOnly.includes("--dry-run");
+
+  let result;
   if (isWindows) {
-    const translated = translateArgs([...args, ...injectedFlags], installFlagDefs, "ps");
-    return run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...translated]);
+    const translated = translateArgs(scriptArgs, installFlagDefs, "ps");
+    result = run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...translated]);
+  } else {
+    const translated = translateArgs(scriptArgs, installFlagDefs, "sh");
+    result = run("bash", [script, ...translated]);
   }
 
-  const translated = translateArgs([...args, ...injectedFlags], installFlagDefs, "sh");
-  return run("bash", [script, ...translated]);
+  if (!skipDesktopPlugin && !runOnly) {
+    maybeInstallDesktopPlugin(normalizedForOnly, result);
+  }
+  return result;
 }
 
 function runVerify(args) {
@@ -500,6 +560,66 @@ function runVerify(args) {
 
   const translated = translateArgs(args, verifyFlagDefs, "sh");
   return run("bash", [script, ...translated]);
+}
+
+function runRollback(args) {
+  const normalized = normalizeArgs(args);
+  let homePath = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  let to = "";
+  let list = false;
+  for (let i = 0; i < normalized.length; i += 1) {
+    const a = normalized[i];
+    if (a === "--home-path") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --home-path exige um valor.");
+      homePath = v;
+      i += 1;
+    } else if (a === "--to") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --to exige um valor.");
+      to = v;
+      i += 1;
+    } else if (a === "--list") {
+      list = true;
+    } else {
+      throw new Error(`Parametro desconhecido: ${a}`);
+    }
+  }
+  const backupRoot = path.join(homePath, ".orquestrador-public-backups");
+  if (!fs.existsSync(backupRoot)) throw new Error(`Nenhum backup encontrado: ${backupRoot}`);
+  const stamps = fs.readdirSync(backupRoot).filter((d) => {
+    try { return fs.statSync(path.join(backupRoot, d)).isDirectory(); } catch { return false; }
+  }).sort();
+  if (list || stamps.length === 0) {
+    console.log(stamps.length ? stamps.join("\n") : "Nenhum backup disponível.");
+    return 0;
+  }
+  const stamp = to || stamps[stamps.length - 1];
+  const src = path.join(backupRoot, stamp);
+  if (!fs.existsSync(src)) throw new Error(`Backup não encontrado: ${src}`);
+  // The installer backs up the whole core tree under its directory name plus
+  // AGENTS.md. Other entries are per-file tool-profile snapshots whose labels
+  // are not destination paths, so they are intentionally not restored here.
+  const coreCandidates = [".orquestrador", ".orquestrador-maestro"];
+  let restoredCore = null;
+  for (const name of coreCandidates) {
+    const candidate = path.join(src, name);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) { restoredCore = name; break; }
+  }
+  if (restoredCore) {
+    const destination = path.join(homePath, restoredCore);
+    fs.mkdirSync(destination, { recursive: true });
+    const backupCore = path.join(src, restoredCore);
+    for (const inner of fs.readdirSync(backupCore)) {
+      fs.cpSync(path.join(backupCore, inner), path.join(destination, inner), { recursive: true, force: true });
+    }
+  }
+  const agentsBackup = path.join(src, "AGENTS.md");
+  const restoredAgents = fs.existsSync(agentsBackup);
+  if (restoredAgents) fs.copyFileSync(agentsBackup, path.join(homePath, "AGENTS.md"));
+  if (!restoredCore && !restoredAgents) throw new Error(`Backup vazio ou incompatível: ${src}`);
+  console.log(`Rollback concluído a partir de ${stamp}. Reexecute 'orquestrador-maestro verify' para confirmar.`);
+  return 0;
 }
 
 function parseDoctorArgs(args) {
@@ -2782,6 +2902,10 @@ async function dispatch(command, args) {
     return runVerify(args);
   }
 
+  if (command === "rollback") {
+    return runRollback(args);
+  }
+
   if (command === "doctor") {
     return runDoctor(args);
   }
@@ -2863,7 +2987,7 @@ async function main() {
   }
 
   const telemetryCommands = new Set([
-    "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
+    "install", "update", "uninstall", "list-targets", "dry-run", "verify", "rollback", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
     "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",

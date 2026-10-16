@@ -225,7 +225,8 @@ const currentBranchResult = spawnSync("git", ["branch", "--show-current"], {
   shell: false
 });
 const currentBranch = currentBranchResult.status === 0 ? currentBranchResult.stdout.trim() : "";
-const ancestryBase = process.env.VERIFY_BASE_REF || (currentBranch === "v1" ? "origin/v1" : "origin/main");
+const isV1Line = currentBranch === "v1" || currentBranch.startsWith("release/");
+const ancestryBase = process.env.VERIFY_BASE_REF || (isV1Line ? "origin/v1" : "origin/main");
 runCheck(`HEAD is descendant of ${ancestryBase}`, () => {
   const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", ancestryBase, "HEAD"], {
     cwd: rootDir,

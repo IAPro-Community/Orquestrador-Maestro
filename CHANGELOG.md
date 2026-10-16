@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.1.0 - 2026-10-14
+## 1.1.0 - 2026-10-15
 
-Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback e hardening de runtime.
+Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback, hardening de runtime e integração com o app desktop ChatGPT/Codex. Esta linha incorpora a 1.0.1 (`v1`) por merge, tornando-se descendente direta da linha estável.
 
 ### Correções de instalação e atualização (issues #38, #39)
 
@@ -17,17 +17,22 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 
 ### Compatibilidade
 
-- `skill-open-code-review` → alias deprecated para `code-review`/`review-agent`; `skill-open-code-delegate` → alias deprecated para `skill-multiagent-orchestration` (aviso de remoção futura, issue #38).
-- Catálogo público: 77 skills únicas de 176 arquivos; manifesto canônico com 54 skills; matriz de capabilities sem contagens hardcoded.
+- `skill-open-code-review` → alias deprecated para `code-review`; `skill-open-code-delegate` → alias deprecated para `skill-multiagent-orchestration` (aviso de remoção futura, issue #38).
+- Catálogo público: 81 skills únicas de 187 arquivos; manifesto canônico com 58 skills (inclui as 4 skills de design da linha v1); matriz de capabilities sem contagens hardcoded.
 
 ### Hardening
 
 - `runtime/verification/engine.js`: cap de saída 512KB, `SIGTERM`→`SIGKILL`, guards de spawn nulo.
-- `runtime/bridge/socket-server.js`: teto de buffer pré-newline (anti-OOM).
-- `runtime/providers/process-execution.js`: `BLOCKED_ENV_KEYS` expandida (AWS/OpenAI/Anthropic/GitHub/Azure/Google + `BASH_ENV`/`PYTHONPATH`).
+- `runtime/providers/process-execution.js`: `BLOCKED_ENV_KEYS` expandida (AWS/OpenAI/Anthropic/GitHub/Azure/Google + `BASH_ENV`/`PYTHONPATH`) + `BLOCKED_ENV_PREFIXES`.
 - `diagnostic-sanitizer`: `ASIA/ABIA/glpat-/AIza/dop_v1` + blocos PEM.
-- `tool-adapters render` com `--refresh`; `benchmark run --profile official` exige `--container`; CSV com coluna `claim_eligible`; extensão VS Code com backoff e dispose completo.
+- `tool-adapters render` com `--refresh`; `benchmark run --profile official` exige `--container`; CSV com coluna `claim_eligible`.
 - Instalador: detecção de binários por conteúdo (não só extensão) e guarda de newline em `--home-path`.
+
+### App desktop ChatGPT/Codex
+
+- `orquestrador/lib/codex-home.js`: resolve `$CODEX_HOME` (CLI e app desktop compartilham o mesmo Codex home); `doctor`/`verify --strict`/`verify-install.*` reportam divergência que deixaria skills invisíveis sem erro.
+- `install` instala o plugin desktop automaticamente quando a plataforma é suportada ou o app está presente (opt-out: `--skip-desktop-plugin` / `ORQUESTRADOR_MAESTRO_SKIP_DESKTOP_PLUGIN=1`; `--only` sem `codex` e `--core-only` pulam).
+- Comandos `desktop-plugin install|status|doctor|stats|remove`; hooks/MCP do plugin exigem trust manual na UI do app (limite deliberado).
 
 ### Quick wins arquiteturais (RFC, mesma release)
 
@@ -41,8 +46,8 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 
 ### Verificação
 
-- Novos testes: `update-preservation-1-1-0`, `policy-drift-1-1-0`, `alias-deprecated`, `path-contract`, `policy-enforcer`, `router-determinism`; `test-install.sh --full` no CI.
-- Suite: 1177 passed, 0 failed; `skill-catalog validate/check` + `public-skill-catalog check` verdes.
+- Novos testes: `update-preservation-1-1-0`, `policy-drift-1-1-0`, `alias-deprecated`, `path-contract`, `policy-enforcer`, `router-determinism`, `desktop-plugin-autoinstall`; `test-install.sh --full` no CI.
+- Suite pós-merge: 1328 testes, 1326 passed, 0 failed, 2 skipped; `skill-catalog validate/check` + `public-skill-catalog check` verdes; `verify:pr` ALL CHECKS PASSED.
 
 ### Hardening de governança (1.1.0, fases A-C)
 
