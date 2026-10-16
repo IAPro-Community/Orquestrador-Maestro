@@ -598,10 +598,12 @@ function runRollback(args) {
       return info.isDirectory() && !info.isSymbolicLink();
     } catch { return false; }
   }).sort();
-  if (list || stamps.length === 0) {
+  if (list) {
     console.log(stamps.length ? stamps.join("\n") : "Nenhum backup disponível.");
     return 0;
   }
+  if (stamps.length === 0) throw new Error("Nenhum backup válido disponível para restauração.");
+  if (to && !stamps.includes(to)) throw new Error("Backup inexistente ou inválido: " + to);
   const stamp = to || stamps[stamps.length - 1];
   const src = path.join(backupRoot, stamp);
   if (!fs.existsSync(src)) throw new Error(`Backup não encontrado: ${src}`);
