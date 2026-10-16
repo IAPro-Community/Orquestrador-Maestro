@@ -19,15 +19,19 @@ $ErrorActionPreference = "Stop"
 
 # Parity with install.sh: refuse elevated installs that would land in the
 # wrong profile. Override explicitly with ORQUESTRADOR_ALLOW_ROOT_INSTALL=1.
-$windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
-if (
-  $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
-  -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
-  -not $DryRun -and
-  -not $ListTargets
-) {
-  throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+try {
+  $windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
+  if (
+    $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
+    -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
+    -not $DryRun -and
+    -not $ListTargets
+  ) {
+    throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+  }
+} catch [System.PlatformNotSupportedException] {
+  # Non-Windows PowerShell hosts cannot evaluate Windows principal checks.
 }
 
 function Get-HostPowerShell {
