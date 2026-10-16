@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { prune, snapshot, safeDestination } = require("../scripts/managed-files");
+const { prune, snapshot, safeDestination, preserveUserFiles } = require("../scripts/managed-files");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-managed-"));
@@ -89,4 +89,51 @@ test("v2 rejects traversal paths, symlinks and Windows-only separators", () => {
     if (process.platform !== "win32") throw error;
     // Restricted Windows hosts may lack permission to create symlinks/junctions.
   }
+});
+
+
+test("staged upgrade preserves user files listed by unsafe v1 manifests", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(staged);
+  write(source, "rules.md", "v2 rules");
+  write(staged, "rules.md", "v2 rules");
+  write(target, "rules.md", "v1 rules");
+  write(target, "WORKLOG.md", "user work");
+  write(target, "templates/user.md", "user template");
+  write(target, "MANAGED_FILES.json", JSON.stringify({
+    version: 1, files: {
+      "WORKLOG.md": { sha256: "0".repeat(64) },
+      "templates/user.md": { sha256: "0".repeat(64) }
+    }
+  }));
+  const result = preserveUserFiles(target, staged);
+  assert.equal(result.preserved, 2);
+  assert.equal(result.retired, 0);
+  assert.equal(fs.readFileSync(path.join(staged, "WORKLOG.md"), "utf8"), "user work");
+  assert.equal(fs.readFileSync(path.join(staged, "templates/user.md"), "utf8"), "user template");
+  assert.equal(fs.readFileSync(path.join(staged, "rules.md"), "utf8"), "v2 rules");
+  assert.equal(fs.readFileSync(path.join(target, "WORKLOG.md"), "utf8"), "user work");
+});
+
+test("staging omits only unchanged v2 managed files removed from the package", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(staged);
+  write(source, "legacy/shipped.md", "shipped");
+  write(target, "legacy/shipped.md", "shipped");
+  write(source, "legacy/edited.md", "shipped");
+  write(target, "legacy/edited.md", "shipped");
+  snapshot(source, target);
+  write(target, "legacy/edited.md", "user edited");
+  write(target, "WORKLOG.md", "my notes");
+
+  const result = preserveUserFiles(target, staged);
+  assert.equal(result.retired, 1);
+  assert.equal(result.preserved, 2);
+  assert.equal(fs.existsSync(path.join(staged, "legacy/shipped.md")), false);
+  assert.equal(fs.readFileSync(path.join(staged, "legacy/edited.md"), "utf8"), "user edited");
+  assert.equal(fs.readFileSync(path.join(staged, "WORKLOG.md"), "utf8"), "my notes");
+  // Failed validations / abandoned staged install cannot damage the live tree.
+  assert.equal(fs.readFileSync(path.join(target, "legacy/shipped.md"), "utf8"), "shipped");
 });
