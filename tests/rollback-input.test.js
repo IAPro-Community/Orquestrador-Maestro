@@ -29,3 +29,32 @@ test("rollback --list exposes only legitimate installer backup directories", () 
   assert.match(run.stdout, /20261015-091234-12345/);
   assert.doesNotMatch(run.stdout, /arbitrary-folder/);
 });
+
+
+test("rollback refuses a valid-looking timestamp that is not an approved backup directory", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-unsafe-"));
+  const backupRoot = path.join(home, ".orquestrador-public-backups");
+  const outside = path.join(home, "untrusted");
+  fs.mkdirSync(backupRoot);
+  fs.mkdirSync(outside);
+  const stamp = "20261016-091234-12345";
+  let linked = false;
+  try {
+    fs.symlinkSync(outside, path.join(backupRoot, stamp), process.platform === "win32" ? "junction" : "dir");
+    linked = true;
+  } catch (error) {
+    if (process.platform !== "win32") throw error;
+  }
+  if (!linked) return; // Windows installations without junction privileges.
+  const run = spawnSync(process.execPath, [cli, "rollback", "--home-path", home, "--to", stamp], { encoding: "utf8" });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Backup inexistente ou inválido|Nenhum backup válido/);
+});
+
+test("rollback rejects explicit valid-looking backups that have been removed", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-missing-"));
+  fs.mkdirSync(path.join(home, ".orquestrador-public-backups", "20261016-000000-1"), { recursive: true });
+  const run = spawnSync(process.execPath, [cli, "rollback", "--home-path", home, "--to", "20261016-000000-2"], { encoding: "utf8" });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /Backup inexistente ou inválido/);
+});
