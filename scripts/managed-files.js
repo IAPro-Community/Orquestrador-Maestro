@@ -74,6 +74,49 @@ function prune(source, target) {
   return removed;
 }
 
+
+// Copy user-owned content into the staged update. Never delete or mutate the
+// currently installed tree: validation or swap failures must leave it intact.
+// Legacy v1 manifests included user files, so their ownership claims are
+// deliberately ignored. A v2-owned stale file is omitted ONLY if it is still
+// byte-for-byte equal to the recorded package version.
+function preserveUserFiles(oldRoot, stagedRoot) {
+  let manifest = null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(oldRoot, MANIFEST), "utf8"));
+    if (raw?.version === 2 && raw.files && typeof raw.files === "object" && !Array.isArray(raw.files)) {
+      manifest = raw.files;
+    }
+  } catch { /* missing, malformed or legacy manifest: preserve everything unknown */ }
+
+  let preserved = 0;
+  let retired = 0;
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const src = path.join(dir, entry.name);
+      const rel = path.relative(oldRoot, src).split(path.sep).join("/");
+      if (rel === MANIFEST || rel === "logs" || rel.startsWith("logs/")) continue;
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) { walk(src); continue; }
+      if (!entry.isFile()) continue;
+      const dest = safeDestination(stagedRoot, rel);
+      if (!dest || fs.existsSync(dest)) continue;
+      const oldMeta = manifest && Object.hasOwn(manifest, rel) ? manifest[rel] : null;
+      if (oldMeta && typeof oldMeta.sha256 === "string" &&
+          /^[a-f0-9]{64}$/iu.test(oldMeta.sha256) && sha256(src) === oldMeta.sha256) {
+        retired += 1;
+        continue;
+      }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest, fs.constants.COPYFILE_EXCL);
+      try { fs.chmodSync(dest, fs.statSync(src).mode); } catch {}
+      preserved += 1;
+    }
+  };
+  walk(oldRoot);
+  return { preserved, retired };
+}
+
 function snapshot(source, target) {
   const files = Object.create(null);
   for (const rel of sourceFiles(source)) {
@@ -95,13 +138,18 @@ function snapshot(source, target) {
 
 function main(argv) {
   const [mode, sourceArg, targetArg] = argv;
-  if (!["prune", "snapshot"].includes(mode) || !sourceArg || !targetArg) {
-    throw new Error("Usage: managed-files.js prune|snapshot <source> <target>");
+  if (!["prune", "snapshot", "preserve"].includes(mode) || !sourceArg || !targetArg) {
+    throw new Error("Usage: managed-files.js prune|snapshot|preserve <source> <target>");
   }
   const source = path.resolve(sourceArg);
   const target = path.resolve(targetArg);
   if (!fs.statSync(source).isDirectory() || !fs.statSync(target).isDirectory()) {
     throw new Error("Source and target must be existing directories");
+  }
+  if (mode === "preserve") {
+    const result = preserveUserFiles(source, target);
+    console.log("Preserved user files: " + result.preserved + "; retired unchanged package files: " + result.retired);
+    return result;
   }
   return mode === "prune" ? prune(source, target) : snapshot(source, target);
 }
@@ -111,4 +159,4 @@ if (require.main === module) {
   catch (error) { console.error(`managed-files: ${error.message}`); process.exitCode = 1; }
 }
 
-module.exports = { sourceFiles, safeDestination, prune, snapshot, main };
+module.exports = { sourceFiles, safeDestination, prune, snapshot, preserveUserFiles, main };
