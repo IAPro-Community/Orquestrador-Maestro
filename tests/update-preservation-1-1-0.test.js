@@ -76,3 +76,33 @@ test("1.1.0: sync --apply preserves extra-native without --prune", () => {
   assert.match(res.stdout, /extra-native/);
   assert.doesNotMatch(res.stdout, /offloaded/);
 });
+
+
+test("legacy v1 manifest listing a personal file never loses that file on staged upgrade", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-legacy-upgrade-"));
+  assert.equal(runInstaller(home).status, 0, "initial installation must succeed");
+  const maestroRoot = fs.existsSync(path.join(home, ".orquestrador-maestro"))
+    ? path.join(home, ".orquestrador-maestro") : path.join(home, ".orquestrador");
+  const worklog = path.join(maestroRoot, "WORKLOG.md");
+  const personal = path.join(maestroRoot, "templates", "user-preserved.md");
+  fs.writeFileSync(worklog, "personal worklog\n");
+  fs.mkdirSync(path.dirname(personal), { recursive: true });
+  fs.writeFileSync(personal, "personal template\n");
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(maestroRoot, "MANAGED_FILES.json"), "utf8"));
+  manifest.version = 1;
+  manifest.files["WORKLOG.md"] = { sha256: "0".repeat(64) };
+  manifest.files["templates/user-preserved.md"] = { sha256: "0".repeat(64) };
+  fs.writeFileSync(path.join(maestroRoot, "MANAGED_FILES.json"), JSON.stringify(manifest));
+
+  const upgrade = runInstaller(home);
+  assert.equal(upgrade.status, 0, upgrade.stderr?.slice(0, 2500));
+  assert.equal(fs.readFileSync(worklog, "utf8"), "personal worklog\n");
+  assert.equal(fs.readFileSync(personal, "utf8"), "personal template\n");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(maestroRoot, "MANAGED_FILES.json"), "utf8")).version, 2);
+
+  const third = runInstaller(home);
+  assert.equal(third.status, 0, third.stderr?.slice(0, 2500));
+  assert.equal(fs.readFileSync(worklog, "utf8"), "personal worklog\n");
+  assert.equal(fs.readFileSync(personal, "utf8"), "personal template\n");
+});
