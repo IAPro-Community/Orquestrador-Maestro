@@ -827,55 +827,15 @@ try {
     (Join-Path $BackupDir "$TargetOrquestradorName\config.json")
   ) -DestinationFile (Join-Path $StagedOrquestrador "config.json")
 
-  # 1.1.0 (#38, ADR-001): preserve unmanaged user files across the swap. See
-  # install.sh for the rationale: managed content always comes from the new
-  # bundle, files the previous install did not record in MANAGED_FILES.json are
-  # carried over. Pre-1.1.0 installs keep every file the new bundle does not
-  # ship (first 1.1.0 upgrade never deletes).
-  if ((Test-Path -LiteralPath $TargetOrquestrador) -and (Get-Command node -ErrorAction SilentlyContinue)) {
-    # Tombstone bookkeeping (v2 ownership): never deletes anything a v1
-    # manifest cannot prove, refuses user-modified files, and only removes
-    # stale source-owned files verified unchanged by sha256.
-    $managedPath = Join-Path $TargetOrquestrador "MANAGED_FILES.json"
-    if (Test-Path -LiteralPath $managedPath) {
-      & node (Join-Path $RepoRoot "scripts/managed-files.js") prune $SourceOrquestrador $TargetOrquestrador
-      if ($LASTEXITCODE -ne 0) { throw "Managed-file tombstone validation failed." }
+  # Preserve unknown or user-modified files in the staged tree only.
+  # A legacy v1 manifest is not evidence of package ownership.
+  # Never mutate the live installation before the staged swap succeeds.
+  if (Test-Path -LiteralPath $TargetOrquestrador) {
+    if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
+      throw "Refusing to read target outside home: $TargetOrquestrador"
     }
-    & node -e '
-      const fs = require("fs");
-      const path = require("path");
-      const [oldRoot, stagedRoot] = process.argv.slice(1);
-      let oldManaged = null;
-      try {
-        const raw = JSON.parse(fs.readFileSync(path.join(oldRoot, "MANAGED_FILES.json"), "utf8"));
-        oldManaged = new Set(Object.keys(raw.files || {}));
-      } catch {
-        oldManaged = null;
-      }
-      let preserved = 0;
-      const walk = (dir) => {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          const src = path.join(dir, entry.name);
-          const rel = path.relative(oldRoot, src).split(path.sep).join("/");
-          if (entry.isDirectory()) { walk(src); continue; }
-          if (!entry.isFile()) continue;
-          if (rel === "MANAGED_FILES.json") continue;
-          if (rel === "logs" || rel.startsWith("logs/")) continue;
-          if (oldManaged !== null && oldManaged.has(rel)) continue;
-          const dest = path.join(stagedRoot, ...rel.split("/"));
-          if (fs.existsSync(dest)) continue;
-          try {
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(src, dest);
-            preserved += 1;
-          } catch (error) {
-            console.error(`preserve warning: ${rel}: ${error.message}`);
-          }
-        }
-      };
-      walk(oldRoot);
-      if (preserved > 0) console.log(`Preserved user files: ${preserved}`);
-    ' $TargetOrquestrador $StagedOrquestrador
+    & node (Join-Path $RepoRoot "scripts/managed-files.js") preserve $TargetOrquestrador $StagedOrquestrador
+    if ($LASTEXITCODE -ne 0) { throw "Staged user-file preservation failed." }
   }
 
   $previousMoved = $false
