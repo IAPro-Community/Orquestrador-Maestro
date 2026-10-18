@@ -8,7 +8,7 @@ const test = require("node:test");
 const { applyManagedSkill, applyBatch, inspectRoot, STATE_FILE } = require("../orquestrador/bin/sync-managed-skill");
 
 function fixture() {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-native-skill-"));
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "maestro-native-skill-")));
   const source = path.join(home, "package", "skill-example");
   const root = path.join(home, ".agents", "skills");
   const destination = path.join(root, "skill-example");

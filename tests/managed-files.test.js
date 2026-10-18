@@ -8,7 +8,7 @@ const test = require("node:test");
 const { prune, snapshot, safeDestination, preserveUserFiles, inspectManagedFiles } = require("../scripts/managed-files");
 
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-managed-"));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "maestro-managed-")));
   const source = path.join(root, "package");
   const target = path.join(root, "installed");
   fs.mkdirSync(source);
