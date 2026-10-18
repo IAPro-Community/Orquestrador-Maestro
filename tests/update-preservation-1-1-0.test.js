@@ -4,25 +4,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
 const test = require("node:test");
-
-const ROOT = path.resolve(__dirname, "..");
-
-const bashFlavor = spawnSync("bash", ["-lc", "uname -s"], { encoding: "utf8" }).stdout?.trim() || "";
-function bashPath(value) {
-  const absolute = path.resolve(value).replace(/\\/g, "/");
-  return absolute.replace(/^([A-Za-z]):\/(.*)$/u, (_match, drive, rest) =>
-    bashFlavor.startsWith("MINGW") || bashFlavor.startsWith("MSYS")
-      ? `/${drive.toLowerCase()}/${rest}`
-      : `/mnt/${drive.toLowerCase()}/${rest}`);
-}
+const { runInstaller: runNativeInstaller, runSkillSync } = require("./test-helpers.js");
 
 function runInstaller(home, extraArgs = [], skipSkillSync = true) {
-  const args = [bashPath(path.join(ROOT, "scripts", "install.sh")), "--home-path", bashPath(home), "--force"];
-  if (skipSkillSync) args.push("--skip-skill-sync");
-  args.push("--non-interactive", ...extraArgs);
-  return spawnSync("bash", args, { encoding: "utf8" });
+  const onlyIndex = extraArgs.indexOf("--only");
+  const only = onlyIndex >= 0 ? [extraArgs[onlyIndex + 1]] : [];
+  return runNativeInstaller(home, { force: true, skipSkillSync, only });
 }
 
 test("1.1.0 (#39): fresh install with --skip-skill-sync still creates native roots + maestro skill", () => {
@@ -99,7 +87,7 @@ test("1.1.0: sync --apply preserves extra-native without --prune", () => {
   fs.writeFileSync(path.join(extra, "SKILL.md"), "---\nname: extra-user-skill\ndescription: x\n---\n", "utf8");
   const maestroRoot = fs.existsSync(path.join(home, ".orquestrador-maestro")) ? path.join(home, ".orquestrador-maestro") : path.join(home, ".orquestrador");
   const sync = path.join(maestroRoot, "sync-skills.sh");
-  const res = spawnSync("bash", [bashPath(sync), "--apply", "--home-path", bashPath(home), "--only", "agents"], { encoding: "utf8" });
+  const res = runSkillSync(sync, home, { only: "agents" });
   assert.equal(res.status, 0, `sync failed: ${res.stderr?.slice(0, 2000)}`);
   assert.ok(fs.existsSync(path.join(extra, "SKILL.md")), "extra skill must be preserved without --prune");
   assert.match(res.stdout, /extra-native/);

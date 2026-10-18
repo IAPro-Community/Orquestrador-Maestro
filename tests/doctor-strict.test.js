@@ -16,35 +16,16 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const test = require("node:test");
+const { findPowerShell, runInstaller, runSkillSync } = require("./test-helpers.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const DOCTOR = path.join(ROOT, "orquestrador", "doctor.ps1");
-const bashFlavor = spawnSync("bash", ["-lc", "uname -s"], { encoding: "utf8" }).stdout?.trim() || "";
-const bashPath = (value) => {
-  const absolute = path.resolve(value).replace(/\\/g, "/");
-  return absolute.replace(/^([A-Za-z]):\/(.*)$/u, (_match, drive, rest) =>
-    bashFlavor.startsWith("MINGW") || bashFlavor.startsWith("MSYS")
-      ? `/${drive.toLowerCase()}/${rest}`
-      : `/mnt/${drive.toLowerCase()}/${rest}`);
-};
-
-function hasPowerShell() {
-  for (const cmd of ["pwsh", "powershell"]) {
-    const probe = spawnSync(cmd, ["-NoProfile", "-Command", "$true"], { stdio: "ignore", shell: false });
-    if (!probe.error && probe.status === 0) return cmd;
-  }
-  return null;
-}
-
-const PS = hasPowerShell();
+const PS = findPowerShell();
 
 function freshInstall() {
   const home = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "maestro-doctor-")), "h");
   fs.mkdirSync(home, { recursive: true });
-  const install = spawnSync("bash", [bashPath(path.join(ROOT, "install.sh")), "--home-path", bashPath(home), "--non-interactive"], {
-    encoding: "utf8",
-    env: { ...process.env, CODEX_HOME: path.join(home, ".codex") },
-  });
+  const install = runInstaller(home, { directory: ".", env: { ...process.env, CODEX_HOME: path.join(home, ".codex") } });
   assert.equal(install.status, 0, `install failed: ${install.stderr?.slice(0, 800)}`);
   return home;
 }
@@ -97,10 +78,10 @@ test("doctor --strict detects managed core edits but allows preserved custom fil
   assert.ok(fs.existsSync(mirroredSkillFile), "full install should mirror skill-adr into Claude");
   fs.appendFileSync(mirroredSkillFile, "\nuser customization\n");
   fs.writeFileSync(path.join(mirroredSkill, "private-notes.md"), "keep these notes\n", "utf8");
-  const sync = spawnSync("bash", [
-    bashPath(path.join(home, ".orquestrador", "sync-skills.sh")),
-    "--apply", "--home-path", bashPath(home), "--only", "claude",
-  ], { encoding: "utf8", env: { ...process.env, CODEX_HOME: path.join(home, ".codex") } });
+  const sync = runSkillSync(path.join(home, ".orquestrador", "sync-skills.sh"), home, {
+    only: "claude",
+    env: { ...process.env, CODEX_HOME: path.join(home, ".codex") },
+  });
   assert.equal(sync.status, 0, `sync should preserve customized official skills:\n${sync.stderr?.slice(0, 800)}`);
   assert.match(fs.readFileSync(mirroredSkillFile, "utf8"), /user customization/);
   assert.equal(fs.readFileSync(path.join(mirroredSkill, "private-notes.md"), "utf8"), "keep these notes\n");

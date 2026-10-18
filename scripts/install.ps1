@@ -860,13 +860,6 @@ try {
 
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
-# v3 manifest enumerates files shipped by source, never user-owned files;
-# feeds future tombstone pruning + verify/doctor diff.
-if (Get-Command node -ErrorAction SilentlyContinue) {
-  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
-  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
-}
-
 foreach ($target in $extraTargets) {
   Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
 }
@@ -937,6 +930,13 @@ foreach ($pair in $nativeMinimum) {
 $discoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
 if (Test-Path -LiteralPath $discoveryScript) {
   & node $discoveryScript --home-path $HomePath --maestro-root $TargetOrquestrador --output (Join-Path $TargetOrquestrador "SKILLS_DISCOVERY.json")
+}
+
+# Snapshot after every installer-generated core update (skill libraries and
+# discovery included) so strict verification recognizes shipped overrides.
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
+  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
 }
 
 & node (Join-Path $PSScriptRoot "install-profile-state.js") write $TargetOrquestrador @($installedProfiles.ToArray())

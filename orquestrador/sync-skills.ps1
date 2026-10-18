@@ -304,7 +304,13 @@ if ($Apply) {
         })
       }
     }
-    $managedRoots = if ($target.Program -eq "codex") { @($codexManagedSourceRoots + $canonicalSourceRoots | Select-Object -Unique) } else { $canonicalSourceRoots }
+    $managedRoots = $canonicalSourceRoots
+    if ($target.Program -eq "codex") {
+      $managedRoots = @($codexManagedSourceRoots)
+      foreach ($root in $canonicalSourceRoots) {
+        if ($root -notin $managedRoots) { $managedRoots += $root }
+      }
+    }
     foreach ($name in ($target.AllowDirectories | Where-Object { $_ -notin $mustHave } | Sort-Object)) {
       $src = Get-DirectorySource -Name $name -Roots $managedRoots
       if ($src) {
@@ -368,7 +374,13 @@ foreach ($target in ($targets | Sort-Object Program)) {
   }
 
   if ($target.AllowDirectories.Count -gt 0) {
-    $managedRoots = if ($target.Program -eq "codex") { @($codexManagedSourceRoots + $canonicalSourceRoots | Select-Object -Unique) } else { $canonicalSourceRoots }
+    $managedRoots = $canonicalSourceRoots
+    if ($target.Program -eq "codex") {
+      $managedRoots = @($codexManagedSourceRoots)
+      foreach ($root in $canonicalSourceRoots) {
+        if ($root -notin $managedRoots) { $managedRoots += $root }
+      }
+    }
     foreach ($name in ($target.AllowDirectories | Where-Object { $_ -notin $mustHave } | Sort-Object)) {
       $src = Get-DirectorySource -Name $name -Roots $managedRoots
       $dest = Join-Path $target.Root $name
