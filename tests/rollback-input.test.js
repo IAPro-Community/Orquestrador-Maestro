@@ -10,9 +10,10 @@ const managedFiles = require("../scripts/managed-files");
 const nativeSkillsSync = require("../orquestrador/bin/sync-managed-skill");
 
 const cli = path.join(__dirname, "..", "bin", "orquestrador-maestro.js");
+const makeTempHome = (prefix) => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
 
 test("rollback --to never accepts path traversal or arbitrary directory names", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-"));
+  const home = makeTempHome("maestro-rollback-");
   fs.mkdirSync(path.join(home, ".orquestrador-public-backups"));
   for (const invalid of ["../outside", "/tmp/outside", "..\\outside", "not-a-backup"]) {
     const run = spawnSync(process.execPath, [cli, "rollback", "--home-path", home, "--to", invalid], { encoding: "utf8" });
@@ -22,7 +23,7 @@ test("rollback --to never accepts path traversal or arbitrary directory names", 
 });
 
 test("rollback --list exposes only legitimate installer backup directories", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-list-"));
+  const home = makeTempHome("maestro-rollback-list-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   fs.mkdirSync(path.join(backupRoot, "20261015-091234-12345"), { recursive: true });
   fs.mkdirSync(path.join(backupRoot, `20261015-091234-54321-${"a".repeat(32)}`), { recursive: true });
@@ -35,7 +36,7 @@ test("rollback --list exposes only legitimate installer backup directories", () 
 });
 
 test("rollback accepts real installer suffixes and replaces the core from the reusable snapshot", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-restore-"));
+  const home = makeTempHome("maestro-rollback-restore-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   const stamp = `20261016-091234-12345-${"a".repeat(32)}`;
   const backupCore = path.join(backupRoot, stamp, ".orquestrador");
@@ -61,7 +62,7 @@ test("rollback accepts real installer suffixes and replaces the core from the re
 });
 
 test("rollback restores the legacy core name and removes a newer canonical-only tree", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-legacy-"));
+  const home = makeTempHome("maestro-rollback-legacy-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   const stamp = "20261016-091234-12345";
   const backupCore = path.join(backupRoot, stamp, ".orquestrador-maestro");
@@ -77,7 +78,7 @@ test("rollback restores the legacy core name and removes a newer canonical-only 
 });
 
 test("rollback preserves current core customizations and merges current config over the snapshot", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-preserve-"));
+  const home = makeTempHome("maestro-rollback-preserve-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   const stamp = "20261016-101010-34567";
   const backupCore = path.join(backupRoot, stamp, ".orquestrador");
@@ -110,7 +111,7 @@ test("rollback preserves current core customizations and merges current config o
 });
 
 test("rollback restores updated native skill trees and the pre-update native state", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-native-"));
+  const home = makeTempHome("maestro-rollback-native-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   const stamp = "20261016-111111-45678";
   const backupDirectory = path.join(backupRoot, stamp);
@@ -174,7 +175,7 @@ test("rollback restores updated native skill trees and the pre-update native sta
 
 
 test("rollback refuses a valid-looking timestamp that is not an approved backup directory", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-unsafe-"));
+  const home = makeTempHome("maestro-rollback-unsafe-");
   const backupRoot = path.join(home, ".orquestrador-public-backups");
   const outside = path.join(home, "untrusted");
   fs.mkdirSync(backupRoot);
@@ -194,7 +195,7 @@ test("rollback refuses a valid-looking timestamp that is not an approved backup 
 });
 
 test("rollback rejects explicit valid-looking backups that have been removed", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-rollback-missing-"));
+  const home = makeTempHome("maestro-rollback-missing-");
   fs.mkdirSync(path.join(home, ".orquestrador-public-backups", "20261016-000000-1"), { recursive: true });
   const run = spawnSync(process.execPath, [cli, "rollback", "--home-path", home, "--to", "20261016-000000-2"], { encoding: "utf8" });
   assert.notEqual(run.status, 0);

@@ -22,7 +22,7 @@ const powershell = ["pwsh", "powershell"].find((command) => {
 });
 
 test("targets sync uses the bundled core when .orquestrador only contains target state", () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-target-sync-fallback-"));
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "maestro-target-sync-fallback-")));
   try {
     const partialCore = path.join(home, ".orquestrador");
     fs.mkdirSync(partialCore, { recursive: true });
