@@ -66,6 +66,10 @@ function applyManifestDefaults(manifest, entry = {}) {
   return effective;
 }
 
+function isDeprecatedRedirect(entry) {
+  return entry?.deprecated === true && typeof entry.redirect === "string" && entry.redirect.trim().length > 0;
+}
+
 function readManifestSkills(maestroRoot) {
   const manifest = readManifestDocument(maestroRoot);
   return Object.fromEntries(
@@ -166,7 +170,7 @@ class SkillRegistry {
 
   listMaestro() {
     const manifestSkills = readManifestSkills(this.maestroRoot);
-    return Object.entries(manifestSkills).map(([id, entry]) => {
+    return Object.entries(manifestSkills).filter(([, entry]) => !isDeprecatedRedirect(entry)).map(([id, entry]) => {
       const repositorySkillPath = path.join(this.maestroRoot, "orquestrador", "skills", id);
       const installedSkillPath = path.join(this.maestroRoot, "skills", id);
       return toRecord({
@@ -197,16 +201,18 @@ class SkillRegistry {
 
   listDiscovered() {
     const manifestSkills = readManifestSkills(this.maestroRoot);
-    return discoverSkills({ userHome: this.userHome, maestroRoot: this.maestroRoot, includeUserSources: true }).skills.map((skill) => toRecord({
-      namespace: skill.namespace,
-      id: skill.id,
-      source: skill.source,
-      verification: skill.source === "maestro" ? "maestro_verified" : skill.source === "library" ? "public_catalog" : "unverified",
-      provider: skill.provider,
-      skillPath: skill.path,
-      description: skill.description,
-      manifestEntry: skill.source === "maestro" ? manifestSkills[skill.id] : undefined
-    }));
+    return discoverSkills({ userHome: this.userHome, maestroRoot: this.maestroRoot, includeUserSources: true }).skills
+      .filter((skill) => skill.source !== "maestro" || !isDeprecatedRedirect(manifestSkills[skill.id]))
+      .map((skill) => toRecord({
+        namespace: skill.namespace,
+        id: skill.id,
+        source: skill.source,
+        verification: skill.source === "maestro" ? "maestro_verified" : skill.source === "library" ? "public_catalog" : "unverified",
+        provider: skill.provider,
+        skillPath: skill.path,
+        description: skill.description,
+        manifestEntry: skill.source === "maestro" ? manifestSkills[skill.id] : undefined
+      }));
   }
 
   listProject() {

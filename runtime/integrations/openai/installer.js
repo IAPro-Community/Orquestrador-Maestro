@@ -154,6 +154,8 @@ function desktopPluginDoctor(options = {}) {
       encoding: "utf8",
       env: {
         ...process.env,
+        HOME: paths.home,
+        USERPROFILE: paths.home,
         PLUGIN_DATA: tempData,
         MAESTRO_OPENAI_MODE: "optimize"
       },

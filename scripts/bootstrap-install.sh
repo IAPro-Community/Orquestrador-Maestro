@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Bootstrap oficial para macOS/Linux. Pode ser executado antes da CLI existir.
 PACKAGE="@iapro/orquestrador-maestro-cli"
-PACKAGE_VERSION="1.1.0"
+PACKAGE_VERSION="1.1.1"
 BOOTSTRAP_VERSION="2026.10.12.1"
 PREFIX="${ORQUESTRADOR_NPM_PREFIX:-$HOME/.npm-global}"
 

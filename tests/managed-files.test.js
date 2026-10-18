@@ -22,6 +22,20 @@ function write(root, rel, contents) {
   fs.writeFileSync(file, contents);
 }
 
+function installPolicy(version, maxDirectories = 64) {
+  return JSON.stringify({
+    version,
+    libraryRoots: { community: ".orquestrador/skill-library/community-skills" },
+    nativeRoots: {
+      codex: {
+        path: ".codex/skills",
+        maxDirectories,
+        allowDirectories: ["orquestrador-maestro"]
+      }
+    }
+  });
+}
+
 test("source-owned snapshot excludes user's custom files, including nested files", () => {
   const { source, target } = fixture();
   write(source, "rules.md", "managed");
@@ -115,6 +129,66 @@ test("staged upgrade preserves user files listed by unsafe v1 manifests", () => 
   assert.equal(fs.readFileSync(path.join(staged, "templates/user.md"), "utf8"), "user template");
   assert.equal(fs.readFileSync(path.join(staged, "rules.md"), "utf8"), "v2 rules");
   assert.equal(fs.readFileSync(path.join(target, "WORKLOG.md"), "utf8"), "user work");
+});
+
+test("staged upgrade migrates an untracked v1 skill policy to the packaged v2 contract", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  const artifacts = path.join(root, "backup", "update-artifacts");
+  fs.mkdirSync(staged);
+  write(source, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+  write(staged, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+  write(target, "SKILL_INSTALL_POLICY.json", installPolicy(1));
+
+  const report = preserveUserFiles(target, staged, artifacts);
+
+  assert.equal(JSON.parse(fs.readFileSync(path.join(staged, "SKILL_INSTALL_POLICY.json"), "utf8")).version, 2);
+  assert.deepEqual(report.migratedPackageFiles, [{
+    path: "SKILL_INSTALL_POLICY.json",
+    fromVersion: 1,
+    toVersion: 2
+  }]);
+  assert.equal(report.summary.migratedPackageFiles, 1);
+  assert.equal(report.preservedUserFiles.includes("SKILL_INSTALL_POLICY.json"), false);
+  assert.equal(report.unresolvedConflicts.some((entry) => entry.path === "SKILL_INSTALL_POLICY.json"), false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(target, "SKILL_INSTALL_POLICY.json"), "utf8")).version, 1);
+});
+
+test("staged upgrade migrates a v1 skill policy even when v3 recorded it as an override", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(staged);
+  write(source, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+  write(target, "SKILL_INSTALL_POLICY.json", installPolicy(1));
+  snapshot(source, target);
+  write(staged, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+
+  const report = preserveUserFiles(target, staged);
+
+  assert.equal(JSON.parse(fs.readFileSync(path.join(staged, "SKILL_INSTALL_POLICY.json"), "utf8")).version, 2);
+  assert.deepEqual(report.migratedPackageFiles, [{
+    path: "SKILL_INSTALL_POLICY.json",
+    fromVersion: 1,
+    toVersion: 2
+  }]);
+  assert.equal(report.preservedManagedOverrides.some((entry) => entry.path === "SKILL_INSTALL_POLICY.json"), false);
+});
+
+test("staged upgrade still preserves a customized v2 skill policy", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(staged);
+  write(source, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+  write(target, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+  snapshot(source, target);
+  write(target, "SKILL_INSTALL_POLICY.json", installPolicy(2, 32));
+  write(staged, "SKILL_INSTALL_POLICY.json", installPolicy(2));
+
+  const report = preserveUserFiles(target, staged);
+
+  assert.equal(JSON.parse(fs.readFileSync(path.join(staged, "SKILL_INSTALL_POLICY.json"), "utf8")).nativeRoots.codex.maxDirectories, 32);
+  assert.equal(report.migratedPackageFiles.length, 0);
+  assert.deepEqual(report.preservedManagedOverrides, [{ path: "SKILL_INSTALL_POLICY.json", upstreamCopy: null }]);
 });
 
 test("staged update keeps a customized managed file active and reports the upstream copy", () => {

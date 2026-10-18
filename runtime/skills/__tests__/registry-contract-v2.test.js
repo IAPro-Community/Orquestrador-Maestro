@@ -99,6 +99,22 @@ test("canonical Maestro skill fails closed when V2 metadata is missing", () => {
   assert.throws(() => registry.list(), /must implement Skill Contract V2 natively/u);
 });
 
+test("deprecated redirect shims stay installable but are excluded from native canonical contracts", () => {
+  const repoRoot = path.resolve(__dirname, "../../..");
+  const registry = new SkillRegistry({
+    maestroRoot: repoRoot,
+    userHome: fs.mkdtempSync(path.join(os.tmpdir(), "maestro-compat-alias-home-")),
+    projectRoot: fs.mkdtempSync(path.join(os.tmpdir(), "maestro-compat-alias-project-")),
+    userSources: [],
+    projectSources: []
+  });
+
+  const ids = registry.list().map((skill) => skill.id);
+  assert.ok(ids.includes("skill-multiagent-orchestration"));
+  assert.equal(ids.includes("skill-open-code-delegate"), false);
+  assert.equal(ids.includes("skill-open-code-review"), false);
+});
+
 test("project skill projection remains unverified and project-scoped", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-project-contract-"));
   const projectRoot = path.join(root, "project");

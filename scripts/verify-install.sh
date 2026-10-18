@@ -208,7 +208,7 @@ assert_path "$HOME_PATH/AGENTS.md" "Global AGENTS.md"
 if [ -f "$INSTALL_POLICY" ] && command -v node >/dev/null 2>&1; then
   policy_version="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version||0)}catch{console.log(0)}' "$INSTALL_POLICY")"
   if [ "${policy_version:-0}" != "2" ]; then
-    add_issue "Orquestrador skill install policy is not v2 (found v${policy_version:-unknown}); re-run update to 1.1.0: $INSTALL_POLICY"
+    add_issue "Orquestrador skill install policy is not v2 (found v${policy_version:-unknown}); run 'orquestrador-maestro update' to install the latest release: $INSTALL_POLICY"
   fi
 fi
 

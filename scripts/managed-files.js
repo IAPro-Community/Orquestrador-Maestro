@@ -12,6 +12,10 @@ const crypto = require("node:crypto");
 const MANIFEST = "MANAGED_FILES.json";
 const MANIFEST_VERSION = 3;
 const HASH_PATTERN = /^[a-f0-9]{64}$/iu;
+const PACKAGE_VERSION = require("../package.json").version;
+const VERSIONED_PACKAGE_FILE_MIGRATIONS = new Map([
+  ["SKILL_INSTALL_POLICY.json", { fromVersion: 1, toVersion: 2 }],
+]);
 
 function lstatOrNull(target) {
   try { return fs.lstatSync(target); }
@@ -176,6 +180,7 @@ function preserveUserFiles(oldRoot, stagedRoot, artifactsDirectory = null) {
     preservedUserFiles: [],
     preservedDirectories: [],
     preservedManagedOverrides: [],
+    migratedPackageFiles: [],
     retiredManagedFiles: [],
     preservedLegacyFiles: [],
     unresolvedConflicts: [],
@@ -225,6 +230,24 @@ function preserveUserFiles(oldRoot, stagedRoot, artifactsDirectory = null) {
       const oldFileHash = sha256(src);
       const unchangedFromRecordedVersion = Boolean(oldHash && oldFileHash === oldHash);
       const knownManaged = Boolean(trustedOwnership && oldMeta && oldHash);
+      const packageMigration = VERSIONED_PACKAGE_FILE_MIGRATIONS.get(rel);
+      const previousFileVersion = readJsonVersion(oldRoot, rel);
+      const stagedFileVersion = readJsonVersion(stagedRoot, rel);
+
+      // This policy is a versioned installer contract. Older copies cannot
+      // remain active as user overrides because the current verifier and
+      // skill synchronizer require its v2 allowlist. The old bytes remain in
+      // the full rollback snapshot created by the installer.
+      if (dest && packageMigration &&
+          previousFileVersion === packageMigration.fromVersion &&
+          stagedFileVersion === packageMigration.toVersion) {
+        report.migratedPackageFiles.push({
+          path: rel,
+          fromVersion: previousFileVersion,
+          toVersion: stagedFileVersion,
+        });
+        continue;
+      }
 
       if (dest && fs.existsSync(dest)) {
         // For source-owned v2/v3 files, a matching previous source hash means
@@ -281,6 +304,7 @@ function preserveUserFiles(oldRoot, stagedRoot, artifactsDirectory = null) {
   for (const values of [report.preservedUserFiles, report.preservedDirectories, report.retiredManagedFiles,
     report.preservedLegacyFiles]) values.sort();
   report.preservedManagedOverrides.sort((a, b) => a.path.localeCompare(b.path));
+  report.migratedPackageFiles.sort((a, b) => a.path.localeCompare(b.path));
   report.unresolvedConflicts.sort((a, b) => a.path.localeCompare(b.path));
   report.summary = {
     added: changes.added.length,
@@ -289,6 +313,7 @@ function preserveUserFiles(oldRoot, stagedRoot, artifactsDirectory = null) {
     preservedUserFiles: report.preservedUserFiles.length,
     preservedDirectories: report.preservedDirectories.length,
     preservedManagedOverrides: report.preservedManagedOverrides.length,
+    migratedPackageFiles: report.migratedPackageFiles.length,
     retiredManagedFiles: report.retiredManagedFiles.length,
     unresolvedConflicts: report.unresolvedConflicts.length,
   };
@@ -326,7 +351,7 @@ function snapshot(source, target) {
   try {
     fs.writeFileSync(temporary, JSON.stringify({
       version: MANIFEST_VERSION,
-      generator: "orquestrador-maestro 1.1.0",
+      generator: `orquestrador-maestro ${PACKAGE_VERSION}`,
       files,
       overrides,
     }, null, 2));

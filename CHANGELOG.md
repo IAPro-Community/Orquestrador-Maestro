@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 - 2026-10-18
+
+### Correções de atualização
+
+- Migra `SKILL_INSTALL_POLICY.json` v1 para v2 durante atualizações, mesmo quando o manifesto anterior está ausente ou registrou a política antiga como personalização. O arquivo anterior continua no backup de rollback e o relatório identifica a migração.
+- Mantém personalizações feitas sobre uma política v2, evitando sobrescrever ajustes atuais do usuário.
+- Mantém shims de skills depreciadas fora dos contratos nativos V2 e resolve seus redirects pelo router; o doctor do plugin OpenAI executa o hook no home informado, sem depender do estado pessoal da máquina.
+- Adiciona regressões unitária e de integração para a migração v1→v2 e a verificação do núcleo atualizado.
+
 ## 1.1.0 - 2026-10-15
 
 Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback, hardening de runtime e integração com o app desktop ChatGPT/Codex. Esta linha incorpora a 1.0.1 (`v1`) por merge, tornando-se descendente direta da linha estável.

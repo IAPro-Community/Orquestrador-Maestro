@@ -12,7 +12,7 @@ orquestrador-maestro install
 orquestrador-maestro verify
 ```
 
-A V1 estável é a versão 1.1.0 no canal npm `latest`, na branch `v1` e na release `v1.1.0`. A linha 0.x permanece no histórico; pré-releases continuam identificadas por seus canais próprios.
+A V1 estável é a versão 1.1.1 no canal npm `latest`, na branch `v1` e na release `v1.1.1`. A linha 0.x permanece no histórico; pré-releases continuam identificadas por seus canais próprios.
 
 Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue neste guia. Depois de instalar, use o [guia operacional para IAs](ai-agent-operating-guide.md).
 

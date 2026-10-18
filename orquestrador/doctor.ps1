@@ -301,10 +301,12 @@ function Get-OrchestratorRoutingHealth {
   $routerDoc = $docs | Where-Object { $_.Name -eq "router" }
   $routerNames = @()
   $routerSet = @{}
+  $aliasTargetSet = @{}
   if ($routerDoc.Parsed -and $routerDoc.Value.skills) {
     foreach ($prop in $routerDoc.Value.skills.PSObject.Properties) {
       $routerNames += $prop.Name
       $routerSet[$prop.Name] = $true
+      $aliasTargetSet[$prop.Name] = $true
       if (-not $skillSet.ContainsKey($prop.Name)) {
         Add-RoutingIssue -Issues $issues -Kind "router-unknown-skill" -Name $prop.Name -Detail "No canonical skill directory with SKILL.md"
       }
@@ -321,6 +323,11 @@ function Get-OrchestratorRoutingHealth {
       }
     }
   }
+  if ($routerDoc.Parsed -and $routerDoc.Value.librarySkills) {
+    foreach ($prop in $routerDoc.Value.librarySkills.PSObject.Properties) {
+      $aliasTargetSet[$prop.Name] = $true
+    }
+  }
   foreach ($name in $skillNames) {
     if (-not $routerSet.ContainsKey($name)) {
       Add-RoutingIssue -Issues $issues -Kind "canonical-skill-unrouted" -Name $name -Detail "Missing from SKILLS_ROUTER.json"
@@ -332,7 +339,7 @@ function Get-OrchestratorRoutingHealth {
   if ($aliasesDoc.Parsed -and $aliasesDoc.Value.aliases) {
     foreach ($prop in $aliasesDoc.Value.aliases.PSObject.Properties) {
       $aliasCount++
-      if (-not $routerSet.ContainsKey([string]$prop.Value)) {
+      if (-not $aliasTargetSet.ContainsKey([string]$prop.Value)) {
         Add-RoutingIssue -Issues $issues -Kind "alias-bad-target" -Name $prop.Name -Detail ([string]$prop.Value)
       }
     }

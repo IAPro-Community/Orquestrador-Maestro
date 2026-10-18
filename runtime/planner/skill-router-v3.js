@@ -233,11 +233,14 @@ class SkillRouterV3 {
       }
     }
 
-    for (const [alias, skillId] of Object.entries(this.aliases)) {
-      const record = byId.get(skillId);
+    for (const [alias, configuredSkillId] of Object.entries(this.aliases)) {
+      const redirect = this.routerDocument.skills?.[configuredSkillId]?.redirect;
+      const record = byId.get(configuredSkillId) || (redirect ? byId.get(redirect) : null);
       if (!record) continue;
+      const skillId = record.id;
       const normalizedAlias = normalizeText(alias);
       const canonical = ["maestro-core", "maestro-domain"].includes(record.contract?.origin);
+      const priority = Number(this.routerDocument.skills?.[skillId]?.priority || this.routerDocument.skills?.[configuredSkillId]?.priority || 0);
 
       if (normalizedIntent === normalizedAlias) {
         addEvidence(skillId, {
@@ -245,7 +248,7 @@ class SkillRouterV3 {
           value: alias,
           weight: EVIDENCE_WEIGHT["alias-exact"],
           specificity: normalizedAlias.length,
-          priority: Number(this.routerDocument.skills?.[skillId]?.priority || 0)
+          priority
         });
       } else if (
         canonical &&
@@ -258,7 +261,7 @@ class SkillRouterV3 {
           value: alias,
           weight: EVIDENCE_WEIGHT["alias-contained"],
           specificity: normalizedAlias.length,
-          priority: Number(this.routerDocument.skills?.[skillId]?.priority || 0)
+          priority
         });
       }
     }

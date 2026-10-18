@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { runInstaller, runVerifier } = require("./test-helpers.js");
+const { SkillRouterV3 } = require("../runtime/planner/skill-router-v3");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -35,6 +36,22 @@ test("1.1.0: manifest + router register deprecated aliases", () => {
   }
   assert.equal(manifest.skills["skill-open-code-review"].redirect, "code-review");
   assert.equal(manifest.skills["skill-open-code-delegate"].redirect, "skill-multiagent-orchestration");
+});
+
+test("deprecated aliases resolve through their router redirects", () => {
+  const router = new SkillRouterV3({
+    maestroRoot: path.join(ROOT, "orquestrador"),
+    userHome: fs.mkdtempSync(path.join(os.tmpdir(), "maestro-alias-routing-home-"))
+  });
+
+  const review = router.resolve("skill-open-code-review");
+  assert.equal(review.primarySkill?.id, "code-review");
+
+  const delegate = router.resolve("skill-open-code-delegate", {
+    overrideLevel: "DEEP",
+    explicitMultiagent: true
+  });
+  assert.equal(delegate.primarySkill?.id, "skill-multiagent-orchestration");
 });
 
 test("1.1.0: redirect targets are real packaged skills", () => {

@@ -141,7 +141,7 @@ Assert-Path -Path (Join-Path $HomePath "AGENTS.md") -Label "Global AGENTS.md"
 try {
   $policyJson = Get-Content -LiteralPath (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Raw -Encoding UTF8 | ConvertFrom-Json
   if ([int]$policyJson.version -ne 2) {
-    Add-Issue "Orquestrador skill install policy is not v2 (found v$($policyJson.version)); re-run update to 1.1.0"
+    Add-Issue "Orquestrador skill install policy is not v2 (found v$($policyJson.version)); run 'orquestrador-maestro update' to install the latest release"
   }
 } catch { }
 if ($Strict) {
