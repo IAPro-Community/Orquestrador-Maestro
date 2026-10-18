@@ -82,11 +82,20 @@ fi
 
 mkdir -p "$HOME_PATH"
 HOME_PATH="$(CDPATH= cd -- "$HOME_PATH" && pwd -P)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-if [ -d "$HOME_PATH/.orquestrador" ]; then
+has_maestro_sync_core() {
+  [ -f "$1/SKILL_INSTALL_POLICY.json" ] && [ -f "$1/bin/sync-managed-skill.js" ]
+}
+
+if has_maestro_sync_core "$HOME_PATH/.orquestrador"; then
   MAESTRO_ROOT="$HOME_PATH/.orquestrador"
-else
+elif has_maestro_sync_core "$HOME_PATH/.orquestrador-maestro"; then
   MAESTRO_ROOT="$HOME_PATH/.orquestrador-maestro"
+else
+  # `targets add` can create .orquestrador to store state before the user
+  # installs the core. In that case, use this bundled synchronizer's files.
+  MAESTRO_ROOT="$SCRIPT_DIR"
 fi
 
 resolve_home_relative() {

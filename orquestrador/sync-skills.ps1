@@ -212,7 +212,18 @@ function Move-NativeExtraDirectory {
 
 $canonicalMaestroRoot = Join-Path $HomePath ".orquestrador"
 $legacyMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
-$script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
+$hasCanonicalSyncCore = (Test-Path -LiteralPath (Join-Path $canonicalMaestroRoot "SKILL_INSTALL_POLICY.json")) -and
+  (Test-Path -LiteralPath (Join-Path $canonicalMaestroRoot "bin\sync-managed-skill.js"))
+$hasLegacySyncCore = (Test-Path -LiteralPath (Join-Path $legacyMaestroRoot "SKILL_INSTALL_POLICY.json")) -and
+  (Test-Path -LiteralPath (Join-Path $legacyMaestroRoot "bin\sync-managed-skill.js"))
+$script:MaestroRoot = if ($hasCanonicalSyncCore) {
+  $canonicalMaestroRoot
+} elseif ($hasLegacySyncCore) {
+  $legacyMaestroRoot
+} else {
+  # targets add may create .orquestrador state before the core has been installed.
+  $PSScriptRoot
+}
 $policy = Read-InstallPolicy -HomePath $HomePath
 $libraryRoots = [pscustomobject]@{
   Community = Resolve-HomeRelativePath -HomePath $HomePath -RelativePath $policy.libraryRoots.community
