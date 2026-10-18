@@ -1,7 +1,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 
-const REPO = 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/';
+const REPO = 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/';
 const repoRoot = path.resolve(__dirname, '..');
 const docsRoot = path.resolve(repoRoot, 'docs');
 

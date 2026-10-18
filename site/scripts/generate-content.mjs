@@ -52,6 +52,8 @@ function slugFor(relativePath) {
   const normalized = relativePath.replace(/\\/g, '/');
   if (normalized === 'README.md') return 'overview';
   if (normalized === 'README-technical-reference.md') return 'technical-reference';
+  // Docusaurus treats docs/README.md as the index at the docs route.
+  if (normalized === 'docs/README.md') return '';
   const noExt = normalized.replace(/\.md$/i, '').replace(/^docs\//, '');
   const parts = noExt.split('/');
   const basename = parts.pop();
@@ -92,11 +94,11 @@ for (const relativePath of documentPaths) {
     id: crypto.createHash('sha1').update(relativePath).digest('hex').slice(0, 12),
     sourcePath: relativePath,
     slug,
-    siteRoute: isSiteDoc ? '/docs/' + slug + '/' : null,
+    siteRoute: isSiteDoc ? '/docs/' + (slug ? slug + '/' : '') : null,
     title: titleFromMarkdown(markdown, path.basename(relativePath, '.md')),
     excerpt: stripMarkdown(markdown).slice(0, 260),
     searchText: stripMarkdown(markdown).slice(0, 12000),
-    sourceUrl: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/' + relativePath
+    sourceUrl: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/' + relativePath
   };
   documents.push(doc);
   docsBySource.set(relativePath.replace(/\\/g, '/'), doc);
@@ -141,7 +143,7 @@ const skills = [...skillIds].sort((a, b) => a.localeCompare(b, 'en')).map((id) =
     chainRules: chain.rules || [],
     publicPath,
     publicSourceUrl: publicPath
-      ? 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/' + publicPath
+      ? 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/' + publicPath
       : null,
     referenceSlug: referenceDoc?.slug || null,
     provenance: canonical.provenance || null,
@@ -165,7 +167,7 @@ for (const item of await fs.readdir(scenarioDir, { withFileTypes: true }).catch(
 const generatedAt = new Date().toISOString();
 const siteData = {
   generatedAt,
-  gitRef: process.env.GITHUB_SHA || 'main',
+  gitRef: process.env.GITHUB_SHA || 'v1',
   source: {
     repository: 'IAPro-Community/Orquestrador-Maestro',
     manifestVersion: manifest.version,

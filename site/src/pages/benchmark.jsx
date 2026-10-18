@@ -61,7 +61,7 @@ export default function Benchmark(){
           </div>
           <div className="actions">
             <Link className="btn primary" to="/docs/benchmark/">Metodologia completa</Link>
-            <a className="btn" href="https://github.com/IAPro-Community/Orquestrador-Maestro/tree/main/benchmark-harness">Abrir harness</a>
+            <a className="btn" href="https://github.com/IAPro-Community/Orquestrador-Maestro/tree/v1/benchmark-harness">Abrir harness</a>
           </div>
         </div>
       </section>

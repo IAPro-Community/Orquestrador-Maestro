@@ -13,11 +13,11 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 Também é possível validar e criar a tag pelo script local:
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.0.1
+   .\scripts\release.ps1 -Version 1.1.0
    ```
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.0.1 -CreateTag -PushTag
+   .\scripts\release.ps1 -Version 1.1.0 -CreateTag -PushTag
    ```
 
 O script exige working tree limpo, verifica a versão dos manifestos, confere o changelog, executa `npm run validate`, gera a prévia do pacote e valida espaços inválidos.

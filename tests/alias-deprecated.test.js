@@ -67,7 +67,12 @@ test("1.1.0 (#38): both deprecated aliases install into every authorized native 
 
 test("1.1.0 (#39): verify --strict detects a missing deprecated alias in an authorized root", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-alias-verify-"));
-  const env = { ...process.env, CODEX_HOME: path.join(home, ".codex") };
+  const env = {
+    ...process.env,
+    HOME: home,
+    USERPROFILE: home,
+    CODEX_HOME: path.join(home, ".codex"),
+  };
   const install = spawnSync("bash", [bashPath(path.join(ROOT, "scripts", "install.sh")), "--home-path", bashPath(home), "--force", "--non-interactive"], { encoding: "utf8", env });
   assert.equal(install.status, 0, `installer failed: ${install.stderr?.slice(0, 1500)}`);
 

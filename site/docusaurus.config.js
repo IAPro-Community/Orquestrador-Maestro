@@ -61,8 +61,8 @@ const config = {
       links: [
         { title: 'Projeto', items: [
           { label: 'GitHub', href: 'https://github.com/IAPro-Community/Orquestrador-Maestro' },
-          { label: 'Instalação', href: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/docs/installation.md' },
-          { label: 'Contribuir', href: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/CONTRIBUTING.md' }
+          { label: 'Instalação', href: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/docs/installation.md' },
+          { label: 'Contribuir', href: 'https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/CONTRIBUTING.md' }
         ]},
         { title: 'Referência', items: [
           { label: 'Como funciona', to: '/como-funciona' },
