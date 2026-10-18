@@ -2,6 +2,7 @@ param(
   [switch]$Check,
   [switch]$DryRun,
   [switch]$Apply,
+  [switch]$Prune,
   [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
   [string[]]$Only = @()
 )
@@ -55,16 +56,18 @@ function Get-DefaultInstallPolicy {
           "team",
           "ultrawork",
           "web-clone",
-          "worker"
-        )
-      }
-      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "code-review", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
-      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker") }
+          "worker",
+            "skill-open-code-review",
+            "skill-open-code-delegate"
+          )
+        }
+        opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "code-review", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
+      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64; allowDirectories = @("orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker", "skill-open-code-review", "skill-open-code-delegate") }
     }
   }
 }
@@ -169,15 +172,14 @@ function Test-DirectoryDifferent {
 }
 
 function Copy-ManagedDirectory {
-  param([string]$SourceDir, [string]$DestDir, [string]$TargetRoot)
+  param([string]$SourceDir, [string]$DestDir, [string]$TargetRoot, [string]$Program)
   if (-not (Test-PathUnderRoot -Path $DestDir -Root $TargetRoot)) {
-    throw "Refusing to copy managed directory outside target root: $DestDir"
+    throw "Refusing to synchronize destination outside target root: $DestDir"
   }
-  if (Test-Path -LiteralPath $DestDir) {
-    Remove-Item -LiteralPath $DestDir -Recurse -Force
-  }
-  New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
-  Get-ChildItem -LiteralPath $SourceDir -Force | Copy-Item -Destination $DestDir -Recurse -Force
+  $helper = Join-Path $script:MaestroRoot "bin\sync-managed-skill.js"
+  $result = & node $helper apply $Program $SourceDir $DestDir $TargetRoot $env:ORQUESTRADOR_UPDATE_ARTIFACTS $env:ORQUESTRADOR_PREVIOUS_ROOT
+  if ($LASTEXITCODE -ne 0) { throw "Managed native skill synchronization failed for $Program/$([IO.Path]::GetFileName($DestDir))." }
+  return ([string]$result).Trim()
 }
 
 function Move-NativeExtraDirectory {
@@ -210,7 +212,18 @@ function Move-NativeExtraDirectory {
 
 $canonicalMaestroRoot = Join-Path $HomePath ".orquestrador"
 $legacyMaestroRoot = Join-Path $HomePath ".orquestrador-maestro"
-$script:MaestroRoot = if (Test-Path -LiteralPath $canonicalMaestroRoot) { $canonicalMaestroRoot } else { $legacyMaestroRoot }
+$hasCanonicalSyncCore = (Test-Path -LiteralPath (Join-Path $canonicalMaestroRoot "SKILL_INSTALL_POLICY.json")) -and
+  (Test-Path -LiteralPath (Join-Path $canonicalMaestroRoot "bin\sync-managed-skill.js"))
+$hasLegacySyncCore = (Test-Path -LiteralPath (Join-Path $legacyMaestroRoot "SKILL_INSTALL_POLICY.json")) -and
+  (Test-Path -LiteralPath (Join-Path $legacyMaestroRoot "bin\sync-managed-skill.js"))
+$script:MaestroRoot = if ($hasCanonicalSyncCore) {
+  $canonicalMaestroRoot
+} elseif ($hasLegacySyncCore) {
+  $legacyMaestroRoot
+} else {
+  # targets add may create .orquestrador state before the core has been installed.
+  $PSScriptRoot
+}
 $policy = Read-InstallPolicy -HomePath $HomePath
 $libraryRoots = [pscustomobject]@{
   Community = Resolve-HomeRelativePath -HomePath $HomePath -RelativePath $policy.libraryRoots.community
@@ -220,15 +233,15 @@ $libraryRoots = [pscustomobject]@{
 
 $canonicalSourceRoots = @(
   (Join-Path $script:MaestroRoot "skills"),
-  (Join-Path $HomePath ".global-skills"),
   $libraryRoots.Community,
-  (Join-Path $HomePath ".codex\skills"),
-  $libraryRoots.Codex
+  $libraryRoots.Codex,
+  (Join-Path $HomePath ".global-skills"),
+  (Join-Path $HomePath ".codex\skills")
 ) | Where-Object { Test-Path -LiteralPath $_ }
 
 $codexManagedSourceRoots = @(
-  (Join-Path $HomePath ".codex\skills"),
-  $libraryRoots.Codex
+  $libraryRoots.Codex,
+  (Join-Path $HomePath ".codex\skills")
 ) | Where-Object { Test-Path -LiteralPath $_ }
 
 $targets = @()
@@ -274,6 +287,60 @@ if (Test-Path -LiteralPath $manifestPath) {
 # though it is maintained with the Codex-native skill sources.
 $mustHave = @("orquestrador-maestro") + @($mustHave | Where-Object { $_ -ne "orquestrador-maestro" })
 
+$appliedSyncActions = @{}
+if ($Apply) {
+  $syncOperations = New-Object System.Collections.Generic.List[object]
+  foreach ($target in $targets) {
+    if (-not (Test-ShouldSyncTarget -Program $target.Program)) { continue }
+    foreach ($skill in $mustHave) {
+      $src = Get-SkillSource -Name $skill -Roots $canonicalSourceRoots
+      if ($src) {
+        $syncOperations.Add([pscustomobject]@{
+          program = $target.Program
+          skill = $skill
+          source = $src
+          destination = Join-Path $target.Root $skill
+          targetRoot = $target.Root
+        })
+      }
+    }
+    $managedRoots = $canonicalSourceRoots
+    if ($target.Program -eq "codex") {
+      $managedRoots = @($codexManagedSourceRoots)
+      foreach ($root in $canonicalSourceRoots) {
+        if ($root -notin $managedRoots) { $managedRoots += $root }
+      }
+    }
+    foreach ($name in ($target.AllowDirectories | Where-Object { $_ -notin $mustHave } | Sort-Object)) {
+      $src = Get-DirectorySource -Name $name -Roots $managedRoots
+      if ($src) {
+        $syncOperations.Add([pscustomobject]@{
+          program = $target.Program
+          skill = $name
+          source = $src
+          destination = Join-Path $target.Root $name
+          targetRoot = $target.Root
+        })
+      }
+    }
+  }
+  if ($syncOperations.Count -gt 0) {
+    $syncHelper = Join-Path $script:MaestroRoot "bin\sync-managed-skill.js"
+    $batchInputPath = [IO.Path]::GetTempFileName()
+    try {
+      $batchJson = ConvertTo-Json -InputObject @($syncOperations.ToArray()) -Depth 5 -Compress
+      [IO.File]::WriteAllText($batchInputPath, $batchJson, [Text.UTF8Encoding]::new($false))
+      $batchRaw = & node $syncHelper apply-batch --json-file $batchInputPath
+      if ($LASTEXITCODE -ne 0) { throw "Managed native skill synchronization failed; previous snapshots remain in the update backup." }
+      foreach ($result in @($batchRaw | ConvertFrom-Json)) {
+        $appliedSyncActions["$($result.program)|$($result.skill)"] = [string]$result.action
+      }
+    } finally {
+      Remove-Item -LiteralPath $batchInputPath -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
 $report = New-Object System.Collections.Generic.List[object]
 $offloadStamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
@@ -289,10 +356,10 @@ foreach ($target in ($targets | Sort-Object Program)) {
     $action = if (-not $src) { "missing-source" } elseif (-not $targetExists) { "missing-target" } elseif (-not $exists) { "copy" } elseif ($different) { "update" } else { "ok" }
 
     if ($Apply -and $src -and ($action -in @("missing-target", "copy", "update"))) {
-      New-Item -ItemType Directory -Force -Path $target.Root | Out-Null
-      Copy-ManagedDirectory -SourceDir $src -DestDir $dest -TargetRoot $target.Root
+      $actionKey = "$($target.Program)|$skill"
+      if (-not $appliedSyncActions.ContainsKey($actionKey)) { throw "Sync plan did not include $actionKey." }
+      $action = $appliedSyncActions[$actionKey]
       $targetExists = $true
-      $action = "applied"
     }
 
     $report.Add([pscustomobject]@{
@@ -307,7 +374,13 @@ foreach ($target in ($targets | Sort-Object Program)) {
   }
 
   if ($target.AllowDirectories.Count -gt 0) {
-    $managedRoots = if ($target.Program -eq "codex") { $codexManagedSourceRoots } else { $canonicalSourceRoots }
+    $managedRoots = $canonicalSourceRoots
+    if ($target.Program -eq "codex") {
+      $managedRoots = @($codexManagedSourceRoots)
+      foreach ($root in $canonicalSourceRoots) {
+        if ($root -notin $managedRoots) { $managedRoots += $root }
+      }
+    }
     foreach ($name in ($target.AllowDirectories | Where-Object { $_ -notin $mustHave } | Sort-Object)) {
       $src = Get-DirectorySource -Name $name -Roots $managedRoots
       $dest = Join-Path $target.Root $name
@@ -316,10 +389,10 @@ foreach ($target in ($targets | Sort-Object Program)) {
       $action = if (-not $src) { "missing-source" } elseif (-not $targetExists) { "missing-target" } elseif (-not $exists) { "copy" } elseif ($different) { "update" } else { "ok" }
 
       if ($Apply -and $src -and ($action -in @("missing-target", "copy", "update"))) {
-        New-Item -ItemType Directory -Force -Path $target.Root | Out-Null
-        Copy-ManagedDirectory -SourceDir $src -DestDir $dest -TargetRoot $target.Root
+        $actionKey = "$($target.Program)|$name"
+        if (-not $appliedSyncActions.ContainsKey($actionKey)) { throw "Sync plan did not include $actionKey." }
+        $action = $appliedSyncActions[$actionKey]
         $targetExists = $true
-        $action = "applied"
       }
 
       $report.Add([pscustomobject]@{
@@ -343,8 +416,8 @@ foreach ($target in ($targets | Sort-Object Program)) {
       if ($allowed.ContainsKey($dir.Name)) { continue }
 
       $action = "extra-native"
-      $detail = $null
-      if ($Apply) {
+      $detail = "preserved (use -Prune to offload)"
+      if ($Apply -and $Prune) {
         $detail = Move-NativeExtraDirectory `
           -SourceDir $dir.FullName `
           -TargetRoot $target.Root `

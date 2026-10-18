@@ -7,7 +7,7 @@ When the task is broad or a session is being resumed, the orquestrador may use `
 ## Execution Loop
 
 1. Observe: read the relevant entrypoints, project instructions, and `DEV/` overview docs when the project has them.
-2. Route: consult `{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json`.
+2. Route: consult `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`.
 3. Select: open only the task-relevant skills.
 4. Act: make the smallest safe change that solves the task.
 5. Verify: run the lightest meaningful validation.

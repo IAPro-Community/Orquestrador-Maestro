@@ -66,6 +66,12 @@ class JsonFileRunStore extends RunStore {
     }
   }
 
+  async _readFresh() {
+    await this.initialize();
+    await this._mutation;
+    await this._reloadIfChanged();
+  }
+
   async createProject(project) { return this._save("projects", project); }
   async saveMission(mission) { return this._save("missions", mission); }
   async saveTask(task) { return this._save("tasks", task); }
@@ -118,8 +124,7 @@ class JsonFileRunStore extends RunStore {
   async getTerminal(id) { return this._get("terminals", id); }
 
   async getLatestProjectSnapshot(projectId) {
-    await this.initialize();
-    await this._reloadIfChanged();
+    await this._readFresh();
     if (typeof projectId !== "string" || projectId.trim() === "") throw new TypeError("projectId must be a non-empty string");
     const snapshots = this._state.projectSnapshots.filter(s => s.projectId === projectId);
     if (snapshots.length === 0) throw new Error(`Project snapshot not found for project: ${projectId}`);
@@ -135,8 +140,7 @@ class JsonFileRunStore extends RunStore {
   async listMissions(filters) { return this._list("missions", filters, ["projectId", "status", "mode"]); }
   async listTasks(filters) { return this._list("tasks", filters); }
   async listRuns(filters = {}) {
-    await this.initialize();
-    await this._reloadIfChanged();
+    await this._readFresh();
     let runs = this._state.runs;
     if (filters.projectId) {
       const taskIds = new Set(this._state.tasks.filter((task) => task.projectId === filters.projectId).map((task) => task.id));
@@ -168,8 +172,7 @@ class JsonFileRunStore extends RunStore {
   }
 
   async _get(collection, id) {
-    await this.initialize();
-    await this._reloadIfChanged();
+    await this._readFresh();
     if (typeof id !== "string" || id.trim() === "") throw new TypeError("id must be a non-empty string");
     const record = this._state[collection].find((entry) => entry.id === id);
     return record ? clone(record) : undefined;
@@ -177,8 +180,7 @@ class JsonFileRunStore extends RunStore {
 
   async _list(collection, filters = {}, allowed) {
     assertKnownCollection(collection);
-    await this.initialize();
-    await this._reloadIfChanged();
+    await this._readFresh();
     return this._filter(this._state[collection], filters, allowed);
   }
 
@@ -202,8 +204,10 @@ class JsonFileRunStore extends RunStore {
       try {
         // The lock serializes independent Maestro processes. Always reload
         // inside the critical section so the mutation is based on the latest
-        // committed file, never on a stale in-memory snapshot.
-        await this._reloadFromDisk({ createIfMissing: true });
+        // committed file, never on a stale in-memory snapshot. Reloading is
+        // fail-closed: a store removed after initialisation is a hard error,
+        // never permission to recreate an empty snapshot.
+        await this._reloadIfChanged();
         return await operation();
       } finally {
         await release();
@@ -230,16 +234,16 @@ class JsonFileRunStore extends RunStore {
   }
 
   async _reloadIfChanged() {
-    if (this._lastWriteMtime === null) return;
-    let stat;
-    try {
-      stat = await fs.stat(this.filePath);
-    } catch (error) {
-      if (error?.code === "ENOENT") return;
-      throw error;
-    }
-    if (stat.mtimeMs === this._lastWriteMtime) return;
-    await this._reloadFromDisk();
+    // Read on every operation: mtimeMs can be equal for two cross-process
+    // renames on low-resolution Windows/network filesystems.
+    // An absent/corrupted store is a hard error, not permission to overwrite
+    // previously persisted data from a stale in-memory snapshot.
+    let contents;
+    try { contents = await fs.readFile(this.filePath, "utf8"); }
+    catch (error) { throw new Error(`RunStore is unavailable: ${this.filePath}: ${error.message}`); }
+    try { this._state = this._validateState(JSON.parse(contents)); }
+    catch (error) { throw new Error(`RunStore reload failed: ${this.filePath}: ${error.message}`); }
+    try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch {}
   }
 
   async _windowsLockEpermIsContention() {

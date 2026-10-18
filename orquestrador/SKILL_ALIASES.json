@@ -156,6 +156,8 @@
     "site cinematográfico": "skill-premium-web-experience",
     "site premium": "skill-premium-web-experience",
     "skill gate": "skill-quality-gate",
+    "skill-open-code-delegate": "skill-open-code-delegate",
+    "skill-open-code-review": "skill-open-code-review",
     "stripe": "skill-stripe-integration",
     "subagent": "skill-multiagent-orchestration",
     "subagents": "skill-multiagent-orchestration",

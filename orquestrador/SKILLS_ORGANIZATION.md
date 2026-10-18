@@ -4,14 +4,14 @@ Use this as the operating model for shared local skills.
 
 ## Principles
 
-- `{{USER_HOME}}/.orquestrador\skills` is the canonical source for custom skills.
-- `{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json` is the first file agents should read.
-- `{{USER_HOME}}/.orquestrador\SKILLS_MANIFEST.json` is the canonical registry for managed skills and sync behavior.
-- `{{USER_HOME}}/.orquestrador\SKILL_ALIASES.json` maps user wording to canonical skill names.
-- `{{USER_HOME}}/.orquestrador\SKILL_CHAINS.json` controls which skills may be chained together.
-- `{{USER_HOME}}/.orquestrador\SKILL_EXECUTION_PROFILES.json` controls max skill loading and validation depth.
-- `{{USER_HOME}}/.orquestrador\skill-library\community-skills` is the full community library kept outside native scanned roots.
-- `{{USER_HOME}}/.orquestrador\skill-library\codex-skills` is the full OMX/Codex workflow catalog kept outside the native Codex root.
+- `{{USER_HOME}}/.orquestrador/skills` is the canonical source for custom skills.
+- `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` is the first file agents should read.
+- `{{USER_HOME}}/.orquestrador/SKILLS_MANIFEST.json` is the canonical registry for managed skills and sync behavior.
+- `{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json` maps user wording to canonical skill names.
+- `{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json` controls which skills may be chained together.
+- `{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json` controls max skill loading and validation depth.
+- `{{USER_HOME}}/.orquestrador/skill-library/community-skills` is the full community library kept outside native scanned roots.
+- `{{USER_HOME}}/.orquestrador/skill-library/codex-skills` is the full OMX/Codex workflow catalog kept outside the native Codex root.
 - Agent roots such as `.codex`, `.claude`, `.opencode`, `.agents`, `.cursor`, `.gemini`, `.windsurf`, and `.antigravity-skills` are minimal native mirrors.
 - Do not edit native mirrors by hand unless debugging; edit canonical skills and run sync.
 - Keep skill bodies concise. Put heavy details under `references/` only when needed.
@@ -122,11 +122,11 @@ Refresh security and SaaS skills against primary sources:
 
 5. Sync mirrored roots:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\sync-skills.ps1 -Apply`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/sync-skills.ps1 -Apply`
 
 6. Run:
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador\doctor.ps1`
+`powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/doctor.ps1`
 
 7. Before publishing the snapshot, run:
 

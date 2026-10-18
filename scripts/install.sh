@@ -97,6 +97,11 @@ if [ -z "$HOME_PATH" ]; then
   exit 1
 fi
 
+if [ "$HOME_PATH" != "${HOME_PATH%$'\n'*}" ]; then
+  echo "Error: --home-path must not contain newlines." >&2
+  exit 1
+fi
+
 if printf '%s' "$HOME_PATH" | grep -Eq '^[A-Za-z]:[\\/]'; then
   if command -v cygpath >/dev/null 2>&1; then
     HOME_PATH="$(cygpath -u "$HOME_PATH")"
@@ -194,8 +199,20 @@ is_text_file() {
   leaf="$(basename "$file")"
   ext="${leaf##*.}"
 
+  # Binary guard for extensionless files: control bytes (incl. NUL) mean binary.
+  # (Files with known text extensions keep extension-based classification;
+  # a NUL pre-check via command substitution is unreliable because the shell
+  # strips NUL bytes from $(...) expansions, yielding an empty pattern.)
+
   if [ "$leaf" = ".gitignore" ]; then return 0; fi
-  if [ "$ext" = "$leaf" ]; then return 0; fi
+  if [ "$ext" = "$leaf" ]; then
+    # Extensionless files: only treat as text when they look like text.
+    # Use grep without LC_ALL=C so UTF-8 multi-byte (ç, ã, é) is not flagged as binary.
+    if head -c 8000 "$file" 2>/dev/null | grep -qP "[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]" 2>/dev/null; then
+      return 1
+    fi
+    return 0
+  fi
 
   case "$ext" in
     md|mdc|txt|json|jsonl|toml|yaml|yml|ps1|cmd|sh|js|jsx|ts|tsx|mjs|cjs|py|rb|go|rs|java|kt|swift|c|h|cpp|hpp|cs|html|css|scss|svg|xsd|xml|csv|patch|template|rules|ini|cfg|conf|sql)
@@ -208,7 +225,8 @@ is_text_file() {
 }
 
 escape_sed_replacement() {
-  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+  # Escape \, &, | and newlines for sed replacement with | delimiter.
+  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g' -e ':a;N;$!ba;s/\n/\\n/g'
 }
 
 copy_with_placeholders() {
@@ -340,28 +358,7 @@ restore_merged_config() {
   shift
   local source_files=("$@")
 
-  node - "$destination_file" "${source_files[@]}" <<'NODE'
-const fs = require("node:fs");
-const path = require("node:path");
-const [destination, ...sources] = process.argv.slice(2);
-const merged = {};
-let found = false;
-for (const source of sources) {
-  if (!fs.existsSync(source)) continue;
-  try {
-    const value = JSON.parse(fs.readFileSync(source, "utf8"));
-    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    Object.assign(merged, value);
-    found = true;
-  } catch {
-    process.stderr.write(`Warning: skipped invalid backed-up config: ${source}\n`);
-  }
-}
-if (found) {
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, `${JSON.stringify(merged, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-}
-NODE
+  node "$REPO_ROOT/scripts/update-migrations.js" merge "$destination_file" "${source_files[@]}"
 }
 
 backup_mapped_directory() {
@@ -924,6 +921,19 @@ restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/maestro-config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/config.json"
 
+# Preserve unmanaged user files across the swap; their content is carried over and stays active.
+# The first upgrade never deletes those files; source tombstones are recorded for future runs.
+# snapshot records the MANAGED_FILES.json ownership baseline for the next upgrade.
+# Stage user-owned files without modifying the active installation.
+# The report and upstream copies live next to, never inside, the rollback core.
+if [ -d "$TARGET_ORQUESTRADOR" ]; then
+  if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
+    echo "Error: refusing to read target outside home: $TARGET_ORQUESTRADOR" >&2
+    exit 1
+  fi
+  node "$REPO_ROOT/scripts/managed-files.js" preserve "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR" "$BACKUP_DIR/update-artifacts"
+fi
+
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
   if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
     echo "Error: refusing to replace target outside home: $TARGET_ORQUESTRADOR" >&2
@@ -972,6 +982,12 @@ chmod +x \
   "$TARGET_ORQUESTRADOR/bin/compact-worklog.sh" \
   "$TARGET_ORQUESTRADOR/bin/check-dev-gates.sh" 2>/dev/null || true
 
+# Record only source-owned files, never enumerate the user's destination tree;
+# the v3 manifest feeds future tombstone pruning + verify/doctor diff.
+if command -v node >/dev/null 2>&1; then
+  node "$REPO_ROOT/scripts/managed-files.js" snapshot "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
+fi
+
 if [ "$SKIP_SKILL_SYNC" = false ]; then
   SYNC_SCRIPT="$TARGET_ORQUESTRADOR/sync-skills.sh"
   if [ -f "$SYNC_SCRIPT" ]; then
@@ -979,9 +995,46 @@ if [ "$SKIP_SKILL_SYNC" = false ]; then
     if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
       SYNC_ARGS+=("--only" "$(IFS=','; echo "${ONLY_COMPONENTS[*]}")")
     fi
-    bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    previous_core="$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME"
+    if [ ! -d "$previous_core" ]; then previous_core="$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME"; fi
+    if [ -d "$BACKUP_DIR" ]; then
+      ORQUESTRADOR_UPDATE_ARTIFACTS="$BACKUP_DIR/update-artifacts/native-skills" \
+      ORQUESTRADOR_PREVIOUS_ROOT="$previous_core" \
+        bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    else
+      bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    fi
   fi
 fi
+
+# 1.1.0 (#39): native roots + shared maestro skill must exist even when sync is
+# skipped or narrowed by --only. Sync remains the full mirror; this is the
+# fail-closed minimum so `verify` never reports a fresh install as missing.
+ensure_native_minimum() {
+  local roots="codex:.codex/skills agents:.agents/skills opencode:.opencode/skills claude:.claude/skills cursor:.cursor/skills gemini:.gemini/skills windsurf:.windsurf/skills antigravity:.antigravity-skills/skills"
+  local pair rel root src_maestro dest_maestro
+  local maestro_sources=(
+    "$TARGET_SKILL_LIBRARY/codex-skills/orquestrador-maestro"
+    "$TARGET_ORQUESTRADOR/skill-library/codex-skills/orquestrador-maestro"
+    "$SOURCE_CODEX/skills/orquestrador-maestro"
+  )
+  for pair in $roots; do
+    rel="${pair#*:}"
+    root="$HOME_PATH/$rel"
+    mkdir -p "$root"
+    dest_maestro="$root/orquestrador-maestro"
+    if [ ! -f "$dest_maestro/SKILL.md" ]; then
+      for src_maestro in "${maestro_sources[@]}"; do
+        if [ -f "$src_maestro/SKILL.md" ]; then
+          mkdir -p "$dest_maestro"
+          cp -R "$src_maestro"/. "$dest_maestro"/
+          break
+        fi
+      done
+    fi
+  done
+}
+ensure_native_minimum
 
 DISCOVERY_SCRIPT="$REPO_ROOT/scripts/discover-skills.js"
 if [ -f "$DISCOVERY_SCRIPT" ]; then

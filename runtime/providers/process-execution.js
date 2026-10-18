@@ -1,6 +1,7 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { isDeniedCommand } = require("../governance/policy-enforcer");
 
 function requiredPrompt(request) {
   if (!request || typeof request !== "object" || Array.isArray(request)) {
@@ -20,7 +21,7 @@ function optionalPositiveInteger(value, name) {
   return value;
 }
 
-const BLOCKED_ENV_KEYS = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]);
+const BLOCKED_ENV_KEYS = new Set(["LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "NODE_OPTIONS", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_ACCESS_KEY_ID", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GITHUB_TOKEN", "BASH_ENV", "PYTHONPATH", "AZURE_OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"]);
 const BLOCKED_ENV_PREFIXES = ["MAESTRO_ADAPTIVE_", "MAESTRO_BENCHMARK_", "BENCHMARK_ADAPTIVE_"];
 
 function safeEnvironment(environment) {
@@ -53,6 +54,18 @@ function startProcess({ executable, args, request, providerId }) {
   const timeoutMs = optionalPositiveInteger(request.timeoutMs, "execution request.timeoutMs");
   const startedAt = Date.now();
   const commandArgs = [...args, prompt];
+  // Deterministic deny policy on the provider spawn path. Previously the deny
+  // rules only guarded post-run verification commands, so a provider CLI could
+  // still be launched with a denied git/rm/pipe-to-shell invocation in its args.
+  // The prompt is deliberately NOT scanned: it is model-authored task content,
+  // not an operator-authored command line.
+  const denial = isDeniedCommand([executable, ...args].join(" "));
+  if (denial) {
+    const error = new Error(`Denied by ${denial.rule}: ${denial.description}`);
+    error.code = "POLICY_DENIED";
+    error.rule = denial.rule;
+    throw error;
+  }
   const child = spawn(executable, commandArgs, {
     cwd: request.workspacePath,
     env: safeEnvironment(request.environment),
@@ -105,14 +118,20 @@ function startProcess({ executable, args, request, providerId }) {
     resolveResult(completed);
   };
 
+  const MAX_OUTPUT = 512 * 1024;
+  const truncate = (store, text) => {
+    const next = store + text;
+    return next.length > MAX_OUTPUT ? next.slice(-MAX_OUTPUT) : next;
+  };
+
   child.stdout.on("data", (chunk) => {
     const text = chunk.toString("utf8");
-    stdout += text;
+    stdout = truncate(stdout, text);
     emit(request.onEvent, "provider.output", { providerId, stream: "stdout", chunk: text });
   });
   child.stderr.on("data", (chunk) => {
     const text = chunk.toString("utf8");
-    stderr += text;
+    stderr = truncate(stderr, text);
     emit(request.onEvent, "provider.output", { providerId, stream: "stderr", chunk: text });
   });
   child.once("error", (error) => finish({ exitCode: null, signal: null, error: error.message }));

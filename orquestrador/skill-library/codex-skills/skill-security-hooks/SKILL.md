@@ -32,7 +32,7 @@ Record:
 ## Default command
 
 ```bat
-"{{USER_HOME}}/.orquestrador\skills\skill-security-hooks\scripts\install-security-hooks.cmd" "C:\path\to\repo" --authorized-local-repo
+"{{USER_HOME}}/.orquestrador/skills/skill-security-hooks/scripts/install-security-hooks.cmd" "C:/path/to/repo" --authorized-local-repo
 ```
 
 ## Hook policy

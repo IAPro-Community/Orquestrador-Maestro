@@ -195,6 +195,7 @@ foreach ($file in Get-ScannableFiles -CurrentPath $repoRootFull -BasePath $repoR
   } catch {
     continue
   }
+  if ($null -eq $text) { $text = "" }
 
   if ($text -match "C:\\Users\\[A-Za-z0-9._-]+") {
     Add-Issue -Kind "concrete-windows-home" -Path $relative -Detail "Use {{USER_HOME}} or %USERPROFILE% instead of a concrete user path."
@@ -203,10 +204,17 @@ foreach ($file in Get-ScannableFiles -CurrentPath $repoRootFull -BasePath $repoR
     Add-Issue -Kind "concrete-windows-home" -Path $relative -Detail "Use {{USER_HOME}} or %USERPROFILE% instead of a concrete user path."
   }
 
+  # A leaked username is only a real leak in path context (/home/<user>,
+  # C:\Users\<user>, %USERPROFILE%=<user>). Matching the bare name anywhere in
+  # prose produced false positives on ordinary words (e.g. the Portuguese
+  # "desenvolvedor"/"desenvolvedora") and on this file's own documentation.
   foreach ($literal in $allForbidden) {
     if ($literal -in @("Public", "Default", "User")) { continue }
-    if ($text.IndexOf($literal, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-      Add-Issue -Kind "forbidden-literal" -Path $relative -Detail "Found forbidden literal: $literal"
+    if ($relative -eq "scripts/validate-public.ps1") { continue }
+    $escaped = [regex]::Escape($literal)
+    $pathContext = "(?:/home/|/Users/|\\Users\\|C:[\\/]Users[\\/]|%USERPROFILE%[\\/=])" + $escaped + "(?![A-Za-z0-9_-])"
+    if ([regex]::IsMatch($text, $pathContext, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
+      Add-Issue -Kind "forbidden-literal" -Path $relative -Detail "Found forbidden literal in path context: $literal"
     }
   }
 

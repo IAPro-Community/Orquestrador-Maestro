@@ -122,10 +122,10 @@ runCheck("No obvious secrets in tracked files", () => {
 console.log("\n5. No concrete user paths in source");
 runCheck("No concrete Windows/Unix home paths in tracked source", () => {
   const userPathPatterns = [
-    /C:\\Users\\(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\\/,
-    /C\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
-    /\/home\/(?!<user>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//,
-    /\/Users\/(?!<username>|alice|bob|admin|user|desenvolvedor)[A-Za-z0-9._-]+\//
+    /C:\\Users\\(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\\/,
+    /C\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /\/home\/(?!<user>|alice|bob|admin|user)[A-Za-z0-9._-]+\//,
+    /\/Users\/(?!<username>|alice|bob|admin|user)[A-Za-z0-9._-]+\//
   ];
   for (const rel of trackedRegularTextFiles()) {
     const full = path.join(rootDir, rel);
@@ -225,7 +225,8 @@ const currentBranchResult = spawnSync("git", ["branch", "--show-current"], {
   shell: false
 });
 const currentBranch = currentBranchResult.status === 0 ? currentBranchResult.stdout.trim() : "";
-const ancestryBase = process.env.VERIFY_BASE_REF || (currentBranch === "v1" ? "origin/v1" : "origin/main");
+const isV1Line = currentBranch === "v1" || currentBranch.startsWith("release/");
+const ancestryBase = process.env.VERIFY_BASE_REF || (isV1Line ? "origin/v1" : "origin/main");
 runCheck(`HEAD is descendant of ${ancestryBase}`, () => {
   const mergeBase = spawnSync("git", ["merge-base", "--is-ancestor", ancestryBase, "HEAD"], {
     cwd: rootDir,

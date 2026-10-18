@@ -38,7 +38,7 @@ Default to passive/baseline scans. Production scans must use low rate limits and
 ## Default command
 
 ```bat
-"{{USER_HOME}}/.orquestrador\skills\skill-saas-dast-recon\scripts\saas-dast-recon.cmd" https://staging.example.com --i-own-this-target
+"{{USER_HOME}}/.orquestrador/skills/skill-saas-dast-recon/scripts/saas-dast-recon.cmd" https://staging.example.com --i-own-this-target
 ```
 
 ## Severity and gates

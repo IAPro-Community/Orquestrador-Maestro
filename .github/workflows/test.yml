@@ -15,6 +15,27 @@ permissions:
   contents: read
 
 jobs:
+  contracts:
+    name: Contracts — catalogs, router, install policy (Node 22 on Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Contract gate (no PowerShell required)
+        run: node scripts/validate-contracts.js
+
+      - name: Installer E2E (--full, isolated temp home)
+        run: bash scripts/test-install.sh --full
+
   test-full:
     name: Full tests — Node ${{ matrix.node-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -164,6 +185,30 @@ jobs:
           $sync = Join-Path $pkgRoot "@iapro\orquestrador-maestro-cli\orquestrador\sync-skills.ps1"
           & powershell -NoProfile -File $sync -Apply -HomePath $tempHome -Only codex
           if ($LASTEXITCODE -ne 0) { throw "PowerShell sync failed" }
+          Remove-Item -LiteralPath $tempHome -Recurse -Force
+
+      - name: Public validation (secrets, forbidden files, mojibake)
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-public.ps1
+          if ($LASTEXITCODE -ne 0) { throw "validate-public.ps1 failed" }
+
+      - name: PowerShell installer E2E (--Full)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-install.ps1 -Full
+          if ($LASTEXITCODE -ne 0) { throw "test-install.ps1 -Full failed" }
+
+      - name: doctor --strict (loss detection)
+        shell: pwsh
+        env:
+          ORQUESTRADOR_ALLOW_ROOT_INSTALL: "1"
+        run: |
+          $tempHome = Join-Path $env:RUNNER_TEMP "maestro-doctor-$env:GITHUB_RUN_ID"
+          New-Item -ItemType Directory -Force -Path $tempHome | Out-Null
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -HomePath $tempHome -NonInteractive | Out-Null
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./orquestrador/doctor.ps1 -HomePath $tempHome -Strict | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "doctor --strict failed on a healthy install" }
           Remove-Item -LiteralPath $tempHome -Recurse -Force
 
       - name: Cleanup

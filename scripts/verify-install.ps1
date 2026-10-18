@@ -3,6 +3,7 @@ param(
   [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
   [switch]$SkipToolProfiles,
   [switch]$CoreOnly,
+  [switch]$Strict,
   [switch]$VerbosePaths
 )
 
@@ -85,14 +86,14 @@ function Count-Files {
 function Get-DefaultInstallPolicy {
   return [pscustomobject]@{
     nativeRoots = [pscustomobject]@{
-      codex = [pscustomobject]@{ path = ".codex/skills"; maxDirectories = 40 }
-      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 30 }
-      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 30 }
-      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 30 }
-      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 30 }
-      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 30 }
-      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 30 }
-      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 30 }
+      codex = [pscustomobject]@{ path = ".codex/skills"; maxDirectories = 64 }
+      opencode = [pscustomobject]@{ path = ".opencode/skills"; maxDirectories = 64 }
+      agents = [pscustomobject]@{ path = ".agents/skills"; maxDirectories = 64 }
+      claude = [pscustomobject]@{ path = ".claude/skills"; maxDirectories = 64 }
+      cursor = [pscustomobject]@{ path = ".cursor/skills"; maxDirectories = 64 }
+      gemini = [pscustomobject]@{ path = ".gemini/skills"; maxDirectories = 64 }
+      windsurf = [pscustomobject]@{ path = ".windsurf/skills"; maxDirectories = 64 }
+      antigravity = [pscustomobject]@{ path = ".antigravity-skills/skills"; maxDirectories = 64 }
     }
   }
 }
@@ -131,13 +132,49 @@ Assert-Path -Path (Join-Path $orquestrador "SKILLS_INDEX.md") -Label "Orquestrad
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_ROUTER.json") -Label "Orquestrador skills router"
 Assert-Path -Path (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Label "Orquestrador skill install policy"
 Assert-Path -Path (Join-Path $orquestrador "SKILLS_DISCOVERY.json") -Label "Orquestrador local skills inventory"
+Assert-Path -Path (Join-Path $orquestrador "MANAGED_FILES.json") -Label "Orquestrador managed files manifest (1.1.0+)"
 Assert-Path -Path (Join-Path $orquestrador "skills") -Label "Orquestrador canonical skills"
+Assert-Path -Path (Join-Path $orquestrador "skills\skill-open-code-review\SKILL.md") -Label "Deprecated alias skill-open-code-review (1.1.0 compat)"
+Assert-Path -Path (Join-Path $orquestrador "skills\skill-open-code-delegate\SKILL.md") -Label "Deprecated alias skill-open-code-delegate (1.1.0 compat)"
 Assert-Path -Path (Join-Path $HomePath "AGENTS.md") -Label "Global AGENTS.md"
+
+try {
+  $policyJson = Get-Content -LiteralPath (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ([int]$policyJson.version -ne 2) {
+    Add-Issue "Orquestrador skill install policy is not v2 (found v$($policyJson.version)); re-run update to 1.1.0"
+  }
+} catch { }
+if ($Strict) {
+  $managedFilesScript = Join-Path $PSScriptRoot "managed-files.js"
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Add-Issue "Strict: Node.js is unavailable; MANAGED_FILES.json cannot be verified."
+  } else {
+    & node $managedFilesScript inspect $orquestrador | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      Add-Issue "Strict: managed core files are missing or modified, or MANAGED_FILES.json is unsupported; review the update report and run update."
+    }
+  }
+}
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/WORKLOG\.md" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $orquestrador "rules.md") -Pattern "DEV/WORKLOG\.md" -Label "Orquestrador rules"
 Assert-FileContains -Path (Join-Path $orquestrador "maestro.md") -Pattern "PERSISTENCE\.md" -Label "Orquestrador maestro"
 Assert-FileContains -Path (Join-Path $orquestrador "PROJECT_DEV_HIERARCHY.md") -Pattern "DEV/WORKLOG\.md" -Label "Project DEV hierarchy"
+
+# 1.1.0: Codex CLI, IDE extension and ChatGPT desktop app all read $CODEX_HOME
+# (default ~/.codex). A divergent value means those clients never see the
+# installed skills. Environment check, so it runs even with -CoreOnly.
+if ((-not $CoreOnly) -or $Strict) {
+  $codexHomeScript = Join-Path $PSScriptRoot "..\orquestrador\lib\codex-home.js"
+  if (Get-Command node -ErrorAction SilentlyContinue) {
+    try {
+      $json = & node -e "const m=require(process.argv[1]);process.stdout.write(m.resolveCodexHome().divergent?'1':'0');" $codexHomeScript 2>$null
+      if ($json -eq "1") {
+        Add-Issue "CODEX_HOME diverges from the directory Maestro installs into (~/.codex). Codex CLI/IDE/ChatGPT desktop app read CODEX_HOME and will NOT see these skills. Set CODEX_HOME identically everywhere or unset it."
+      }
+    } catch { }
+  }
+}
 
 $installPolicy = Get-InstallPolicy -Path (Join-Path $orquestrador "SKILL_INSTALL_POLICY.json")
 $nativeRootSpecs = @()
@@ -162,6 +199,19 @@ if (-not $CoreOnly) {
     }
   }
   Assert-Path -Path (Join-Path $HomePath ".agents\skills\orquestrador-maestro\SKILL.md") -Label "Freebuff shared Maestro skill"
+  if ($Strict) {
+    try {
+      $manifest = Get-Content -LiteralPath (Join-Path $orquestrador "SKILLS_MANIFEST.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+      $mustHave = @("orquestrador-maestro", "skill-open-code-review", "skill-open-code-delegate") + @($manifest.skills.PSObject.Properties | Where-Object { $_.Value.mirrorEverywhere -eq $true } | ForEach-Object { $_.Name })
+      foreach ($skill in ($mustHave | Sort-Object -Unique)) {
+        foreach ($root in $nativeRootSpecs) {
+          if (-not (Test-Path -LiteralPath (Join-Path $root.Path "$skill\SKILL.md"))) {
+            Add-Issue "Strict: skill $skill missing in native root $($root.Program): $($root.Path)\$skill\SKILL.md (re-run sync --apply)"
+          }
+        }
+      }
+    } catch { }
+  }
 }
 
 if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {

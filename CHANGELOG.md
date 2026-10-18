@@ -1,5 +1,76 @@
 # Changelog
 
+## 1.1.0 - 2026-10-15
+
+Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback, hardening de runtime e integração com o app desktop ChatGPT/Codex. Esta linha incorpora a 1.0.1 (`v1`) por merge, tornando-se descendente direta da linha estável.
+
+### Correções de instalação e atualização (issues #38, #39)
+
+- Fixed #39: fresh install com `--skip-skill-sync` ou `--only` parcial agora sempre cria as 8 raízes nativas e `~/.agents/skills/orquestrador-maestro/SKILL.md` (mínimo fail-closed no instalador sh/ps1).
+- Fixed #38: staging transacional preserva arquivos desconhecidos, diretórios vazios e edições em arquivos oficiais; tombstones só retiram arquivos de pacote inalterados.
+- `MANAGED_FILES.json` v3 compara hash da origem com o conteúdo instalado; o relatório lista arquivos adicionados, atualizados ou removidos, customizações e schemas antes/depois.
+- Em arquivos oficiais editados localmente, a versão customizada continua ativa e a cópia nova do pacote fica em `update-artifacts/upstream-overrides/`, ao lado do backup, para revisão.
+- Configurações legadas recebem schema v1 sem perder chaves ou valores; versões futuras não reconhecidas bloqueiam a publicação do staging.
+- `sync --apply` preserva skills/arquivos desconhecidos por padrão; quarentena para `disabled-native/` só com `--prune`/`-Prune` explícito (ADR-001).
+- Mirrors nativos usam `.orquestrador-managed-skills.json` v1 por raiz: árvores oficiais inalteradas são atualizadas; skills editadas ou com arquivos extras permanecem ativas, com a cópia upstream no relatório de atualização.
+- Novo comando `orquestrador-maestro rollback [--to STAMP] [--list]` valida IDs reais, prepara core, configurações e mirrors nativos em uma transação reversível, preserva arquivos e overrides atuais, recusa conteúdo alterado depois do backup e permite repetir a restauração com segurança.
+- `SKILL_INSTALL_POLICY.json` v2 como fonte única (`maxDirectories: 64` nas 8 raízes); fallbacks sh/ps1/verify/doctor unificados (antes 40/30 e 48).
+- Paridade sh/ps1 nos tool profiles (presença + `.maestro-managed` + `--all-targets`) e aviso de execução elevada no Windows.
+- Correção de `hasOnly` com sintaxe `--only=` e `runCliUpdate` com verificação anti-regressão de versão.
+- `verify`/`doctor` ganham `--strict`: espelho `MUST_HAVE` completo, aliases deprecated em cada raiz permitida, auditoria de `MANAGED_FILES.json` e policy v2; `doctor --strict` sai non-zero em perda ou drift não reconhecido.
+
+### Compatibilidade
+
+- `skill-open-code-review` → alias deprecated para `code-review`; `skill-open-code-delegate` → alias deprecated para `skill-multiagent-orchestration` (aviso de remoção futura, issue #38).
+- Catálogo público: 81 skills únicas de 187 arquivos; manifesto canônico com 58 skills (inclui as 4 skills de design da linha v1); matriz de capabilities sem contagens hardcoded.
+
+### Hardening
+
+- `runtime/verification/engine.js`: cap de saída 512KB, `SIGTERM`→`SIGKILL`, guards de spawn nulo.
+- `runtime/providers/process-execution.js`: `BLOCKED_ENV_KEYS` expandida (AWS/OpenAI/Anthropic/GitHub/Azure/Google + `BASH_ENV`/`PYTHONPATH`) + `BLOCKED_ENV_PREFIXES`.
+- `diagnostic-sanitizer`: `ASIA/ABIA/glpat-/AIza/dop_v1` + blocos PEM.
+- `tool-adapters render` com `--refresh`; `benchmark run --profile official` exige `--container`; CSV com coluna `claim_eligible`.
+- Instalador: detecção de binários por conteúdo (não só extensão) e guarda de newline em `--home-path`.
+
+### App desktop ChatGPT/Codex
+
+- `orquestrador/lib/codex-home.js`: resolve `$CODEX_HOME` (CLI e app desktop compartilham o mesmo Codex home); `doctor`/`verify --strict`/`verify-install.*` reportam divergência que deixaria skills invisíveis sem erro.
+- `install` instala o plugin desktop automaticamente quando a plataforma é suportada ou o app está presente (opt-out: `--skip-desktop-plugin` / `ORQUESTRADOR_MAESTRO_SKIP_DESKTOP_PLUGIN=1`; `--only` sem `codex` e `--core-only` pulam).
+- Comandos `desktop-plugin install|status|doctor|stats|remove`; hooks/MCP do plugin exigem trust manual na UI do app (limite deliberado).
+
+### Portal e documentação
+
+- Integra o portal React/Docusaurus e o redesign editorial da `main`, com simulador de roteamento, catálogo pesquisável de skills e páginas de arquitetura.
+- Corrige os links gerados para ADRs e anchors de benchmark usados pelo índice pesquisável.
+
+### Quick wins arquiteturais (RFC, mesma release)
+
+- `orquestrador/PATH_CONTRACT.md`: prosa e JSON sempre com `/`; 156 linhas normalizadas; lint `path-contract` no gate.
+- `npm run validate` portátil (`scripts/validate.js` com modo degradado sem PowerShell); `validate-skills.sh` com paridade ps1.
+- `scripts/validate-contracts.js` + job `contracts` no CI (catálogos + testes de contrato + `test-install --full`).
+- `orquestrador/POLICY_DENY.json` + `runtime/governance/policy-enforcer.js` aplicados em `verification/engine` (git push/commit, yolo, `rm` destrutivo, segredo inline, pipe-to-shell nunca executam).
+- Roteamento determinístico formalizado (`normalization` + `tieBreak` no router) com teste de 18 prompts ambíguos.
+- `orquestrador/SKILL_TEMPLATE.md` (Template v2: frontmatter fechado, ≤120 linhas, `references/`, regras de triggers).
+- Correção do validador público em arquivo vazio (null-deref pré-existente).
+
+### Verificação
+
+- Novos testes: `update-preservation-1-1-0`, `policy-drift-1-1-0`, `alias-deprecated`, `path-contract`, `policy-enforcer`, `router-determinism`, `desktop-plugin-autoinstall`; `test-install.sh --full` no CI.
+- Suite pós-merge: 1328 testes, 1326 passed, 0 failed, 2 skipped; `skill-catalog validate/check` + `public-skill-catalog check` verdes; `verify:pr` ALL CHECKS PASSED.
+
+### Hardening de governança (1.1.0, fases A-C)
+
+- **Sandbox fail-closed**: `agy` recusava silenciosamente `sandbox: "read-only"` (só aceitava `true`/"enabled") e rodava com escrita total; `opencode` não expunha controle nenhum. Novo `runtime/providers/sandbox-contract.js` — sandbox pedido e não aplicável agora **falha** em vez de degradar. `opencode` reporta `sandboxControl: false` honestamente.
+- **Deny policy no spawn do provider**: as 6 regras (`git push/commit`, yolo, `rm` destrutivo, segredo inline, pipe-to-shell) agora também valem no caminho de execução do provider, não só na verificação pós-run. O prompt autoral do modelo não é varrido.
+- **`hooks.enabled` marcado como não implementado** (`implemented: false`): não existe runtime de hooks; o campo não deve ser vendido como controle ativo.
+- **Contrato de budget enxuto**: `maxIntelligentRetries` e `maxOverheadPercent` foram removidos — declarados e validados, porém com **zero** enforcement (falsa garantia). Restam `contextTokens`, `maxSkills` e `maxReviewers`, cada um com consumidor real e coberto por teste.
+- **Durabilidade do run store**: `_flush` agora faz `fsync` do arquivo temporário e do diretório pai antes/depois do `rename` (antes o rename era atômico mas não durável).
+- **Concorrência cross-process**: `_mutate` segura um lockfile exclusivo durante reload+operação. Novo `orquestrador/lib/lock-async.js` combina mutex in-process (necessário porque `acquireLock` faz busy-wait com `Atomics.wait` e deadlock intra-processo) com o lockfile cross-process.
+
+### Segurança (follow-up documentado, fora desta release)
+
+- `.env` com segredo vivo + identificador de chave no histórico: rotação imediata obrigatória; purga histórica (`filter-repo` + push forçado coordenado) planejada em janela separada, não executada aqui.
+
 ## 1.0.1 - 2026-10-12
 
 ### Instalação e migração do núcleo

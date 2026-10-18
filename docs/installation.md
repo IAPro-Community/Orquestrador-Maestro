@@ -12,7 +12,7 @@ orquestrador-maestro install
 orquestrador-maestro verify
 ```
 
-A V1 estável é a versão padrão no canal npm `latest`, na branch `v1` e na release `v1.0.1`. A linha 0.x permanece no histórico; pré-releases continuam identificadas por seus canais próprios.
+A V1 estável é a versão 1.1.0 no canal npm `latest`, na branch `v1` e na release `v1.1.0`. A linha 0.x permanece no histórico; pré-releases continuam identificadas por seus canais próprios.
 
 Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue neste guia. Depois de instalar, use o [guia operacional para IAs](ai-agent-operating-guide.md).
 
@@ -21,6 +21,7 @@ Precisa de Windows, Linux/macOS, clone, bootstrap, dry-run ou rollback? Continue
 - Windows com PowerShell ou Linux/macOS com Bash.
 - Git instalado para clonar o repositório.
 - Codex, Claude, Gemini, Grok CLI, MiMo Code, Kimi Code, Cursor, OpenCode, Windsurf ou Antigravity são opcionais. O instalador prepara as pastas e os arquivos; cada ferramenta continua responsável pelo próprio login, runtime e credenciais.
+- Usando o **ChatGPT desktop (modo Codex)**? As skills já são instaladas no diretório compartilhado com o Codex CLI, mas existe uma armadilha de `CODEX_HOME` que as invisibiliza sem erro. Veja [ChatGPT desktop e o Maestro](chatgpt-desktop.md).
 
 ## Instalação Completa Recomendada
 
@@ -102,7 +103,7 @@ node .\bin\orquestrador-maestro.js verify
 
 | Destino | Função |
 |---|---|
-| `%USERPROFILE%\.orquestrador` | Núcleo do Orquestrador: regras, maestro, hooks, roteadores, scripts, skills canônicas e bibliotecas offload |
+| `%USERPROFILE%\.orquestrador-maestro` | Núcleo do Orquestrador: regras, maestro, hooks, roteadores, scripts, skills canônicas e bibliotecas offload (instalações antigas usam `.orquestrador` como legado) |
 | `%USERPROFILE%\AGENTS.md` | Contrato global lido pelas IAs antes de trabalhar em projetos |
 | `%USERPROFILE%\.codex\skills` | Conjunto nativo enxuto do Codex: skills canônicas, workflows OMX essenciais e `.system` |
 | `%USERPROFILE%\.codex\agents` | Agentes nativos do Codex |
@@ -115,10 +116,10 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\.gemini\skills` | Raiz nativa mínima para Gemini |
 | `%USERPROFILE%\.windsurf\skills` | Raiz nativa mínima para Windsurf |
 | `%USERPROFILE%\.antigravity-skills\skills` | Raiz nativa mínima para compatibilidade adicional |
-| `%USERPROFILE%\.orquestrador\skill-library\community-skills` | Fonte comunitária distribuída; o registro público deduplica seus IDs |
-| `%USERPROFILE%\.orquestrador\skill-library\codex-skills` | Fonte OMX/Codex distribuída; o registro público deduplica seus IDs |
-| `%USERPROFILE%\.orquestrador\skill-library\disabled-native` | Skills offloadadas das raízes nativas durante otimizações |
-| `%USERPROFILE%\.orquestrador\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
+| `%USERPROFILE%\.orquestrador-maestro\skill-library\community-skills` | Fonte comunitária distribuída; o registro público deduplica seus IDs |
+| `%USERPROFILE%\.orquestrador-maestro\skill-library\codex-skills` | Fonte OMX/Codex distribuída; o registro público deduplica seus IDs |
+| `%USERPROFILE%\.orquestrador-maestro\skill-library\disabled-native` | Quarentena de skills movidas das raízes nativas somente com `--prune` explícito (1.1.0+: `sync --apply` preserva por padrão) |
+| `%USERPROFILE%\.orquestrador-maestro\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
 | `%USERPROFILE%\.ai-standards` | Standards portáteis usados pelo Antigravity |
 | `%USERPROFILE%\.opencode` | Hooks e perfil textual do OpenCode |
 | `%USERPROFILE%\.claude` | Hooks e prompt textual do Claude |
@@ -135,7 +136,7 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\.antigravity\antigravity.json` | Configuração de integração Antigravity + Orquestrador |
 | `%USERPROFILE%\.antigravity\settings.json` | Configuração portável do Antigravity |
 
-No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador`, `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
+No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador-maestro`, `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
 
 O pacote publicado inclui o catálogo público versionado em `skill-library/PUBLIC_SKILLS_MANIFEST.json`. A instalação também atualiza `SKILLS_DISCOVERY.json` a partir das árvores distribuídas pelo pacote. A contagem `invokableSkills` é deduplicada por ID; caches de plugins, `.tmp` e versões instaladas em outras ferramentas não entram no catálogo público.
 
@@ -148,11 +149,11 @@ Para usar o Freebuff, consulte o [guia de integração específico](freebuff-int
 O instalador principal usa backup automático. Quando encontra arquivos ou pastas existentes, ele salva cópias em:
 
 ```text
-Windows: %USERPROFILE%\.orquestrador-public-backups\YYYYMMDD-HHMMSS
-Linux/macOS: $HOME/.orquestrador-public-backups/YYYYMMDD-HHMMSS
+Windows: %USERPROFILE%\.orquestrador-public-backups\YYYYMMDD-HHMMSS-PID
+Linux/macOS: $HOME/.orquestrador-public-backups/YYYYMMDD-HHMMSS-PID
 ```
 
-Depois aplica a instalação completa.
+Depois aplica a instalação como merge incremental: arquivos e skills desconhecidos (do usuário) são sempre preservados; somente arquivos antes gerenciados e ausentes no novo snapshot são removidos (tombstones via `MANAGED_FILES.json`). Para voltar atrás: `orquestrador-maestro rollback --list` e `orquestrador-maestro rollback [--to STAMP]`.
 
 ## Verificação
 

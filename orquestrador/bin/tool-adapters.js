@@ -27,12 +27,14 @@ function validate(manifest) {
 
 function help() {
   console.log("Uso: orquestrador-maestro adapters <list|paths|validate> [id]");
-  console.log("     orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]");
+  console.log("     orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply] [--refresh]");
+  console.log("Nota 1.1.0: o manifesto lista 9 adaptadores, mas só junie|goose|openhands têm renderizador (os demais falham com mensagem explícita).");
 }
 
 function parseRenderOptions(args) {
   let projectPath;
   let mode = "dry-run";
+  let refresh = false;
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
     if (option === "--project-path") {
@@ -44,12 +46,14 @@ function parseRenderOptions(args) {
     } else if (option === "--dry-run") {
       if (mode === "apply") throw new Error("Use apenas --dry-run ou --apply.");
       mode = "dry-run";
+    } else if (option === "--refresh") {
+      refresh = true;
     } else {
       throw new Error(`Opcao desconhecida: ${option}`);
     }
   }
   if (!projectPath) throw new Error("Renderizacao exige --project-path PATH.");
-  return { projectPath: path.resolve(projectPath), mode };
+  return { projectPath: path.resolve(projectPath), mode, refresh };
 }
 
 function safeProjectFile(projectRoot, relativePath) {
@@ -94,7 +98,7 @@ function renderPlan(id, projectRoot) {
 }
 
 function render(id, args) {
-  const { projectPath, mode } = parseRenderOptions(args);
+  const { projectPath, mode, refresh } = parseRenderOptions(args);
   if (!fs.existsSync(projectPath) || !fs.statSync(projectPath).isDirectory()) {
     throw new Error(`Projeto nao encontrado ou invalido: ${projectPath}`);
   }
@@ -104,8 +108,8 @@ function render(id, args) {
   console.log(`Modo: ${mode}`);
   for (const item of plan) {
     const exists = fs.existsSync(item.target);
-    let status = exists ? "preservado" : mode === "apply" ? "criado" : "planejado";
-    if (mode === "apply" && !exists) {
+    let status = exists ? (refresh && mode === "apply" ? "atualizado" : "preservado") : mode === "apply" ? "criado" : "planejado";
+    if (mode === "apply" && (!exists || refresh)) {
       fs.mkdirSync(path.dirname(item.target), { recursive: true });
       fs.writeFileSync(item.target, item.content, "utf8");
     }

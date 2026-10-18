@@ -123,7 +123,7 @@ Padrao atual do Orquestrador:
 - `.codex/skills` fica com um subconjunto essencial de workflows + `.system`;
 - `.claude/skills`, `.opencode/skills`, `.cursor/skills`, `.gemini/skills`, `.windsurf/skills`, `.agents/skills` e `.antigravity-skills/skills` ficam so com as skills canonicas do manifesto.
 
-Se uma dessas raizes voltar a ter centenas de diretorios, o custo por sessao sobe de novo mesmo com hooks compactos. Por isso `sync-skills` agora tambem offloada o excesso para `.orquestrador/skill-library/disabled-native`.
+Se uma dessas raizes voltar a ter centenas de diretorios, o custo por sessao sobe de novo mesmo com hooks compactos. Por isso `sync-skills --check` reporta o excesso como `extra-native`; desde a 1.1.0, `sync-skills --apply` preserva skills desconhecidas por padrão e só move para `.orquestrador-maestro/skill-library/disabled-native` com `--prune` explícito.
 
 ## Saidas De Comandos
 

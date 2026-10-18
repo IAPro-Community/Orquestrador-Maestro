@@ -17,7 +17,7 @@
 
 ### 1. Criando e Usando Skills
 Nunca mais crie documentação técnica dentro de um projeto isolado.
-- **Criar:** Crie em `{{USER_HOME}}/.orquestrador\skills\minha-skill\`.
+- **Criar:** Crie em `{{USER_HOME}}/.orquestrador/skills/minha-skill/`.
 - **Usar:** Em qualquer chat, diga: *"Use a skill global de [nome]"*. A IA saberá onde buscar.
 
 ### 2. Consultando o Ecossistema

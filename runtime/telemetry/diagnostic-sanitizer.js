@@ -23,7 +23,9 @@ const PATTERNS = [
   [/(bearer\s+)[^\s"'`;,}]+/giu, "$1[redacted]"],
   [/(basic\s+)[A-Za-z0-9+/=]+/gu, "$1[redacted]"],
   // Well-known token prefixes (GitHub, OpenAI, Slack, AWS access keys).
-  [/\b(ghp_[A-Za-z0-9]+|gho_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9-_]+|xox[baprs]-[A-Za-z0-9-]+|AKIA[A-Z0-9]{16})\b/g, "[token redacted]"],
+  [/\b(ghp_[A-Za-z0-9]+|gho_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|glpat-[A-Za-z0-9-_]+|sk-[A-Za-z0-9-_]+|xox[baprs]-[A-Za-z0-9-]+|AKIA[A-Z0-9]{16}|ASIA[A-Z0-9]{16}|ABIA[A-Z0-9]{16}|AIza[A-Za-z0-9-_]{35}|dop_v1_[A-Za-z0-9]+)\b/g, "[token redacted]"],
+  // PEM private key blocks.
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]{0,4096}?-----END [A-Z ]*PRIVATE KEY-----/g, "[private key redacted]"],
   // JWT (full header.payload.signature or truncated eyJ... fragments).
   [/\beyJ[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]+){0,2}/g, "[jwt redacted]"],
   // Authorization header values are single tokens (scheme leftovers kept).

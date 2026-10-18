@@ -69,5 +69,14 @@ if ($VerbosePaths) {
   $argsList += "-VerbosePaths"
 }
 
-& powershell @argsList
+# Resolve the PowerShell host to invoke the engine. Hardcoding `powershell`
+# made the Windows installer unrunnable on Linux/macOS with only pwsh (Core),
+# which also broke scripts/test-install.ps1 there.
+$psHost = $null
+foreach ($candidate in @("pwsh", "powershell")) {
+  if (Get-Command $candidate -ErrorAction SilentlyContinue) { $psHost = $candidate; break }
+}
+if (-not $psHost) { throw "PowerShell not found (tried pwsh, powershell)." }
+
+& $psHost @argsList
 exit $LASTEXITCODE

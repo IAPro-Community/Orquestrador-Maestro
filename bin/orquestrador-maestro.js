@@ -11,6 +11,9 @@ const path = require("node:path");
 
 const rootDir = path.resolve(__dirname, "..");
 const packageJson = require(path.join(rootDir, "package.json"));
+const managedFiles = require(path.join(rootDir, "scripts", "managed-files.js"));
+const updateMigrations = require(path.join(rootDir, "scripts", "update-migrations.js"));
+const nativeSkillsSync = require(path.join(rootDir, "orquestrador", "bin", "sync-managed-skill.js"));
 const contextBrief = require(path.join(rootDir, "orquestrador", "bin", "context-brief.js"));
 const workflowLock = require(path.join(rootDir, "orquestrador", "bin", "workflow-lock.js"));
 const { resolveGitContext } = require(path.join(rootDir, "orquestrador", "lib", "git-context.js"));
@@ -50,6 +53,7 @@ const verifyFlagDefs = {
   "--home-path": { ps: "-HomePath", sh: "--home-path", value: true },
   "--skip-tool-profiles": { ps: "-SkipToolProfiles", sh: "--skip-tool-profiles" },
   "--core-only": { ps: "-CoreOnly", sh: "--core-only" },
+  "--strict": { ps: "-Strict", sh: "--strict" },
   "--verbose-paths": { ps: "-VerbosePaths", sh: "--verbose-paths" }
 };
 
@@ -64,6 +68,7 @@ Uso:
   orquestrador-maestro install [opcoes]
   orquestrador-maestro update [opcoes]
   orquestrador-maestro verify [opcoes]
+  orquestrador-maestro rollback [--home-path PATH] [--to STAMP] [--list]
   orquestrador-maestro doctor [opcoes]
   orquestrador-maestro init-dev [--project-path PATH]
   orquestrador-maestro compact-worklog [--project-path PATH] [--keep N]
@@ -131,6 +136,7 @@ Opcoes de install/update/uninstall:
   --no-tool-profiles          Nao instala perfis globais das ferramentas
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
   --skip-skill-sync           Nao roda o sync de skills
+  --skip-desktop-plugin       Nao instala o plugin do app ChatGPT/Codex Desktop
   --dry-run                   Mostra o plano sem alterar arquivos
   --list-targets              Lista os destinos conhecidos
   --non-interactive           Evita prompts interativos
@@ -147,6 +153,7 @@ Opcoes de verify:
   --home-path <path>
   --core-only
   --skip-tool-profiles
+  --strict                    Verifica espelho completo + MANAGED_FILES + policy v2
   --verbose-paths
 
 Opcoes de doctor:
@@ -408,6 +415,49 @@ function runCliUpdate(args) {
   });
 }
 
+function desktopAppPresent() {
+  if (process.platform === "darwin") return fs.existsSync("/Applications/ChatGPT.app");
+  if (process.platform !== "linux") return false;
+  const candidates = (process.env.PATH || "")
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((dir) => path.join(dir, "chatgpt"));
+  return candidates.some((candidate) => fs.existsSync(candidate));
+}
+
+function desktopPluginTargetsCodex(args) {
+  if (args.includes("--core-only")) return false;
+  const only = [];
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === "--only") {
+      const value = args[i + 1];
+      if (value && !value.startsWith("--")) {
+        only.push(...value.split(/[,\s]+/).map((entry) => entry.trim()).filter(Boolean));
+      }
+      i += 1;
+    }
+  }
+  return only.length === 0 || only.includes("codex");
+}
+
+function maybeInstallDesktopPlugin(args, installStatus) {
+  if (installStatus !== 0) return;
+  if (process.env.ORQUESTRADOR_MAESTRO_SKIP_DESKTOP_PLUGIN === "1") return;
+  if (!desktopPluginTargetsCodex(args)) return;
+  const { desktopAppSupport } = require(path.join(rootDir, "orquestrador", "lib", "codex-home.js"));
+  const support = desktopAppSupport();
+  if (!support.supported && !desktopAppPresent()) return;
+  const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
+  try {
+    const integration = require(path.join(rootDir, "runtime", "integrations", "openai", "installer.js"));
+    const result = integration.installDesktopPlugin({ home: homePath, packageRoot: rootDir });
+    console.log(`Plugin desktop ChatGPT/Codex instalado em ${result.destination}.`);
+    console.log("Reabra o app e aprove os hooks na primeira execucao.");
+  } catch (error) {
+    console.error(`Aviso: plugin desktop nao instalado (${error.message || error}).`);
+  }
+}
+
 async function runInstall(args, injectedFlags = []) {
   const isWindows = process.platform === "win32";
   const script = path.join(rootDir, isWindows ? "install.ps1" : "install.sh");
@@ -415,9 +465,10 @@ async function runInstall(args, injectedFlags = []) {
     throw new Error(`Instalador nao encontrado: ${script}`);
   }
 
-  const isNonInteractive = args.includes("--non-interactive") || injectedFlags.includes("--non-interactive");
-  const isAllTargets = args.includes("--all-targets") || injectedFlags.includes("--all-targets");
-  const hasOnly = args.some(a => a === "--only") || injectedFlags.some(a => a === "--only");
+  const normalizedForOnly = [...args, ...injectedFlags].flatMap((a) => a.startsWith("--only=") ? ["--only", a.slice("--only=".length)] : [a]);
+  const isNonInteractive = normalizedForOnly.includes("--non-interactive");
+  const isAllTargets = normalizedForOnly.includes("--all-targets");
+  const hasOnly = normalizedForOnly.includes("--only");
 
   if (!isNonInteractive && !isAllTargets && !hasOnly && process.stdin.isTTY) {
     const homePath = getArg(args, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir();
@@ -477,13 +528,25 @@ async function runInstall(args, injectedFlags = []) {
     }
   }
 
+  const skipDesktopPlugin = normalizedForOnly.includes("--skip-desktop-plugin");
+  const scriptArgs = [...args, ...injectedFlags].filter((arg) => arg !== "--skip-desktop-plugin");
+  const runOnly = normalizedForOnly.includes("--uninstall")
+    || normalizedForOnly.includes("--list-targets")
+    || normalizedForOnly.includes("--dry-run");
+
+  let result;
   if (isWindows) {
-    const translated = translateArgs([...args, ...injectedFlags], installFlagDefs, "ps");
-    return run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...translated]);
+    const translated = translateArgs(scriptArgs, installFlagDefs, "ps");
+    result = run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, ...translated]);
+  } else {
+    const translated = translateArgs(scriptArgs, installFlagDefs, "sh");
+    result = run("bash", [script, ...translated]);
   }
 
-  const translated = translateArgs([...args, ...injectedFlags], installFlagDefs, "sh");
-  return run("bash", [script, ...translated]);
+  if (!skipDesktopPlugin && !runOnly) {
+    maybeInstallDesktopPlugin(normalizedForOnly, result);
+  }
+  return result;
 }
 
 function runVerify(args) {
@@ -500,6 +563,356 @@ function runVerify(args) {
 
   const translated = translateArgs(args, verifyFlagDefs, "sh");
   return run("bash", [script, ...translated]);
+}
+
+function rollbackPathInfo(target) {
+  try { return fs.lstatSync(target); }
+  catch (error) { if (error && error.code === "ENOENT") return null; throw error; }
+}
+
+function rollbackRemove(target) {
+  if (rollbackPathInfo(target)) fs.rmSync(target, { recursive: true, force: true });
+}
+
+function rollbackSafeRelativePath(root, relative) {
+  if (typeof relative !== "string" || !relative || relative.includes("\\") || relative.includes("\0")) {
+    throw new Error("Rollback recusado: caminho relativo inválido no backup.");
+  }
+  const parts = relative.split("/");
+  if (parts.some((part) => !part || part === "." || part === ".." || part.includes(":"))) {
+    throw new Error("Rollback recusado: caminho relativo inseguro no backup.");
+  }
+  const absoluteRoot = path.resolve(root);
+  const destination = path.resolve(absoluteRoot, ...parts);
+  if (!destination.startsWith(absoluteRoot + path.sep)) throw new Error("Rollback recusado: caminho fora da raiz.");
+  let current = absoluteRoot;
+  for (const part of parts) {
+    current = path.join(current, part);
+    const info = rollbackPathInfo(current);
+    if (info?.isSymbolicLink()) throw new Error(`Rollback recusado: caminho contém link simbólico: ${current}`);
+  }
+  return destination;
+}
+
+function readNativeRollbackPlan(homePath, backupDirectory) {
+  const artifactRoot = path.join(backupDirectory, "update-artifacts", "native-skills");
+  const reportPath = path.join(artifactRoot, "native-skills-report.json");
+  const reportInfo = rollbackPathInfo(reportPath);
+  if (!reportInfo) return { operations: [], stateRestores: [] };
+  if (reportInfo.isSymbolicLink() || !reportInfo.isFile()) throw new Error("Backup incompatível: relatório de skills nativas inválido.");
+  const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+  if (report.schemaVersion !== 1 || report.kind !== "orquestrador-native-skill-update-report" || !Array.isArray(report.operations)) {
+    throw new Error("Backup incompatível: formato do relatório de skills nativas não suportado.");
+  }
+
+  const operations = [];
+  const stateGroups = new Map();
+  const seenSkills = new Set();
+  for (const operation of report.operations) {
+    if (!operation || !/^[A-Za-z0-9._-]+$/u.test(operation.program || "") ||
+        !/^[A-Za-z0-9._-]+$/u.test(operation.skill || "") ||
+        !["updated", "copied", "preserved-customization", "unchanged"].includes(operation.action) ||
+        !/^[a-f0-9]{64}$/iu.test(operation.installedTreeSha256 || "") ||
+        !/^[a-f0-9]{64}$/iu.test(operation.sourceTreeSha256 || "")) {
+      throw new Error("Backup incompatível: operação inválida no relatório de skills nativas.");
+    }
+    const root = rollbackSafeRelativePath(homePath, operation.targetRoot);
+    const rootInfo = rollbackPathInfo(root);
+    if (!rootInfo || rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {
+      throw new Error(`Rollback recusado: raiz nativa ausente ou insegura: ${operation.targetRoot}`);
+    }
+    const skillKey = `${operation.targetRoot}/${operation.skill}`.toLowerCase();
+    if (seenSkills.has(skillKey)) throw new Error(`Backup incompatível: skill duplicada no relatório: ${operation.skill}`);
+    seenSkills.add(skillKey);
+    const destination = rollbackSafeRelativePath(homePath, `${operation.targetRoot}/${operation.skill}`);
+    const skillInfo = rollbackPathInfo(destination);
+    if (skillInfo && (skillInfo.isSymbolicLink() || !skillInfo.isDirectory())) {
+      throw new Error(`Rollback recusado: a skill nativa tem um tipo inseguro: ${operation.skill}`);
+    }
+    const currentTreeHash = skillInfo ? nativeSkillsSync.treeHash(destination) : null;
+
+    let previousCopy = null;
+    if (operation.action === "updated") {
+      if (!/^[a-f0-9]{64}$/iu.test(operation.previousTreeSha256 || "") || typeof operation.previousCopy !== "string") {
+        throw new Error(`Backup incompatível: cópia anterior ausente para ${operation.skill}.`);
+      }
+      previousCopy = rollbackSafeRelativePath(artifactRoot, operation.previousCopy);
+      const previousInfo = rollbackPathInfo(previousCopy);
+      if (!previousInfo || previousInfo.isSymbolicLink() || !previousInfo.isDirectory() ||
+          nativeSkillsSync.treeHash(previousCopy) !== operation.previousTreeSha256) {
+        throw new Error(`Backup incompatível: cópia anterior inválida para ${operation.skill}.`);
+      }
+    }
+    if (operation.action === "copied" && operation.previousCopy) {
+      throw new Error(`Backup incompatível: operação copiada contém snapshot anterior inesperado (${operation.skill}).`);
+    }
+    let alreadyRestored = false;
+    if (operation.action === "updated") {
+      if (currentTreeHash === operation.previousTreeSha256) alreadyRestored = true;
+      else if (currentTreeHash !== operation.installedTreeSha256) {
+        throw new Error(`Rollback recusado: a skill nativa mudou após o backup: ${operation.skill}`);
+      }
+    } else if (operation.action === "copied") {
+      if (!currentTreeHash) alreadyRestored = true;
+      else if (currentTreeHash !== operation.installedTreeSha256) {
+        throw new Error(`Rollback recusado: a skill nativa mudou após o backup: ${operation.skill}`);
+      }
+    } else if (currentTreeHash !== operation.installedTreeSha256) {
+      throw new Error(`Rollback recusado: a skill nativa mudou após o backup: ${operation.skill}`);
+    }
+    operations.push({ operation, destination, previousCopy, alreadyRestored });
+    const stateKey = operation.targetRoot;
+    if (!stateGroups.has(stateKey)) stateGroups.set(stateKey, { targetRoot: operation.targetRoot, root, programs: new Set(), operations: [], operationPlans: [] });
+    const stateGroup = stateGroups.get(stateKey);
+    stateGroup.programs.add(operation.program);
+    stateGroup.operations.push(operation);
+    stateGroup.operationPlans.push(operations.at(-1));
+  }
+
+  const stateRestores = [];
+  for (const group of stateGroups.values()) {
+    const stateDestination = path.join(group.root, nativeSkillsSync.STATE_FILE);
+    const stateInfo = rollbackPathInfo(stateDestination);
+    if (stateInfo && (stateInfo.isSymbolicLink() || !stateInfo.isFile())) {
+      throw new Error(`Rollback recusado: estado de skills inseguro em ${group.targetRoot}.`);
+    }
+    const snapshots = [];
+    for (const program of group.programs) {
+      const base = `native-skill-state-before/${program}`;
+      const presentSnapshot = rollbackSafeRelativePath(artifactRoot, `${base}.json`);
+      const absentSnapshot = rollbackSafeRelativePath(artifactRoot, `${base}.absent`);
+      const presentInfo = rollbackPathInfo(presentSnapshot);
+      const absentInfo = rollbackPathInfo(absentSnapshot);
+      if (presentInfo) snapshots.push({ program, path: presentSnapshot, info: presentInfo, absent: false });
+      if (absentInfo) snapshots.push({ program, path: absentSnapshot, info: absentInfo, absent: true });
+    }
+    if (snapshots.length !== 1) {
+      throw new Error(`Backup incompatível: snapshot do estado de skills ausente ou ambíguo para ${group.targetRoot}.`);
+    }
+    const [stateSnapshot] = snapshots;
+    const { program } = stateSnapshot;
+    const presentInfo = stateSnapshot.absent ? null : stateSnapshot.info;
+    const absentInfo = stateSnapshot.absent ? stateSnapshot.info : null;
+    const presentSnapshot = presentInfo ? stateSnapshot.path : null;
+    const absentSnapshot = absentInfo ? stateSnapshot.path : null;
+    if (presentInfo && (presentInfo.isSymbolicLink() || !presentInfo.isFile())) {
+      throw new Error(`Backup incompatível: snapshot do estado de skills inválido para ${program}.`);
+    }
+    if (absentInfo && (absentInfo.isSymbolicLink() || !absentInfo.isFile() || fs.statSync(absentSnapshot).size !== 0)) {
+      throw new Error(`Backup incompatível: marcador de estado ausente inválido para ${program}.`);
+    }
+    let currentState = null;
+    if (stateInfo) {
+      try { currentState = JSON.parse(fs.readFileSync(stateDestination, "utf8")); }
+      catch { throw new Error(`Rollback recusado: estado de skills inválido em ${group.targetRoot}.`); }
+    }
+    let snapshot = null;
+    if (presentInfo) {
+      try { snapshot = JSON.parse(fs.readFileSync(presentSnapshot, "utf8")); }
+      catch { throw new Error(`Backup incompatível: snapshot do estado de skills inválido para ${program}.`); }
+      if (snapshot.version !== nativeSkillsSync.STATE_VERSION || !snapshot.skills || typeof snapshot.skills !== "object") {
+        throw new Error(`Backup incompatível: snapshot do estado de skills inválido para ${program}.`);
+      }
+    }
+    const stateAlreadyRestored = absentInfo ? !currentState : Boolean(currentState && JSON.stringify(currentState) === JSON.stringify(snapshot));
+    if (!stateAlreadyRestored) {
+      if (!currentState) throw new Error(`Rollback recusado: estado de skills ausente em ${group.targetRoot}.`);
+      for (const operation of group.operations) {
+        const entry = currentState.skills?.[operation.skill];
+        if (!entry || entry.sourceTreeSha256 !== operation.sourceTreeSha256 ||
+            entry.installedTreeSha256 !== operation.installedTreeSha256) {
+          throw new Error(`Rollback recusado: estado da skill ${operation.skill} mudou após o backup.`);
+        }
+      }
+    }
+    const treeAlreadyRestored = group.operationPlans.every(({ operation, alreadyRestored }) =>
+      !["updated", "copied"].includes(operation.action) || alreadyRestored);
+    if (stateAlreadyRestored && !treeAlreadyRestored) {
+      throw new Error(`Rollback recusado: estado restaurado, mas skills continuam atualizadas em ${group.targetRoot}.`);
+    }
+    if (!stateAlreadyRestored && treeAlreadyRestored && group.operations.some(({ operation }) => ["updated", "copied"].includes(operation.action))) {
+      throw new Error(`Rollback recusado: skills restauradas, mas o estado ainda indica a atualização em ${group.targetRoot}.`);
+    }
+    if (!stateAlreadyRestored) {
+      stateRestores.push({ destination: stateDestination, source: presentInfo ? presentSnapshot : null, type: "file" });
+    }
+  }
+
+  return { operations, stateRestores };
+}
+
+function rollbackCoreSnapshot(homePath, backupDirectory) {
+  const coreNames = [".orquestrador", ".orquestrador-maestro"];
+  const backupCores = [];
+  for (const name of coreNames) {
+    const candidate = path.join(backupDirectory, name);
+    const info = rollbackPathInfo(candidate);
+    if (!info) continue;
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      throw new Error(`Backup incompatível: ${name} não é um diretório comum.`);
+    }
+    backupCores.push({ name, source: candidate });
+  }
+
+  const backupAgents = path.join(backupDirectory, "AGENTS.md");
+  const agentsInfo = rollbackPathInfo(backupAgents);
+  if (agentsInfo && (agentsInfo.isSymbolicLink() || !agentsInfo.isFile())) {
+    throw new Error("Backup incompatível: AGENTS.md não é um arquivo comum.");
+  }
+  if (backupCores.length === 0 && !agentsInfo) {
+    throw new Error(`Backup vazio ou incompatível: ${backupDirectory}`);
+  }
+
+  const nonce = crypto.randomUUID();
+  const nativePlan = readNativeRollbackPlan(homePath, backupDirectory);
+  const mutations = [];
+  const previous = new Map();
+  const published = new Set();
+  try {
+  for (const entry of backupCores) {
+    const stage = path.join(homePath, `${entry.name}.rollback-stage-${nonce}`);
+    mutations.push({ destination: path.join(homePath, entry.name), stage, type: "directory" });
+    fs.cpSync(entry.source, stage, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
+    const currentName = rollbackPathInfo(path.join(homePath, entry.name)) ? entry.name : coreNames.find((name) => rollbackPathInfo(path.join(homePath, name)));
+    if (currentName) {
+      const current = path.join(homePath, currentName);
+      const preservationArtifacts = path.join(backupDirectory, "update-artifacts", "rollback-preserved");
+      managedFiles.preserveUserFiles(current, stage, preservationArtifacts);
+      const stagedConfig = path.join(stage, "config.json");
+      const currentConfig = path.join(current, "config.json");
+      if (rollbackPathInfo(stagedConfig) || rollbackPathInfo(currentConfig)) {
+        updateMigrations.mergeToFile(stagedConfig, [stagedConfig, currentConfig]);
+      }
+      managedFiles.refreshInstalledOverrides(stage);
+    }
+  }
+  if (agentsInfo) {
+    const stage = path.join(homePath, `.AGENTS.md.rollback-stage-${nonce}`);
+    mutations.push({ destination: path.join(homePath, "AGENTS.md"), stage, type: "file" });
+    fs.copyFileSync(backupAgents, stage, fs.constants.COPYFILE_EXCL);
+  }
+
+  for (const name of backupCores.length > 0 ? coreNames : []) {
+    const destination = path.join(homePath, name);
+    const info = rollbackPathInfo(destination);
+    if (info && (info.isSymbolicLink() || !info.isDirectory())) throw new Error(`Rollback recusado: ${name} não é um diretório comum.`);
+    if (!backupCores.some((entry) => entry.name === name) && info) mutations.push({ destination, stage: null, type: "directory" });
+  }
+  for (const mutation of mutations) {
+    const info = rollbackPathInfo(mutation.destination);
+    if (info && (info.isSymbolicLink() || (mutation.type === "directory" ? !info.isDirectory() : !info.isFile()))) {
+      throw new Error(`Rollback recusado: destino incompatível: ${mutation.destination}`);
+    }
+  }
+
+  for (const { operation, destination, previousCopy, alreadyRestored } of nativePlan.operations) {
+    if (alreadyRestored) continue;
+    if (operation.action === "updated") {
+      const stage = `${destination}.rollback-stage-${nonce}`;
+      mutations.push({ destination, stage, type: "directory" });
+      fs.cpSync(previousCopy, stage, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
+    } else if (operation.action === "copied") {
+      mutations.push({ destination, stage: null, type: "directory" });
+    }
+  }
+  for (const state of nativePlan.stateRestores) {
+    const stage = state.source ? `${state.destination}.rollback-stage-${nonce}` : null;
+    mutations.push({ destination: state.destination, stage, type: "file" });
+    if (stage) fs.copyFileSync(state.source, stage, fs.constants.COPYFILE_EXCL);
+  }
+    for (const mutation of mutations) {
+      const info = rollbackPathInfo(mutation.destination);
+      if (info && (info.isSymbolicLink() || (mutation.type === "directory" ? !info.isDirectory() : !info.isFile()))) {
+        throw new Error(`Rollback recusado: destino incompatível: ${mutation.destination}`);
+      }
+    }
+    for (const mutation of mutations) {
+      if (!rollbackPathInfo(mutation.destination)) continue;
+      const old = `${mutation.destination}.rollback-previous-${nonce}`;
+      fs.renameSync(mutation.destination, old);
+      previous.set(mutation.destination, old);
+    }
+    for (const mutation of mutations) {
+      if (!mutation.stage) continue;
+      fs.renameSync(mutation.stage, mutation.destination);
+      published.add(mutation.destination);
+    }
+  } catch (error) {
+    const recoveryProblems = [];
+    for (const destination of published) {
+      try { rollbackRemove(destination); }
+      catch (cleanupError) { recoveryProblems.push(`${destination}: ${cleanupError.message}`); }
+    }
+    for (const [destination, old] of [...previous.entries()].reverse()) {
+      try { if (rollbackPathInfo(old)) fs.renameSync(old, destination); }
+      catch (restoreError) { recoveryProblems.push(`${destination}: ${restoreError.message}`); }
+    }
+    for (const mutation of mutations) {
+      if (mutation.stage) try { rollbackRemove(mutation.stage); } catch (cleanupError) { recoveryProblems.push(`${mutation.stage}: ${cleanupError.message}`); }
+    }
+    const recoveryNote = recoveryProblems.length ? ` Recovery paths need attention: ${recoveryProblems.join("; ")}` : " A instalação ativa foi restaurada.";
+    throw new Error(`Rollback failed: ${error.message}.${recoveryNote}`);
+  }
+
+  // The restored snapshot remains reusable. Remove only transient copies of the
+  // installation that was active before this rollback; cleanup is best effort.
+  for (const old of previous.values()) { try { rollbackRemove(old); } catch {} }
+  return {
+    restoredCore: backupCores.map((entry) => entry.name),
+    restoredAgents: Boolean(agentsInfo),
+    restoredNativeSkills: nativePlan.operations.filter(({ operation }) => ["updated", "copied"].includes(operation.action)).length,
+  };
+}
+
+function runRollback(args) {
+  const normalized = normalizeArgs(args);
+  let homePath = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  let to = "";
+  let list = false;
+  for (let i = 0; i < normalized.length; i += 1) {
+    const a = normalized[i];
+    if (a === "--home-path") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --home-path exige um valor.");
+      homePath = v;
+      i += 1;
+    } else if (a === "--to") {
+      const v = normalized[i + 1];
+      if (!v || v.startsWith("--")) throw new Error("Parametro --to exige um valor.");
+      to = v;
+      i += 1;
+    } else if (a === "--list") {
+      list = true;
+    } else {
+      throw new Error(`Parametro desconhecido: ${a}`);
+    }
+  }
+  const backupRoot = path.join(homePath, ".orquestrador-public-backups");
+  const backupRootInfo = rollbackPathInfo(backupRoot);
+  if (!backupRootInfo || !backupRootInfo.isDirectory() || backupRootInfo.isSymbolicLink()) throw new Error(`Nenhum backup encontrado: ${backupRoot}`);
+  // Only timestamp-based backups produced by the installers are valid.
+  // Refuse traversal, absolute paths and symlinked backup directories.
+  const validStamp = (value) => /^\d{8}-\d{6}-\d+(?:-\d+|-[a-f0-9]{32})?$/iu.test(value);
+  if (to && !validStamp(to)) throw new Error("Identificador de backup invalido: --to exige um timestamp do instalador.");
+  const stamps = fs.readdirSync(backupRoot).filter((d) => {
+    if (!validStamp(d)) return false;
+    try {
+      const info = fs.lstatSync(path.join(backupRoot, d));
+        return info.isDirectory() && !info.isSymbolicLink();
+    } catch { return false; }
+  }).sort();
+  if (list) {
+    console.log(stamps.length ? stamps.join("\n") : "Nenhum backup disponível.");
+    return 0;
+  }
+  if (stamps.length === 0) throw new Error("Nenhum backup válido disponível para restauração.");
+  if (to && !stamps.includes(to)) throw new Error("Backup inexistente ou inválido: " + to);
+  const stamp = to || stamps[stamps.length - 1];
+  const src = path.join(backupRoot, stamp);
+  if (!fs.existsSync(src)) throw new Error(`Backup não encontrado: ${src}`);
+  const restored = rollbackCoreSnapshot(path.resolve(homePath), src);
+  console.log(`Rollback concluído a partir de ${stamp}. Reexecute 'orquestrador-maestro verify' para confirmar.`);
+  return 0;
 }
 
 function parseDoctorArgs(args) {
@@ -2782,6 +3195,10 @@ async function dispatch(command, args) {
     return runVerify(args);
   }
 
+  if (command === "rollback") {
+    return runRollback(args);
+  }
+
   if (command === "doctor") {
     return runDoctor(args);
   }
@@ -2863,7 +3280,7 @@ async function main() {
   }
 
   const telemetryCommands = new Set([
-    "install", "update", "uninstall", "list-targets", "dry-run", "verify", "doctor",
+    "install", "update", "uninstall", "list-targets", "dry-run", "verify", "rollback", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
     "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",

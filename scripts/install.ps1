@@ -19,15 +19,19 @@ $ErrorActionPreference = "Stop"
 
 # Parity with install.sh: refuse elevated installs that would land in the
 # wrong profile. Override explicitly with ORQUESTRADOR_ALLOW_ROOT_INSTALL=1.
-$windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
-if (
-  $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
-  -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
-  -not $DryRun -and
-  -not $ListTargets
-) {
-  throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+try {
+  $windowsIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $windowsPrincipal = New-Object Security.Principal.WindowsPrincipal($windowsIdentity)
+  if (
+    $windowsPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -and
+    -not $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -and
+    -not $DryRun -and
+    -not $ListTargets
+  ) {
+    throw "Recuse instalar como Administrador: execute em um PowerShell normal de usuário (ou defina ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 para forçar)."
+  }
+} catch [System.PlatformNotSupportedException] {
+  # Non-Windows PowerShell hosts cannot evaluate Windows principal checks.
 }
 
 function Get-HostPowerShell {
@@ -143,11 +147,24 @@ function Test-PathUnderRoot {
 function Get-RelativePath {
   param([string]$BasePath, [string]$Path)
   $baseFull = Get-FullPath -Path $BasePath
+  $pathFull = Get-FullPath -Path $Path
+
+  # Path.GetRelativePath exists on modern .NET (pwsh / .NET Core). Windows
+  # PowerShell 5.1 ships an older runtime, so keep the URI fallback for that
+  # host. Without the guard, the URI fallback throws on Linux/macOS where a
+  # path is not a legal absolute file URI.
+  $relativePathMethod = [System.IO.Path].GetMethods() |
+    Where-Object { $_.Name -eq "GetRelativePath" } |
+    Select-Object -First 1
+  if ($null -ne $relativePathMethod) {
+    return [System.IO.Path]::GetRelativePath($baseFull, $pathFull)
+  }
+
   if (-not $baseFull.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
     $baseFull += [System.IO.Path]::DirectorySeparatorChar
   }
   $baseUri = [Uri]$baseFull
-  $pathUri = [Uri](Get-FullPath -Path $Path)
+  $pathUri = [Uri]$pathFull
   return [Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace("/", [System.IO.Path]::DirectorySeparatorChar)
 }
 
@@ -273,23 +290,8 @@ function Restore-MissingFilesFromTree {
 
 function Restore-MergedConfigFromBackup {
   param([string[]]$SourceFiles, [string]$DestinationFile)
-  $merged = [ordered]@{}
-  $foundConfig = $false
-  foreach ($sourceFile in $SourceFiles) {
-    if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) { continue }
-    try {
-      $config = Get-Content -LiteralPath $sourceFile -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ($null -eq $config -or $config -is [System.Array] -or $config -is [string]) { continue }
-      foreach ($property in $config.PSObject.Properties) { $merged[$property.Name] = $property.Value }
-      $foundConfig = $true
-    } catch {
-      Write-Warning "Could not migrate invalid config from backup: $sourceFile"
-    }
-  }
-  if (-not $foundConfig) { return }
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DestinationFile) | Out-Null
-  $json = $merged | ConvertTo-Json -Depth 100
-  [System.IO.File]::WriteAllText($DestinationFile, "$json`n", [System.Text.UTF8Encoding]::new($false))
+  & node (Join-Path $RepoRoot "scripts/update-migrations.js") merge $DestinationFile @SourceFiles
+  if ($LASTEXITCODE -ne 0) { throw "Versioned config migration failed; the existing installation was left intact." }
 }
 
 function Backup-MappedDirectory {
@@ -564,6 +566,27 @@ if (-not $SkipExtraSkills) {
 $installedProfiles = New-Object System.Collections.Generic.List[string]
 $skippedProfiles = New-Object System.Collections.Generic.List[string]
 if ($InstallToolProfiles) {
+  function Test-ToolPresent {
+    param([string]$ToolCommand, [string]$ConfigDir)
+    if ($ToolCommand -and (Get-Command $ToolCommand -ErrorAction SilentlyContinue)) { return $true }
+    if ($ConfigDir) {
+      $full = Join-Path $HomePath $ConfigDir
+      if (Test-Path -LiteralPath $full) {
+        if (Test-Path -LiteralPath (Join-Path $full ".maestro-managed")) {
+          $items = @(Get-ChildItem -LiteralPath $full -Force -ErrorAction SilentlyContinue)
+          if ($items.Count -eq 1) { return $false }
+        }
+        return $true
+      }
+    }
+    return $false
+  }
+  function Test-ToolShouldInstall {
+    param([string]$Component, [string]$ToolCommand, [string]$ConfigDir)
+    if ($AllTargets) { return $true }
+    if ($NonInteractive) { return (Test-ToolPresent -ToolCommand $ToolCommand -ConfigDir $ConfigDir) }
+    return $true
+  }
   $toolProfileTargets = @(
     @{ Source = "codex"; Destination = ".codex"; Label = ".codex__profile"; Component = "codex"; ToolCommand = "codex"; ToolConfigDir = ".codex" },
     @{ Source = "opencode"; Destination = ".opencode"; Label = ".opencode"; Component = "opencode"; ToolCommand = "opencode"; ToolConfigDir = ".opencode" },
@@ -789,6 +812,19 @@ try {
     (Join-Path $BackupDir "$TargetOrquestradorName\config.json")
   ) -DestinationFile (Join-Path $StagedOrquestrador "config.json")
 
+  # Preserve unmanaged user files across the swap; their content is carried over and stays active.
+  # The first upgrade never deletes those files; source tombstones are recorded for future runs.
+  # snapshot records the MANAGED_FILES.json ownership baseline for the next upgrade.
+  # Preserve user files and managed overrides in staging only. The report and
+  # new upstream copies stay beside the full rollback snapshot, not in the core.
+  if (Test-Path -LiteralPath $TargetOrquestrador) {
+    if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
+      throw "Refusing to read target outside home: $TargetOrquestrador"
+    }
+    & node (Join-Path $RepoRoot "scripts/managed-files.js") preserve $TargetOrquestrador $StagedOrquestrador (Join-Path $BackupDir "update-artifacts")
+    if ($LASTEXITCODE -ne 0) { throw "Staged user-file preservation failed." }
+  }
+
   $previousMoved = $false
   if (Test-Path -LiteralPath $TargetOrquestrador) {
     if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
@@ -839,13 +875,68 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    $previousArtifactsEnv = $env:ORQUESTRADOR_UPDATE_ARTIFACTS
+    $previousCoreEnv = $env:ORQUESTRADOR_PREVIOUS_ROOT
+    try {
+      if ($script:BackupDirCreated) {
+        $previousCore = Join-Path $BackupDir $TargetOrquestradorName
+        if (-not (Test-Path -LiteralPath $previousCore)) { $previousCore = Join-Path $BackupDir $LegacyOrquestradorName }
+        $env:ORQUESTRADOR_UPDATE_ARTIFACTS = Join-Path $BackupDir "update-artifacts\native-skills"
+        $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCore
+      }
+      & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    } finally {
+      $env:ORQUESTRADOR_UPDATE_ARTIFACTS = $previousArtifactsEnv
+      $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCoreEnv
+    }
+  }
+}
+
+# 1.1.0 (#39): garante mínimo nativo mesmo com -SkipSkillSync ou -Only parcial.
+$nativeMinimum = @(
+  @("codex", ".codex/skills"),
+  @("agents", ".agents/skills"),
+  @("opencode", ".opencode/skills"),
+  @("claude", ".claude/skills"),
+  @("cursor", ".cursor/skills"),
+  @("gemini", ".gemini/skills"),
+  @("windsurf", ".windsurf/skills"),
+  @("antigravity", ".antigravity-skills/skills")
+)
+$maestroSources = @(
+  (Join-Path $TargetSkillLibrary "codex-skills\orquestrador-maestro"),
+  (Join-Path $TargetOrquestrador "skill-library\codex-skills\orquestrador-maestro"),
+  (Join-Path $SourceCodex "skills\orquestrador-maestro")
+)
+foreach ($pair in $nativeMinimum) {
+  $rel = $pair[1]
+  $root = Join-Path $HomePath $rel
+  New-Item -ItemType Directory -Force -Path $root | Out-Null
+  $destMaestro = Join-Path $root "orquestrador-maestro\SKILL.md"
+  if (-not (Test-Path -LiteralPath $destMaestro)) {
+    foreach ($srcMaestro in $maestroSources) {
+      $srcSkill = Join-Path $srcMaestro "SKILL.md"
+      if (Test-Path -LiteralPath $srcSkill) {
+        $destDir = Split-Path -Parent $destMaestro
+        New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+        # -Path (not -LiteralPath): -LiteralPath treats "*" literally and fails.
+        Copy-Item -Path (Join-Path $srcMaestro "*") -Destination $destDir -Recurse -Force
+        break
+      }
+    }
   }
 }
 
 $discoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
 if (Test-Path -LiteralPath $discoveryScript) {
   & node $discoveryScript --home-path $HomePath --maestro-root $TargetOrquestrador --output (Join-Path $TargetOrquestrador "SKILLS_DISCOVERY.json")
+}
+
+# Snapshot after every installer-generated core update (skill libraries and
+# discovery included) so strict verification recognizes shipped overrides.
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
+  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
 }
 
 & node (Join-Path $PSScriptRoot "install-profile-state.js") write $TargetOrquestrador @($installedProfiles.ToArray())

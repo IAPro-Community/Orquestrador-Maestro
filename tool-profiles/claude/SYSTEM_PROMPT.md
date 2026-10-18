@@ -4,10 +4,10 @@
 
 Before broad software work, read these compact control files in order:
 
-1. `{{USER_HOME}}/.orquestrador\SKILL_EXECUTION_PROFILES.json`
-2. `{{USER_HOME}}/.orquestrador\SKILL_ALIASES.json`
-3. `{{USER_HOME}}/.orquestrador\SKILLS_ROUTER.json`
-4. `{{USER_HOME}}/.orquestrador\SKILL_CHAINS.json` only after choosing the primary skill
+1. `{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json`
+2. `{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json`
+3. `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`
+4. `{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json` only after choosing the primary skill
 
 Then open only the matching `SKILL.md` files. For SaaS, dashboards, admin panels, Supabase, payments, AbacatePay, Stripe, subscriptions, tenant limits, or production security, start with `/skill:skill-saas-factory` and let it route to the smaller payment, dashboard, RLS, limits, or security skills. For subagents, multiagents, parallel agents, swarm, team execution, or delegation, start with `/skill:skill-multiagent-orchestration`. Default to the `standard` profile: at most three skills unless the user asks for deep work or subagents.
 

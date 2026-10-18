@@ -177,6 +177,12 @@ async function handleRun(args: string[]): Promise<CLIResult> {
 
   // Check container requirement for official benchmarks
   const useContainer = Boolean(values.container);
+  if (profile === "official" && !useContainer) {
+    return {
+      exitCode: 1,
+      message: "Official benchmark requires --container (isolated execution).",
+    };
+  }
   if (useContainer) {
     const containerRunner = new ContainerRunner({ image: String(values.image ?? 'node:20-slim') });
     const dockerAvailable = await containerRunner.isDockerAvailable();

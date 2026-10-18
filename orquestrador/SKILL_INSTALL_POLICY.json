@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "libraryRoots": {
     "community": ".orquestrador/skill-library/community-skills",
     "codex": ".orquestrador/skill-library/codex-skills",
@@ -20,9 +20,11 @@
         "doctor",
         "orquestrador-maestro",
         "plan",
-        "ralplan",
         "ralph",
+        "ralplan",
         "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
         "team",
         "ultrawork",
         "web-clone",
@@ -32,37 +34,129 @@
     "opencode": {
       "path": ".opencode/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "code-review", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "code-review",
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "agents": {
       "path": ".agents/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "claude": {
       "path": ".claude/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "cursor": {
       "path": ".cursor/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "gemini": {
       "path": ".gemini/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "windsurf": {
       "path": ".windsurf/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     },
     "antigravity": {
       "path": ".antigravity-skills/skills",
       "maxDirectories": 64,
-      "allowDirectories": ["orquestrador-maestro", "plan", "ralplan", "ralph", "team", "ultrawork", "deep-interview", "security-review", "web-clone", "worker"]
+      "allowDirectories": [
+        "deep-interview",
+        "orquestrador-maestro",
+        "plan",
+        "ralph",
+        "ralplan",
+        "security-review",
+        "skill-open-code-delegate",
+        "skill-open-code-review",
+        "team",
+        "ultrawork",
+        "web-clone",
+        "worker"
+      ]
     }
   }
 }
