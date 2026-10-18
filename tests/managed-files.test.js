@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { prune, snapshot, safeDestination, preserveUserFiles } = require("../scripts/managed-files");
+const { prune, snapshot, safeDestination, preserveUserFiles, inspectManagedFiles } = require("../scripts/managed-files");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-managed-"));
@@ -30,13 +30,13 @@ test("source-owned snapshot excludes user's custom files, including nested files
   write(target, "templates/private.md", "private");
   snapshot(source, target);
   const manifest = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8"));
-  assert.equal(manifest.version, 2);
+  assert.equal(manifest.version, 3);
   assert.deepEqual(Object.keys(manifest.files), ["rules.md"]);
   assert.equal(prune(source, target), 0);
   assert.equal(fs.readFileSync(path.join(target, "WORKLOG.md"), "utf8"), "personal");
 });
 
-test("a v1 manifest never triggers deletion during v2 migration", () => {
+test("a v1 manifest never triggers deletion during v3 migration", () => {
   const { source, target } = fixture();
   write(source, "rules.md", "managed");
   write(target, "rules.md", "managed");
@@ -48,11 +48,11 @@ test("a v1 manifest never triggers deletion during v2 migration", () => {
   assert.equal(fs.readFileSync(path.join(target, "WORKLOG.md"), "utf8"), "custom");
   snapshot(source, target);
   const manifest = JSON.parse(fs.readFileSync(path.join(target, "MANAGED_FILES.json"), "utf8"));
-  assert.equal(manifest.version, 2);
+  assert.equal(manifest.version, 3);
   assert.equal(Object.hasOwn(manifest.files, "WORKLOG.md"), false);
 });
 
-test("v2 prunes only stale, unchanged, source-owned files", () => {
+test("v3 prunes only stale, unchanged, source-owned files", () => {
   const { source, target } = fixture();
   write(source, "legacy/old.md", "old release");
   write(target, "legacy/old.md", "old release");
@@ -64,7 +64,7 @@ test("v2 prunes only stale, unchanged, source-owned files", () => {
   assert.equal(fs.readFileSync(path.join(target, "legacy/user.md"), "utf8"), "user file");
 });
 
-test("v2 does not delete user-modified managed content", () => {
+test("v3 does not delete user-modified managed content", () => {
   const { source, target } = fixture();
   write(source, "old.md", "shipped");
   write(target, "old.md", "shipped");
@@ -75,7 +75,7 @@ test("v2 does not delete user-modified managed content", () => {
   assert.equal(fs.readFileSync(path.join(target, "old.md"), "utf8"), "user edited");
 });
 
-test("v2 rejects traversal paths, symlinks and Windows-only separators", () => {
+test("v3 rejects traversal paths, symlinks and Windows-only separators", () => {
   const { root, target } = fixture();
   assert.equal(safeDestination(target, "../outside"), null);
   assert.equal(safeDestination(target, "nested\\outside"), null);
@@ -103,6 +103,7 @@ test("staged upgrade preserves user files listed by unsafe v1 manifests", () => 
   write(target, "templates/user.md", "user template");
   write(target, "MANAGED_FILES.json", JSON.stringify({
     version: 1, files: {
+      "rules.md": { sha256: require("node:crypto").createHash("sha256").update("v1 rules").digest("hex") },
       "WORKLOG.md": { sha256: "0".repeat(64) },
       "templates/user.md": { sha256: "0".repeat(64) }
     }
@@ -114,6 +115,40 @@ test("staged upgrade preserves user files listed by unsafe v1 manifests", () => 
   assert.equal(fs.readFileSync(path.join(staged, "templates/user.md"), "utf8"), "user template");
   assert.equal(fs.readFileSync(path.join(staged, "rules.md"), "utf8"), "v2 rules");
   assert.equal(fs.readFileSync(path.join(target, "WORKLOG.md"), "utf8"), "user work");
+});
+
+test("staged update keeps a customized managed file active and reports the upstream copy", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  const artifacts = path.join(root, "backup", "update-artifacts");
+  fs.mkdirSync(staged);
+  write(source, "rules.md", "old upstream rules");
+  write(target, "rules.md", "old upstream rules");
+  snapshot(source, target);
+  write(target, "rules.md", "user customized rules");
+  write(source, "rules.md", "new upstream rules");
+  write(staged, "rules.md", "new upstream rules");
+
+  const report = preserveUserFiles(target, staged, artifacts);
+  assert.equal(fs.readFileSync(path.join(staged, "rules.md"), "utf8"), "user customized rules");
+  assert.equal(fs.readFileSync(path.join(artifacts, "upstream-overrides", "rules.md"), "utf8"), "new upstream rules");
+  assert.deepEqual(report.preservedManagedOverrides, [{ path: "rules.md", upstreamCopy: "upstream-overrides/rules.md" }]);
+  snapshot(source, staged);
+  assert.deepEqual(inspectManagedFiles(staged).customizations, ["rules.md"]);
+  assert.deepEqual(inspectManagedFiles(staged).modified, []);
+});
+
+test("staged update preserves empty custom directories", () => {
+  const { root, source, target } = fixture();
+  const staged = path.join(root, "staged");
+  fs.mkdirSync(staged);
+  write(source, "rules.md", "upstream");
+  write(target, "rules.md", "upstream");
+  fs.mkdirSync(path.join(target, "user-empty", "nested"), { recursive: true });
+  const report = preserveUserFiles(target, staged);
+  assert.ok(fs.existsSync(path.join(staged, "user-empty", "nested")));
+  assert.ok(report.preservedDirectories.includes("user-empty"));
+  assert.ok(report.preservedDirectories.includes("user-empty/nested"));
 });
 
 test("staging omits only unchanged v2 managed files removed from the package", () => {

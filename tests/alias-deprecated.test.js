@@ -1,11 +1,21 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
 const ROOT = path.resolve(__dirname, "..");
+const bashFlavor = spawnSync("bash", ["-lc", "uname -s"], { encoding: "utf8" }).stdout?.trim() || "";
+const bashPath = (value) => {
+  const absolute = path.resolve(value).replace(/\\/g, "/");
+  return absolute.replace(/^([A-Za-z]):\/(.*)$/u, (_match, drive, rest) =>
+    bashFlavor.startsWith("MINGW") || bashFlavor.startsWith("MSYS")
+      ? `/${drive.toLowerCase()}/${rest}`
+      : `/mnt/${drive.toLowerCase()}/${rest}`);
+};
 
 test("1.1.0: deprecated open-code aliases exist as shims with redirect", () => {
   for (const [skill, redirect] of [
@@ -38,4 +48,37 @@ test("1.1.0: manifest + router register deprecated aliases", () => {
 test("1.1.0: redirect targets are real packaged skills", () => {
   assert.ok(fs.existsSync(path.join(ROOT, "codex", "skills", "code-review", "SKILL.md")));
   assert.ok(fs.existsSync(path.join(ROOT, "orquestrador", "skills", "skill-multiagent-orchestration", "SKILL.md")));
+});
+
+test("1.1.0 (#38): both deprecated aliases install into every authorized native root", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-alias-roots-"));
+  const install = spawnSync("bash", [bashPath(path.join(ROOT, "scripts", "install.sh")), "--home-path", bashPath(home), "--force", "--non-interactive"], { encoding: "utf8" });
+  assert.equal(install.status, 0, `installer failed: ${install.stderr?.slice(0, 2000)}`);
+
+  const policy = JSON.parse(fs.readFileSync(path.join(ROOT, "orquestrador", "SKILL_INSTALL_POLICY.json"), "utf8"));
+  const aliases = ["skill-open-code-review", "skill-open-code-delegate"];
+  for (const [program, rule] of Object.entries(policy.nativeRoots)) {
+    for (const alias of aliases) {
+      assert.ok(rule.allowDirectories.includes(alias), `${alias} must be authorized in ${program}`);
+      assert.ok(fs.existsSync(path.join(home, rule.path, alias, "SKILL.md")), `${alias} must be installed in ${program}`);
+    }
+  }
+});
+
+test("1.1.0 (#39): verify --strict detects a missing deprecated alias in an authorized root", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-alias-verify-"));
+  const env = { ...process.env, CODEX_HOME: path.join(home, ".codex") };
+  const install = spawnSync("bash", [bashPath(path.join(ROOT, "scripts", "install.sh")), "--home-path", bashPath(home), "--force", "--non-interactive"], { encoding: "utf8", env });
+  assert.equal(install.status, 0, `installer failed: ${install.stderr?.slice(0, 1500)}`);
+
+  const verify = (args = []) => spawnSync("bash", [bashPath(path.join(ROOT, "scripts", "verify-install.sh")), "--home-path", bashPath(home), "--skip-tool-profiles", "--strict", ...args], { encoding: "utf8", env });
+  const healthy = verify();
+  assert.equal(healthy.status, 0, `strict verification should pass after install:\n${healthy.stderr?.slice(0, 1200)}\n${healthy.stdout?.slice(0, 1200)}`);
+
+  const policy = JSON.parse(fs.readFileSync(path.join(ROOT, "orquestrador", "SKILL_INSTALL_POLICY.json"), "utf8"));
+  const missing = path.join(home, policy.nativeRoots.claude.path, "skill-open-code-review");
+  fs.rmSync(missing, { recursive: true, force: true });
+  const broken = verify();
+  assert.notEqual(broken.status, 0, "strict verification must reject a removed compatibility alias");
+  assert.match(broken.stderr + broken.stdout, /skill-open-code-review/);
 });

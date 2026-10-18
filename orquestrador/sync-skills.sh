@@ -166,15 +166,15 @@ fi
 
 CANONICAL_SOURCES=(
   "$MAESTRO_ROOT/skills"
-  "$HOME_PATH/.global-skills"
   "$COMMUNITY_LIBRARY"
-  "$HOME_PATH/.codex/skills"
   "$CODEX_LIBRARY"
+  "$HOME_PATH/.global-skills"
+  "$HOME_PATH/.codex/skills"
 )
 
 CODEX_MANAGED_SOURCES=(
-  "$HOME_PATH/.codex/skills"
   "$CODEX_LIBRARY"
+  "$HOME_PATH/.codex/skills"
 )
 
 filter_existing_dirs_into() {
@@ -235,7 +235,7 @@ get_skill_source() {
 get_dir_source() {
   local name="$1"
   local root candidate
-  for root in "${CODEX_MANAGED_SOURCES[@]}"; do
+  for root in "${CODEX_MANAGED_SOURCES[@]}" "${CANONICAL_SOURCES[@]}"; do
     candidate="$root/$name"
     if [ -d "$candidate" ]; then
       printf '%s\n' "$candidate"
@@ -244,6 +244,57 @@ get_dir_source() {
   done
   return 1
 }
+
+SYNC_RESULTS=()
+get_applied_action() {
+  local wanted_program="$1" wanted_skill="$2" row result_program result_skill result_action
+  for row in "${SYNC_RESULTS[@]}"; do
+    IFS='|' read -r result_program result_skill result_action <<< "$row"
+    if [ "$result_program" = "$wanted_program" ] && [ "$result_skill" = "$wanted_skill" ]; then
+      printf '%s\n' "$result_action"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ "$MODE" = "apply" ]; then
+  SYNC_OPERATIONS=()
+  for entry in "${TARGET_SPECS[@]}"; do
+    IFS='|' read -r program relative_root _max_dirs allow_csv <<EOF
+$entry
+EOF
+    should_sync_target "$program" || continue
+    target_root="$(resolve_home_relative "$relative_root")"
+    for skill in "${MUST_HAVE[@]}"; do
+      src="$(get_skill_source "$skill" || true)"
+      [ -n "$src" ] || continue
+      SYNC_OPERATIONS+=("$program" "$skill" "$src" "$target_root/$skill" "$target_root")
+    done
+    if [ -n "$allow_csv" ]; then
+      IFS=',' read -r -a batch_allow_items <<< "$allow_csv"
+      for name in "${batch_allow_items[@]}"; do
+        [ -n "$name" ] || continue
+        if [ "$program" = "codex" ]; then
+          src="$(get_dir_source "$name" || true)"
+        else
+          src="$(get_skill_source "$name" || true)"
+        fi
+        [ -n "$src" ] || continue
+        SYNC_OPERATIONS+=("$program" "$name" "$src" "$target_root/$name" "$target_root")
+      done
+    fi
+  done
+  if [ "${#SYNC_OPERATIONS[@]}" -gt 0 ]; then
+    SYNC_BATCH_OUTPUT="$(printf '%s\0' "${SYNC_OPERATIONS[@]}" | node "$MAESTRO_ROOT/bin/sync-managed-skill.js" apply-batch --nul)" || {
+      echo "Error: managed native skill synchronization failed; previous snapshots remain in the update backup." >&2
+      exit 1
+    }
+    while IFS= read -r row; do
+      [ -n "$row" ] && SYNC_RESULTS+=("$row")
+    done <<< "$SYNC_BATCH_OUTPUT"
+  fi
+fi
 
 skill_different() {
   local src="$1"
@@ -274,21 +325,6 @@ path_under_root() {
       return 1
       ;;
   esac
-}
-
-copy_managed_dir() {
-  local src="$1"
-  local dest="$2"
-  local target_root="$3"
-  if [ -d "$dest" ]; then
-    if ! path_under_root "$dest" "$target_root"; then
-      echo "Refusing to remove destination outside target root: $dest" >&2
-      return 1
-    fi
-    rm -rf "$dest"
-  fi
-  mkdir -p "$dest"
-  cp -R "$src"/. "$dest"/
 }
 
 move_native_extra() {
@@ -365,10 +401,9 @@ EOF
     fi
 
     if [ "$MODE" = "apply" ] && [ -n "$src" ] && [[ "$action" =~ ^(missing-target|copy|update)$ ]]; then
-      mkdir -p "$target_root"
-      copy_managed_dir "$src" "$dest" "$target_root"
+      action="$(get_applied_action "$program" "$skill" || true)"
+      if [ -z "$action" ]; then echo "Error: sync plan did not include $program/$skill." >&2; exit 1; fi
       target_exists=true
-      action="applied"
     fi
 
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$program" "canonical" "$skill" "$action" "$target_root" ""
@@ -397,10 +432,9 @@ EOF
       fi
 
       if [ "$MODE" = "apply" ] && [ -n "$src" ] && [[ "$action" =~ ^(missing-target|copy|update)$ ]]; then
-        mkdir -p "$target_root"
-        copy_managed_dir "$src" "$dest" "$target_root"
+        action="$(get_applied_action "$program" "$name" || true)"
+        if [ -z "$action" ]; then echo "Error: sync plan did not include $program/$name." >&2; exit 1; fi
         target_exists=true
-        action="applied"
       fi
 
       printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$program" "native-compatibility" "$name" "$action" "$target_root" ""

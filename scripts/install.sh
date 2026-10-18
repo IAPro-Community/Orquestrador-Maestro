@@ -358,28 +358,7 @@ restore_merged_config() {
   shift
   local source_files=("$@")
 
-  node - "$destination_file" "${source_files[@]}" <<'NODE'
-const fs = require("node:fs");
-const path = require("node:path");
-const [destination, ...sources] = process.argv.slice(2);
-const merged = {};
-let found = false;
-for (const source of sources) {
-  if (!fs.existsSync(source)) continue;
-  try {
-    const value = JSON.parse(fs.readFileSync(source, "utf8"));
-    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    Object.assign(merged, value);
-    found = true;
-  } catch {
-    process.stderr.write(`Warning: skipped invalid backed-up config: ${source}\n`);
-  }
-}
-if (found) {
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, `${JSON.stringify(merged, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-}
-NODE
+  node "$REPO_ROOT/scripts/update-migrations.js" merge "$destination_file" "${source_files[@]}"
 }
 
 backup_mapped_directory() {
@@ -942,15 +921,17 @@ restore_merged_config "$STAGED_ORQUESTRADOR/config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/maestro-config.json" \
   "$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME/config.json"
 
+# Preserve unmanaged user files across the swap; their content is carried over and stays active.
+# The first upgrade never deletes those files; source tombstones are recorded for future runs.
+# snapshot records the MANAGED_FILES.json ownership baseline for the next upgrade.
 # Stage user-owned files without modifying the active installation.
-# Version 1 manifests recorded personal files and cannot prove ownership.
-# Version 2 retires unchanged stale package files; modified files are kept.
+# The report and upstream copies live next to, never inside, the rollback core.
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
   if ! path_under_root "$TARGET_ORQUESTRADOR" "$HOME_PATH"; then
     echo "Error: refusing to read target outside home: $TARGET_ORQUESTRADOR" >&2
     exit 1
   fi
-  node "$REPO_ROOT/scripts/managed-files.js" preserve "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR"
+  node "$REPO_ROOT/scripts/managed-files.js" preserve "$TARGET_ORQUESTRADOR" "$STAGED_ORQUESTRADOR" "$BACKUP_DIR/update-artifacts"
 fi
 
 if [ -d "$TARGET_ORQUESTRADOR" ]; then
@@ -1002,7 +983,7 @@ chmod +x \
   "$TARGET_ORQUESTRADOR/bin/check-dev-gates.sh" 2>/dev/null || true
 
 # Record only source-owned files, never enumerate the user's destination tree;
-# the v2 manifest feeds future tombstone pruning + verify/doctor diff.
+# the v3 manifest feeds future tombstone pruning + verify/doctor diff.
 if command -v node >/dev/null 2>&1; then
   node "$REPO_ROOT/scripts/managed-files.js" snapshot "$SOURCE_ORQUESTRADOR" "$TARGET_ORQUESTRADOR"
 fi
@@ -1014,7 +995,15 @@ if [ "$SKIP_SKILL_SYNC" = false ]; then
     if [ "${#ONLY_COMPONENTS[@]}" -gt 0 ]; then
       SYNC_ARGS+=("--only" "$(IFS=','; echo "${ONLY_COMPONENTS[*]}")")
     fi
-    bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    previous_core="$BACKUP_DIR/$TARGET_ORQUESTRADOR_NAME"
+    if [ ! -d "$previous_core" ]; then previous_core="$BACKUP_DIR/$LEGACY_ORQUESTRADOR_NAME"; fi
+    if [ -d "$BACKUP_DIR" ]; then
+      ORQUESTRADOR_UPDATE_ARTIFACTS="$BACKUP_DIR/update-artifacts/native-skills" \
+      ORQUESTRADOR_PREVIOUS_ROOT="$previous_core" \
+        bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    else
+      bash "$SYNC_SCRIPT" "${SYNC_ARGS[@]}"
+    fi
   fi
 fi
 
@@ -1023,18 +1012,14 @@ fi
 # fail-closed minimum so `verify` never reports a fresh install as missing.
 ensure_native_minimum() {
   local roots="codex:.codex/skills agents:.agents/skills opencode:.opencode/skills claude:.claude/skills cursor:.cursor/skills gemini:.gemini/skills windsurf:.windsurf/skills antigravity:.antigravity-skills/skills"
-  local pair program rel root src_maestro dest_maestro
+  local pair rel root src_maestro dest_maestro
   local maestro_sources=(
     "$TARGET_SKILL_LIBRARY/codex-skills/orquestrador-maestro"
     "$TARGET_ORQUESTRADOR/skill-library/codex-skills/orquestrador-maestro"
     "$SOURCE_CODEX/skills/orquestrador-maestro"
   )
   for pair in $roots; do
-    program="${pair%%:*}"
     rel="${pair#*:}"
-    if ! selected_component "$program" freebuff agents codex claude opencode cursor gemini windsurf antigravity skills community-skills all; then
-      continue
-    fi
     root="$HOME_PATH/$rel"
     mkdir -p "$root"
     dest_maestro="$root/orquestrador-maestro"

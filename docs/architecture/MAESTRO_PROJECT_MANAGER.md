@@ -1,8 +1,8 @@
 # Maestro Project Manager
 
-> Status: ativo na linha 1.0 Alpha. A superfície experimental `cli-novo`
-> (TUI, PTY persistente, daemon/socket e cliente VS Code) foi removida desta
-> release por não ter atingido o nível de fechamento exigido para a V1.
+> Status: histórico para a superfície experimental `cli-novo` (TUI, PTY
+> persistente, daemon/socket e cliente VS Code), removida da linha 1.0. O
+> contrato mantido na release 1.1 é o comando gerenciado descrito abaixo.
 
 O Project Manager é uma camada opcional sobre o Runtime. Ele não altera `DEV/`,
 instalações, sincronização de Skills nem o contrato dos providers.

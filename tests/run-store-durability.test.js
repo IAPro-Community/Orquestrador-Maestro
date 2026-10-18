@@ -18,7 +18,7 @@ function tempStore() {
   return { dir, filePath: path.join(dir, "runtime", "runs.json") };
 }
 
-test("flush fsyncs the temp file and the parent directory", async (t) => {
+test("flush fsyncs the temp file and the parent directory", { skip: process.platform === "win32" ? "Windows does not expose POSIX directory handles for fsync" : false }, async (t) => {
   const { filePath } = tempStore();
   const store = new JsonFileRunStore({ filePath });
   await store.initialize();

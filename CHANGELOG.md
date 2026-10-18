@@ -7,13 +7,17 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 ### Correções de instalação e atualização (issues #38, #39)
 
 - Fixed #39: fresh install com `--skip-skill-sync` ou `--only` parcial agora sempre cria as 8 raízes nativas e `~/.agents/skills/orquestrador-maestro/SKILL.md` (mínimo fail-closed no instalador sh/ps1).
-- Fixed #38: `install`/`update` deixam de fazer `rm -rf` no core; merge por cima + tombstones via `MANAGED_FILES.json` (só remove gerenciado-ausente-no-novo-snapshot; desconhecido = usuário, sempre preservado).
+- Fixed #38: staging transacional preserva arquivos desconhecidos, diretórios vazios e edições em arquivos oficiais; tombstones só retiram arquivos de pacote inalterados.
+- `MANAGED_FILES.json` v3 compara hash da origem com o conteúdo instalado; o relatório lista arquivos adicionados, atualizados ou removidos, customizações e schemas antes/depois.
+- Em arquivos oficiais editados localmente, a versão customizada continua ativa e a cópia nova do pacote fica em `update-artifacts/upstream-overrides/`, ao lado do backup, para revisão.
+- Configurações legadas recebem schema v1 sem perder chaves ou valores; versões futuras não reconhecidas bloqueiam a publicação do staging.
 - `sync --apply` preserva skills/arquivos desconhecidos por padrão; quarentena para `disabled-native/` só com `--prune`/`-Prune` explícito (ADR-001).
-- Novo comando `orquestrador-maestro rollback [--to STAMP] [--list]` restaura o core a partir de `~/.orquestrador-public-backups/`.
+- Mirrors nativos usam `.orquestrador-managed-skills.json` v1 por raiz: árvores oficiais inalteradas são atualizadas; skills editadas ou com arquivos extras permanecem ativas, com a cópia upstream no relatório de atualização.
+- Novo comando `orquestrador-maestro rollback [--to STAMP] [--list]` valida IDs reais, prepara core, configurações e mirrors nativos em uma transação reversível, preserva arquivos e overrides atuais, recusa conteúdo alterado depois do backup e permite repetir a restauração com segurança.
 - `SKILL_INSTALL_POLICY.json` v2 como fonte única (`maxDirectories: 64` nas 8 raízes); fallbacks sh/ps1/verify/doctor unificados (antes 40/30 e 48).
 - Paridade sh/ps1 nos tool profiles (presença + `.maestro-managed` + `--all-targets`) e aviso de execução elevada no Windows.
 - Correção de `hasOnly` com sintaxe `--only=` e `runCliUpdate` com verificação anti-regressão de versão.
-- `verify`/`doctor` ganham `--strict`: espelho `MUST_HAVE` completo, `MANAGED_FILES.json`, policy v2 e aliases deprecated; `doctor --strict` sai non-zero em perda.
+- `verify`/`doctor` ganham `--strict`: espelho `MUST_HAVE` completo, aliases deprecated em cada raiz permitida, auditoria de `MANAGED_FILES.json` e policy v2; `doctor --strict` sai non-zero em perda ou drift não reconhecido.
 
 ### Compatibilidade
 
@@ -33,6 +37,11 @@ Versão estrutural: atualização incremental e não destrutiva (issues #38 e #3
 - `orquestrador/lib/codex-home.js`: resolve `$CODEX_HOME` (CLI e app desktop compartilham o mesmo Codex home); `doctor`/`verify --strict`/`verify-install.*` reportam divergência que deixaria skills invisíveis sem erro.
 - `install` instala o plugin desktop automaticamente quando a plataforma é suportada ou o app está presente (opt-out: `--skip-desktop-plugin` / `ORQUESTRADOR_MAESTRO_SKIP_DESKTOP_PLUGIN=1`; `--only` sem `codex` e `--core-only` pulam).
 - Comandos `desktop-plugin install|status|doctor|stats|remove`; hooks/MCP do plugin exigem trust manual na UI do app (limite deliberado).
+
+### Portal e documentação
+
+- Integra o portal React/Docusaurus e o redesign editorial da `main`, com simulador de roteamento, catálogo pesquisável de skills e páginas de arquitetura.
+- Corrige os links gerados para ADRs e anchors de benchmark usados pelo índice pesquisável.
 
 ### Quick wins arquiteturais (RFC, mesma release)
 

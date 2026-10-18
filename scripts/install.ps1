@@ -290,23 +290,8 @@ function Restore-MissingFilesFromTree {
 
 function Restore-MergedConfigFromBackup {
   param([string[]]$SourceFiles, [string]$DestinationFile)
-  $merged = [ordered]@{}
-  $foundConfig = $false
-  foreach ($sourceFile in $SourceFiles) {
-    if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) { continue }
-    try {
-      $config = Get-Content -LiteralPath $sourceFile -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ($null -eq $config -or $config -is [System.Array] -or $config -is [string]) { continue }
-      foreach ($property in $config.PSObject.Properties) { $merged[$property.Name] = $property.Value }
-      $foundConfig = $true
-    } catch {
-      Write-Warning "Could not migrate invalid config from backup: $sourceFile"
-    }
-  }
-  if (-not $foundConfig) { return }
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DestinationFile) | Out-Null
-  $json = $merged | ConvertTo-Json -Depth 100
-  [System.IO.File]::WriteAllText($DestinationFile, "$json`n", [System.Text.UTF8Encoding]::new($false))
+  & node (Join-Path $RepoRoot "scripts/update-migrations.js") merge $DestinationFile @SourceFiles
+  if ($LASTEXITCODE -ne 0) { throw "Versioned config migration failed; the existing installation was left intact." }
 }
 
 function Backup-MappedDirectory {
@@ -827,14 +812,16 @@ try {
     (Join-Path $BackupDir "$TargetOrquestradorName\config.json")
   ) -DestinationFile (Join-Path $StagedOrquestrador "config.json")
 
-  # Preserve unknown or user-modified files in the staged tree only.
-  # A legacy v1 manifest is not evidence of package ownership.
-  # Never mutate the live installation before the staged swap succeeds.
+  # Preserve unmanaged user files across the swap; their content is carried over and stays active.
+  # The first upgrade never deletes those files; source tombstones are recorded for future runs.
+  # snapshot records the MANAGED_FILES.json ownership baseline for the next upgrade.
+  # Preserve user files and managed overrides in staging only. The report and
+  # new upstream copies stay beside the full rollback snapshot, not in the core.
   if (Test-Path -LiteralPath $TargetOrquestrador) {
     if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
       throw "Refusing to read target outside home: $TargetOrquestrador"
     }
-    & node (Join-Path $RepoRoot "scripts/managed-files.js") preserve $TargetOrquestrador $StagedOrquestrador
+    & node (Join-Path $RepoRoot "scripts/managed-files.js") preserve $TargetOrquestrador $StagedOrquestrador (Join-Path $BackupDir "update-artifacts")
     if ($LASTEXITCODE -ne 0) { throw "Staged user-file preservation failed." }
   }
 
@@ -873,7 +860,7 @@ try {
 
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
-# v2 manifest enumerates files shipped by source, never user-owned files;
+# v3 manifest enumerates files shipped by source, never user-owned files;
 # feeds future tombstone pruning + verify/doctor diff.
 if (Get-Command node -ErrorAction SilentlyContinue) {
   & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
@@ -895,7 +882,20 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    $previousArtifactsEnv = $env:ORQUESTRADOR_UPDATE_ARTIFACTS
+    $previousCoreEnv = $env:ORQUESTRADOR_PREVIOUS_ROOT
+    try {
+      if ($script:BackupDirCreated) {
+        $previousCore = Join-Path $BackupDir $TargetOrquestradorName
+        if (-not (Test-Path -LiteralPath $previousCore)) { $previousCore = Join-Path $BackupDir $LegacyOrquestradorName }
+        $env:ORQUESTRADOR_UPDATE_ARTIFACTS = Join-Path $BackupDir "update-artifacts\native-skills"
+        $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCore
+      }
+      & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    } finally {
+      $env:ORQUESTRADOR_UPDATE_ARTIFACTS = $previousArtifactsEnv
+      $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCoreEnv
+    }
   }
 }
 
@@ -916,9 +916,7 @@ $maestroSources = @(
   (Join-Path $SourceCodex "skills\orquestrador-maestro")
 )
 foreach ($pair in $nativeMinimum) {
-  $program = $pair[0]
   $rel = $pair[1]
-  if (-not (Test-SelectedComponent @($program, "freebuff", "agents", "codex", "claude", "opencode", "cursor", "gemini", "windsurf", "antigravity", "skills", "community-skills", "all"))) { continue }
   $root = Join-Path $HomePath $rel
   New-Item -ItemType Directory -Force -Path $root | Out-Null
   $destMaestro = Join-Path $root "orquestrador-maestro\SKILL.md"
