@@ -17,6 +17,12 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CLI_HARNESS_ROOT = resolve(__dirname, '..', '..');
+const API_KEY_ENV_VARS = [
+  'BENCHMARK_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'GEMINI_API_KEY',
+] as const;
 import { parseArgs } from 'node:util';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -617,17 +623,17 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
     checks.push({ name: 'OpenCode CLI', ok: false, detail: 'not found' });
   }
 
-  // API key
-  const apiKey = process.env.BENCHMARK_API_KEY;
-  if (apiKey) {
-    checks.push({ name: 'API Key (env)', ok: true, detail: `set (${apiKey.slice(0, 4)}...)` });
+  // API key: accept the generic harness key and the provider keys used by CI.
+  const configuredApiKeyEnv = API_KEY_ENV_VARS.find((name) => Boolean(process.env[name]?.trim()));
+  if (configuredApiKeyEnv) {
+    checks.push({ name: 'API Key (env)', ok: true, detail: `${configuredApiKeyEnv} is configured` });
   } else {
     // Check .env file
     try {
       const envContent = await readFile(resolve('.env'), 'utf-8');
       const match = envContent.match(/^BENCHMARK_API_KEY=(.+)$/m);
       if (match && match[1].length > 0) {
-        checks.push({ name: 'API Key (.env)', ok: true, detail: `set (${match[1].slice(0, 4)}...)` });
+        checks.push({ name: 'API Key (.env)', ok: true, detail: 'BENCHMARK_API_KEY is configured' });
       } else {
         checks.push({ name: 'API Key', ok: false, detail: 'not configured' });
       }
@@ -656,10 +662,11 @@ async function handlePreflight(args: string[]): Promise<CLIResult> {
   // Fixtures exist
   const evidenceDir = resolve(String(values.evidence ?? join(CLI_HARNESS_ROOT, 'evidence')));
   try {
-    await stat(evidenceDir);
+    await mkdir(evidenceDir, { recursive: true });
     checks.push({ name: 'Evidence dir', ok: true, detail: evidenceDir });
-  } catch {
-    checks.push({ name: 'Evidence dir', ok: false, detail: `${evidenceDir} (will be created)` });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    checks.push({ name: 'Evidence dir', ok: false, detail: `${evidenceDir}: ${detail}` });
   }
 
   // Format output
