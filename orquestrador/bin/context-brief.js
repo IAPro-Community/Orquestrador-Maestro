@@ -513,7 +513,7 @@ function buildBrief(options) {
   const header = [
     "# Briefing de contexto do Orquestrador",
     "Projeto: [contexto local redigido]",
-    options.task ? `Intenção do Maestro: ${options.task.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 500)}` : "Intenção do Maestro: não informada",
+    options.task ? `Intenção do Maestro: ${sanitizeContent(options.task.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 500))}` : "Intenção do Maestro: não informada",
     `Orçamento: ${budget.maxChars} caracteres`,
     `Classificação da tarefa: ${taskClassification.class} (${taskClassification.reason})`,
     `Distribuição: canonical=${budget.canonicalChars} docs=${budget.docsChars} memory=${budget.memoryChars} metadata=${budget.metadataChars}`,

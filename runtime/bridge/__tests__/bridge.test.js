@@ -46,6 +46,26 @@ test("bridge exposes bounded canonical context with provenance and no secrets", 
   }
 });
 
+test("bridge redacts secrets present in the task intent itself", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-secret-"));
+  try {
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# Test rules\\n");
+    const bridge = createBridge({ projectRoot: root });
+    const response = await bridge.handle({
+      jsonrpc: "2.0", id: 3, method: "context.brief",
+      params: { task: "Review api_key=private-must-not-appear", maxChars: 2500 }
+    });
+    assert.equal(response.error, undefined);
+    assert.doesNotMatch(response.result.content, /private-must-not-appear/);
+    assert.match(response.result.content, /api_key=\\[redigido\\]/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("bridge rejects context requests outside the active project or budget", async () => {
   const bridge = createBridge({ projectRoot: process.cwd() });
   const invalid = [
