@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { buildBrief } = require("../../orquestrador/bin/context-brief");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -24,6 +25,7 @@ function createBridge(options = {}) {
   const methods = {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
+    "context.brief": (params) => contextBrief(params, projectRoot),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
     "projects.register": (params) => invokeCall(services.runtime, "registerProject", params),
@@ -117,7 +119,39 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true })
+  });
+}
+
+// The Bridge exposes the *existing* canonical Maestro context builder. It
+// does not keep a parallel history, nor does a caller provide arbitrary paths
+// within a differently scoped project. Project scoping is set at Bridge launch.
+function contextBrief(params, projectRoot) {
+  if (params.projectPath !== undefined) {
+    requireNonEmptyString(params.projectPath, "projectPath");
+    if (path.resolve(params.projectPath) !== projectRoot) {
+      throw invalidParams("projectPath must match the Bridge project root");
+    }
+  }
+  if (params.task !== undefined && (typeof params.task !== "string" || params.task.length > 500)) {
+    throw invalidParams("task must be a string of at most 500 characters");
+  }
+  if (params.taskId !== undefined && (typeof params.taskId !== "string" || !/^[a-zA-Z0-9._:-]{1,128}$/.test(params.taskId))) {
+    throw invalidParams("taskId must be a safe project-scoped identifier");
+  }
+  if (params.since !== undefined && (typeof params.since !== "string" || !/^[A-Za-z0-9_./~^-]{1,80}$/.test(params.since))) {
+    throw invalidParams("since must be a git reference without spaces");
+  }
+  const maxChars = params.maxChars === undefined ? 16000 : params.maxChars;
+  if (!Number.isInteger(maxChars) || maxChars < 1000 || maxChars > 16000) {
+    throw invalidParams("maxChars must be an integer between 1000 and 16000");
+  }
+  return buildBrief({
+    projectPath: projectRoot,
+    task: params.task || "",
+    taskId: params.taskId || null,
+    since: params.since || null,
+    maxChars
   });
 }
 
