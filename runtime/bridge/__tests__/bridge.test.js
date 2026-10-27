@@ -61,6 +61,8 @@ test("bridge redacts secrets present in the task intent itself", async () => {
     assert.equal(response.error, undefined);
     assert.doesNotMatch(response.result.content, /private-must-not-appear/);
     assert.match(response.result.content, /api_key=\\[redigido\\]/);
+    assert.equal(response.result.task.includes("private-must-not-appear"), false);
+    assert.doesNotMatch(JSON.stringify(response.result), /private-must-not-appear/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

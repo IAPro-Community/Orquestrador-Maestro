@@ -689,7 +689,9 @@ function buildBrief(options) {
       headCommit: gitCtx.headCommit,
       vcs: gitCtx.vcs
     },
-    task: options.task,
+    // JSON callers may persist the full result. Do not echo a raw task
+    // containing credentials even when the rendered briefing is sanitized.
+    task: sanitizeContent(options.task || ""),
     taskClassification,
     memoryEnabled: shouldUseMemory(taskClassification),
     memory: {
