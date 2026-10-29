@@ -10,12 +10,21 @@
 
 O Orquestrador Maestro é para quem usa Codex, Claude, OpenCode, Cursor, Gemini e outras ferramentas de IA em projetos reais. Ele não é um modelo nem substitui sua ferramenta favorita: prepara o ambiente para que ela trabalhe com menos desperdício, mais previsibilidade e evidência antes de dizer que terminou.
 
+## Veja o projeto em ação
+
+Assista à demonstração para conhecer o funcionamento do Orquestrador Maestro. Clique na imagem para abrir o vídeo no YouTube.
+
+[![Assistir à demonstração do Orquestrador Maestro no YouTube](https://img.youtube.com/vi/MW-BrC1Nlcs/hqdefault.jpg)](https://www.youtube.com/watch?v=MW-BrC1Nlcs)
+
+**[Assistir à demonstração no YouTube](https://www.youtube.com/watch?v=MW-BrC1Nlcs)**
+
 ### Escolha seu próximo passo
 
 | Você quer… | Vá direto para… |
 | --- | --- |
 | Começar do zero em 10 minutos | [Comece aqui](docs/START-HERE.md) |
 | Entender a ideia em 1 minuto | [Como funciona](#um-processo-várias-ferramentas) |
+| Assistir à demonstração | [Veja o projeto em ação](#veja-o-projeto-em-ação) |
 | Instalar agora | [Comece em dois minutos](#comece-em-dois-minutos) |
 | Entender a evolução 0.5 → V1 | [Veja o que mudou e por quê](#da-050-à-v1-contexto-e-roteamento-proporcionais-ao-problema) |
 | Ver o benchmark | [Veja os números](#benchmark-veja-os-números-na-sua-máquina) |
