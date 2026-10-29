@@ -35,6 +35,7 @@ function createBridge(options = {}) {
     "memory.search": (params) => memoryAPI.search(params),
     "memory.get": (params) => memoryAPI.get(params),
     "memory.timeline": (params) => memoryAPI.timeline(params),
+    "memory.record": (params) => memoryWriter.record(params),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
     "projects.register": (params) => invokeCall(services.runtime, "registerProject", params),
