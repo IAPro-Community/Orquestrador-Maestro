@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { createScopedMemoryAPI } = require("./memory-api");
+const { createGuardedMemoryWriter } = require("./memory-write");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
