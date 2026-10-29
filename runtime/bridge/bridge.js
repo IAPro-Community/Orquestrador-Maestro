@@ -29,7 +29,7 @@ function createBridge(options = {}) {
     (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
   const memoryWriter = createGuardedMemoryWriter({ projectRoot, memory: services.memory, enabled: memoryWriteEnabled });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion),
+    initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "memory.search": (params) => memoryAPI.search(params),
@@ -119,7 +119,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion) {
+function initialize(params, protocolVersion, memoryWriteEnabled = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -130,7 +130,7 @@ function initialize(params, protocolVersion) {
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
     capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true,
-      memory: Object.freeze({ version: 1, read: true, write: false, scoped: true }) })
+      memory: Object.freeze({ version: 1, read: true, write: memoryWriteEnabled, scoped: true }) })
   });
 }
 
