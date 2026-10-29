@@ -72,7 +72,10 @@ function createScopedMemoryAPI(options = {}) {
       allowAncestry: false
     });
     const filtered = rows.filter((row) => {
-      if (!row || typeof row !== "object" || row.project !== context.repositoryId) return false;
+      if (!row || typeof row !== "object" || row.project !== context.repositoryId ||
+          !SAFE_OBSERVATION_ID.test(row.id || "") ||
+          !TYPES.has(row.type) || typeof row.summary !== "string" ||
+          row.summary.length > 500 || typeof row.timestamp !== "string") return false;
       // Historical raw rows might predate persistence redaction. Never expose
       // explicitly private-tagged content through a new Bridge endpoint.
       return !memory.containsPrivateDeep({
@@ -104,10 +107,19 @@ function createScopedMemoryAPI(options = {}) {
     };
     if (includeDetails) {
       result.details = typeof row.details === "string" ? row.details.slice(0, MAX_DETAILS_CHARS) : null;
-      result.tags = Array.isArray(row.tags) ? row.tags.slice(0, 32) : [];
-      result.files = Array.isArray(row.files) ? row.files.slice(0, 32) : [];
-      result.source = row.source && typeof row.source === "object" && !Array.isArray(row.source)
-        ? row.source : {};
+      result.tags = Array.isArray(row.tags)
+        ? row.tags.filter(value => typeof value === "string").slice(0, 32).map(value => value.slice(0, 128)) : [];
+      result.files = Array.isArray(row.files)
+        ? row.files.filter(value => typeof value === "string").slice(0, 32).map(value => value.slice(0, 512)) : [];
+      // Only an allowlisted, bounded provenance projection is exposed.
+      // Legacy source payloads may contain arbitrary nested tool data.
+      result.source = {};
+      if (row.source && typeof row.source === "object" && !Array.isArray(row.source)) {
+        for (const key of ["tool", "provider", "kind", "commit"]) {
+          const value = row.source[key];
+          if (typeof value === "string") result.source[key] = value.slice(0, 128);
+        }
+      }
       result.taskId = row.taskId || null;
       result.verifier = isTrulyVerified(row) ? row.verifier : null;
       result.verifiedAt = isTrulyVerified(row) ? row.verifiedAt : null;
