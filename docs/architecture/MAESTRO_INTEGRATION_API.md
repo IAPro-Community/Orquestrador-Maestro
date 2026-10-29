@@ -46,3 +46,23 @@ Exemplo de requisição:
 
 A operação é apenas leitura de contexto. O Runtime, as Skills, a memória
 semântica e o mecanismo de classificação continuam pertencendo ao Maestro.
+
+## Leitura de memória episódica pelo Bridge (incremento aditivo)
+
+O Bridge v1 agora declara `initialize.result.capabilities.memory = { version: 1, read: true, write: false, scoped: true }`. Essas operações são **somente leitura** e consultam a mesma store do comando `orquestrador-maestro memory`; não existe segunda memória, indexação duplicada nem migração automática:
+
+- `memory.search` — `{ search?, type?, verified?, rank?, taskId?, offset?, limit?, projectPath? }` retorna `{ schemaVersion: 1, authority: "maestro", items: [...], page: { offset, limit, hasMore } }`;
+- `memory.get` — `{ id, taskId?, projectPath? }` retorna uma observação visível e sanitizada ou `null`;
+- `memory.timeline` — os filtros de `memory.search` e uma projeção resumida de observações.
+
+`limit` deve estar entre 1 e 50; `offset` entre 0 e 10000; `taskId` deve ser identificador simples. O contexto Git/repositório/branch/worktree/commit é sempre **calculado pelo Maestro** a partir do `--project-path` associado ao processo Bridge. É proibido sobrescrever `repositoryId`, `branch`, `workspaceId`, `scope`, `headCommit`, `allowAncestry` ou `baseDir` via RPC. Visibilidade por tarefa depende de `taskId` explícito. `memory.get` não usa `Memory.show` diretamente, pois ele não impõe isolamento por branch/worktree.
+
+As respostas usam o mesmo redator de informações privadas da memória; conteúdo com blocos `<private>` em registros legados é excluído. Retornos de lista não incluem detalhes por padrão; `memory.get` limita detalhes a 4000 caracteres. Valores `verified:true` sem identificador/verificação temporal são tratados como não verificados.
+
+Exemplo de requisição:
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"memory.search","params":{"search":"arquitetura","limit":20,"taskId":"review-1"}}
+```
+
+**Não disponíveis neste incremento:** `memory.record`, `memory.promote`, `memory.forget`, escrita de notas, `retain/recall/reflect` como mutações RPC, streaming e compaction nativa do provider. A gravação será introduzida apenas após contrato de aprovação, migração e rollback entre Maestro e Nexus. Os clientes devem negociar capabilities e tratar métodos ausentes como `-32601` (não fazer fallback silencioso para dados semânticos do Nexus).
