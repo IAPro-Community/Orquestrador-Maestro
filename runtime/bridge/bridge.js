@@ -25,6 +25,9 @@ function createBridge(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
   const memoryAPI = createScopedMemoryAPI({ projectRoot, memory: services.memory });
+  const memoryWriteEnabled = options.memoryWriteEnabled === true ||
+    (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
+  const memoryWriter = createGuardedMemoryWriter({ projectRoot, memory: services.memory, enabled: memoryWriteEnabled });
   const methods = {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
