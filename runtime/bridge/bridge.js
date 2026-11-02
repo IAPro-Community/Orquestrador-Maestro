@@ -5,6 +5,7 @@ const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { createScopedMemoryAPI } = require("./memory-api");
 const { validatePlanPreview } = require("./plan-validation");
+const { createRunObserver } = require("./run-observation");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -25,8 +26,9 @@ function createBridge(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
+  const runObserver = createRunObserver({ projectRoot, runtime: services.runtime });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion),
+    initialize: (params) => initialize(params, protocolVersion, Boolean(services.runtime?.inspectRun)),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
@@ -46,6 +48,7 @@ function createBridge(options = {}) {
     "runs.list": (params) => invokeList(services.runStore, "listRuns", params),
     "runs.get": (params) => invokeGet(services.runStore, "getRun", params, "runId"),
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
+    "runs.observe": (params) => runObserver.observe(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
@@ -117,7 +120,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion) {
+function initialize(params, protocolVersion, runsObserve = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -127,7 +130,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true,
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, runsObserve,
       memory: Object.freeze({ version: 1, read: true, write: false, scoped: true }) })
   });
 }
