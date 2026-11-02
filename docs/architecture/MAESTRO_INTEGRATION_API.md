@@ -149,3 +149,15 @@ Não declarar GO ou execução autorizada por `valid=true`. A geração canônic
 `project.compose`, sandbox de providers, controles de custo e persistência
 após aprovação seguem em [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
 Execução durável e Goal Loop continuam em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+
+## Plans.routePreview — roteamento multiagente sem executar
+
+O método Bridge `plans.routePreview` apresenta um **preflight não executável** de seleção de providers **por tarefa** para um plano validado pelo próprio Maestro. Negociar `initialize.capabilities.plansRoutePreview`; esta capability é verdadeira somente quando o Bridge recebe um registry de providers.
+
+A requisição contém `artifact` (id, version, SHA256 e content), `proposal` (TaskGraphProposal validável por `plans.validate`) e uma lista `assignments` com **um item por task**: `taskId`, `providerId`, `model` opcional, `sandbox` e `worktreePath`. Example: frontend usa `agy` com `sandbox=enabled`; backend usa `opencode` com `sandbox=none`, cada um em worktree Git diferente do mesmo repositório.
+
+O Maestro confere: DAG, integridade do artifact, IDs, modelo, instalação/capabilities do adapter, escopo do Git common directory, worktree id/branch/HEAD e conflitos entre tarefas independentes no mesmo workspace. Para AGY é aceito `enabled` no preflight; o adapter OpenCode **não** afirma suportar sandbox read-only e falha caso o cliente o exija. Em todos os casos, o executor precisa revalidar esses requisitos na admissão e antes do dispatch.
+
+A resposta contém `ready`, `previewOnly=true`, `executable=false`, `approvalRequired=true`, o plano já verificado, atribuições selecionadas com estado `READY_FOR_REVIEW` ou `BLOCKED` e `blockers` específicos (ausência de provider, sandbox incompatível, worktree compartilhado). **Nenhum provider é substituído automaticamente**: AGY ausente não vira Codex; OpenCode indisponível não vira Claude. A ausência de provider bloqueia sua tarefa mas não apaga a seleção das outras.
+
+Isso **não é um scheduler, um GO ou uma autorização real para alterar arquivos**. O método não chama `execute` de adapters, não salva missões ou runs, não fornece leases/reconnect. A execução em paralelo durável permanece dependente de [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48) e [#53](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/53).
