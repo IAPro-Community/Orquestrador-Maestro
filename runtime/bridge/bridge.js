@@ -6,6 +6,9 @@ const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { createScopedMemoryAPI } = require("./memory-api");
 const { createGuardedMemoryWriter } = require("./memory-write");
 const { validatePlanPreview } = require("./plan-validation");
+const { createComposePreview } = require("./project-compose");
+const { createRoutePreview } = require("./provider-route-preview");
+const { createRunObserver } = require("./run-observation");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -25,15 +28,26 @@ function createBridge(options = {}) {
 
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
+  const composer = createComposePreview({ projectRoot, application: services.runtime });
+  const routingProviders = services.runtime?.providers || services.providerRegistry;
+  const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
+  const observer = createRunObserver({ projectRoot, runtime: services.runtime });
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
   const memoryWriteEnabled = options.memoryWriteEnabled === true ||
     (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
   const writer = createGuardedMemoryWriter({ projectRoot, memory: services.memory, enabled: memoryWriteEnabled });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled),
+    initialize: (params) => initialize(params, protocolVersion, {
+      memoryWriteEnabled,
+      projectCompose: Boolean(services.runtime?.providers?.get),
+      plansRoutePreview: Boolean(routingProviders?.get),
+      runsObserve: Boolean(services.runtime?.inspectRun)
+    }),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
+    "project.compose": (params) => composer.compose(params),
+    "plans.routePreview": (params) => router.preview(params),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "memory.search": (params) => memory.search(params),
     "memory.get": (params) => memory.get(params),
@@ -51,6 +65,7 @@ function createBridge(options = {}) {
     "runs.list": (params) => invokeList(services.runStore, "listRuns", params),
     "runs.get": (params) => invokeGet(services.runStore, "getRun", params, "runId"),
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
+    "runs.observe": (params) => observer.observe(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
@@ -122,7 +137,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion, memoryWriteEnabled = false) {
+function initialize(params, protocolVersion, capabilities = {}) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -132,8 +147,14 @@ function initialize(params, protocolVersion, memoryWriteEnabled = false) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true,
-      memory: Object.freeze({ version: 1, read: true, write: memoryWriteEnabled, scoped: true }) })
+    capabilities: Object.freeze({
+      subscriptions: true, approvals: false, contextBrief: true, projectContext: true,
+      plansValidate: true,
+      projectCompose: capabilities.projectCompose === true,
+      plansRoutePreview: capabilities.plansRoutePreview === true,
+      runsObserve: capabilities.runsObserve === true,
+      memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
+    })
   });
 }
 
