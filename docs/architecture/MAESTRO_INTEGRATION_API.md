@@ -150,6 +150,32 @@ Não declarar GO ou execução autorizada por `valid=true`. A geração canônic
 após aprovação seguem em [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
 Execução durável e Goal Loop continuam em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
 
+## Memória semântica canônica — leitura com isolamento (Bridge v1)
+
+`initialize.capabilities.memory = {version:1, read:true, write:false, scoped:true}`.
+As operações read-only `memory.search`, `memory.get` e `memory.timeline`
+reutilizam a mesma `Memory` canônica e a identidade Git derivada pelo próprio
+Maestro. O Nexus e demais clientes não leem o storage nem reconstroem escopo
+localmente.
+
+- `memory.search`: `{search?,type?,verified?,rank?,taskId?,offset?,limit?,projectPath?}`.
+- `memory.get`: `{id,taskId?,projectPath?}` — resultado visível ou `null`.
+- `memory.timeline`: mesma seleção, sem detalhes confidenciais.
+
+Limites de `limit` 1–50 e `offset` 0–10000; taskId precisa ser seguro.
+`projectPath` tem de coincidir com o root do processo Bridge. Os campos
+`repositoryId`, `branch`, `workspaceId`, `headCommit`, `scope`,
+`allowAncestry` e `baseDir` são derivados exclusivamente pelo Maestro e
+não são aceitos do cliente.
+
+As respostas são redigidas, registros com `<private>` ficam invisíveis,
+`verified` só é true quando houver evidência real conforme política canônica.
+A operação não migra observações da `IntelligenceMemory` do Nexus e não ativa
+nenhuma escrita. A mudança de writer exige backup, readback, CAS/journal,
+migração reversível e consentimento por operação, antes de retirar legado.
+Ver Maestro [#41](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41)
+e Nexus [#113](https://github.com/IAPro-Community/nexus/issues/113).
+
 ## Plans.routePreview — roteamento multiagente sem executar
 
 O método Bridge `plans.routePreview` apresenta um **preflight não executável** de seleção de providers **por tarefa** para um plano validado pelo próprio Maestro. Negociar `initialize.capabilities.plansRoutePreview`; esta capability é verdadeira somente quando o Bridge recebe um registry de providers.
