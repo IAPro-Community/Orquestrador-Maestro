@@ -149,3 +149,59 @@ Não declarar GO ou execução autorizada por `valid=true`. A geração canônic
 `project.compose`, sandbox de providers, controles de custo e persistência
 após aprovação seguem em [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
 Execução durável e Goal Loop continuam em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+
+## Project.compose — geração semântica sob autoridade Maestro (opt-in)
+
+`initialize.capabilities.projectCompose=true` anuncia a operação
+`project.compose` quando a instância do Bridge possui um runtime com
+registro de providers. O modo inicial suporta **somente Codex**, escolhido
+explicitamente pelo cliente. Ele exige `approvedModelUse=true` e um
+`artifact` de Composer com `approved=true`, id, version, content e SHA-256
+conferidos *antes* de chamar o provider. A confirmação é uma asserção do
+cliente local, **não autenticação de usuário**: integrações remotas precisam
+de controles próprios de autenticação e de autorização humana.
+
+```json
+{
+  "jsonrpc":"2.0",
+  "id":3,
+  "method":"project.compose",
+  "params":{
+    "projectPath":"/projeto",
+    "approvedModelUse":true,
+    "providerId":"codex",
+    "model":"default",
+    "artifact":{
+      "id":"composer-123",
+      "version":1,
+      "approved":true,
+      "content":"Implementar endpoint com testes...",
+      "sha256":"<digest hexadecimal SHA-256 do content>"
+    }
+  }
+}
+```
+
+O Maestro usa **seu próprio** `SemanticPlanner.plan` com
+`allowFallback=false`, uma tentativa e `CodexAdapter` com
+`sandbox="read-only"`. Gera atividades concretas, normaliza e revalida com
+`plans.validate`, retornando um preview marcado como
+`reviewOnly=true`, `executable=false`, `requiresApproval=true`,
+`source="maestro-semantic-planner"`, digest do artefato, versão/digest
+do contexto Maestro e `planningTelemetry` disponível. O conteúdo e os
+eventos do provider não são persistidos em segundo storage do Nexus.
+
+**Não confundir com execução sem efeitos:** o processo do provider é externo
+e pode consumir tokens, recursos e serviço remoto. O sandbox read-only impede
+alterações de arquivos quando realmente suportado pela versão instalada,
+mas não é garantia de operação gratuita, offline ou sem chamadas de rede.
+O cliente precisa sinalizar isso ao usuário e obter consentimento antes de
+usar o modelo. Sem Codex, sem suporte a sandbox ou com saída inválida,
+a chamada falha, sem fallback para outro provider ou pacote genérico.
+
+`project.compose` **não** registra mission, executa Run, grava memória ou
+autoriza dispatch. A autoridade e a revisão ficam no Maestro; a UI do
+Nexus pode mostrar o preview e solicitar aprovação. Para execução durável
+e recuperação, ver [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+Para suporte a outros providers e políticas de custo verificáveis, ver
+[#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
