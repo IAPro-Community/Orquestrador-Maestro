@@ -259,3 +259,7 @@ Requisição: `{ "runId":"run-123", "afterEventId":"ev-123"?, "limit":50? }`, li
 O Bridge valida que o Run e o Task pertencem ao Project com `realpath` igual ao root do processo. Runs inexistentes ou de outro projeto retornam `null`. Um cursor expirado ou inexistente falha fechado; o cliente deve recarregar o snapshot. O resultado não promete paginação entre snapshots atômicos nem que todos os eventos anteriores sejam reconstituíveis. O runtime mantém saída bruta **somente efêmera**, por privacidade.
 
 **Limites importantes:** `runs.observe` é apenas uma projeção de leitura. Não cria/reativa jobs, não dá ACK assíncrono, não administra leases, não corrige estados órfãos e não equivale a `runs.subscribe`. Um produto pronto ainda exige daemon/worker supervisor, fencing, idempotência, cursor/epoch e restart/reconnect validados em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48). Enquanto esses gates faltarem, o Nexus deve tratar a API como consulta diagnóstica e nunca como prova de execução durável.
+
+### Compatibilidade de subscriptions (fail-closed)
+
+O Bridge stdio v1 **não** implementa push de eventos duráveis. Portanto `initialize.capabilities.subscriptions=false` e `events.subscribe` devolve erro `-32601`, em vez de reconhecer uma subscription fictícia. Clientes legados que interpretavam `subscribed:true` como fluxo ativo precisam usar `runs.observe` para polling de lifecycle, sem raw output, ou aguardar a API de worker/event stream real de #48. Isso é uma correção de contrato, não uma implementação de subscribe.
