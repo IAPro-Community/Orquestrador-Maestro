@@ -84,7 +84,9 @@ test("plans.validate rejects bad lineage and cross-project scope before planning
       { artifact: { ...artifact, id: "../unsafe" }, proposal },
       { artifact, proposal: { tasks: [] } },
       { artifact, proposal: { tasks: Array.from({ length: 33 }, () => proposal.tasks[0]) } },
-      { artifact, proposal: { tasks: [{ ...proposal.tasks[0], acceptanceCriteria: [] }] } }
+      { artifact, proposal: { tasks: [{ ...proposal.tasks[0], acceptanceCriteria: [] }] } },
+      { artifact, proposal: { ...proposal, warnings: Array.from({ length: 33 }, () => "bad") } },
+      { artifact, proposal: { ...proposal, rationale: "x".repeat(70000) } }
     ];
     for (const params of bad) {
       const response = await bridge.handle(rpc("plans.validate", params));
