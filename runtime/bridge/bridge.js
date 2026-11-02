@@ -7,6 +7,7 @@ const { createScopedMemoryAPI } = require("./memory-api");
 const { createGuardedMemoryWriter } = require("./memory-write");
 const { validatePlanPreview } = require("./plan-validation");
 const { createRoutePreview } = require("./provider-route-preview");
+const { createRunObserver } = require("./run-observation");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -29,11 +30,12 @@ function createBridge(options = {}) {
   const routingProviders = services.runtime?.providers || services.providerRegistry;
   const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
+  const runObserver = createRunObserver({ projectRoot, runtime: services.runtime });
   const memoryWriteEnabled = options.memoryWriteEnabled === true ||
     (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
   const writer = createGuardedMemoryWriter({ projectRoot, memory: services.memory, enabled: memoryWriteEnabled });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled, Boolean(routingProviders?.get)),
+    initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled, Boolean(services.runtime?.inspectRun), Boolean(routingProviders?.get)),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
@@ -55,6 +57,7 @@ function createBridge(options = {}) {
     "runs.list": (params) => invokeList(services.runStore, "listRuns", params),
     "runs.get": (params) => invokeGet(services.runStore, "getRun", params, "runId"),
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
+    "runs.observe": (params) => runObserver.observe(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
@@ -126,7 +129,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion, memoryWriteEnabled = false, plansRoutePreview = false) {
+function initialize(params, protocolVersion, memoryWriteEnabled = false, runsObserve = false, plansRoutePreview = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -136,7 +139,7 @@ function initialize(params, protocolVersion, memoryWriteEnabled = false, plansRo
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, plansRoutePreview,
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, runsObserve, plansRoutePreview,
       memory: Object.freeze({ version: 1, read: true, write: memoryWriteEnabled, scoped: true }) })
   });
 }
