@@ -46,3 +46,50 @@ Exemplo de requisição:
 
 A operação é apenas leitura de contexto. O Runtime, as Skills, a memória
 semântica e o mecanismo de classificação continuam pertencendo ao Maestro.
+
+## Projeção read-only de projeto para consumidores (Bridge v1, incremental)
+
+`initialize.capabilities.projectContext = true` anuncia o método aditivo
+`project.context`. **Não** torna o Nexus requisito para o Maestro e não importa
+nenhum código do Nexus. A origem semântica é o `context.brief` canônico do
+próprio Maestro; a identidade vem do inspector já existente do runtime.
+
+Requisição:
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"project.context","params":{"projectPath":"/caminho/do/projeto","task":"Revisar arquitetura","taskId":"review-1","maxChars":8000}}
+```
+
+Resposta (forma ilustrativa, sem valores reais de contexto):
+
+```json
+{
+  "schemaVersion": 1,
+  "authority": "MAESTRO",
+  "project": { "id": "prj-example", "name": "example", "known": true, "status": "idle" },
+  "context": { "content": "...", "manifest": { "version": 1, "contentDigest": "..." } }
+}
+```
+
+Os campos de `context` são exatamente o retorno do builder canônico
+(`content`, `budget`, `state`, `manifest` e demais campos já suportados).
+A projeção `project` inclui somente `id`, `name`, `known` e `status`;
+não retransmite `latestRun`, paths, eventos ou outros metadados do inspector.
+`id/name/status` podem ser nulos em instalações/fixtures sem projeto registrado,
+e `known` pode ser falso. O projeto é sempre o root vinculado à instância do
+Bridge. Não há suporte para inspecionar outro projeto com esta chamada.
+
+Validações de `project.context` reutilizam as de `context.brief`, inclusive
+limites de `task`, `taskId`, `maxChars`, escopo `projectPath` e
+redaction. A falha na composição ou inspeção não retorna um contexto parcial
+marcado como válido. O Bridge v1 não oferece snapshot atômico entre contexto Git
+e RunStore, composição de DAG, escrita de memória, nem streaming de runs.
+
+**Compatibilidade:** clientes consultam `initialize`; se `projectContext`
+não for anunciado, podem usar `context.brief` somente quando disponível e
+sem sintetizar identidade não recebida. A disponibilidade do Bridge executável
+não deve ser inferida apenas pela existência do diretório de Skills.
+
+Este incremento é parte de [#45](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/45).
+A arquitetura normativa e as etapas ainda faltantes estão em
+[ADR-2026-11-01](../adr/ADR-2026-11-01-maestro-ecosystem-authority.md).

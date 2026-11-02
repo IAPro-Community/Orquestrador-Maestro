@@ -25,6 +25,7 @@ function createBridge(options = {}) {
   const methods = {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
+    "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
@@ -119,7 +120,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true })
   });
 }
 
@@ -152,6 +153,32 @@ function contextBrief(params, projectRoot) {
     taskId: params.taskId || null,
     since: params.since || null,
     maxChars
+  });
+}
+
+/**
+ * Read-only projection of the existing canonical context and project identity.
+ * This is not an independent planner or memory store, and does not promise
+ * an atomic snapshot across Git, context files and the RunStore.
+ */
+async function projectContext(params, projectRoot, projectInspector) {
+  // Validate caller scope, budget, task and taskId via the same fail-closed
+  // canonical context contract before reading any project metadata.
+  const context = contextBrief(params, projectRoot);
+  const inspected = await inspectProject({ projectPath: projectRoot }, projectRoot, projectInspector);
+  if (!inspected || typeof inspected !== "object") {
+    throw new TypeError("project inspection unavailable");
+  }
+  return Object.freeze({
+    schemaVersion: 1,
+    authority: "MAESTRO",
+    project: Object.freeze({
+      id: typeof inspected.id === "string" ? inspected.id : null,
+      name: typeof inspected.name === "string" ? inspected.name : null,
+      known: inspected.known === true,
+      status: typeof inspected.status === "string" ? inspected.status : null
+    }),
+    context
   });
 }
 
