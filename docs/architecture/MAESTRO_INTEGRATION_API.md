@@ -93,3 +93,59 @@ não deve ser inferida apenas pela existência do diretório de Skills.
 Este incremento é parte de [#45](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/45).
 A arquitetura normativa e as etapas ainda faltantes estão em
 [ADR-2026-11-01](../adr/ADR-2026-11-01-maestro-ecosystem-authority.md).
+
+## Plans.validate — validação canônica sem execução
+
+`initialize.capabilities.plansValidate=true` anuncia a operação aditiva
+`plans.validate` no Bridge v1. A implementação reaproveita o
+`GraphValidator` e o `TaskGraphProposal` do **Maestro**, nunca cria um
+planejador paralelo no Nexus, não usa provider e não inicia ou persiste runs.
+
+Requisição:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "plans.validate",
+  "params": {
+    "projectPath": "/projeto",
+    "artifact": {
+      "id": "composer.artifact-1",
+      "version": 1,
+      "sha256": "<SHA-256 do conteúdo UTF-8>",
+      "content": "Objetivo aprovado..."
+    },
+    "proposal": {
+      "tasks": [{
+        "id": "task-1",
+        "title": "Implementar endpoint com validação de payload",
+        "objective": "Expor endpoint com entradas verificadas",
+        "dependsOn": [],
+        "acceptanceCriteria": ["Entrada inválida retorna erro tipado"],
+        "requiredCapabilities": ["backend"]
+      }]
+    }
+  }
+}
+```
+
+A resposta contém `schemaVersion=1`, `authority="MAESTRO"`,
+`source="caller-provided-proposal"`, `reviewOnly=true`,
+`executable=false` e `requiresApproval=true`. Inclui a identidade/digest
+do artefato, a versão/digest do manifesto canônico do projeto e o resultado
+`validation { valid, blockers, warnings }`. Somente quando `valid=true`
+retorna tarefas normalizadas; caso contrário, `tasks=null`.
+
+A operação bloqueia consulta cross-project, artefato com SHA inválido, payload
+descontrolado (limites: artefato 64k caracteres, 1 a 32 tarefas, 1 a 20 critérios
+por tarefa), dependências quebradas/cíclicas, títulos genéricos e propostas
+incompatíveis com o esquema de engenharia. Parâmetros inválidos usam JSON-RPC
+`-32602`; falhas internas não retornam dados sensíveis.
+
+**Importante:** isso **não gera** tarefas nem faz composição semântica por IA;
+a proposta é fornecida pelo cliente e apenas validada pelo **motor Maestro**.
+Não declarar GO ou execução autorizada por `valid=true`. A geração canônica
+`project.compose`, sandbox de providers, controles de custo e persistência
+após aprovação seguem em [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
+Execução durável e Goal Loop continuam em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
