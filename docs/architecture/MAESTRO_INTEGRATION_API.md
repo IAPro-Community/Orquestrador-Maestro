@@ -205,3 +205,61 @@ Nexus pode mostrar o preview e solicitar aprovação. Para execução durável
 e recuperação, ver [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
 Para suporte a outros providers e políticas de custo verificáveis, ver
 [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
+
+## Project.compose — preview semântico canônico, sem execução (candidato)
+
+O `initialize.capabilities.projectCompose` anuncia suporte ao método aditivo
+`project.compose` no Bridge v1 **somente quando existe runtime Maestro com
+registro de providers**. O client deve consultar `initialize`; anúncio não
+garante que Codex esteja instalado, autenticado ou com orçamento disponível.
+
+Entrada JSON-RPC de exemplo (valores ilustrativos):
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "project.compose",
+  "params": {
+    "projectPath": "/caminho/do/projeto",
+    "artifact": {
+      "id": "artifact-001",
+      "version": 1,
+      "approved": true,
+      "content": "Implementar a tarefa aprovada com critérios verificáveis",
+      "sha256": "sha256-do-conteudo-utf8"
+    },
+    "providerId": "codex",
+    "model": "default",
+    "approvedModelUse": true
+  }
+}
+```
+
+O Bridge usa `buildBrief` canônico e `SemanticPlanner.plan` existentes no
+Maestro, vinculados ao projeto do processo Bridge. Limites: até 64.000
+caracteres de artefato, `maxAttempts=1`, `timeoutMs=120000`, sandbox
+`read-only` do adaptador Codex e **fallback determinístico desabilitado**.
+Outros providers são recusados até conseguirem comprovar equivalente isolamento;
+Codex pode utilizar uma API remota e gerar cobrança, exigindo consentimento
+explícito para cada preview. Não presumir que é um modelo local/offline.
+O runtime do Maestro mantém controle do provider; Nexus não o incorpora.
+
+A proposta gerada passa por `plans.validate`, incluindo a verificação do
+SHA do PromptArtifact, do manifesto canônico e do DAG. Resposta:
+`authority=MAESTRO`, `source=maestro-semantic-planner`,
+`reviewOnly=true`, `requiresApproval=true` e `executable=false`.
+Não há `missions.create`, `runs.create`, escrita semântica, dispatch,
+backup ou migração neste método. O preview não equivale a aprovação ou execução;
+o consumidor deve revalidar o digest e a revisão antes de materializar um plano.
+
+**Limitações explícitas:** `approved:true` e `approvedModelUse:true` são
+declarações do cliente **local**, não autenticação criptográfica. O método não
+oferece deduplicação durável de chamadas ao provider nem um teto monetário
+garantido; repetição pode consumir recursos. Não publicar um Bridge com
+`project.compose` para clientes remotos/não confiáveis sem autenticação,
+idempotência, quota, credenciais e auditoria. O contrato durável de execução,
+cancelamento, evento e Goal Loop permanece em
+[Maestro #48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+A ligação da UI Composer/Flow ao preview permanece em
+[Nexus #166](https://github.com/IAPro-Community/nexus/issues/166).
