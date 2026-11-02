@@ -167,3 +167,43 @@ test("Fail closed on forged assignment, foreign checkout, unsupported sandbox or
     assert.equal(f.counters.execute, 0);
   } finally { f.close(); }
 });
+
+
+test("registered future adapters work without editing a hardcoded provider allowlist", async () => {
+  const f = setup();
+  try {
+    const providers = {
+      get(name) {
+        if (name === "custom-provider") return {
+          id: name,
+          detect: async () => ({ installed: true }),
+          capabilities: async () => ({ sandboxControl: false }),
+          execute: async () => { throw Error("preview must never execute"); }
+        };
+        return f.providers.get(name);
+      }
+    };
+    const bridge = createBridge({ projectRoot: f.root, services: { providerRegistry: providers } });
+    const reply = await call(bridge, "plans.routePreview", {
+      artifact: f.artifact,
+      proposal: f.proposal,
+      assignments: [
+        { ...f.assignments[0], providerId: "custom-provider", sandbox: "none" },
+        f.assignments[1]
+      ]
+    });
+    assert.equal(reply.error, undefined, JSON.stringify(reply.error));
+    assert.equal(reply.result.ready, true);
+    assert.equal(reply.result.assignments[0].providerId, "custom-provider");
+    assert.equal(reply.result.assignments[1].providerId, "opencode");
+    assert.equal(f.counters.execute, 0);
+    const forged = await call(bridge, "plans.routePreview", {
+      artifact: f.artifact,
+      proposal: f.proposal,
+      assignments: [
+        { ...f.assignments[0], providerId: "../forged" }, f.assignments[1]
+      ]
+    });
+    assert.equal(forged.error?.code, -32602);
+  } finally { f.close(); }
+});
