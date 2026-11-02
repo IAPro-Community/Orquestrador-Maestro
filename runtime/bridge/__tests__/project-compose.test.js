@@ -74,6 +74,7 @@ test("project.compose invokes only explicit read-only Codex and returns a nonexe
     assert.equal(r.result.requiresApproval, true);
     assert.equal(invocations.length, 1);
     assert.equal(invocations[0].sandbox, "read-only");
+    assert.equal(invocations[0].timeoutMs, 120000);
     assert.equal(invocations[0].workspacePath, f.root);
   } finally { f.close(); }
 });
@@ -123,5 +124,58 @@ test("project.compose fails closed when provider unavailable and does not synthe
     });
     assert.equal(r.error?.code, -32603);
     assert.equal(r.result, undefined);
+  } finally { f.close(); }
+});
+
+test("project.compose rejects failed provider process, even with valid-looking JSON", async () => {
+  const f = setup();
+  let calls = 0;
+  try {
+    const bridge = createBridge({
+      projectRoot: f.root,
+      services: {
+        runtime: {
+          providers: {
+            get(id) {
+              if (id !== "codex") return null;
+              return {
+                async detect() { return { installed: true }; },
+                async execute() {
+                  calls++;
+                  return { result: Promise.resolve({
+                    exitCode: 1,
+                    stdout: JSON.stringify({tasks: [{
+                      id: "api", title: "Implement request validation",
+                      objective: "Reject malformed payloads with typed errors",
+                      dependsOn: [],
+                      acceptanceCriteria: ["Invalid requests produce 400"],
+                      requiredCapabilities: ["backend"]
+                    }]})
+                  }) };
+                }
+              };
+            }
+          }
+        }
+      }
+    });
+    const response = await request(bridge, "project.compose", {
+      artifact: f.artifact, approvedModelUse: true, providerId: "codex"
+    });
+    assert.equal(response.error?.code, -32603);
+    assert.equal(calls, 1);
+  } finally { f.close(); }
+});
+
+test("project.compose does not claim capability when Maestro runtime is not connected", async () => {
+  const f = setup();
+  try {
+    const bridge = createBridge({ projectRoot: f.root, services: {} });
+    const init = await request(bridge, "initialize", { protocolVersion: 1 });
+    assert.equal(init.result.capabilities.projectCompose, false);
+    const response = await request(bridge, "project.compose", {
+      artifact: f.artifact, approvedModelUse: true, providerId: "codex"
+    });
+    assert.equal(response.error?.code, -32602);
   } finally { f.close(); }
 });
