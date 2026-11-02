@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
+const { validatePlanPreview } = require("./plan-validation");
 const { createScopedMemoryAPI } = require("./memory-api");
 const { createGuardedMemoryWriter } = require("./memory-write");
 
@@ -32,6 +33,7 @@ function createBridge(options = {}) {
     initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
+    "plans.validate": (params) => validatePlanPreview(params, projectRoot),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "memory.search": (params) => memory.search(params),
     "memory.get": (params) => memory.get(params),
@@ -130,7 +132,7 @@ function initialize(params, protocolVersion, memoryWriteEnabled = false) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true,
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true,
       memory: Object.freeze({ version: 1, read: true, write: memoryWriteEnabled, scoped: true }) })
   });
 }
