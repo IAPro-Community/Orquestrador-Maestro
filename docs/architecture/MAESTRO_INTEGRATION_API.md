@@ -181,3 +181,81 @@ e Nexus [#113](https://github.com/IAPro-Community/nexus/issues/113).
 O Bridge v1 pode anunciar `initialize.capabilities.memory.write=true` apenas quando iniciado pelo operador com `ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE=1` (ou opção explícita de processo). Mesmo assim, `memory.record` exige `confirmed:true`, justificativa, `idempotencyKey`, tipo, resumo e escopo derivado do Maestro. Os dados usam exclusivamente a `Memory` canônica. `verified` é forçado para false: um modelo não pode se autoverificar.
 
 Não habilitar automaticamente no Nexus. A confirmação de UI não é autenticação, e qualquer cliente com acesso ao processo Bridge habilitado poderia enviar `confirmed:true`. O controle de autorização no Nexus e a migração reversível permanecem gates independentes. Veja [BRIDGE_MEMORY_WRITE.md](BRIDGE_MEMORY_WRITE.md) e [Maestro #41](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41).
+
+## Project.compose — geração semântica sob autoridade Maestro (opt-in)
+
+`initialize.capabilities.projectCompose=true` anuncia a operação
+`project.compose` quando a instância do Bridge possui um runtime com
+registro de providers. O modo inicial suporta **somente Codex**, escolhido
+explicitamente pelo cliente. Ele exige `approvedModelUse=true` e um
+`artifact` de Composer com `approved=true`, id, version, content e SHA-256
+conferidos *antes* de chamar o provider. A confirmação é uma asserção do
+cliente local, **não autenticação de usuário**: integrações remotas precisam
+de controles próprios de autenticação e de autorização humana.
+
+```json
+{
+  "jsonrpc":"2.0",
+  "id":3,
+  "method":"project.compose",
+  "params":{
+    "projectPath":"/projeto",
+    "approvedModelUse":true,
+    "providerId":"codex",
+    "model":"default",
+    "artifact":{
+      "id":"composer-123",
+      "version":1,
+      "approved":true,
+      "content":"Implementar endpoint com testes...",
+      "sha256":"<digest hexadecimal SHA-256 do content>"
+    }
+  }
+}
+```
+
+O Maestro usa **seu próprio** `SemanticPlanner.plan` com
+`allowFallback=false`, uma tentativa e `CodexAdapter` com
+`sandbox="read-only"`. Gera atividades concretas, normaliza e revalida com
+`plans.validate`, retornando um preview marcado como
+`reviewOnly=true`, `executable=false`, `requiresApproval=true`,
+`source="maestro-semantic-planner"`, digest do artefato, versão/digest
+do contexto Maestro e `planningTelemetry` disponível. O conteúdo e os
+eventos do provider não são persistidos em segundo storage do Nexus.
+
+**Não confundir com execução sem efeitos:** o processo do provider é externo
+e pode consumir tokens, recursos e serviço remoto. O sandbox read-only impede
+alterações de arquivos quando realmente suportado pela versão instalada,
+mas não é garantia de operação gratuita, offline ou sem chamadas de rede.
+O cliente precisa sinalizar isso ao usuário e obter consentimento antes de
+usar o modelo. Sem Codex, sem suporte a sandbox ou com saída inválida,
+a chamada falha, sem fallback para outro provider ou pacote genérico.
+
+`project.compose` **não** registra mission, executa Run, grava memória ou
+autoriza dispatch. A autoridade e a revisão ficam no Maestro; a UI do
+Nexus pode mostrar o preview e solicitar aprovação. Para execução durável
+e recuperação, ver [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+Para suporte a outros providers e políticas de custo verificáveis, ver
+[#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
+
+## Plans.routePreview — roteamento multiagente sem executar
+
+O método Bridge `plans.routePreview` apresenta um **preflight não executável** de seleção de providers **por tarefa** para um plano validado pelo próprio Maestro. Negociar `initialize.capabilities.plansRoutePreview`; esta capability é verdadeira somente quando o Bridge recebe um registry de providers.
+
+A requisição contém `artifact` (id, version, SHA256 e content), `proposal` (TaskGraphProposal validável por `plans.validate`) e uma lista `assignments` com **um item por task**: `taskId`, `providerId`, `model` opcional, `sandbox` e `worktreePath`. Example: frontend usa `agy` com `sandbox=enabled`; backend usa `opencode` com `sandbox=none`, cada um em worktree Git diferente do mesmo repositório.
+
+O Maestro confere: DAG, integridade do artifact, IDs, modelo, instalação/capabilities do adapter, escopo do Git common directory, worktree id/branch/HEAD e conflitos entre tarefas independentes no mesmo workspace. Para AGY é aceito `enabled` no preflight; o adapter OpenCode **não** afirma suportar sandbox read-only e falha caso o cliente o exija. Em todos os casos, o executor precisa revalidar esses requisitos na admissão e antes do dispatch.
+
+A resposta contém `ready`, `previewOnly=true`, `executable=false`, `approvalRequired=true`, o plano já verificado, atribuições selecionadas com estado `READY_FOR_REVIEW` ou `BLOCKED` e `blockers` específicos (ausência de provider, sandbox incompatível, worktree compartilhado). **Nenhum provider é substituído automaticamente**: AGY ausente não vira Codex; OpenCode indisponível não vira Claude. A ausência de provider bloqueia sua tarefa mas não apaga a seleção das outras.
+
+Isso **não é um scheduler, um GO ou uma autorização real para alterar arquivos**. O método não chama `execute` de adapters, não salva missões ou runs, não fornece leases/reconnect. A execução em paralelo durável permanece dependente de [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48) e [#53](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/53).
+
+## Run observation — polling de eventos sanitizados (não é subscribe)
+
+O Bridge v1 oferece `runs.observe` quando a instância tem `runtime.inspectRun`. A negociação anuncia `initialize.capabilities.runsObserve=true`.
+
+Requisição: `{ "runId":"run-123", "afterEventId":"ev-123"?, "limit":50? }`, limite 1–100. Retorna estado do Run, providerId original, taskId, lista ordenada de **eventos duráveis de lifecycle apenas** (`id`, `type`, `occurredAt`), `nextCursor`, `hasMore`, `executionOwner:"MAESTRO"`, `liveOutputAvailable:false` e `replayKind:"sanitized-lifecycle-only"`. Não retorna artefatos arbitrários, traces, logs, eventos `provider.output` nem variáveis de ambiente.
+
+O Bridge valida que o Run e o Task pertencem ao Project com `realpath` igual ao root do processo. Runs inexistentes ou de outro projeto retornam `null`. Um cursor expirado ou inexistente falha fechado; o cliente deve recarregar o snapshot. O resultado não promete paginação entre snapshots atômicos nem que todos os eventos anteriores sejam reconstituíveis. O runtime mantém saída bruta **somente efêmera**, por privacidade.
+
+**Limites importantes:** `runs.observe` é apenas uma projeção de leitura. Não cria/reativa jobs, não dá ACK assíncrono, não administra leases, não corrige estados órfãos e não equivale a `runs.subscribe`. Um produto pronto ainda exige daemon/worker supervisor, fencing, idempotência, cursor/epoch e restart/reconnect validados em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48). Enquanto esses gates faltarem, o Nexus deve tratar a API como consulta diagnóstica e nunca como prova de execução durável.
