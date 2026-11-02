@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
+const { validatePlanPreview } = require("./plan-validation");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -26,6 +27,7 @@ function createBridge(options = {}) {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
+    "plans.validate": (params) => validatePlanPreview(params, projectRoot),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
@@ -120,7 +122,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true })
   });
 }
 
