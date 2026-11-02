@@ -27,7 +27,7 @@ function createBridge(options = {}) {
   const routingProviders = services.runtime?.providers || services.providerRegistry;
   const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion),
+    initialize: (params) => initialize(params, protocolVersion, Boolean(routingProviders?.get)),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
@@ -116,7 +116,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion) {
+function initialize(params, protocolVersion, plansRoutePreview = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -126,7 +126,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, plansRoutePreview: Boolean(routingProviders?.get) })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, plansRoutePreview })
   });
 }
 
