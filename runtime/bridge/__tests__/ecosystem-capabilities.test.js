@@ -31,6 +31,11 @@ test("all ecosystem Bridge capabilities coexist without enabling memory writes o
       params: { protocolVersion: 1 }
     });
     assert.equal(init.error, undefined);
+    assert.equal(init.result.capabilities.subscriptions, false, "stdio cannot promise event push");
+    const fakeSubscription = await bridge.handle({
+      jsonrpc: "2.0", id: 4, method: "events.subscribe", params: {}
+    });
+    assert.equal(fakeSubscription.error?.code, -32601);
     assert.equal(init.result.capabilities.projectContext, true);
     assert.equal(init.result.capabilities.contextBrief, true);
     assert.equal(init.result.capabilities.plansValidate, true);
