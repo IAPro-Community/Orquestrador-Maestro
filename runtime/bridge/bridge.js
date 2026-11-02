@@ -3,8 +3,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
-const { validatePlanPreview } = require("./plan-validation");
 const { createScopedMemoryAPI } = require("./memory-api");
+const { validatePlanPreview } = require("./plan-validation");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
