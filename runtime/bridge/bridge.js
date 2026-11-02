@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { createScopedMemoryAPI } = require("./memory-api");
+const { createGuardedMemoryWriter } = require("./memory-write");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -24,14 +25,18 @@ function createBridge(options = {}) {
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
+  const memoryWriteEnabled = options.memoryWriteEnabled === true ||
+    (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
+  const writer = createGuardedMemoryWriter({ projectRoot, memory: services.memory, enabled: memoryWriteEnabled });
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion),
+    initialize: (params) => initialize(params, protocolVersion, memoryWriteEnabled),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "memory.search": (params) => memory.search(params),
     "memory.get": (params) => memory.get(params),
     "memory.timeline": (params) => memory.timeline(params),
+    "memory.record": (params) => writer.record(params),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
     "projects.register": (params) => invokeCall(services.runtime, "registerProject", params),
@@ -115,7 +120,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion) {
+function initialize(params, protocolVersion, memoryWriteEnabled = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -126,7 +131,7 @@ function initialize(params, protocolVersion) {
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
     capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true,
-      memory: Object.freeze({ version: 1, read: true, write: false, scoped: true }) })
+      memory: Object.freeze({ version: 1, read: true, write: memoryWriteEnabled, scoped: true }) })
   });
 }
 
