@@ -55,6 +55,13 @@ function validatePlanPreview(params = {}, projectRoot) {
   if (!plan || typeof plan !== "object" || Array.isArray(plan) || !Array.isArray(plan.tasks)) {
     throw invalidParams("proposal.tasks must be an array");
   }
+  // Cap all caller-supplied metadata, not only task count, before invoking
+  // the canonical validator. A Bridge request is not a trusted in-process API.
+  if (JSON.stringify(plan).length > 65536 ||
+      ["assumptions", "warnings", "blockers"].some((key) =>
+        plan[key] !== undefined && (!Array.isArray(plan[key]) || plan[key].length > 32))) {
+    throw invalidParams("proposal metadata exceeds bounded Bridge limits");
+  }
   if (plan.tasks.length < 1 || plan.tasks.length > MAX_TASKS) {
     throw invalidParams("proposal must contain between 1 and " + MAX_TASKS + " tasks");
   }
@@ -85,7 +92,12 @@ function validatePlanPreview(params = {}, projectRoot) {
   } catch (error) {
     throw invalidParams("invalid task graph proposal: " + error.message);
   }
-  const validation = GraphValidator.validate(normalized);
+  let validation;
+  try {
+    validation = GraphValidator.validate(normalized);
+  } catch (error) {
+    throw invalidParams("invalid task graph: " + error.message);
+  }
   // The result validates a supplied proposal; it MUST NOT be called a
   // generated Maestro plan. Execution and user approval are separate.
   return Object.freeze({
