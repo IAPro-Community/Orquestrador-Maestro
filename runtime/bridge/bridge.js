@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
+const { createScopedMemoryAPI } = require("./memory-api");
 const { validatePlanPreview } = require("./plan-validation");
 
 const PROTOCOL_VERSION = 1;
@@ -23,12 +24,16 @@ function createBridge(options = {}) {
 
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
+  const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
   const methods = {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
     "context.brief": (params) => contextBrief(params, projectRoot),
+    "memory.search": (params) => memory.search(params),
+    "memory.get": (params) => memory.get(params),
+    "memory.timeline": (params) => memory.timeline(params),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
     "projects.register": (params) => invokeCall(services.runtime, "registerProject", params),
@@ -122,7 +127,8 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true,
+      memory: Object.freeze({ version: 1, read: true, write: false, scoped: true }) })
   });
 }
 
