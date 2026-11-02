@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { validatePlanPreview } = require("./plan-validation");
+const { createComposePreview } = require("./project-compose");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -23,11 +24,14 @@ function createBridge(options = {}) {
 
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
+  const composer = createComposePreview({ projectRoot, application: services.runtime });
+  const composeAvailable = Boolean(services.runtime?.providers?.get);
   const methods = {
-    initialize: (params) => initialize(params, protocolVersion),
+    initialize: (params) => initialize(params, protocolVersion, composeAvailable),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
+    "project.compose": (params) => composer.compose(params),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
@@ -112,7 +116,7 @@ function normalizeParams(params) {
   return params;
 }
 
-function initialize(params, protocolVersion) {
+function initialize(params, protocolVersion, composeAvailable = false) {
   if (params.protocolVersion !== undefined && params.protocolVersion !== protocolVersion) {
     throw protocolError("Unsupported protocol version", {
       supportedProtocolVersions: [protocolVersion]
@@ -122,7 +126,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, projectCompose: composeAvailable })
   });
 }
 
