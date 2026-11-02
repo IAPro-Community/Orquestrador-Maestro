@@ -175,3 +175,9 @@ nenhuma escrita. A mudança de writer exige backup, readback, CAS/journal,
 migração reversível e consentimento por operação, antes de retirar legado.
 Ver Maestro [#41](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41)
 e Nexus [#113](https://github.com/IAPro-Community/nexus/issues/113).
+
+## Memory.record — escrita opt-in, não ativada por padrão
+
+O Bridge v1 pode anunciar `initialize.capabilities.memory.write=true` apenas quando iniciado pelo operador com `ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE=1` (ou opção explícita de processo). Mesmo assim, `memory.record` exige `confirmed:true`, justificativa, `idempotencyKey`, tipo, resumo e escopo derivado do Maestro. Os dados usam exclusivamente a `Memory` canônica. `verified` é forçado para false: um modelo não pode se autoverificar.
+
+Não habilitar automaticamente no Nexus. A confirmação de UI não é autenticação, e qualquer cliente com acesso ao processo Bridge habilitado poderia enviar `confirmed:true`. O controle de autorização no Nexus e a migração reversível permanecem gates independentes. Veja [BRIDGE_MEMORY_WRITE.md](BRIDGE_MEMORY_WRITE.md) e [Maestro #41](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41).
