@@ -5,7 +5,7 @@ const path = require("node:path");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 const { validatePlanPreview } = require("./plan-validation");
 
-const PROVIDERS = new Set(["agy", "opencode", "codex", "claude"]);
+const PROVIDER_ID = /^[a-z][a-z0-9._:-]{0,63}$/;
 const MODEL_ID = /^[a-zA-Z0-9._:/+-]{1,128}$/;
 const TASK_ID = /^[a-zA-Z0-9._:-]{1,128}$/;
 const SANDBOX = new Set(["none", "enabled", "read-only", "workspace-write"]);
@@ -61,7 +61,7 @@ function requiredAssignment(raw, id) {
   for (const key of Object.keys(raw)) {
     if (!allowed.has(key)) throw invalid("Unexpected assignment field: " + key);
   }
-  if (raw.taskId !== id || !TASK_ID.test(id) || !PROVIDERS.has(raw.providerId)) {
+  if (raw.taskId !== id || !TASK_ID.test(id) || typeof raw.providerId !== "string" || !PROVIDER_ID.test(raw.providerId)) {
     throw invalid("Task assignment has an unknown ID or provider");
   }
   if (raw.model !== undefined && (typeof raw.model !== "string" ||
