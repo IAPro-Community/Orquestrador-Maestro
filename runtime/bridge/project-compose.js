@@ -50,7 +50,7 @@ function createComposePreview({ projectRoot, application }) {
       throw invalid("project.compose preview requires an explicit codex provider");
     }
     const model = params.model ?? "default";
-    if (typeof model !== "string" || !SAFE_MODEL.test(model)) {
+    if (typeof model !== "string" || !SAFE_MODEL.test(model) || model.includes("..")) {
       throw invalid("model must be a bounded provider identifier");
     }
     if (!application?.providers?.get || !application.providers.get("codex")) {
@@ -95,14 +95,14 @@ function createComposePreview({ projectRoot, application }) {
       return Object.freeze({
         ...validation,
         source: "maestro-semantic-planner",
-        planningMode: "local-cli-explicit-model",
+        planningMode: "explicit-external-cli-model",
         providerId: "codex"
       });
     }
     return Object.freeze({
       ...validation,
       source: "maestro-semantic-planner",
-      planningMode: "local-cli-explicit-model",
+      planningMode: "explicit-external-cli-model",
       providerId: "codex",
       // The client must revalidate manifest digest before approval.
       planningTelemetry: output.planningTelemetry || null
