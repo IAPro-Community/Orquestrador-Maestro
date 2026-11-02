@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { validatePlanPreview } = require("./plan-validation");
+const { createRoutePreview } = require("./provider-route-preview");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -23,11 +24,14 @@ function createBridge(options = {}) {
 
   const projectRoot = path.resolve(options.projectRoot || process.cwd());
   const services = options.services || {};
+  const routingProviders = services.runtime?.providers || services.providerRegistry;
+  const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
   const methods = {
     initialize: (params) => initialize(params, protocolVersion),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
     "plans.validate": (params) => validatePlanPreview(params, projectRoot),
+    "plans.routePreview": (params) => router.preview(params),
     "context.brief": (params) => contextBrief(params, projectRoot),
     "projects.list": (params) => invokeList(services.runtime, "listProjects", params),
     "projects.get": (params) => invokeGet(services.runtime, "getProject", params, "projectId"),
@@ -122,7 +126,7 @@ function initialize(params, protocolVersion) {
   return Object.freeze({
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
-    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true })
+    capabilities: Object.freeze({ subscriptions: true, approvals: false, contextBrief: true, projectContext: true, plansValidate: true, plansRoutePreview: Boolean(routingProviders?.get) })
   });
 }
 
