@@ -86,7 +86,7 @@ function createComposePreview({ projectRoot, application }) {
       allowFallback: false,
       maxAttempts: 1,
       workspacePath: root,
-      providerOptions: { sandbox: "read-only" }
+      providerOptions: { sandbox: "read-only", timeoutMs: 120000 }
     });
     const validation = validatePlanPreview({
       projectPath: root, artifact, proposal: output.proposal
