@@ -81,7 +81,7 @@ function createBridge(options = {}) {
     "terminals.start": (params) => invokeCall(services.runtime, "startTerminal", params),
     "terminals.stop": (params) => invokeCall(services.runtime, "stopTerminal", params, "terminalId"),
     "terminals.input": (params) => invokeTerminalInput(services.runtime, params),
-    "events.subscribe": () => Object.freeze({ subscribed: true }),
+    "events.subscribe": () => unsupported("Push event subscriptions are unavailable; poll runs.observe"),
     "approvals.respond": () => unsupported("Approvals are not available in protocol version 1")
   };
 
@@ -148,7 +148,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
     protocolVersion,
     serverInfo: Object.freeze({ name: "maestro-bridge" }),
     capabilities: Object.freeze({
-      subscriptions: true, approvals: false, contextBrief: true, projectContext: true,
+      subscriptions: false, approvals: false, contextBrief: true, projectContext: true,
       plansValidate: true,
       projectCompose: capabilities.projectCompose === true,
       plansRoutePreview: capabilities.plansRoutePreview === true,
