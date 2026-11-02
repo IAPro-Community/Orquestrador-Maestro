@@ -181,3 +181,13 @@ e Nexus [#113](https://github.com/IAPro-Community/nexus/issues/113).
 O Bridge v1 pode anunciar `initialize.capabilities.memory.write=true` apenas quando iniciado pelo operador com `ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE=1` (ou opção explícita de processo). Mesmo assim, `memory.record` exige `confirmed:true`, justificativa, `idempotencyKey`, tipo, resumo e escopo derivado do Maestro. Os dados usam exclusivamente a `Memory` canônica. `verified` é forçado para false: um modelo não pode se autoverificar.
 
 Não habilitar automaticamente no Nexus. A confirmação de UI não é autenticação, e qualquer cliente com acesso ao processo Bridge habilitado poderia enviar `confirmed:true`. O controle de autorização no Nexus e a migração reversível permanecem gates independentes. Veja [BRIDGE_MEMORY_WRITE.md](BRIDGE_MEMORY_WRITE.md) e [Maestro #41](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41).
+
+## Run observation — polling de eventos sanitizados (não é subscribe)
+
+O Bridge v1 oferece `runs.observe` quando a instância tem `runtime.inspectRun`. A negociação anuncia `initialize.capabilities.runsObserve=true`.
+
+Requisição: `{ "runId":"run-123", "afterEventId":"ev-123"?, "limit":50? }`, limite 1–100. Retorna estado do Run, providerId original, taskId, lista ordenada de **eventos duráveis de lifecycle apenas** (`id`, `type`, `occurredAt`), `nextCursor`, `hasMore`, `executionOwner:"MAESTRO"`, `liveOutputAvailable:false` e `replayKind:"sanitized-lifecycle-only"`. Não retorna artefatos arbitrários, traces, logs, eventos `provider.output` nem variáveis de ambiente.
+
+O Bridge valida que o Run e o Task pertencem ao Project com `realpath` igual ao root do processo. Runs inexistentes ou de outro projeto retornam `null`. Um cursor expirado ou inexistente falha fechado; o cliente deve recarregar o snapshot. O resultado não promete paginação entre snapshots atômicos nem que todos os eventos anteriores sejam reconstituíveis. O runtime mantém saída bruta **somente efêmera**, por privacidade.
+
+**Limites importantes:** `runs.observe` é apenas uma projeção de leitura. Não cria/reativa jobs, não dá ACK assíncrono, não administra leases, não corrige estados órfãos e não equivale a `runs.subscribe`. Um produto pronto ainda exige daemon/worker supervisor, fencing, idempotência, cursor/epoch e restart/reconnect validados em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48). Enquanto esses gates faltarem, o Nexus deve tratar a API como consulta diagnóstica e nunca como prova de execução durável.
