@@ -78,3 +78,20 @@ test("Bridge refuses ambiguous or unregistered project roots for submission stat
   const denied = await bridge.handle(request("runs.submissions.list"));
   assert.equal(denied.error.code, -32602);
 });
+
+test("Bridge never scopes a different directory on the same filesystem as the current project", async (t) => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cross-root-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const current = path.join(tmp, "current");
+  const foreign = path.join(tmp, "foreign");
+  fs.mkdirSync(current);
+  fs.mkdirSync(foreign);
+  const store = {
+    listProjects: async () => [{ id: "project-foreign-001", path: foreign }],
+    listRunSubmissions: async () => [{ id: "foreign", projectId: "project-foreign-001" }],
+    getRunSubmission: async () => ({ id: "foreign", projectId: "project-foreign-001" })
+  };
+  const bridge = createBridge({ projectRoot: current, services: { runStore: store } });
+  const denied = await bridge.handle(request("runs.submissions.list"));
+  assert.equal(denied.error.code, -32602);
+});
