@@ -79,9 +79,10 @@ function bindingFromRealGitWorktree({ projectRoot, workspacePath }) {
 /**
  * This path is the ONLY admission entrypoint eligible for a future Bridge
  * executor. Never trust the caller-supplied workspaceFingerprint. Approval
- * provenance is still a separate required gate and NOT supplied by this API.
+ * provenance must be verified by a trusted server-side callback. Without it,
+ * admission fails closed; no approval flag or digest from the caller suffices.
  */
-async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspacePath, input } = {}) {
+async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspacePath, input, verifyApproval } = {}) {
   if (!store?.getProject || !store?.admitRunSubmission) {
     throw bad("Maestro RunStore is required", "INVALID_WORKSPACE_AUTHORITY");
   }
@@ -94,6 +95,33 @@ async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspaceP
     throw bad("Client workspace fingerprint does not match the physical worktree", "WORKSPACE_FINGERPRINT_MISMATCH");
   }
   const admission = normalizeAdmission({ ...input, workspaceFingerprint: binding.fingerprint });
+  if (typeof verifyApproval !== "function") {
+    throw bad("trusted approval verifier is required", "APPROVAL_NOT_VERIFIED");
+  }
+  // This callback must resolve the persisted human approval receipt and
+  // immutable plan/artifact digests from trusted Maestro state, not from the
+  // client payload. A boolean argument or caller-declared approval is invalid.
+  const verified = await verifyApproval(Object.freeze({
+    projectId: admission.projectId,
+    planDigest: admission.planDigest,
+    artifactDigest: admission.artifactDigest,
+    approvalDigest: admission.approvalDigest,
+    workspaceFingerprint: binding.fingerprint,
+    repositoryId: binding.repositoryId,
+    branch: binding.branch,
+    headCommit: binding.headCommit
+  }));
+  if (verified !== true) {
+    throw bad("human approval could not be verified", "APPROVAL_NOT_VERIFIED");
+  }
+  // An async verifier may race with a checkout or worktree replacement.
+  // Re-observe the physical worktree before reserving a submission.
+  const latest = bindingFromRealGitWorktree({ projectRoot, workspacePath });
+  if (latest.fingerprint !== binding.fingerprint ||
+      latest.headCommit !== binding.headCommit ||
+      latest.branch !== binding.branch) {
+    throw bad("Git worktree changed while checking approval", "WORKSPACE_CHANGED_DURING_APPROVAL");
+  }
   const result = await store.admitRunSubmission(admission);
   return Object.freeze({ ...result, binding });
 }
