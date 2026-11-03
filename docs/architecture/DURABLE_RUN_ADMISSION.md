@@ -32,6 +32,8 @@ A admissão originalmente armazenava `workspaceFingerprint` enviado pelo cliente
 - Aliases do mesmo checkout convergem no mesmo fingerprint; worktrees independentes obtêm reservas distintas.
 - Outro repositório, caminho que não seja raiz de worktree, projeto com path divergente, HEAD destacado e digest informado pelo cliente incorreto são rejeitados sem criar submissão.
 - A fingerprint é propositalmente independente de commit/branch, preservando exclusividade mesmo durante mudanças no HEAD; a **aprovação** do plano ainda deve vincular os digests e o commit revisado separadamente.
+- A admissão canônica agora exige callback interno `verifyApproval` que retorne exatamente `true`, recebendo digests do plano/artefato, repositório, branch e HEAD observados. Sem esse verificador confiável, a admissão falha com `APPROVAL_NOT_VERIFIED`. Um `approvalDigest` fornecido pelo cliente **não é aprovação**.
+- Após aguardar o verificador, o Maestro confere novamente fingerprint, branch e HEAD e rejeita mudanças concorrentes de checkout com `WORKSPACE_CHANGED_DURING_APPROVAL`. Um executor futuro ainda deve validar autorização e limites imediatamente antes de cada side effect.
 - A rota pública `runs.submit` **continua desabilitada**. Esta API interna não autoriza efeitos; ela apenas valida a identidade física do workspace. É obrigatório passar por aprovação persistida/capability e associar o `Run` preparado ao ledger antes de qualquer provider side effect.
 
 Testes: `node --test runtime/runs/__tests__/workspace-authority.test.js` e suíte de admissão/reconciliação. Este documento não é evidência de worker durável ou homologação de providers.
