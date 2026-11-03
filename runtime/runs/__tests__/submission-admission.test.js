@@ -89,6 +89,12 @@ test("worker lease is fenced: claim, dispatch, cancellation and confirmation", a
   await assert.rejects(store.markRunSubmissionDispatched(admission.id, {
     workerId: worker, fence: 2, runId: "run-maestro-0001"
   }), { code: "STALE_SUBMISSION_FENCE" });
+  await assert.rejects(store.markRunSubmissionDispatched(admission.id, {
+    workerId: worker, fence: 1, runId: "run-maestro-0001"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+  await store.createProject({ id: "project-sample", path: "/fixture/path" });
+  await store.saveTask({ id: "task-maestro-0001", projectId: "project-sample", description: "API task" });
+  await store.saveRun({ id: "run-maestro-0001", taskId: "task-maestro-0001", providerId: "agy", status: "pending" });
   const dispatched = await store.markRunSubmissionDispatched(admission.id, {
     workerId: worker, fence: 1, runId: "run-maestro-0001"
   });
@@ -99,6 +105,10 @@ test("worker lease is fenced: claim, dispatch, cancellation and confirmation", a
   await assert.rejects(store.finishRunSubmission(admission.id, {
     workerId: worker, fence: 1, status: "COMPLETED"
   }), { code: "SUBMISSION_INVALID_TRANSITION" });
+  await assert.rejects(store.finishRunSubmission(admission.id, {
+    workerId: worker, fence: 1, status: "CANCELLED"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+  await store.saveRun({ id: "run-maestro-0001", taskId: "task-maestro-0001", providerId: "agy", status: "cancelled" });
   const cancelled = await store.finishRunSubmission(admission.id, {
     workerId: worker, fence: 1, status: "CANCELLED"
   });

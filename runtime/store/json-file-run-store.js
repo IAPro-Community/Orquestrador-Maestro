@@ -195,6 +195,14 @@ class JsonFileRunStore extends RunStore {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
       if (row.status !== "CLAIMED") throw bad("submission was already dispatched or cancelled", "SUBMISSION_NOT_CLAIMABLE");
+      const persistedRun = this._state.runs.find((run) => run.id === runId);
+      const persistedTask = this._state.tasks.find((task) => task.id === persistedRun?.taskId);
+      if (!persistedRun || !persistedTask ||
+          persistedTask.projectId !== row.projectId ||
+          !row.providers.includes(persistedRun.providerId) ||
+          persistedRun.status !== "pending") {
+        throw bad("dispatch requires a persisted matching pending Maestro Run", "RUN_PROVENANCE_MISMATCH");
+      }
       row.runId = runId;
       row.status = "DISPATCHED";
       row.updatedAt = new Date().toISOString();
@@ -216,6 +224,11 @@ class JsonFileRunStore extends RunStore {
       }
       if (status === "CANCELLED" && row.status !== "CANCEL_REQUESTED") {
         throw bad("cancellation must be requested before it is confirmed", "SUBMISSION_INVALID_TRANSITION");
+      }
+      const persistedRun = this._state.runs.find((run) => run.id === row.runId);
+      const runStatus = { COMPLETED: "completed", FAILED: "failed", CANCELLED: "cancelled" }[status];
+      if (!persistedRun || persistedRun.status !== runStatus) {
+        throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
       }
       row.status = status;
       row.workerId = null;
