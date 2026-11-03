@@ -30,3 +30,12 @@ Antes de subir:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-public.ps1
 git diff -- .
 ```
+
+## Política de branches e pull requests — execução por frente
+
+- Antes de criar qualquer branch ou PR, **listar os PRs abertos** e identificar se já existe um branch de integração para a mesma issue, objetivo ou release. Se existir, **trabalhar exclusivamente nele**, adicionando commits e testes ao PR existente.
+- Para a execução durável do Maestro (#48), o branch de integração atual é `feat/durable-admission-ledger-20261103`, PR #59, base `v1`. Incrementos de persistência, supervisor, Bridge, retry, cancel e QA pertencem a essa linha enquanto permanecer aberta.
+- Não criar PRs encadeados por etapas, nem branches paralelos para 'continuação', 'fase 2' ou 'correção' da mesma entrega. Use commits pequenos, checklist de escopo, comentários e evidências no PR único.
+- Separar um PR apenas quando o assunto for **arquiteturalmente independente** (por exemplo, site institucional), hotfix isolado, ou exigir ciclo de homologação distinto. Não misturar frentes sem relação só para reduzir a contagem de PRs.
+- Um PR antigo só pode ser fechado depois de verificar o que foi efetivamente incorporado, registrar o commit de destino e listar conteúdo exclusivo ainda pendente; não apagar branches com artefatos não migrados.
+- Não alterar `main`; o trabalho de runtime passa por `v1` após revisão e testes no commit exato. Nunca inferir que checks antigos validam um novo HEAD.
