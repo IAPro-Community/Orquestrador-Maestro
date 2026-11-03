@@ -98,6 +98,8 @@ Uso:
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
+  orquestrador-maestro runs admissions [--project-path PATH] [--limit N]
+  orquestrador-maestro runs reconcile [--project-path PATH] [--limit N] [--apply]
   orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
   orquestrador-maestro run inspect <id> [--project-path PATH]
@@ -1299,6 +1301,26 @@ async function handleStatusCommand(args) {
 }
 
 async function handleRunsCommand(args) {
+  const subcommand = args[0];
+  if (subcommand === "admissions" || subcommand === "reconcile") {
+    const options = parseRuntimeArgs(args.slice(1), ["--project-path", "--limit"], ["--apply"]);
+    if (options.values.length || (options.apply && subcommand !== "reconcile")) {
+      throw new Error("Uso: maestro runs admissions|reconcile [--project-path PATH] [--limit N] [--apply somente reconcile]");
+    }
+    const limitText = options.limit === undefined ? "100" : String(options.limit);
+    const limit = /^\d+$/.test(limitText) ? Number(limitText) : NaN;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+      throw new Error("--limit deve ser um inteiro entre 1 e 200.");
+    }
+    const app = await createRuntimeApplication(options.projectPath);
+    const { inspectRunAdmissions, reconcileExpiredRunAdmissions } =
+      require(path.join(rootDir, "runtime", "runs", "reconciliation"));
+    const result = subcommand === "admissions"
+      ? await inspectRunAdmissions({ store: app.store, limit })
+      : await reconcileExpiredRunAdmissions({ store: app.store, limit, apply: options.apply === true });
+    console.log(JSON.stringify(result, null, 2));
+    return 0;
+  }
   const options = parseRuntimeArgs(args, ["--project-path"]);
   if (options.values.length > 0) throw new Error("Uso: maestro runs [--project-path PATH]");
   console.log(JSON.stringify(await (await createRuntimeApplication(options.projectPath)).listRuns({ projectPath: options.projectPath }), null, 2));
