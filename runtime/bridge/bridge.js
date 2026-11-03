@@ -67,6 +67,7 @@ function createBridge(options = {}) {
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
     "runs.observe": (params) => observer.observe(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
+    "runs.submit": () => unsupported("Durable run worker is unavailable; admission ledger is internal only"),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
     "evidence.get": (params) => invokeGet(services.runtime, "getEvidence", params, "evidenceId"),
@@ -153,6 +154,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
       projectCompose: capabilities.projectCompose === true,
       plansRoutePreview: capabilities.plansRoutePreview === true,
       runsObserve: capabilities.runsObserve === true,
+      runsSubmit: false,
       memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
     })
   });

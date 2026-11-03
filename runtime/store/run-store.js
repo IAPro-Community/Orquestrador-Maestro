@@ -10,6 +10,15 @@ class RunStore {
   async saveMission() { throw new Error("RunStore.saveMission must be implemented"); }
   async saveTask() { throw new Error("RunStore.saveTask must be implemented"); }
   async saveRun() { throw new Error("RunStore.saveRun must be implemented"); }
+  async admitRunSubmission() { throw new Error("RunStore.admitRunSubmission must be implemented"); }
+  async getRunSubmission() { throw new Error("RunStore.getRunSubmission must be implemented"); }
+  async listRunSubmissions() { throw new Error("RunStore.listRunSubmissions must be implemented"); }
+  async claimRunSubmission() { throw new Error("RunStore.claimRunSubmission must be implemented"); }
+  async renewRunSubmissionLease() { throw new Error("RunStore.renewRunSubmissionLease must be implemented"); }
+  async markRunSubmissionDispatched() { throw new Error("RunStore.markRunSubmissionDispatched must be implemented"); }
+  async finishRunSubmission() { throw new Error("RunStore.finishRunSubmission must be implemented"); }
+  async requestRunSubmissionCancellation() { throw new Error("RunStore.requestRunSubmissionCancellation must be implemented"); }
+  async quarantineExpiredRunSubmission() { throw new Error("RunStore.quarantineExpiredRunSubmission must be implemented"); }
   async saveStep() { throw new Error("RunStore.saveStep must be implemented"); }
   async saveExecution() { throw new Error("RunStore.saveExecution must be implemented"); }
   async appendEvent() { throw new Error("RunStore.appendEvent must be implemented"); }

@@ -269,6 +269,9 @@ class MaestroApplication {
     this.verification = options.verification || new VerificationEngine();
     this.events = new EventEmitter();
     this.activeRuns = new Map();
+    // Process-local one-shot authorization. After a crash, unknown external
+    // effects must not be redispatched using a stale prepared object.
+    this._preparedRuns = new WeakSet();
     this.terminals = options.terminals || new TerminalManager({ store: this.store, emitEvent: (runId, type, data) => this.record(runId, type, data) });
     this.governance = mergeConfig(options.governance || loadGovernanceConfig({ cwd: this.projectRoot }).config);
     // Enforce mode is a runtime-owned capability. A request/Bridge client
@@ -584,9 +587,13 @@ class MaestroApplication {
       await this._recordTaskOutcomeTransition(task.id, run.id, blockedResolution.outcome);
       await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
-      return { task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock };
+      const prepared = Object.freeze({ task, run: blockedRun, step: blockedStep, profile, policy, provider, capabilities, workspacePath, preflightBlock });
+      this._preparedRuns.add(prepared);
+      return prepared;
     }
-    return { task, run, step, profile, policy, provider, capabilities, workspacePath, preflightBlock: null };
+    const prepared = Object.freeze({ task, run, step, profile, policy, provider, capabilities, workspacePath, preflightBlock: null });
+    this._preparedRuns.add(prepared);
+    return prepared;
   }
 
   async executeTaskWithHandoff(request = {}) {
@@ -713,8 +720,45 @@ class MaestroApplication {
   }
 
   async executeRun(request) {
-    const prepared = await this.createRun(request);
+    // Preserve the original blocking CLI behavior. The supervisor can
+    // prepare a persistent Run and bind its identity before execution.
+    return this.executePreparedRun(await this.createRun(request), request);
+  }
+
+  async executePreparedRun(prepared, request) {
+    if (!prepared || !this._preparedRuns.has(prepared)) {
+      const error = new Error("PREPARED_RUN_NOT_OWNED: preparation is one-shot and local to this Maestro instance");
+      error.code = "PREPARED_RUN_NOT_OWNED";
+      throw error;
+    }
+    // Consume before awaiting storage. Neither a second client nor a failed
+    // preflight may reuse the handle to duplicate provider side effects.
+    this._preparedRuns.delete(prepared);
     const { task, run, step, profile, policy, provider, workspacePath } = prepared;
+    const currentRun = await this.store.getRun(run.id);
+    const currentTask = await this.store.getTask(task.id);
+    const currentStep = await this.store.getStep(step.id);
+    const currentProject = await this.store.getProject(task.projectId);
+    const runStatus = prepared.preflightBlock ? "blocked" : "pending";
+    const stepStatus = prepared.preflightBlock ? "failed" : "pending";
+    if (!currentRun || !currentTask || !currentStep || !currentProject ||
+        currentRun.status !== runStatus ||
+        currentStep.status !== stepStatus ||
+        currentRun.taskId !== task.id || currentStep.runId !== run.id ||
+        currentTask.projectId !== task.projectId ||
+        currentTask.description !== task.description ||
+        path.resolve(currentProject.path || "") !== path.resolve(workspacePath) ||
+        run.providerId !== provider.id || currentRun.providerId !== provider.id ||
+        this.providers.get(provider.id) !== provider ||
+        !request || request.description !== task.description ||
+        (request.providerId && request.providerId !== provider.id) ||
+        (request.workspacePath && path.resolve(request.workspacePath) !== path.resolve(workspacePath)) ||
+        (request.profileId && request.profileId !== profile.id) ||
+        (request.policyId && request.policyId !== policy.id)) {
+      const error = new Error("PREPARED_RUN_STATE_MISMATCH: persisted Run or prepared arguments changed");
+      error.code = "PREPARED_RUN_STATE_MISMATCH";
+      throw error;
+    }
     if (prepared.preflightBlock) {
       return { run, verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: prepared.preflightBlock }, execution: null, governanceWarnings: [], governanceBlocking: [prepared.preflightBlock], recommendations: [] };
     }

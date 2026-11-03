@@ -148,6 +148,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify fenced admission and trusted supervisor before full suite
+        run: node --test runtime/runs/__tests__/workspace-authority.test.js runtime/runs/__tests__/submission-supervisor.test.js
+
       - name: Run full tests
         run: npm test
 

@@ -3,12 +3,13 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, validateAdmissionLedger, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
 
-const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention"]);
+const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions"]);
 
 function emptyState() {
-  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [] };
+  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [] };
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -100,6 +101,186 @@ class JsonFileRunStore extends RunStore {
   async saveMissionBrief(brief) { return this._save("missionBriefs", brief); }
   async saveTaskGraph(graph) { return this._save("taskGraphs", graph); }
   async saveAttention(request) { return this._save("attention", request); }
+
+  // Admission is an operational queue ledger, not an executable Run. A
+  // provider cannot start without a separate fenced worker implementation.
+  async admitRunSubmission(input) {
+    const spec = normalizeAdmission(input);
+    return this._mutate(async () => {
+      const existing = this._state.runSubmissions.find((row) =>
+        row.projectId === spec.projectId && row.clientKey === spec.clientKey);
+      if (existing) {
+        if (existing.requestDigest !== spec.requestDigest) {
+          throw bad("idempotency key reused for a different approved request", "RUN_SUBMISSION_CONFLICT");
+        }
+        return { submission: clone(existing), replayed: true };
+      }
+      const busy = this._state.runSubmissions.find((row) =>
+        row.workspaceFingerprint === spec.workspaceFingerprint &&
+        isWorkspaceOccupied(row.status));
+      if (busy) throw bad("workspace is already reserved by a pending or unresolved submission", "WORKSPACE_RESERVED");
+      const now = new Date().toISOString();
+      const submission = {
+        id: "submission-" + crypto.randomUUID(),
+        ...spec,
+        status: "PENDING_WORKER",
+        fence: 0,
+        workerId: null,
+        leaseExpiresAt: null,
+        runId: null,
+        createdAt: now,
+        updatedAt: now
+      };
+      this._state.runSubmissions.push(submission);
+      await this._flush();
+      return { submission: clone(submission), replayed: false };
+    });
+  }
+
+  async getRunSubmission(submissionId) { return this._get("runSubmissions", submissionId); }
+  async listRunSubmissions(filters = {}) {
+    return this._list("runSubmissions", filters, ["projectId", "status"]);
+  }
+
+  async claimRunSubmission(submissionId, { workerId, leaseMs = 30000 } = {}) {
+    validateID(submissionId, "submissionId");
+    validateWorker(workerId, undefined, leaseMs);
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      if (!row) return null;
+      if (row.status !== "PENDING_WORKER") {
+        throw bad("submission cannot be claimed from status " + row.status, "SUBMISSION_NOT_CLAIMABLE");
+      }
+      row.fence += 1;
+      row.status = "CLAIMED";
+      row.workerId = workerId;
+      row.leaseExpiresAt = new Date(Date.now() + leaseMs).toISOString();
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
+  async renewRunSubmissionLease(submissionId, { workerId, fence, leaseMs = 30000 } = {}) {
+    validateID(submissionId, "submissionId");
+    validateWorker(workerId, fence, leaseMs);
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      this._requireCurrentWorker(row, workerId, fence);
+      if (!["CLAIMED", "DISPATCHED", "CANCEL_REQUESTED"].includes(row.status)) {
+        throw bad("submission cannot renew lease in status " + row.status, "SUBMISSION_NOT_RUNNING");
+      }
+      row.leaseExpiresAt = new Date(Date.now() + leaseMs).toISOString();
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
+  _requireCurrentWorker(row, workerId, fence) {
+    if (!row || row.workerId !== workerId || row.fence !== fence ||
+        !row.leaseExpiresAt || Date.parse(row.leaseExpiresAt) <= Date.now()) {
+      throw bad("stale or expired worker fence", "STALE_SUBMISSION_FENCE");
+    }
+  }
+
+  // DISPATCHED is only written after a real Maestro Run ID is known. This
+  // ledger does not create runs or call a provider by itself.
+  async markRunSubmissionDispatched(submissionId, { workerId, fence, runId } = {}) {
+    validateID(submissionId, "submissionId");
+    validateID(workerId, "workerId");
+    validateWorker(workerId, fence);
+    validateID(runId, "runId");
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      this._requireCurrentWorker(row, workerId, fence);
+      if (row.status !== "CLAIMED") throw bad("submission was already dispatched or cancelled", "SUBMISSION_NOT_CLAIMABLE");
+      const persistedRun = this._state.runs.find((run) => run.id === runId);
+      const persistedTask = this._state.tasks.find((task) => task.id === persistedRun?.taskId);
+      if (!persistedRun || !persistedTask ||
+          persistedTask.projectId !== row.projectId ||
+          !row.providers.includes(persistedRun.providerId) ||
+          persistedRun.status !== "pending") {
+        throw bad("dispatch requires a persisted matching pending Maestro Run", "RUN_PROVENANCE_MISMATCH");
+      }
+      row.runId = runId;
+      row.status = "DISPATCHED";
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
+  async finishRunSubmission(submissionId, { workerId, fence, status } = {}) {
+    validateID(submissionId, "submissionId");
+    validateWorker(workerId, fence);
+    if (!["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT", "CANCELLED"].includes(status)) throw bad("unsupported submission terminal status");
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      this._requireCurrentWorker(row, workerId, fence);
+      if (row.status !== "DISPATCHED" && row.status !== "CANCEL_REQUESTED") {
+        throw bad("terminal status is not valid for the submission state", "SUBMISSION_INVALID_TRANSITION");
+      }
+      if (status === "CANCELLED" && row.status !== "CANCEL_REQUESTED") {
+        throw bad("cancellation must be requested before it is confirmed", "SUBMISSION_INVALID_TRANSITION");
+      }
+      const persistedRun = this._state.runs.find((run) => run.id === row.runId);
+      const runStatus = { COMPLETED: "completed", FAILED: "failed", BLOCKED: "blocked", TIMED_OUT: "timed_out", CANCELLED: "cancelled" }[status];
+      // The worker may acknowledge cancellation before it has created a Run.
+      // It is safe only while no dispatch was ever recorded. A late cancel
+      // after a completed Run must be recorded as COMPLETED, not fabricated as
+      // provider cancellation.
+      const cancelledBeforeDispatch = status === "CANCELLED" &&
+        row.status === "CANCEL_REQUESTED" && row.runId === null;
+      if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
+        throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
+      }
+      row.status = status;
+      row.workerId = null;
+      row.leaseExpiresAt = null;
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
+  async requestRunSubmissionCancellation(submissionId) {
+    validateID(submissionId, "submissionId");
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      if (!row) return null;
+      if (row.status === "PENDING_WORKER") {
+        row.status = "CANCELLED";
+      } else if (row.status === "CLAIMED" || row.status === "DISPATCHED") {
+        row.status = "CANCEL_REQUESTED"; // only worker can confirm actual cancellation
+      } else {
+        return clone(row); // completed, already cancelling, or reconciliation required
+      }
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
+  // On crash/restart, expired claims become operator-visible blockers rather
+  // than being automatically redispatched (external side effects unknown).
+  async quarantineExpiredRunSubmission(submissionId) {
+    validateID(submissionId, "submissionId");
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      if (!row) return null;
+      if (!["CLAIMED", "DISPATCHED", "CANCEL_REQUESTED"].includes(row.status)) return clone(row);
+      if (!row.leaseExpiresAt || Date.parse(row.leaseExpiresAt) > Date.now()) {
+        throw bad("cannot quarantine an active worker lease", "SUBMISSION_LEASE_ACTIVE");
+      }
+      row.status = "RECONCILIATION_REQUIRED";
+      row.workerId = null;
+      row.leaseExpiresAt = null;
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
 
   async appendEvent(event) {
     assertRecord(event, "event");
@@ -378,6 +559,8 @@ class JsonFileRunStore extends RunStore {
     if (!Array.isArray(state.missionBriefs)) state.missionBriefs = [];
     if (!Array.isArray(state.taskGraphs)) state.taskGraphs = [];
     if (!Array.isArray(state.attention)) state.attention = [];
+    if (state.runSubmissions === undefined) state.runSubmissions = [];
+    validateAdmissionLedger(state.runSubmissions);
     for (const collection of COLLECTIONS) {
       if (!Array.isArray(state[collection])) throw new Error(`RunStore data is missing collection: ${collection}`);
     }
