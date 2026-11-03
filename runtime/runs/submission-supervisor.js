@@ -85,13 +85,14 @@ async function superviseSubmissionOnce({
   }, heartbeatMs);
   heartbeat.unref?.();
 
-  async function cancelBeforeDispatch() {
+  async function cancelBeforeDispatch(preparedRunId) {
     const row = await store.getRunSubmission(submissionId);
     if (row.status !== "CANCEL_REQUESTED") {
       throw bad("cannot confirm cancellation without a request", "SUBMISSION_INVALID_TRANSITION");
     }
     const terminal = await store.finishRunSubmission(submissionId, {
-      workerId, fence: claimed.fence, status: "CANCELLED"
+      workerId, fence: claimed.fence, status: "CANCELLED",
+      ...(preparedRunId ? { preparedRunId } : {})
     });
     return Object.freeze({ submission: terminal, runId: null, dispatched: false });
   }
@@ -110,12 +111,12 @@ async function superviseSubmissionOnce({
 
     if (leaseFailure) throw leaseFailure;
     const latest = await store.getRunSubmission(submissionId);
-    if (latest.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch();
+    if (latest.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch(prepared.runId);
 
     // Approval may have been revoked while a Run was being prepared.
     if (await verifyApproval(approvalSubject(claimed)) !== true) {
       await store.requestRunSubmissionCancellation(submissionId);
-      return await cancelBeforeDispatch();
+      return await cancelBeforeDispatch(prepared.runId);
     }
     if (leaseFailure) throw leaseFailure;
 
