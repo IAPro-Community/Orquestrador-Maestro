@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { normalizeAdmission, validateID, validateWorker, isTerminal, isWorkspaceOccupied, bad } = require("../runs/submission-admission");
+const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
 
 const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions"]);
