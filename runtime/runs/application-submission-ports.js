@@ -64,6 +64,13 @@ function createApplicationSubmissionPorts({
   }
   return Object.freeze({
     verifyApproval,
+    async releasePreparedRun({ submissionId } = {}) {
+      const held = preparedBySubmission.get(submissionId);
+      if (!held) return false;
+      preparedBySubmission.delete(submissionId);
+      application.discardPreparedRun?.(held.prepared);
+      return true;
+    },
     async prepareRun({ submission, signal }) {
       if (signal?.aborted) throw bad("submission cancelled before preparation",
         "SUBMISSION_CANCEL_REQUESTED");
