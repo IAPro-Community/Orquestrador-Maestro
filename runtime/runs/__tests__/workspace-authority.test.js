@@ -44,6 +44,16 @@ test("authoritative worktree binding rejects forged identity and foreign reposit
     verifyApproval: async () => ({ approved: true })
   }), { code: "APPROVAL_NOT_VERIFIED" });
   assert.equal((await store.listRunSubmissions()).length, 0);
+  await assert.rejects(admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: root, input: spec(),
+    verifyApproval: async () => {
+      fs.writeFileSync(path.join(root, "README.md"), "changed while verifying\n");
+      git(root, "add", "README.md");
+      git(root, "commit", "-qm", "concurrent head change");
+      return true;
+    }
+  }), { code: "WORKSPACE_CHANGED_DURING_APPROVAL" });
+  assert.equal((await store.listRunSubmissions()).length, 0);
   const binding = bindingFromRealGitWorktree({ projectRoot: root, workspacePath: root });
   assert.match(binding.fingerprint, /^[a-f0-9]{64}$/);
   assert.equal(binding.fingerprint, bindingFromRealGitWorktree({
