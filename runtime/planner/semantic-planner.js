@@ -82,7 +82,7 @@ function planningError(message, { code, failureKind, blockerCodes = [], attempts
 
 function normalizedProviderOptions(providerOptions = {}) {
   if (!providerOptions || typeof providerOptions !== "object" || Array.isArray(providerOptions)) return {};
-  const allowed = ["sandbox", "permissionMode", "mode", "agent", "sessionId", "continue"];
+  const allowed = ["sandbox", "permissionMode", "mode", "agent", "sessionId", "continue", "timeoutMs"];
   return Object.fromEntries(allowed.filter((key) => providerOptions[key] !== undefined).map((key) => [key, providerOptions[key]]));
 }
 
@@ -192,6 +192,14 @@ class SemanticPlanner {
           ...normalizedProviderOptions(providerOptions)
         });
         result = await handle.result;
+        // A non-zero exit, explicit timeout, or provider error cannot be
+        // promoted into a successful plan even if stdout looks like JSON.
+        if (result?.timedOut || result?.cancelled ||
+            result?.error || (Number.isInteger(result?.exitCode) && result.exitCode !== 0)) {
+          throw new Error(result.timedOut ? "provider planning timed out"
+            : result.cancelled ? "provider planning cancelled"
+              : "provider process did not complete successfully");
+        }
       } catch (err) {
         attempts.push(buildPlanningAttempt({
           attempt, prompt, providerId, model: this.plannerTarget.model, result: null,
