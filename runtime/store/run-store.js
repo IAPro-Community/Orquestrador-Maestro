@@ -14,6 +14,7 @@ class RunStore {
   async getRunSubmission() { throw new Error("RunStore.getRunSubmission must be implemented"); }
   async listRunSubmissions() { throw new Error("RunStore.listRunSubmissions must be implemented"); }
   async claimRunSubmission() { throw new Error("RunStore.claimRunSubmission must be implemented"); }
+  async bindPreparedRunSubmission() { throw new Error("RunStore.bindPreparedRunSubmission must be implemented"); }
   async renewRunSubmissionLease() { throw new Error("RunStore.renewRunSubmissionLease must be implemented"); }
   async markRunSubmissionDispatched() { throw new Error("RunStore.markRunSubmissionDispatched must be implemented"); }
   async finishRunSubmission() { throw new Error("RunStore.finishRunSubmission must be implemented"); }
