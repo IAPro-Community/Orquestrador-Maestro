@@ -43,6 +43,7 @@ async function superviseSubmissionOnce({
   validateID(submissionId, "submissionId");
   validateID(workerId, "workerId");
   if (!store?.getRunSubmission || !store?.claimRunSubmission ||
+      !store?.bindPreparedRunSubmission ||
       !store?.markRunSubmissionDispatched || !store?.finishRunSubmission ||
       !store?.renewRunSubmissionLease || !store?.requestRunSubmissionCancellation) {
     throw bad("canonical Maestro RunStore is required", "SUBMISSION_SUPERVISOR_UNAVAILABLE");
@@ -108,6 +109,13 @@ async function superviseSubmissionOnce({
     if (typeof prepared?.runId !== "string") {
       throw bad("prepareRun must return a persisted Maestro Run ID", "RUN_PROVENANCE_MISMATCH");
     }
+
+    // Preparation is durable, but it is not execution. Reserve its exact
+    // persisted Run identity before cancellation or any provider side effect.
+    // A stale worker cannot bind another process's pending Run after fencing.
+    await store.bindPreparedRunSubmission(submissionId, {
+      workerId, fence: claimed.fence, runId: prepared.runId
+    });
 
     if (leaseFailure) throw leaseFailure;
     const latest = await store.getRunSubmission(submissionId);
