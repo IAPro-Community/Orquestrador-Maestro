@@ -7,7 +7,6 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const test = require("node:test");
 const { JsonFileRunStore } = require("../../store");
-const { resolveGitContext } = require("../../../orquestrador/lib/git-context");
 const { bindingFromRealGitWorktree, admitCanonicalWorktreeSubmission } = require("../workspace-authority");
 const sha = (x) => crypto.createHash("sha256").update(x).digest("hex");
 function git(cwd, ...args) {
@@ -35,38 +34,37 @@ test("authoritative worktree binding rejects forged identity and foreign reposit
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const root = path.join(tmp, "root"), foreign = path.join(tmp, "foreign");
   init(root); init(foreign);
-  if (process.platform === "win32") {
-    const context = resolveGitContext(root);
-    t.diagnostic("git worktree context: " + JSON.stringify({
-      resolvedRoot: fs.realpathSync(root), projectRoot: context.projectRoot,
-      vcs: context.vcs, repositoryId: context.repositoryId,
-      commonGitDir: context.commonGitDir, gitDir: context.gitDir,
-      detached: context.detached, branch: context.branch
-    }));
-  }
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
   await store.createProject({ id: "project-authority-001", path: root });
+  await assert.rejects(admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: root, input: spec()
+  }), { code: "APPROVAL_NOT_VERIFIED" });
+  await assert.rejects(admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: root, input: spec(),
+    verifyApproval: async () => ({ approved: true })
+  }), { code: "APPROVAL_NOT_VERIFIED" });
+  assert.equal((await store.listRunSubmissions()).length, 0);
   const binding = bindingFromRealGitWorktree({ projectRoot: root, workspacePath: root });
   assert.match(binding.fingerprint, /^[a-f0-9]{64}$/);
   assert.equal(binding.fingerprint, bindingFromRealGitWorktree({
     projectRoot: path.join(root, "."), workspacePath: path.join(root, ".")
   }).fingerprint);
   const first = await admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root, input: spec()
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root, input: spec()
   });
   assert.equal(first.submission.workspaceFingerprint, binding.fingerprint);
   assert.equal((await admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root, input: spec()
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root, input: spec()
   })).replayed, true);
   await assert.rejects(admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root,
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root,
     input: spec({ clientKey: "another-key-001", workspaceFingerprint: sha("invented") })
   }), { code: "WORKSPACE_FINGERPRINT_MISMATCH" });
   await assert.rejects(admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: foreign, input: spec({ clientKey: "foreign-key-001" })
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: foreign, input: spec({ clientKey: "foreign-key-001" })
   }), { code: "INVALID_WORKSPACE_AUTHORITY" });
   await assert.rejects(admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root, input: spec({ clientKey: "replay-conflict-001" })
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root, input: spec({ clientKey: "replay-conflict-001" })
   }), { code: "WORKSPACE_RESERVED" });
 });
 
@@ -78,21 +76,21 @@ test("independent worktrees get distinct reservations; detached or unregistered 
   git(root, "worktree", "add", "-b", "feature-test", secondary);
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
   await assert.rejects(admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root, input: spec()
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root, input: spec()
   }), { code: "PROJECT_SCOPE_MISMATCH" });
   await store.createProject({ id: "project-authority-001", path: root });
   const first = await admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: root, input: spec()
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: root, input: spec()
   });
   const second = await admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: secondary,
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: secondary,
     input: spec({ clientKey: "different-worktree-key-001", planDigest: sha("second") })
   });
   assert.notEqual(first.binding.fingerprint, second.binding.fingerprint);
   assert.equal((await store.listRunSubmissions()).length, 2);
   git(secondary, "checkout", "-q", "--detach", "HEAD");
   await assert.rejects(admitCanonicalWorktreeSubmission({
-    store, projectRoot: root, workspacePath: secondary,
+    store, verifyApproval: async () => true, projectRoot: root, workspacePath: secondary,
     input: spec({ clientKey: "detached-key-001" })
   }), { code: "INVALID_WORKSPACE_AUTHORITY" });
   assert.equal((await store.listRunSubmissions()).length, 2);
