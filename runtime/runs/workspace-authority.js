@@ -20,14 +20,24 @@ function realDirectory(input, name) {
   return real;
 }
 
+// On Windows a directory can be addressed through its 8.3 alias
+// (RUNNER~1) and its long name (runneradmin). Even realpathSync can
+// preserve those spellings. Use volume/file identity rather than path
+// equality; fail closed if the platform cannot prove a stable identity.
+function physicalDirectoryIdentity(input) {
+  const resolved = realDirectory(input, "physicalDirectory");
+  const stat = fs.statSync(resolved, { bigint: true });
+  if (stat.ino > 0n) {
+    return "inode:" + stat.dev + ":" + stat.ino;
+  }
+  if (process.platform === "win32") {
+    throw bad("Windows directory lacks a stable file identity", "INVALID_WORKSPACE_AUTHORITY");
+  }
+  return "realpath:" + resolved;
+}
+
 function samePhysicalPath(left, right) {
-  const a = fs.realpathSync(left);
-  const b = fs.realpathSync(right);
-  // NTFS is case-insensitive by default, and Git for Windows may print a
-  // differently cased drive/path than Node's native realpath() result.
-  return process.platform === "win32"
-    ? a.toLowerCase() === b.toLowerCase()
-    : a === b;
+  return physicalDirectoryIdentity(left) === physicalDirectoryIdentity(right);
 }
 
 function bindingFromRealGitWorktree({ projectRoot, workspacePath }) {
@@ -57,7 +67,7 @@ function bindingFromRealGitWorktree({ projectRoot, workspacePath }) {
   // Immutable physical worktree identity, independent of Git HEAD or branch
   // changes. The same symlink/alias MUST reserve the same workspace.
   const fingerprint = crypto.createHash("sha256")
-    .update("maestro-worktree-v1\0" + common + "\0" + workspace)
+    .update("maestro-worktree-v1\0" + physicalDirectoryIdentity(common) + "\0" + physicalDirectoryIdentity(workspace))
     .digest("hex");
   return Object.freeze({
     root, workspace, repositoryId: canonical.repositoryId,
@@ -77,7 +87,7 @@ async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspaceP
   }
   const binding = bindingFromRealGitWorktree({ projectRoot, workspacePath });
   const project = input?.projectId ? await store.getProject(input.projectId) : null;
-  if (!project?.path || realDirectory(project.path, "registeredProjectPath") !== binding.root) {
+  if (!project?.path || !samePhysicalPath(project.path, binding.root)) {
     throw bad("Project is not registered against this canonical Git root", "PROJECT_SCOPE_MISMATCH");
   }
   if (input.workspaceFingerprint !== undefined && input.workspaceFingerprint !== binding.fingerprint) {
