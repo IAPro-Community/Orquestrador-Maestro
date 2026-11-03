@@ -106,6 +106,17 @@ function validateAdmissionLedger(rows) {
     if (row.runId !== null && (typeof row.runId !== "string" || !SAFE_ID.test(row.runId))) {
       throw bad("invalid Run identity", "RUN_STORE_CORRUPTED");
     }
+    // Legacy admission rows predate pre-dispatch binding; null/undefined are
+    // accepted, but any persisted identity must be a safe Run ID.
+    if (row.preparedRunId != null &&
+        (typeof row.preparedRunId !== "string" || !SAFE_ID.test(row.preparedRunId))) {
+      throw bad("invalid prepared Run identity", "RUN_STORE_CORRUPTED");
+    }
+    if (row.preparedRunId != null && row.runId != null &&
+        row.preparedRunId !== row.runId) {
+      throw bad("prepared and dispatched Run IDs disagree", "RUN_STORE_CORRUPTED");
+    }
+
     if (row.leaseExpiresAt !== null &&
         (typeof row.leaseExpiresAt !== "string" || !Number.isFinite(Date.parse(row.leaseExpiresAt)))) {
       throw bad("invalid worker lease", "RUN_STORE_CORRUPTED");
@@ -116,7 +127,8 @@ function validateAdmissionLedger(rows) {
     }
     if ((row.status === "CLAIMED" && row.runId !== null) ||
         (row.status === "DISPATCHED" && row.runId === null) ||
-        (row.status === "PENDING_WORKER" && (row.workerId !== null || row.runId !== null))) {
+        (row.status === "PENDING_WORKER" &&
+          (row.workerId !== null || row.runId !== null || row.preparedRunId != null))) {
       throw bad("submission lifecycle is contradictory", "RUN_STORE_CORRUPTED");
     }
     ids.add(row.id); keys.add(key);
