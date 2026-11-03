@@ -123,3 +123,43 @@ test("uncertain provider failure stays DISPATCHED and blocks automatic retry", a
   }), { code: "SUBMISSION_NOT_CLAIMABLE" });
   assert.equal(count.dispatch, 1);
 });
+
+test("two workers racing for one submission dispatch exactly once", async (t) => {
+  const { store, submission } = await fixture(t);
+  const competitor = new JsonFileRunStore({ filePath: store.filePath });
+  const count = { prepare: 0, dispatch: 0 };
+  const ops = callbacks(store, count);
+  const a = superviseSubmissionOnce({
+    store, submissionId: submission.id, workerId: "worker-racing-one", ...ops
+  });
+  const b = superviseSubmissionOnce({
+    store: competitor, submissionId: submission.id, workerId: "worker-racing-two", ...ops
+  });
+  const results = await Promise.allSettled([a, b]);
+  assert.equal(results.filter((row) => row.status === "fulfilled").length, 1);
+  assert.equal(results.filter((row) => row.status === "rejected").length, 1);
+  assert.equal(count.prepare, 1);
+  assert.equal(count.dispatch, 1);
+  assert.equal((await store.getRunSubmission(submission.id)).status, "COMPLETED");
+});
+
+test("revoked approval during preparation cancels without provider dispatch", async (t) => {
+  const { store, submission } = await fixture(t);
+  const count = { prepare: 0, dispatch: 0 };
+  const ops = callbacks(store, count);
+  let checks = 0;
+  const result = await superviseSubmissionOnce({
+    store, submissionId: submission.id, workerId: "worker-revocation-001",
+    ...ops, verifyApproval: async (subject) => {
+      assert.equal(subject.projectId, "project-supervisor-001");
+      assert.equal(subject.planDigest, digest("plan"));
+      assert.equal(Object.hasOwn(subject, "prompt"), false);
+      checks++;
+      return checks === 1;
+    }
+  });
+  assert.equal(checks, 2);
+  assert.equal(result.dispatched, false);
+  assert.equal(result.submission.status, "CANCELLED");
+  assert.deepEqual(count, { prepare: 1, dispatch: 0 });
+});
