@@ -12,7 +12,11 @@ function sameRoot(a, b) {
   try {
     const first = fs.statSync(fs.realpathSync(a), { bigint: true });
     const second = fs.statSync(fs.realpathSync(b), { bigint: true });
+    // Some Windows filesystems report ino=0. In that case comparing only
+    // volume IDs could falsely authorize a different project directory.
+    // Fail closed unless both identifiers are positive and match.
     return first.isDirectory() && second.isDirectory() &&
+      first.ino > 0n && second.ino > 0n &&
       first.dev === second.dev && first.ino === second.ino;
   } catch {
     return false;
