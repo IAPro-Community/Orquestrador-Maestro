@@ -85,7 +85,7 @@ function normalizeExecutableManifest(input) {
       input.tasks.length < 1 || input.tasks.length > 32) {
     throw bad("manifest version 1 requires 1..32 tasks", "INVALID_EXECUTABLE_MANIFEST");
   }
-  const tasks = input.tasks.map(canonicalTask).sort((a, b) => a.taskId.localeCompare(b.taskId, "en"));
+  const tasks = input.tasks.map(canonicalTask).sort((a, b) => a.taskId < b.taskId ? -1 : a.taskId > b.taskId ? 1 : 0);
   const byId = new Map(tasks.map((task) => [task.taskId, task]));
   if (byId.size !== tasks.length) throw bad("duplicate task ID", "INVALID_EXECUTABLE_MANIFEST");
   for (const task of tasks) {
