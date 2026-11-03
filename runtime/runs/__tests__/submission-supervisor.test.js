@@ -37,6 +37,9 @@ function callbacks(store, count) {
         id: "run-supervisor-001", taskId: "task-supervisor-001",
         providerId: "opencode", status: "pending"
       });
+      await store.saveStep({
+        id: "step-supervisor-001", runId: "run-supervisor-001", status: "pending"
+      });
       return { runId: "run-supervisor-001" };
     },
     dispatchRun: async ({ runId, signal }) => {
@@ -93,6 +96,9 @@ test("cancellation during preparation never dispatches external effects", async 
         id: "run-supervisor-004", taskId: "task-supervisor-001",
         providerId: "opencode", status: "pending"
       });
+      await store.saveStep({
+        id: "step-supervisor-004", runId: "run-supervisor-004", status: "pending"
+      });
       await store.requestRunSubmissionCancellation(submission.id);
       return { runId: "run-supervisor-004" };
     },
@@ -102,6 +108,8 @@ test("cancellation during preparation never dispatches external effects", async 
   assert.equal(result.dispatched, false);
   assert.equal(result.submission.status, "CANCELLED");
   assert.equal((await store.getRunSubmission(submission.id)).runId, null);
+  assert.equal((await store.getRun("run-supervisor-004")).status, "cancelled");
+  assert.equal((await store.getStep("step-supervisor-004")).status, "cancelled");
 });
 
 test("uncertain provider failure stays DISPATCHED and blocks automatic retry", async (t) => {
@@ -161,5 +169,7 @@ test("revoked approval during preparation cancels without provider dispatch", as
   assert.equal(checks, 2);
   assert.equal(result.dispatched, false);
   assert.equal(result.submission.status, "CANCELLED");
+  assert.equal((await store.getRun("run-supervisor-001")).status, "cancelled");
+  assert.equal((await store.getStep("step-supervisor-001")).status, "cancelled");
   assert.deepEqual(count, { prepare: 1, dispatch: 0 });
 });
