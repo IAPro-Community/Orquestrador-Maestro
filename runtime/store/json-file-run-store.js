@@ -211,9 +211,10 @@ class JsonFileRunStore extends RunStore {
     });
   }
 
-  async finishRunSubmission(submissionId, { workerId, fence, status } = {}) {
+  async finishRunSubmission(submissionId, { workerId, fence, status, preparedRunId } = {}) {
     validateID(submissionId, "submissionId");
     validateWorker(workerId, fence);
+    if (preparedRunId !== undefined) validateID(preparedRunId, "preparedRunId");
     if (!["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT", "CANCELLED"].includes(status)) throw bad("unsupported submission terminal status");
     return this._mutate(async () => {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
@@ -234,6 +235,32 @@ class JsonFileRunStore extends RunStore {
         row.status === "CANCEL_REQUESTED" && row.runId === null;
       if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
         throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
+      }
+      // When preparation persisted a Run but provider dispatch never began,
+      // atomically cancel that Run and its pending Steps with the submission.
+      // Otherwise a detached pending Run could be mistaken for resumable work.
+      if (preparedRunId !== undefined) {
+        if (!cancelledBeforeDispatch) {
+          throw bad("preparedRunId is valid only for cancellation before dispatch", "SUBMISSION_INVALID_TRANSITION");
+        }
+        const preparedRun = this._state.runs.find((run) => run.id === preparedRunId);
+        const task = this._state.tasks.find((item) => item.id === preparedRun?.taskId);
+        const steps = this._state.steps.filter((step) => step.runId === preparedRunId);
+        if (!preparedRun || !task || task.projectId !== row.projectId ||
+            !row.providers.includes(preparedRun.providerId) ||
+            preparedRun.status !== "pending" || steps.length === 0 ||
+            steps.some((step) => step.status !== "pending") ||
+            this._state.executions.some((execution) => execution.runId === preparedRunId) ||
+            this._state.runSubmissions.some((other) => other.id !== row.id && other.runId === preparedRunId)) {
+          throw bad("prepared Run cannot be cancelled without matching pre-dispatch evidence", "RUN_PROVENANCE_MISMATCH");
+        }
+        const at = new Date().toISOString();
+        preparedRun.status = "cancelled";
+        preparedRun.completedAt = at;
+        for (const step of steps) {
+          step.status = "cancelled";
+          step.completedAt = at;
+        }
       }
       row.status = status;
       row.workerId = null;
