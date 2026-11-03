@@ -7,6 +7,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const test = require("node:test");
 const { JsonFileRunStore } = require("../../store");
+const { resolveGitContext } = require("../../../orquestrador/lib/git-context");
 const { bindingFromRealGitWorktree, admitCanonicalWorktreeSubmission } = require("../workspace-authority");
 const sha = (x) => crypto.createHash("sha256").update(x).digest("hex");
 function git(cwd, ...args) {
@@ -34,6 +35,15 @@ test("authoritative worktree binding rejects forged identity and foreign reposit
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const root = path.join(tmp, "root"), foreign = path.join(tmp, "foreign");
   init(root); init(foreign);
+  if (process.platform === "win32") {
+    const context = resolveGitContext(root);
+    t.diagnostic("git worktree context: " + JSON.stringify({
+      resolvedRoot: fs.realpathSync(root), projectRoot: context.projectRoot,
+      vcs: context.vcs, repositoryId: context.repositoryId,
+      commonGitDir: context.commonGitDir, gitDir: context.gitDir,
+      detached: context.detached, branch: context.branch
+    }));
+  }
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
   await store.createProject({ id: "project-authority-001", path: root });
   const binding = bindingFromRealGitWorktree({ projectRoot: root, workspacePath: root });
