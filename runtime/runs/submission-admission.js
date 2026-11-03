@@ -137,5 +137,5 @@ function validateAdmissionLedger(rows) {
   return rows;
 }
 
-module.exports = { normalizeAdmission, validateID, validateWorker, isTerminal,
+module.exports = { normalizeAdmission, validateID, validateDigest, validateWorker, isTerminal,
   isWorkspaceOccupied, validateAdmissionLedger, bad };
