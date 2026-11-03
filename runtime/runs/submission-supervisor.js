@@ -38,7 +38,7 @@ function approvalSubject(row) {
  */
 async function superviseSubmissionOnce({
   store, submissionId, workerId, verifyApproval, prepareRun, dispatchRun,
-  leaseMs = 30000, heartbeatMs = 5000
+  releasePreparedRun, leaseMs = 30000, heartbeatMs = 5000
 } = {}) {
   validateID(submissionId, "submissionId");
   validateID(workerId, "workerId");
@@ -152,6 +152,12 @@ async function superviseSubmissionOnce({
   } finally {
     clearInterval(heartbeat);
     if (!controller.signal.aborted) controller.abort();
+    // The RunStore handles the durable cancellation; this cleanup only
+    // drops unconsumed same-process handles and is not permission to retry.
+    if (typeof releasePreparedRun === "function") {
+      try { await releasePreparedRun({ submissionId }); }
+      catch { /* cleanup must not mask the original dispatch failure */ }
+    }
     // Do not change CLAIMED/DISPATCHED to FAILED here: errors and crashes can
     // leave external side effects uncertain. Let the normal expired-lease
     // reconciler quarantine the submission for operator inspection.
