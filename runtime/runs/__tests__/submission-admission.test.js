@@ -104,7 +104,7 @@ test("worker lease is fenced: claim, dispatch, cancellation and confirmation", a
   assert.equal(cancelling.status, "CANCEL_REQUESTED");
   await assert.rejects(store.finishRunSubmission(admission.id, {
     workerId: worker, fence: 1, status: "COMPLETED"
-  }), { code: "SUBMISSION_INVALID_TRANSITION" });
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
   await assert.rejects(store.finishRunSubmission(admission.id, {
     workerId: worker, fence: 1, status: "CANCELLED"
   }), { code: "RUN_PROVENANCE_MISMATCH" });
@@ -248,7 +248,7 @@ test("invalid persisted admission ledger fails closed instead of deleting queued
     mutated(current);
     fs.writeFileSync(f.filePath, JSON.stringify(current));
     const reader = new JsonFileRunStore({ filePath: f.filePath });
-    await assert.rejects(reader.getRunSubmission("submission-unknown"), /RunStore|corrupt|digest|submission|lease/ui);
+    await assert.rejects(reader.getRunSubmission("submission-unknown"), { code: "RUN_STORE_CORRUPTED" });
     assert.ok(fs.readFileSync(f.filePath, "utf8").includes("runSubmissions"), "queued work must not be erased on bad read");
   }
   fs.writeFileSync(f.filePath, baseline);
