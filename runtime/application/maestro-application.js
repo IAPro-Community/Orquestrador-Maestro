@@ -719,6 +719,13 @@ class MaestroApplication {
     throw lastError || new Error("PROVIDER_HANDOFF_EXHAUSTED");
   }
 
+  discardPreparedRun(prepared) {
+    // Removing an unused in-memory handle never changes a persisted Run.
+    // If the supervisor cancelled before dispatch, its own fenced RunStore
+    // transition is responsible for cancelling the pending Run and Steps.
+    return this._preparedRuns.delete(prepared);
+  }
+
   async executeRun(request) {
     // Preserve the original blocking CLI behavior. The supervisor can
     // prepare a persistent Run and bind its identity before execution.
