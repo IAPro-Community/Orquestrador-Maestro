@@ -9,6 +9,7 @@ const { validatePlanPreview } = require("./plan-validation");
 const { createComposePreview } = require("./project-compose");
 const { createRoutePreview } = require("./provider-route-preview");
 const { createRunObserver } = require("./run-observation");
+const { createSubmissionStatusReader } = require("./submission-status");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -32,6 +33,7 @@ function createBridge(options = {}) {
   const routingProviders = services.runtime?.providers || services.providerRegistry;
   const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
   const observer = createRunObserver({ projectRoot, runtime: services.runtime });
+  const submissions = createSubmissionStatusReader({ projectRoot, store: services.runStore });
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
   const memoryWriteEnabled = options.memoryWriteEnabled === true ||
     (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
@@ -41,7 +43,8 @@ function createBridge(options = {}) {
       memoryWriteEnabled,
       projectCompose: Boolean(services.runtime?.providers?.get),
       plansRoutePreview: Boolean(routingProviders?.get),
-      runsObserve: Boolean(services.runtime?.inspectRun)
+      runsObserve: Boolean(services.runtime?.inspectRun),
+      runsSubmissionsRead: Boolean(services.runStore?.listRunSubmissions)
     }),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
@@ -66,6 +69,8 @@ function createBridge(options = {}) {
     "runs.get": (params) => invokeGet(services.runStore, "getRun", params, "runId"),
     "runs.inspect": (params) => invokeGet(services.runtime, "inspectRun", params, "runId"),
     "runs.observe": (params) => observer.observe(params),
+    "runs.submissions.list": (params) => submissions.list(params),
+    "runs.submissions.get": (params) => submissions.get(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
     "runs.submit": () => unsupported("Durable run worker is unavailable; admission ledger is internal only"),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
@@ -154,6 +159,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
       projectCompose: capabilities.projectCompose === true,
       plansRoutePreview: capabilities.plansRoutePreview === true,
       runsObserve: capabilities.runsObserve === true,
+      runsSubmissionsRead: capabilities.runsSubmissionsRead === true,
       runsSubmit: false,
       memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
     })
