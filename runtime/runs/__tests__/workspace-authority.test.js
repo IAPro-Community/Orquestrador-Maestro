@@ -59,3 +59,31 @@ test("authoritative worktree binding rejects forged identity and foreign reposit
     store, projectRoot: root, workspacePath: root, input: spec({ clientKey: "replay-conflict-001" })
   }), { code: "WORKSPACE_RESERVED" });
 });
+
+test("independent worktrees get distinct reservations; detached or unregistered roots are rejected", async (t) => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-worktree-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const root = path.join(tmp, "root"), secondary = path.join(tmp, "secondary");
+  init(root);
+  git(root, "worktree", "add", "-b", "feature-test", secondary);
+  const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
+  await assert.rejects(admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: root, input: spec()
+  }), { code: "PROJECT_SCOPE_MISMATCH" });
+  await store.createProject({ id: "project-authority-001", path: root });
+  const first = await admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: root, input: spec()
+  });
+  const second = await admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: secondary,
+    input: spec({ clientKey: "different-worktree-key-001", planDigest: sha("second") })
+  });
+  assert.notEqual(first.binding.fingerprint, second.binding.fingerprint);
+  assert.equal((await store.listRunSubmissions()).length, 2);
+  git(secondary, "checkout", "-q", "--detach", "HEAD");
+  await assert.rejects(admitCanonicalWorktreeSubmission({
+    store, projectRoot: root, workspacePath: secondary,
+    input: spec({ clientKey: "detached-key-001" })
+  }), { code: "INVALID_WORKSPACE_AUTHORITY" });
+  assert.equal((await store.listRunSubmissions()).length, 2);
+});
