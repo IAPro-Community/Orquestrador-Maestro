@@ -20,13 +20,24 @@ function realDirectory(input, name) {
   return real;
 }
 
+function samePhysicalPath(left, right) {
+  const a = fs.realpathSync(left);
+  const b = fs.realpathSync(right);
+  // NTFS is case-insensitive by default, and Git for Windows may print a
+  // differently cased drive/path than Node's native realpath() result.
+  return process.platform === "win32"
+    ? a.toLowerCase() === b.toLowerCase()
+    : a === b;
+}
+
 function bindingFromRealGitWorktree({ projectRoot, workspacePath }) {
   const root = realDirectory(projectRoot, "projectRoot");
   const workspace = realDirectory(workspacePath, "workspacePath");
   const canonical = resolveGitContext(root);
   const target = resolveGitContext(workspace);
   if (canonical.vcs !== "git" || target.vcs !== "git" ||
-      canonical.projectRoot !== root || target.projectRoot !== workspace ||
+      !samePhysicalPath(canonical.projectRoot, root) ||
+      !samePhysicalPath(target.projectRoot, workspace) ||
       !canonical.repositoryId || !canonical.commonGitDir || !target.commonGitDir ||
       canonical.repositoryId !== target.repositoryId) {
     throw bad("Workspace must be a Git worktree root of the selected Maestro project", "INVALID_WORKSPACE_AUTHORITY");
@@ -38,7 +49,7 @@ function bindingFromRealGitWorktree({ projectRoot, workspacePath }) {
   } catch {
     throw bad("Git common directory is invalid", "INVALID_WORKSPACE_AUTHORITY");
   }
-  if (common !== targetCommon ||
+  if (!samePhysicalPath(common, targetCommon) ||
       !target.workspaceId || target.detached ||
       !target.branch || !target.headCommit || target.headCommit === "unknown") {
     throw bad("Workspace is detached, ambiguous or belongs to another Git repository", "INVALID_WORKSPACE_AUTHORITY");
