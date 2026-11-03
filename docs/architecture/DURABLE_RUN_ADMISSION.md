@@ -37,3 +37,16 @@ A admissão originalmente armazenava `workspaceFingerprint` enviado pelo cliente
 - A rota pública `runs.submit` **continua desabilitada**. Esta API interna não autoriza efeitos; ela apenas valida a identidade física do workspace. É obrigatório passar por aprovação persistida/capability e associar o `Run` preparado ao ledger antes de qualquer provider side effect.
 
 Testes: `node --test runtime/runs/__tests__/workspace-authority.test.js` e suíte de admissão/reconciliação. Este documento não é evidência de worker durável ou homologação de providers.
+
+## Supervisor one-shot interno (etapa de integração)
+
+O módulo `runtime/runs/submission-supervisor.js` adiciona `superviseSubmissionOnce` como coordenação interna para uma única submissão admitida, **sem daemon e sem habilitar `runs.submit`**.
+
+1. Exige `verifyApproval`, `prepareRun` e `dispatchRun` provenientes do próprio Maestro. Falha fechado sem verifier confiável e sem RunStore com suporte a leases/fencing.
+2. Verifica aprovação antes de reivindicar o job; `claimRunSubmission` dá exclusividade atômica por worker/fence. Revalida aprovação antes de dispatch.
+3. `prepareRun` deve persistir um Run `pending`; `markRunSubmissionDispatched` confirma proveniência, projeto/provider e grava o Run ID **antes** do primeiro efeito do provider.
+4. Mantém heartbeat de lease, sinaliza `AbortSignal` quando cancelamento é solicitado ou a renovação falha. Cancelamento **antes de dispatch** termina a submissão sem executar provider. Cancelamento após dispatch só é confirmado se o Run persistido o comprovar.
+5. `dispatchRun` é callback confiável separado: o supervisor **não inclui adaptadores reais e não executa workloads externos neste PR**. A finalização lê o status real persistido do Run e é validada no RunStore.
+6. Uma falha após efeitos possíveis deixa `DISPATCHED` e **não reexecuta automaticamente**. Lease expirado requer `runs reconcile --apply` e inspeção manual; não há retry cego.
+
+Testes cobrem execução uma vez, rejeição de aprovação falsa, cancelamento durante preparo e interrupção incerta sem replay. O próximo passo indispensável é integrar callbacks reais a `MaestroApplication.executePreparedRun` (mesmo Run ID), política de timeout/custo, prova de aprovação, servidor persistente e E2E com dois clientes/provedores. Este supervisor sozinho **não constitui execução durável concluída**.
