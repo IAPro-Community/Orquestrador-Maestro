@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, bad } = require("../runs/submission-admission");
+const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, validateAdmissionLedger, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
 
 const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions"]);
@@ -559,7 +559,8 @@ class JsonFileRunStore extends RunStore {
     if (!Array.isArray(state.missionBriefs)) state.missionBriefs = [];
     if (!Array.isArray(state.taskGraphs)) state.taskGraphs = [];
     if (!Array.isArray(state.attention)) state.attention = [];
-    if (!Array.isArray(state.runSubmissions)) state.runSubmissions = [];
+    if (state.runSubmissions === undefined) state.runSubmissions = [];
+    validateAdmissionLedger(state.runSubmissions);
     for (const collection of COLLECTIONS) {
       if (!Array.isArray(state[collection])) throw new Error(`RunStore data is missing collection: ${collection}`);
     }

@@ -233,6 +233,28 @@ test("blocked and timed-out Maestro Runs remain distinct terminal states", async
   })).status, "TIMED_OUT");
 });
 
+test("invalid persisted admission ledger fails closed instead of deleting queued work", async (t) => {
+  const f = fixture(); t.after(f.close);
+  const store = new JsonFileRunStore({ filePath: f.filePath });
+  await store.admitRunSubmission(spec());
+  const baseline = fs.readFileSync(f.filePath, "utf8");
+  for (const mutated of [
+    (json) => { json.runSubmissions = { erased: true }; },
+    (json) => { json.runSubmissions[0].requestDigest = digest("forged-plan"); },
+    (json) => { json.runSubmissions.push({ ...json.runSubmissions[0], id: "submission-duplicated" }); },
+    (json) => { json.runSubmissions[0].workerId = "worker-forged"; }
+  ]) {
+    const current = JSON.parse(baseline);
+    mutated(current);
+    fs.writeFileSync(f.filePath, JSON.stringify(current));
+    const reader = new JsonFileRunStore({ filePath: f.filePath });
+    await assert.rejects(reader.getRunSubmission("submission-unknown"), /RunStore|corrupt|digest|submission|lease/ui);
+    assert.ok(fs.readFileSync(f.filePath, "utf8").includes("runSubmissions"), "queued work must not be erased on bad read");
+  }
+  fs.writeFileSync(f.filePath, baseline);
+  assert.equal((await new JsonFileRunStore({ filePath: f.filePath }).listRunSubmissions()).length, 1);
+});
+
 test("legacy v1 RunStore state without submissions is upgraded without changing existing runs", async (t) => {
   const f = fixture(); t.after(f.close);
   fs.mkdirSync(path.dirname(f.filePath), { recursive: true });

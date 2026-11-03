@@ -4,7 +4,7 @@
 
 ## Fronteira
 
-- **Maestro**, não Nexus, mantém a futura fila operacional, projeto, worktree, idempotência e fencing. A coleção opcional `runSubmissions` usa o mesmo `JsonFileRunStore` e o mesmo lock de arquivo multiprocesso, sem novo banco e sem duplicar memória semântica.
+- **Maestro**, não Nexus, mantém a futura fila operacional, projeto, worktree, idempotência e fencing. A coleção opcional `runSubmissions` usa o mesmo `JsonFileRunStore` e o mesmo lock de arquivo multiprocesso, sem novo banco e sem duplicar memória semântica. Em arquivos v1 legados, a coleção ausente inicia vazia; se a coleção existir mas estiver corrompida, o store **falha fechado**, sem apagá-la ou recriar a fila.
 - `admitRunSubmission` registra somente IDs, digests de SHA-256, providers selecionados, limites de duração/custo/tentativas e status operacional `PENDING_WORKER`. Não armazena token, PromptArtifact completo, saída de terminal, credencial ou log bruto.
 - Cada chave `(projectId, clientKey)` representa um único request digest. Repetições retornam a mesma identidade; alterar plano, artefato, orçamento, worktree ou provider com a mesma chave é erro `RUN_SUBMISSION_CONFLICT`.
 - O mesmo fingerprint de workspace **em qualquer projeto** não pode ter duas submissões simultâneas não terminais; IDs de projeto diferentes não eliminam exclusão por worktree. Reservas `RECONCILIATION_REQUIRED` continuam bloqueando novos writes até haver reconciliação auditável.

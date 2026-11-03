@@ -76,4 +76,54 @@ function validateWorker(ownerId, fence, leaseMs) {
 function isTerminal(status) { return TERMINAL.has(status); }
 function isWorkspaceOccupied(status) { return ACTIVE.has(status); }
 
-module.exports = { normalizeAdmission, validateID, validateWorker, isTerminal, isWorkspaceOccupied, bad };
+function validateAdmissionLedger(rows) {
+  if (!Array.isArray(rows)) throw bad("RunStore runSubmissions collection must be an array", "RUN_STORE_CORRUPTED");
+  const ids = new Set(), keys = new Set(), occupied = new Set();
+  const statuses = new Set(["PENDING_WORKER", "CLAIMED", "DISPATCHED", "CANCEL_REQUESTED",
+    "COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT", "CANCELLED", "RECONCILIATION_REQUIRED"]);
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      throw bad("malformed run submission in persisted RunStore", "RUN_STORE_CORRUPTED");
+    }
+    let normalized;
+    try { normalized = normalizeAdmission(row); }
+    catch { throw bad("malformed immutable submission fields", "RUN_STORE_CORRUPTED"); }
+    if (normalized.requestDigest !== row.requestDigest) {
+      throw bad("submission request digest mismatch", "RUN_STORE_CORRUPTED");
+    }
+    if (!SAFE_ID.test(row.id || "") || ids.has(row.id) ||
+        !statuses.has(row.status) || !Number.isSafeInteger(row.fence) || row.fence < 0) {
+      throw bad("malformed or repeated submission identity/state", "RUN_STORE_CORRUPTED");
+    }
+    const key = row.projectId + "\0" + row.clientKey;
+    if (keys.has(key)) throw bad("duplicate persisted idempotency key", "RUN_STORE_CORRUPTED");
+    if (isWorkspaceOccupied(row.status) && occupied.has(row.workspaceFingerprint)) {
+      throw bad("duplicate active workspace reservation", "RUN_STORE_CORRUPTED");
+    }
+    if (row.workerId !== null && (typeof row.workerId !== "string" || !SAFE_ID.test(row.workerId))) {
+      throw bad("invalid worker identity", "RUN_STORE_CORRUPTED");
+    }
+    if (row.runId !== null && (typeof row.runId !== "string" || !SAFE_ID.test(row.runId))) {
+      throw bad("invalid Run identity", "RUN_STORE_CORRUPTED");
+    }
+    if (row.leaseExpiresAt !== null &&
+        (typeof row.leaseExpiresAt !== "string" || !Number.isFinite(Date.parse(row.leaseExpiresAt)))) {
+      throw bad("invalid worker lease", "RUN_STORE_CORRUPTED");
+    }
+    const workerOwned = ["CLAIMED", "DISPATCHED", "CANCEL_REQUESTED"].includes(row.status);
+    if (workerOwned !== (row.workerId !== null && row.leaseExpiresAt !== null)) {
+      throw bad("submission worker lease/state mismatch", "RUN_STORE_CORRUPTED");
+    }
+    if ((row.status === "CLAIMED" && row.runId !== null) ||
+        (row.status === "DISPATCHED" && row.runId === null) ||
+        (row.status === "PENDING_WORKER" && (row.workerId !== null || row.runId !== null))) {
+      throw bad("submission lifecycle is contradictory", "RUN_STORE_CORRUPTED");
+    }
+    ids.add(row.id); keys.add(key);
+    if (isWorkspaceOccupied(row.status)) occupied.add(row.workspaceFingerprint);
+  }
+  return rows;
+}
+
+module.exports = { normalizeAdmission, validateID, validateWorker, isTerminal,
+  isWorkspaceOccupied, validateAdmissionLedger, bad };
