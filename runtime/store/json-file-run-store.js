@@ -116,7 +116,7 @@ class JsonFileRunStore extends RunStore {
         return { submission: clone(existing), replayed: true };
       }
       const busy = this._state.runSubmissions.find((row) =>
-        row.projectId === spec.projectId && row.workspaceFingerprint === spec.workspaceFingerprint &&
+        row.workspaceFingerprint === spec.workspaceFingerprint &&
         isWorkspaceOccupied(row.status));
       if (busy) throw bad("workspace is already reserved by a pending or unresolved submission", "WORKSPACE_RESERVED");
       const now = new Date().toISOString();
@@ -218,8 +218,7 @@ class JsonFileRunStore extends RunStore {
     return this._mutate(async () => {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
-      if ((row.status !== "DISPATCHED" && row.status !== "CANCEL_REQUESTED") ||
-          (status === "COMPLETED" && row.status === "CANCEL_REQUESTED")) {
+      if (row.status !== "DISPATCHED" && row.status !== "CANCEL_REQUESTED") {
         throw bad("terminal status is not valid for the submission state", "SUBMISSION_INVALID_TRANSITION");
       }
       if (status === "CANCELLED" && row.status !== "CANCEL_REQUESTED") {
@@ -227,7 +226,13 @@ class JsonFileRunStore extends RunStore {
       }
       const persistedRun = this._state.runs.find((run) => run.id === row.runId);
       const runStatus = { COMPLETED: "completed", FAILED: "failed", CANCELLED: "cancelled" }[status];
-      if (!persistedRun || persistedRun.status !== runStatus) {
+      // The worker may acknowledge cancellation before it has created a Run.
+      // It is safe only while no dispatch was ever recorded. A late cancel
+      // after a completed Run must be recorded as COMPLETED, not fabricated as
+      // provider cancellation.
+      const cancelledBeforeDispatch = status === "CANCELLED" &&
+        row.status === "CANCEL_REQUESTED" && row.runId === null;
+      if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
         throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
       }
       row.status = status;

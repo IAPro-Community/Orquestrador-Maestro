@@ -122,6 +122,15 @@ test("worker lease is fenced: claim, dispatch, cancellation and confirmation", a
     planDigest: digest("another-plan")
   }));
   assert.equal(next.submission.status, "PENDING_WORKER");
+  const busyDifferentProject = await store.admitRunSubmission(spec({
+    projectId: "project-separate", clientKey: "flow-request-0003",
+    workspaceFingerprint: digest("worktree-2"), planDigest: digest("project-plan")
+  }));
+  assert.equal(busyDifferentProject.submission.status, "PENDING_WORKER");
+  await assert.rejects(store.admitRunSubmission(spec({
+    projectId: "project-spoofed", clientKey: "flow-request-0004",
+    planDigest: digest("attempt-overlap")
+  })), { code: "WORKSPACE_RESERVED" });
 });
 
 test("pending cancellation has no worker side effects; expired claim is quarantined without retry", async (t) => {
@@ -156,6 +165,43 @@ test("pending cancellation has no worker side effects; expired claim is quaranti
     clientKey: "flow-request-0003",
     planDigest: digest("plan-v3")
   })), { code: "WORKSPACE_RESERVED" });
+});
+
+test("worker can confirm cancellation before dispatch without inventing a Run", async (t) => {
+  const f = fixture(); t.after(f.close);
+  const store = new JsonFileRunStore({ filePath: f.filePath });
+  const admission = (await store.admitRunSubmission(spec())).submission;
+  const claimed = await store.claimRunSubmission(admission.id, {
+    workerId: "worker-instance-0001"
+  });
+  assert.equal((await store.requestRunSubmissionCancellation(admission.id)).status, "CANCEL_REQUESTED");
+  const outcome = await store.finishRunSubmission(admission.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, status: "CANCELLED"
+  });
+  assert.equal(outcome.status, "CANCELLED");
+  assert.equal(outcome.runId, null);
+  assert.deepEqual(await store.listRuns({}), []);
+});
+
+test("late cancellation cannot forge provider stop after persisted completion", async (t) => {
+  const f = fixture(); t.after(f.close);
+  const store = new JsonFileRunStore({ filePath: f.filePath });
+  const submission = (await store.admitRunSubmission(spec())).submission;
+  const claimed = await store.claimRunSubmission(submission.id, { workerId: "worker-instance-0001" });
+  await store.saveTask({ id: "task-late-cancel", projectId: "project-sample", description: "Test API" });
+  await store.saveRun({ id: "run-late-cancel", taskId: "task-late-cancel", providerId: "agy", status: "pending" });
+  await store.markRunSubmissionDispatched(submission.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, runId: "run-late-cancel"
+  });
+  await store.saveRun({ id: "run-late-cancel", taskId: "task-late-cancel", providerId: "agy", status: "completed" });
+  assert.equal((await store.requestRunSubmissionCancellation(submission.id)).status, "CANCEL_REQUESTED");
+  await assert.rejects(store.finishRunSubmission(submission.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, status: "CANCELLED"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+  const outcome = await store.finishRunSubmission(submission.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, status: "COMPLETED"
+  });
+  assert.equal(outcome.status, "COMPLETED");
 });
 
 test("legacy v1 RunStore state without submissions is upgraded without changing existing runs", async (t) => {
