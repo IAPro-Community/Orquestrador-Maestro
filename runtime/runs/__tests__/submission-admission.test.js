@@ -305,3 +305,53 @@ test("independent Maestro processes cannot admit duplicate execution for the sam
   const store = new JsonFileRunStore({ filePath: f.filePath });
   assert.equal((await store.listRunSubmissions()).length, 1);
 });
+
+test("prepared Run cancellation is bound by fence and cannot affect an unrelated Run", async (t) => {
+  const f = fixture(); t.after(f.close);
+  const store = new JsonFileRunStore({ filePath: f.filePath });
+  const admission = (await store.admitRunSubmission(spec())).submission;
+  const claimed = await store.claimRunSubmission(admission.id, {
+    workerId: "worker-fenced-0001", leaseMs: 30000
+  });
+  await store.createProject({ id: "project-sample", path: "/fixture/project" });
+  await store.saveTask({ id: "task-fenced-0001", projectId: "project-sample" });
+  for (const [runId, stepId] of [
+    ["run-unrelated-0001", "step-unrelated-0001"],
+    ["run-prepared-0001", "step-prepared-0001"]
+  ]) {
+    await store.saveRun({
+      id: runId, taskId: "task-fenced-0001", providerId: "agy", status: "pending"
+    });
+    await store.saveStep({ id: stepId, runId, status: "pending" });
+  }
+  await store.requestRunSubmissionCancellation(admission.id);
+  const options = {
+    workerId: "worker-fenced-0001", fence: claimed.fence, status: "CANCELLED"
+  };
+  await assert.rejects(store.finishRunSubmission(admission.id, {
+    ...options, preparedRunId: "run-unrelated-0001"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+  assert.equal((await store.getRun("run-unrelated-0001")).status, "pending");
+
+  const bound = await store.bindPreparedRunSubmission(admission.id, {
+    workerId: options.workerId, fence: options.fence, runId: "run-prepared-0001"
+  });
+  assert.equal(bound.preparedRunId, "run-prepared-0001");
+  await assert.rejects(store.finishRunSubmission(admission.id, {
+    ...options, preparedRunId: "run-unrelated-0001"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+  await assert.rejects(store.bindPreparedRunSubmission(admission.id, {
+    workerId: options.workerId, fence: options.fence, runId: "run-unrelated-0001"
+  }), { code: "RUN_PROVENANCE_MISMATCH" });
+
+  const result = await store.finishRunSubmission(admission.id, {
+    ...options, preparedRunId: "run-prepared-0001"
+  });
+  assert.equal(result.status, "CANCELLED");
+  assert.equal((await store.getRun("run-prepared-0001")).status, "cancelled");
+  assert.equal((await store.getStep("step-prepared-0001")).status, "cancelled");
+  assert.equal((await store.getRun("run-unrelated-0001")).status, "pending");
+  assert.equal((await store.getStep("step-unrelated-0001")).status, "pending");
+  const restarted = new JsonFileRunStore({ filePath: f.filePath });
+  assert.equal((await restarted.getRunSubmission(admission.id)).preparedRunId, "run-prepared-0001");
+});
