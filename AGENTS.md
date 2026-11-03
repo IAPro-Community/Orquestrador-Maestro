@@ -31,11 +31,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-public.ps
 git diff -- .
 ```
 
-## Política de branches e pull requests — execução por frente
+## Política de branch única de release (diretriz vigente)
 
-- Antes de criar qualquer branch ou PR, **listar os PRs abertos** e identificar se já existe um branch de integração para a mesma issue, objetivo ou release. Se existir, **trabalhar exclusivamente nele**, adicionando commits e testes ao PR existente.
-- Para a execução durável do Maestro (#48), o branch de integração atual é `feat/durable-admission-ledger-20261103`, PR #59, base `v1`. Incrementos de persistência, supervisor, Bridge, retry, cancel e QA pertencem a essa linha enquanto permanecer aberta.
-- Não criar PRs encadeados por etapas, nem branches paralelos para 'continuação', 'fase 2' ou 'correção' da mesma entrega. Use commits pequenos, checklist de escopo, comentários e evidências no PR único.
-- Separar um PR apenas quando o assunto for **arquiteturalmente independente** (por exemplo, site institucional), hotfix isolado, ou exigir ciclo de homologação distinto. Não misturar frentes sem relação só para reduzir a contagem de PRs.
-- Um PR antigo só pode ser fechado depois de verificar o que foi efetivamente incorporado, registrar o commit de destino e listar conteúdo exclusivo ainda pendente; não apagar branches com artefatos não migrados.
-- Não alterar `main`; o trabalho de runtime passa por `v1` após revisão e testes no commit exato. Nunca inferir que checks antigos validam um novo HEAD.
+- **Única branch de desenvolvimento de runtime:** `v1`. Todas as correções, etapas do Maestro, testes e documentação da execução durável ocorrem diretamente em `v1`. Não criar branches `feat/*`, `fix/*` nem PRs sucessivos para continuar o mesmo escopo.
+- O [PR #59](https://github.com/IAPro-Community/Orquestrador-Maestro/pull/59) já foi integrado a `v1` no commit `5896ba429693765d0517798e187632c535440683`; os PRs #60 e #61 foram consolidados e fechados. Não usá-los como branches ativas.
+- Preservar commits pequenos, testes automatizados no SHA exato e evidência de homologação. **Estar na release não transforma uma funcionalidade experimental em homologada**: manter `runs.submit` desabilitado até existir execução durável real e E2E.
+- Antes de trabalhar, atualizar a cópia local a partir de `v1`; não sobrescrever alterações remotas. Não alterar `main` para desenvolvimento de runtime.
+- Branches e PRs antigos podem permanecer apenas como histórico até auditoria de conteúdo; encerrar PRs redundantes depois de comprovar a incorporação, sem descartar código exclusivo.
