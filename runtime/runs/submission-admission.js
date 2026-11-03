@@ -58,9 +58,15 @@ function normalizeAdmission(input) {
   // Fixed-order serialization; replays cannot change the approved scope or
   // provider mapping. No description, credential, token, prompt or raw output
   // is stored in the admission index.
+  // Optional for legacy internal callers. Manifest-bound admissions MUST
+  // provide this immutable identifier; the future public Bridge will reject
+  // submissions without a persisted, independently authorized manifest.
+  const manifestId = input.manifestId === undefined ? undefined :
+    validateID(input.manifestId, "manifestId");
   const immutable = {
     projectId, planDigest, artifactDigest, workspaceFingerprint, approvalDigest,
-    taskCount, providers: Object.freeze([...providers]), maxAttempts, maxDurationMs, maxCostUSD
+    taskCount, providers: Object.freeze([...providers]), maxAttempts, maxDurationMs, maxCostUSD,
+    ...(manifestId ? { manifestId } : {})
   };
   const requestDigest = crypto.createHash("sha256").update(JSON.stringify(immutable)).digest("hex");
   return Object.freeze({ clientKey, requestDigest, ...immutable });
@@ -84,6 +90,10 @@ function validateAdmissionLedger(rows) {
   for (const row of rows) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       throw bad("malformed run submission in persisted RunStore", "RUN_STORE_CORRUPTED");
+    }
+    if (row.manifestId !== undefined) {
+      try { validateID(row.manifestId, "manifestId"); }
+      catch { throw bad("invalid manifest binding in admission ledger", "RUN_STORE_CORRUPTED"); }
     }
     let normalized;
     try { normalized = normalizeAdmission(row); }
