@@ -128,6 +128,7 @@ class JsonFileRunStore extends RunStore {
         workerId: null,
         leaseExpiresAt: null,
         runId: null,
+        preparedRunId: null,
         createdAt: now,
         updatedAt: now
       };
@@ -184,6 +185,38 @@ class JsonFileRunStore extends RunStore {
     }
   }
 
+  // Bind a prepared (but never executed) Run to the fenced submission.
+  // This evidence is persisted before cancellation or provider dispatch, so
+  // a caller cannot cancel an unrelated pending Run in the same project.
+  async bindPreparedRunSubmission(submissionId, { workerId, fence, runId } = {}) {
+    validateID(submissionId, "submissionId");
+    validateWorker(workerId, fence);
+    validateID(runId, "runId");
+    return this._mutate(async () => {
+      const row = this._state.runSubmissions.find((record) => record.id === submissionId);
+      this._requireCurrentWorker(row, workerId, fence);
+      if (!["CLAIMED", "CANCEL_REQUESTED"].includes(row.status) || row.runId !== null ||
+          (row.preparedRunId != null && row.preparedRunId !== runId)) {
+        throw bad("prepared Run cannot be rebound or attached after dispatch", "RUN_PROVENANCE_MISMATCH");
+      }
+      const preparedRun = this._state.runs.find((run) => run.id === runId);
+      const task = this._state.tasks.find((item) => item.id === preparedRun?.taskId);
+      const steps = this._state.steps.filter((step) => step.runId === runId);
+      if (!preparedRun || !task || task.projectId !== row.projectId ||
+          !row.providers.includes(preparedRun.providerId) || preparedRun.status !== "pending" ||
+          steps.length === 0 || steps.some((step) => step.status !== "pending") ||
+          this._state.executions.some((execution) => execution.runId === runId) ||
+          this._state.runSubmissions.some((other) =>
+            other.id !== row.id && (other.runId === runId || other.preparedRunId === runId))) {
+        throw bad("only an unexecuted Run of this submission may be bound", "RUN_PROVENANCE_MISMATCH");
+      }
+      row.preparedRunId = runId;
+      row.updatedAt = new Date().toISOString();
+      await this._flush();
+      return clone(row);
+    });
+  }
+
   // DISPATCHED is only written after a real Maestro Run ID is known. This
   // ledger does not create runs or call a provider by itself.
   async markRunSubmissionDispatched(submissionId, { workerId, fence, runId } = {}) {
@@ -195,6 +228,9 @@ class JsonFileRunStore extends RunStore {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
       if (row.status !== "CLAIMED") throw bad("submission was already dispatched or cancelled", "SUBMISSION_NOT_CLAIMABLE");
+      if (row.preparedRunId != null && row.preparedRunId !== runId) {
+        throw bad("dispatch Run differs from the bound prepared Run", "RUN_PROVENANCE_MISMATCH");
+      }
       const persistedRun = this._state.runs.find((run) => run.id === runId);
       const persistedTask = this._state.tasks.find((task) => task.id === persistedRun?.taskId);
       if (!persistedRun || !persistedTask ||
@@ -240,6 +276,9 @@ class JsonFileRunStore extends RunStore {
       // atomically cancel that Run and its pending Steps with the submission.
       // Otherwise a detached pending Run could be mistaken for resumable work.
       if (preparedRunId !== undefined) {
+        if (row.preparedRunId !== preparedRunId) {
+          throw bad("prepared Run is not bound to this submission", "RUN_PROVENANCE_MISMATCH");
+        }
         if (!cancelledBeforeDispatch) {
           throw bad("preparedRunId is valid only for cancellation before dispatch", "SUBMISSION_INVALID_TRANSITION");
         }
