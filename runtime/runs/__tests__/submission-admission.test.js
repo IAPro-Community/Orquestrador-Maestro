@@ -204,6 +204,35 @@ test("late cancellation cannot forge provider stop after persisted completion", 
   assert.equal(outcome.status, "COMPLETED");
 });
 
+test("blocked and timed-out Maestro Runs remain distinct terminal states", async (t) => {
+  const f = fixture(); t.after(f.close);
+  const store = new JsonFileRunStore({ filePath: f.filePath });
+  await store.saveTask({ id: "task-blocked-01", projectId: "project-sample", description: "Check approval" });
+  const first = (await store.admitRunSubmission(spec())).submission;
+  const claimed = await store.claimRunSubmission(first.id, { workerId: "worker-instance-0001" });
+  await store.saveRun({ id: "run-blocked-01", taskId: "task-blocked-01", providerId: "agy", status: "pending" });
+  await store.markRunSubmissionDispatched(first.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, runId: "run-blocked-01"
+  });
+  await store.saveRun({ id: "run-blocked-01", taskId: "task-blocked-01", providerId: "agy", status: "blocked" });
+  assert.equal((await store.finishRunSubmission(first.id, {
+    workerId: "worker-instance-0001", fence: claimed.fence, status: "BLOCKED"
+  })).status, "BLOCKED");
+
+  const second = (await store.admitRunSubmission(spec({
+    clientKey: "flow-request-0002", planDigest: digest("timeout-plan")
+  }))).submission;
+  const claimed2 = await store.claimRunSubmission(second.id, { workerId: "worker-instance-0002" });
+  await store.saveRun({ id: "run-timeout-0001", taskId: "task-blocked-01", providerId: "opencode", status: "pending" });
+  await store.markRunSubmissionDispatched(second.id, {
+    workerId: "worker-instance-0002", fence: claimed2.fence, runId: "run-timeout-0001"
+  });
+  await store.saveRun({ id: "run-timeout-0001", taskId: "task-blocked-01", providerId: "opencode", status: "timed_out" });
+  assert.equal((await store.finishRunSubmission(second.id, {
+    workerId: "worker-instance-0002", fence: claimed2.fence, status: "TIMED_OUT"
+  })).status, "TIMED_OUT");
+});
+
 test("legacy v1 RunStore state without submissions is upgraded without changing existing runs", async (t) => {
   const f = fixture(); t.after(f.close);
   fs.mkdirSync(path.dirname(f.filePath), { recursive: true });

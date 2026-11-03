@@ -214,7 +214,7 @@ class JsonFileRunStore extends RunStore {
   async finishRunSubmission(submissionId, { workerId, fence, status } = {}) {
     validateID(submissionId, "submissionId");
     validateWorker(workerId, fence);
-    if (!["COMPLETED", "FAILED", "CANCELLED"].includes(status)) throw bad("unsupported submission terminal status");
+    if (!["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT", "CANCELLED"].includes(status)) throw bad("unsupported submission terminal status");
     return this._mutate(async () => {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
@@ -225,7 +225,7 @@ class JsonFileRunStore extends RunStore {
         throw bad("cancellation must be requested before it is confirmed", "SUBMISSION_INVALID_TRANSITION");
       }
       const persistedRun = this._state.runs.find((run) => run.id === row.runId);
-      const runStatus = { COMPLETED: "completed", FAILED: "failed", CANCELLED: "cancelled" }[status];
+      const runStatus = { COMPLETED: "completed", FAILED: "failed", BLOCKED: "blocked", TIMED_OUT: "timed_out", CANCELLED: "cancelled" }[status];
       // The worker may acknowledge cancellation before it has created a Run.
       // It is safe only while no dispatch was ever recorded. A late cancel
       // after a completed Run must be recorded as COMPLETED, not fabricated as

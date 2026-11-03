@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const SAFE_ID = /^[A-Za-z0-9._:-]{8,128}$/;
 const HASH = /^[a-f0-9]{64}$/i;
 const ALLOWED_PROVIDERS = new Set(["agy", "opencode", "codex", "claude"]);
-const TERMINAL = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
+const TERMINAL = new Set(["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT", "CANCELLED"]);
 const ACTIVE = new Set(["PENDING_WORKER", "CLAIMED", "DISPATCHED", "CANCEL_REQUESTED", "RECONCILIATION_REQUIRED"]);
 
 function bad(message, code = "INVALID_SUBMISSION") {
@@ -60,7 +60,7 @@ function normalizeAdmission(input) {
   // is stored in the admission index.
   const immutable = {
     projectId, planDigest, artifactDigest, workspaceFingerprint, approvalDigest,
-    taskCount, providers: [...providers], maxAttempts, maxDurationMs, maxCostUSD
+    taskCount, providers: Object.freeze([...providers]), maxAttempts, maxDurationMs, maxCostUSD
   };
   const requestDigest = crypto.createHash("sha256").update(JSON.stringify(immutable)).digest("hex");
   return Object.freeze({ clientKey, requestDigest, ...immutable });
