@@ -5,11 +5,12 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, validateAdmissionLedger, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
+const { normalizeExecutableManifest, validateStoredExecutableManifest } = require("../runs/executable-manifest");
 
-const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions"]);
+const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions", "executableManifests"]);
 
 function emptyState() {
-  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [] };
+  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [], executableManifests: [] };
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -104,6 +105,33 @@ class JsonFileRunStore extends RunStore {
 
   // Admission is an operational queue ledger, not an executable Run. A
   // provider cannot start without a separate fenced worker implementation.
+  // Immutable, metadata-only DAG manifests. Storing a manifest does NOT
+  // approve it, create a Run, or authorize provider side effects.
+  async putExecutableManifest(input) {
+    const manifest = normalizeExecutableManifest(input);
+    return this._mutate(async () => {
+      const previous = this._state.executableManifests.find((item) =>
+        item.projectId === manifest.projectId &&
+        item.planDigest === manifest.planDigest &&
+        item.artifactDigest === manifest.artifactDigest);
+      if (previous) {
+        if (previous.id !== manifest.id || previous.digest !== manifest.digest) {
+          throw bad("immutable plan/artifact manifest cannot be rebound", "EXECUTABLE_MANIFEST_CONFLICT");
+        }
+        return clone(previous);
+      }
+      const project = this._state.projects.find((item) => item.id === manifest.projectId);
+      if (!project) throw bad("executable manifest project is unregistered", "MANIFEST_PROJECT_NOT_FOUND");
+      this._state.executableManifests.push(clone(manifest));
+      await this._flush();
+      return clone(manifest);
+    });
+  }
+  async getExecutableManifest(id) { return this._get("executableManifests", id); }
+  async listExecutableManifests(filters = {}) {
+    return this._list("executableManifests", filters, ["projectId"]);
+  }
+
   async admitRunSubmission(input) {
     const spec = normalizeAdmission(input);
     return this._mutate(async () => {
@@ -626,6 +654,14 @@ class JsonFileRunStore extends RunStore {
     if (!Array.isArray(state.taskGraphs)) state.taskGraphs = [];
     if (!Array.isArray(state.attention)) state.attention = [];
     if (state.runSubmissions === undefined) state.runSubmissions = [];
+    if (state.executableManifests === undefined) state.executableManifests = [];
+    if (!Array.isArray(state.executableManifests)) throw new Error("RunStore executable manifests are invalid");
+    const manifestIds = new Set();
+    for (const row of state.executableManifests) {
+      validateStoredExecutableManifest(row);
+      if (manifestIds.has(row.id)) throw new Error("RunStore has duplicate executable manifest");
+      manifestIds.add(row.id);
+    }
     validateAdmissionLedger(state.runSubmissions);
     for (const collection of COLLECTIONS) {
       if (!Array.isArray(state[collection])) throw new Error(`RunStore data is missing collection: ${collection}`);
