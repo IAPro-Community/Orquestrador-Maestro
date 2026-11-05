@@ -168,7 +168,8 @@ function createPollingSubmissionWorker(options = {}) {
         schedule(pollIntervalMs);
       }
     }, delayMs);
-    timer.unref?.();
+    // Explicit start() must keep the host process alive until stop().
+    // Unref here would make a standalone worker exit despite pending admissions.
   }
   return Object.freeze({
     runOnce,
