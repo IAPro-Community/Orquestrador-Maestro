@@ -1,11 +1,13 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createBridge } = require("../bridge");
+const { JsonFileRunStore } = require("../../store");
 
 const request = (method, params = {}) => ({
   jsonrpc: "2.0", id: 1, method, params
@@ -94,4 +96,123 @@ test("Bridge never scopes a different directory on the same filesystem as the cu
   const bridge = createBridge({ projectRoot: current, services: { runStore: store } });
   const denied = await bridge.handle(request("runs.submissions.list"));
   assert.equal(denied.error.code, -32602);
+});
+
+test("Bridge cancellation is project-scoped, idempotent and never fabricates worker completion", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cancel-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const rows = [
+    { id: "submission-queued-001", projectId: "project-bound-001", status: "PENDING_WORKER", taskCount: 1, providers: ["agy"] },
+    { id: "submission-active-002", projectId: "project-bound-001", status: "CLAIMED", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-foreign-003", projectId: "project-foreign-002", status: "PENDING_WORKER", taskCount: 1, providers: ["codex"] }
+  ];
+  const requests = [];
+  const store = {
+    listProjects: async () => [{ id: "project-bound-001", path: root }],
+    listRunSubmissions: async () => rows,
+    getRunSubmission: async (id) => rows.find((row) => row.id === id),
+    requestRunSubmissionCancellation: async (id) => {
+      requests.push(id);
+      const row = rows.find((item) => item.id === id);
+      if (row.status === "PENDING_WORKER") row.status = "CANCELLED";
+      else if (row.status === "CLAIMED") row.status = "CANCEL_REQUESTED";
+      return { ...row };
+    }
+  };
+  const bridge = createBridge({ projectRoot: root, services: { runStore: store } });
+  const init = await bridge.handle(request("initialize"));
+  assert.equal(init.result.capabilities.runsSubmissionsCancel, true);
+  assert.equal(init.result.capabilities.runsSubmit, false);
+  const queued = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(queued.result.status, "CANCELLED");
+  const repeat = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(repeat.result.status, "CANCELLED");
+  const active = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-active-002"
+  }));
+  assert.equal(active.result.status, "CANCEL_REQUESTED");
+  const foreign = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-foreign-003"
+  }));
+  assert.equal(foreign.result, null);
+  assert.deepEqual(requests, [
+    "submission-queued-001", "submission-queued-001", "submission-active-002"
+  ]);
+  const invalid = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-active-002", projectId: "project-foreign-002"
+  }));
+  assert.equal(invalid.error.code, -32602);
+  assert.equal(rows[2].status, "PENDING_WORKER");
+});
+
+test("Bridge does not advertise cancellation without a trusted durable RunStore mutation", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cancel-denied-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = {
+    listProjects: async () => [{ id: "project-bound-001", path: root }],
+    listRunSubmissions: async () => [],
+    getRunSubmission: async () => null
+  };
+  const bridge = createBridge({ projectRoot: root, services: { runStore: store } });
+  const init = await bridge.handle(request("initialize"));
+  assert.equal(init.result.capabilities.runsSubmissionsCancel, false);
+  const denied = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(denied.error.code, -32602);
+});
+
+test("two Bridge clients sharing one real RunStore see durable scoped cancellation", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-two-clients-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const leftRoot = path.join(root, "client-a");
+  const rightRoot = path.join(root, "client-b");
+  fs.mkdirSync(leftRoot);
+  fs.mkdirSync(rightRoot);
+  const filePath = path.join(root, "state", "runs.json");
+  const left = new JsonFileRunStore({ filePath });
+  const right = new JsonFileRunStore({ filePath });
+  await left.createProject({ id: "project-client-a", path: leftRoot });
+  await right.createProject({ id: "project-client-b", path: rightRoot });
+  const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
+  const admission = (id, provider) => ({
+    projectId: id,
+    clientKey: "client-" + id,
+    planDigest: digest("plan-" + id),
+    artifactDigest: digest("artifact-" + id),
+    workspaceFingerprint: digest("workspace-" + id),
+    approvalDigest: digest("approval-" + id),
+    taskCount: 1,
+    providers: [provider],
+    maxAttempts: 1,
+    maxDurationMs: 10000,
+    maxCostUSD: 0
+  });
+  const first = (await left.admitRunSubmission(admission("project-client-a", "agy"))).submission;
+  const second = (await right.admitRunSubmission(admission("project-client-b", "opencode"))).submission;
+  const clientA = createBridge({ projectRoot: leftRoot, services: { runStore: left } });
+  const clientB = createBridge({ projectRoot: rightRoot, services: { runStore: right } });
+  assert.equal((await clientA.handle(request("runs.submissions.get", {
+    submissionId: second.id
+  }))).result, null);
+  assert.equal((await clientB.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result, null);
+  assert.equal((await clientA.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result.status, "CANCELLED");
+  assert.equal((await right.getRunSubmission(first.id)).status, "CANCELLED");
+  assert.equal((await clientA.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result.status, "CANCELLED");
+  assert.equal((await left.getRunSubmission(second.id)).status, "PENDING_WORKER");
+  await right.claimRunSubmission(second.id, { workerId: "worker-client-b-0001" });
+  assert.equal((await clientB.handle(request("runs.submissions.cancel", {
+    submissionId: second.id
+  }))).result.status, "CANCEL_REQUESTED");
+  assert.equal((await left.getRunSubmission(second.id)).status, "CANCEL_REQUESTED");
 });

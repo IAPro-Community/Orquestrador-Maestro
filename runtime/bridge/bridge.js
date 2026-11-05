@@ -44,7 +44,8 @@ function createBridge(options = {}) {
       projectCompose: Boolean(services.runtime?.providers?.get),
       plansRoutePreview: Boolean(routingProviders?.get),
       runsObserve: Boolean(services.runtime?.inspectRun),
-      runsSubmissionsRead: Boolean(services.runStore?.listRunSubmissions)
+      runsSubmissionsRead: Boolean(services.runStore?.listRunSubmissions),
+      runsSubmissionsCancel: Boolean(services.runStore?.requestRunSubmissionCancellation)
     }),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
@@ -71,6 +72,7 @@ function createBridge(options = {}) {
     "runs.observe": (params) => observer.observe(params),
     "runs.submissions.list": (params) => submissions.list(params),
     "runs.submissions.get": (params) => submissions.get(params),
+    "runs.submissions.cancel": (params) => submissions.cancel(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
     "runs.submit": () => unsupported("Durable run worker is unavailable; admission ledger is internal only"),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
@@ -160,6 +162,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
       plansRoutePreview: capabilities.plansRoutePreview === true,
       runsObserve: capabilities.runsObserve === true,
       runsSubmissionsRead: capabilities.runsSubmissionsRead === true,
+      runsSubmissionsCancel: capabilities.runsSubmissionsCancel === true,
       runsSubmit: false,
       memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
     })

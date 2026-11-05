@@ -79,6 +79,28 @@ function createSubmissionStatusReader({ store, projectRoot }) {
         submissions: filtered.slice(0, limit).map(project),
       });
     },
+    async cancel(params = {}) {
+      if (!params || typeof params !== "object" || Array.isArray(params) ||
+          Object.keys(params).some((key) => key !== "submissionId") ||
+          typeof params.submissionId !== "string" ||
+          !/^[A-Za-z0-9._:-]{8,128}$/.test(params.submissionId)) {
+        throw invalid("runs.submissions.cancel requires a safe submissionId");
+      }
+      if (typeof store?.requestRunSubmissionCancellation !== "function") {
+        throw invalid("durable submission cancellation is not installed");
+      }
+      const projectId = await scoped();
+      const current = await store.getRunSubmission(params.submissionId);
+      // Match the read surface: never reveal whether a foreign ID exists.
+      if (!current || current.projectId !== projectId) return null;
+      const updated = await store.requestRunSubmissionCancellation(current.id);
+      // The RunStore owns the atomic PENDING_WORKER -> CANCELLED transition,
+      // or records CANCEL_REQUESTED for a worker already in flight.
+      if (!updated || updated.projectId !== projectId) {
+        throw invalid("submission ownership changed during cancellation");
+      }
+      return project(updated);
+    },
     async get(params = {}) {
       if (!params || typeof params !== "object" || Array.isArray(params) ||
           Object.keys(params).some((key) => key !== "submissionId") ||
