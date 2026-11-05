@@ -95,3 +95,71 @@ test("Bridge never scopes a different directory on the same filesystem as the cu
   const denied = await bridge.handle(request("runs.submissions.list"));
   assert.equal(denied.error.code, -32602);
 });
+
+test("Bridge cancellation is project-scoped, idempotent and never fabricates worker completion", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cancel-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const rows = [
+    { id: "submission-queued-001", projectId: "project-bound-001", status: "PENDING_WORKER", taskCount: 1, providers: ["agy"] },
+    { id: "submission-active-002", projectId: "project-bound-001", status: "CLAIMED", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-foreign-003", projectId: "project-foreign-002", status: "PENDING_WORKER", taskCount: 1, providers: ["codex"] }
+  ];
+  const requests = [];
+  const store = {
+    listProjects: async () => [{ id: "project-bound-001", path: root }],
+    listRunSubmissions: async () => rows,
+    getRunSubmission: async (id) => rows.find((row) => row.id === id),
+    requestRunSubmissionCancellation: async (id) => {
+      requests.push(id);
+      const row = rows.find((item) => item.id === id);
+      if (row.status === "PENDING_WORKER") row.status = "CANCELLED";
+      else if (row.status === "CLAIMED") row.status = "CANCEL_REQUESTED";
+      return { ...row };
+    }
+  };
+  const bridge = createBridge({ projectRoot: root, services: { runStore: store } });
+  const init = await bridge.handle(request("initialize"));
+  assert.equal(init.result.capabilities.runsSubmissionsCancel, true);
+  assert.equal(init.result.capabilities.runsSubmit, false);
+  const queued = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(queued.result.status, "CANCELLED");
+  const repeat = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(repeat.result.status, "CANCELLED");
+  const active = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-active-002"
+  }));
+  assert.equal(active.result.status, "CANCEL_REQUESTED");
+  const foreign = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-foreign-003"
+  }));
+  assert.equal(foreign.result, null);
+  assert.deepEqual(requests, [
+    "submission-queued-001", "submission-queued-001", "submission-active-002"
+  ]);
+  const invalid = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-active-002", projectId: "project-foreign-002"
+  }));
+  assert.equal(invalid.error.code, -32602);
+  assert.equal(rows[2].status, "PENDING_WORKER");
+});
+
+test("Bridge does not advertise cancellation without a trusted durable RunStore mutation", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cancel-denied-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const store = {
+    listProjects: async () => [{ id: "project-bound-001", path: root }],
+    listRunSubmissions: async () => [],
+    getRunSubmission: async () => null
+  };
+  const bridge = createBridge({ projectRoot: root, services: { runStore: store } });
+  const init = await bridge.handle(request("initialize"));
+  assert.equal(init.result.capabilities.runsSubmissionsCancel, false);
+  const denied = await bridge.handle(request("runs.submissions.cancel", {
+    submissionId: "submission-queued-001"
+  }));
+  assert.equal(denied.error.code, -32602);
+});
