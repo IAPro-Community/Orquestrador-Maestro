@@ -60,6 +60,7 @@ function parse(argv) {
 
 function tests(options, maestroRoot) {
   const steps = [
+    ["release-tools", "node", ["--test", "scripts/p0-release-tools.test.cjs"], maestroRoot],
     ["maestro-runs", "node", [
       "--test",
       "runtime/runs/__tests__/application-submission-ports.test.js",
