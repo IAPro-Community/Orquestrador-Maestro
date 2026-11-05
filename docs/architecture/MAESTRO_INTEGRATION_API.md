@@ -263,3 +263,33 @@ O Bridge valida que o Run e o Task pertencem ao Project com `realpath` igual ao 
 ### Compatibilidade de subscriptions (fail-closed)
 
 O Bridge stdio v1 **não** implementa push de eventos duráveis. Portanto `initialize.capabilities.subscriptions=false` e `events.subscribe` devolve erro `-32601`, em vez de reconhecer uma subscription fictícia. Clientes legados que interpretavam `subscribed:true` como fluxo ativo precisam usar `runs.observe` para polling de lifecycle, sem raw output, ou aguardar a API de worker/event stream real de #48. Isso é uma correção de contrato, não uma implementação de subscribe.
+
+## Run submissions — cancelamento de admissão (sem habilitar dispatch)
+
+O Bridge v1 pode anunciar `initialize.capabilities.runsSubmissionsRead=true`
+quando o RunStore canônico disponibiliza `listRunSubmissions`. O método
+`runs.submissions.get` recebe `{ "submissionId": "submission-..." }`
+e projeta apenas metadados operacionais sanitizados. A identidade do projeto
+vem exclusivamente do root físico vinculado ao processo Bridge: IDs pertencentes
+a outros projetos retornam `null`, sem revelar existência.
+
+A capability aditiva `initialize.capabilities.runsSubmissionsCancel=true`
+depende de `requestRunSubmissionCancellation` no RunStore. O método
+`runs.submissions.cancel` recebe exclusivamente `submissionId`; não aceita
+`projectId`, caminhos, tokens, requests de approval nem provider substituto.
+
+- `PENDING_WORKER` transita de forma atômica para `CANCELLED`: não houve
+  dispatch e o workspace pode ser liberado pela política do RunStore.
+- `CLAIMED` ou `DISPATCHED` passam a `CANCEL_REQUESTED`: isso solicita
+  interrupção ao worker, **não** afirma cancelamento efetivo. Os efeitos
+  externos podem já ter ocorrido, e a confirmação exige Run/receipt real.
+- Repetições retornam a mesma identidade e estado do registro atual; nenhuma
+  operação cancela submissões de outro projeto, mesmo com ID conhecido.
+- O método não cria um Run, não fornece heartbeat/daemon, não subscreve eventos
+  e não autoriza execução. `runsSubmit` **permanece false** até a implementação
+  completa do supervisor persistente da issue #48.
+
+Para dois clientes locais apontando para o mesmo RunStore, as mudanças são
+persistidas pelo lock canônico multiprocesso; sem um worker real, esse contrato
+oferece cancelamento da admissão e sinalização segura, não abort remoto do
+processo de um provider.
