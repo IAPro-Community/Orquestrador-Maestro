@@ -1,11 +1,13 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const { createBridge } = require("../bridge");
+const { JsonFileRunStore } = require("../../store");
 
 const request = (method, params = {}) => ({
   jsonrpc: "2.0", id: 1, method, params
@@ -162,4 +164,55 @@ test("Bridge does not advertise cancellation without a trusted durable RunStore 
     submissionId: "submission-queued-001"
   }));
   assert.equal(denied.error.code, -32602);
+});
+
+test("two Bridge clients sharing one real RunStore see durable scoped cancellation", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-two-clients-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const leftRoot = path.join(root, "client-a");
+  const rightRoot = path.join(root, "client-b");
+  fs.mkdirSync(leftRoot);
+  fs.mkdirSync(rightRoot);
+  const filePath = path.join(root, "state", "runs.json");
+  const left = new JsonFileRunStore({ filePath });
+  const right = new JsonFileRunStore({ filePath });
+  await left.createProject({ id: "project-client-a", path: leftRoot });
+  await right.createProject({ id: "project-client-b", path: rightRoot });
+  const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
+  const admission = (id, provider) => ({
+    projectId: id,
+    clientKey: "client-" + id,
+    planDigest: digest("plan-" + id),
+    artifactDigest: digest("artifact-" + id),
+    workspaceFingerprint: digest("workspace-" + id),
+    approvalDigest: digest("approval-" + id),
+    taskCount: 1,
+    providers: [provider],
+    maxAttempts: 1,
+    maxDurationMs: 10000,
+    maxCostUSD: 0
+  });
+  const first = (await left.admitRunSubmission(admission("project-client-a", "agy"))).submission;
+  const second = (await right.admitRunSubmission(admission("project-client-b", "opencode"))).submission;
+  const clientA = createBridge({ projectRoot: leftRoot, services: { runStore: left } });
+  const clientB = createBridge({ projectRoot: rightRoot, services: { runStore: right } });
+  assert.equal((await clientA.handle(request("runs.submissions.get", {
+    submissionId: second.id
+  }))).result, null);
+  assert.equal((await clientB.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result, null);
+  assert.equal((await clientA.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result.status, "CANCELLED");
+  assert.equal((await right.getRunSubmission(first.id)).status, "CANCELLED");
+  assert.equal((await clientA.handle(request("runs.submissions.cancel", {
+    submissionId: first.id
+  }))).result.status, "CANCELLED");
+  assert.equal((await left.getRunSubmission(second.id)).status, "PENDING_WORKER");
+  await right.claimRunSubmission(second.id, { workerId: "worker-client-b-0001" });
+  assert.equal((await clientB.handle(request("runs.submissions.cancel", {
+    submissionId: second.id
+  }))).result.status, "CANCEL_REQUESTED");
+  assert.equal((await left.getRunSubmission(second.id)).status, "CANCEL_REQUESTED");
 });
