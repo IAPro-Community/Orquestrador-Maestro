@@ -36,7 +36,7 @@ test("archival finalization is dry-run by default and requires a Nexus checkout"
   const opts = parseArchive(["--nexus=../nexus"]);
   assert.equal(opts.apply, false);
   assert.equal(parseArchive(["--nexus=../nexus", "--apply"]).apply, true);
-  assert.throws(() => parseArchive(["--nexus=../nexus", "--delete-all"]), /Unsupported/);
+  assert.throws(() => parseArchive(["--nexus=../nexus", "--delete-all"]), /Unknown argument/);
 });
 
 test("all archival candidates are whitelisted, unique, versioned, and SHA-bound", () => {
