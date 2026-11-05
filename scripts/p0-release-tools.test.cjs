@@ -54,7 +54,7 @@ test("smoke is portable, synthetic, and never silently enables real provider dis
   assert.equal(local.full, false);
   assert.equal(local.nexus, null);
   assert.deepEqual(qaTests(local, "/maestro").map((row) => row[0]),
-    ["maestro-runs", "maestro-bridge"]);
+    ["release-tools", "maestro-runs", "maestro-bridge"]);
   assert.throws(() => parseQa(["--capture"]), /requires --nexus/);
   assert.throws(() => parseQa(["--unknown"]), /Unsupported/);
   const options = parseQa(["--nexus=../nexus", "--capture", "--full"]);
