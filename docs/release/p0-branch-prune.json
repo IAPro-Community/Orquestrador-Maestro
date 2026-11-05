@@ -74,8 +74,8 @@
           "pr": 60,
           "name": "feat/durable-run-reconciliation-20261103",
           "expectedHeadSha": "eed538dc8374584c9b076627a2460d4b2e457e55",
-          "proofCommitSha": "eed538dc8374584c9b076627a2460d4b2e457e55",
-          "proofKind": "merged-pr"
+          "proofCommitSha": "5896ba429693765d0517798e187632c535440683",
+          "proofKind": "covered-by-merged-parent-pr-59"
         },
         {
           "pr": 62,
