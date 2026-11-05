@@ -3,6 +3,7 @@
 const { validateID, bad } = require("./submission-admission");
 const { validateStoredExecutableManifest } = require("./executable-manifest");
 const { superviseSubmissionOnce } = require("./submission-supervisor");
+const { samePhysicalPath } = require("./workspace-authority");
 
 const LEASE_STATES = new Set(["CLAIMED", "DISPATCHED", "CANCEL_REQUESTED"]);
 const RETRYABLE_RACE = new Set(["SUBMISSION_NOT_CLAIMABLE", "SUBMISSION_LEASE_ACTIVE"]);
@@ -11,11 +12,14 @@ const safeCode = (error) =>
     ? error.code : "WORKER_OPERATION_FAILED";
 
 function verifyPorts(options) {
-  const { store, projectId, workerId, verifyApproval, prepareRun, dispatchRun,
+  const { store, projectId, projectRoot, workerId, verifyApproval, prepareRun, dispatchRun,
     batchSize = 4, leaseMs = 30000, heartbeatMs = 5000 } = options;
+  if (typeof projectRoot !== "string" || !projectRoot.trim()) {
+    throw bad("trusted projectRoot is required", "SUBMISSION_WORKER_UNAVAILABLE");
+  }
   validateID(projectId, "projectId");
   validateID(workerId, "workerId");
-  for (const name of ["listRunSubmissions", "getRunSubmission", "getExecutableManifest",
+  for (const name of ["getProject", "listRunSubmissions", "getRunSubmission", "getExecutableManifest",
     "quarantineExpiredRunSubmission", "claimRunSubmission", "bindPreparedRunSubmission",
     "renewRunSubmissionLease", "markRunSubmissionDispatched", "finishRunSubmission",
     "requestRunSubmissionCancellation"]) {
@@ -79,8 +83,13 @@ async function manifestBlocker(store, row) {
  */
 async function processApprovedAdmissionCycle(options = {}) {
   verifyPorts(options);
-  const { store, projectId, workerId, verifyApproval, prepareRun, dispatchRun,
+  const { store, projectId, projectRoot, workerId, verifyApproval, prepareRun, dispatchRun,
     releasePreparedRun, batchSize = 4, leaseMs = 30000, heartbeatMs = 5000 } = options;
+  const registered = await store.getProject(projectId);
+  if (!registered?.path || !samePhysicalPath(registered.path, projectRoot)) {
+    throw bad("worker project is not bound to its canonical physical root",
+      "PROJECT_SCOPE_MISMATCH");
+  }
   const rows = (await store.listRunSubmissions({ projectId }))
     .filter((row) => row?.projectId === projectId)
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)) ||
