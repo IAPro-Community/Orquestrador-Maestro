@@ -134,6 +134,15 @@ unrelated work and nonmerged historical proposals are left intact; they
 require separate technical review. **Do not mass-delete repository branches**
 by prefix or creation date.
 
+Historical **closed without merge** proposals were inspected but intentionally
+excluded from automatic integration/deletion: Maestro #51/#55/#61 (subsequent
+canonical Bridge/runtime evolution superseded these drafts), Nexus #168/#169/#170
+(older Nexus-owned semantic planner and Goal Loop implementation would conflict
+with Maestro's authoritative planner/RunStore), and Nexus #156/#161 (legacy
+memory-migration drafts, requiring separate migration safety review). Do not
+resurrect these large branches wholesale: transfer only explicitly verified
+requirements through the canonical release, with dedicated tests.
+
 ## Decision record
 
 - All recent P0 functional source changes are consolidated into one active
