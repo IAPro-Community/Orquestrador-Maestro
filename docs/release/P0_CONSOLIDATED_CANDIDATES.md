@@ -22,7 +22,7 @@ nonexistent npm release.
 No new feature, fix, or test branch should be used to continue these P0
 workstreams: develop on the canonical release branch only, with short reviewable
 commits and exact-SHA local evidence. Other teams' unrelated branches and
-historical release branches are not within the deletion scope.
+historical release branches are not within the archival scope.
 
 PRs #65 / #207 / #208 were **closed as superseded**, not marked "merged" into
 the old branch. Their original commit histories and contents remain in the
@@ -113,35 +113,47 @@ At present `runs.submit` is deliberately **false**. Full end-to-end
 multi-provider tests therefore remain **BLOCKED**, not silently skipped or
 labeled as passed.
 
-## Remove superseded branches after consolidation
+## Archive superseded branches without losing work
 
-A **read-only preview** is available:
+**34 archival references have been created on GitHub, preserving the exact
+original SHA:** 17 Maestro and 17 Nexus. Their names use
+`archive/p0-20261105/<original-branch-name>`.
+
+This includes 26 work branches already represented in the release history
+and **eight closed-without-merge proposals** that must remain accessible but
+must **not** be presented as completed features:
+Maestro #51/#55/#61, Nexus #156/#161/#168/#169/#170.
+
+The checked archive registry is
+`docs/release/p0-branch-archive.json`. To verify it in a checkout with
+authenticated GitHub access, run:
+
 ```sh
-node scripts/p0-prune-branches.cjs --nexus=../nexus
+node scripts/p0-archive-branches.cjs --nexus=../nexus
 ```
 
-When the preview shows only verified `SAFE` refs, and both remote release
-branches and review evidence have been checked, request explicit remote
-deletion from an authenticated checkout:
+The original branch names still exist on GitHub until the final **rename
+completion** (deletion of each old ref after exact SHA archival). After
+reviewing the preview, run:
+
 ```sh
-node scripts/p0-prune-branches.cjs --nexus=../nexus --apply
+node scripts/p0-archive-branches.cjs --nexus=../nexus --apply
 ```
 
-The exact-SHA/merge-proof manifest is
-`docs/release/p0-branch-prune.json`. Cleanup uses a remote lease to refuse
-deletion if another contributor moved a branch. Non-ancestors, changed refs,
-unrelated work and nonmerged historical proposals are left intact; they
-require separate technical review. **Do not mass-delete repository branches**
-by prefix or creation date.
+This is **not** a destructive prune: the script first verifies the
+archive exists at the exact original SHA, checks release ancestry only for
+branches classified as integrated, and then uses Git remote
+`--force-with-lease` to remove the old name *without moving or deleting
+the archive ref*. A changed original, missing/changed archive or missing
+integration proof blocks the operation. Review the remote branch listing
+again afterwards: only `release/*` and `archive/*` should remain for
+these 34 P0 work refs. The script never touches `main`, `v1`, published
+release refs, unrelated branches, or any unlisted source ref.
 
-Historical **closed without merge** proposals were inspected but intentionally
-excluded from automatic integration/deletion: Maestro #51/#55/#61 (subsequent
-canonical Bridge/runtime evolution superseded these drafts), Nexus #168/#169/#170
-(older Nexus-owned semantic planner and Goal Loop implementation would conflict
-with Maestro's authoritative planner/RunStore), and Nexus #156/#161 (legacy
-memory-migration drafts, requiring separate migration safety review). Do not
-resurrect these large branches wholesale: transfer only explicitly verified
-requirements through the canonical release, with dedicated tests.
+Historical proposals under `archive/` are **preserved, not merged**. Do not
+copy the old Nexus-owned semantic planner/Goal Loop or memory-migration
+prototypes back wholesale: selectively recover requirements after a
+separate architectural review.
 
 ## Decision record
 
