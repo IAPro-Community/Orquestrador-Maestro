@@ -54,6 +54,16 @@ function createApplicationSubmissionPorts({
       throw bad("model-specific dispatch is not certified by the current adapter",
         "MODEL_LOCK_DISPATCH_UNSUPPORTED");
     }
+    if (task.sandbox !== "none") {
+      throw bad("requested sandbox is not enforced by the current adapter",
+        "SANDBOX_DISPATCH_UNSUPPORTED");
+    }
+    if (task.maxAttempts > submission.maxAttempts ||
+        task.maxDurationMs > submission.maxDurationMs ||
+        task.maxCostUSD > submission.maxCostUSD) {
+      throw bad("manifest execution limits exceed the approved admission",
+        "EXECUTION_LIMITS_MISMATCH");
+    }
     const binding = bindingFromRealGitWorktree({ projectRoot, workspacePath });
     if (binding.fingerprint !== task.workspaceFingerprint ||
         binding.branch !== task.branch || binding.headCommit !== task.headCommit ||
