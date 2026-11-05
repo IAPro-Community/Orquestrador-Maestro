@@ -55,7 +55,7 @@ Testes cobrem execução uma vez, rejeição de aprovação falsa, cancelamento 
 ## Incremental Maestro-owned polling worker (internal, opt-in)
 
 `runtime/runs/submission-worker.js` provides
-`createPollingSubmissionWorker({ store, projectId, workerId, verifyApproval, prepareRun, dispatchRun, ... })`
+`createPollingSubmissionWorker({ store, projectId, projectRoot, workerId, verifyApproval, prepareRun, dispatchRun, ... })`
 and `processApprovedAdmissionCycle`. Neither method is exposed in stdio Bridge,
 nor does import or construction start a worker. A trusted Maestro bootstrap must
 explicitly call `start()` and supply approval verification and
@@ -63,8 +63,10 @@ explicitly call `start()` and supply approval verification and
 
 Each bounded cycle uses the **existing canonical RunStore** and:
 
-1. Scopes reads to the bootstrap-provided registered `projectId`. IDs and
-   project authorization must never come from an arbitrary Bridge request.
+1. Scopes reads to the bootstrap-provided `projectId` and proves the registered
+   project's physical directory matches `projectRoot` (the same canonical
+   identity as admission). IDs and project authorization must never come
+   from an arbitrary Bridge request.
 2. Quarantines expired `CLAIMED`, `DISPATCHED`, and `CANCEL_REQUESTED`
    leases under the RunStore file lock. `RECONCILIATION_REQUIRED` cannot be
    re-dispatched or silently released after restart.
