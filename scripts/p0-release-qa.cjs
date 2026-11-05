@@ -151,9 +151,12 @@ function main() {
   if (!report.passed) process.exitCode = 1;
 }
 
-try { main(); }
-catch (error) {
-  // Never dump unredacted logs; run the failed command locally for diagnosis.
-  console.error("Local QA blocked: " + String(error?.message || error).slice(0, 400));
-  process.exitCode = 1;
+module.exports = { parse, tests };
+if (require.main === module) {
+  try { main(); }
+  catch (error) {
+    // Never dump unredacted logs; run the failed command locally for diagnosis.
+    console.error("Local QA blocked: " + String(error?.message || error).slice(0, 400));
+    process.exitCode = 1;
+  }
 }
