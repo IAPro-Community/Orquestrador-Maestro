@@ -1,6 +1,7 @@
 "use strict";
 
 const { resolveOutcomes, FAILED_DEPENDENCY_REASON } = require("./task-outcome-resolution");
+const { deriveOutcomeContract } = require("../governance/change-governance");
 
 const HASH = /^[a-f0-9]{64}$/i;
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -81,6 +82,15 @@ function assessGoalCorrection({
     affectedTaskIds: Object.freeze([]),
     preservedTaskIds: Object.freeze([])
   });
+  // An empty acceptance contract can otherwise be classified as completed by
+  // the legacy resolver without any proof. A Goal Loop PASS must never derive
+  // from that compatibility behavior.
+  const missingAcceptanceContract = tasks.some((task) => {
+    const contract = deriveOutcomeContract(task);
+    return contract.acceptanceConditions.length === 0 &&
+      contract.evidenceRequirements.length === 0;
+  });
+  if (missingAcceptanceContract) return blocked("ACCEPTANCE_CONTRACT_REQUIRED");
   if (unsafe.length) return blocked("EVIDENCE_OR_POLICY_REVIEW_REQUIRED");
   if (failedIds.length === 0) {
     // All tasks must have real verified completion evidence; resolveOutcomes
