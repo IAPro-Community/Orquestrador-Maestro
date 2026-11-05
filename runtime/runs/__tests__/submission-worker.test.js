@@ -119,6 +119,43 @@ test("legacy unbound submissions stay pending without approval checks, provider 
   assert.deepEqual(await store.listRuns({}), []);
 });
 
+test("multi-task DAG never degrades into a single-provider fallback", async (t) => {
+  const { store } = await setup(t);
+  const projectId = "project-worker-alpha";
+  const specs = ["agy", "opencode"].map((providerId, i) => ({
+    taskId: "task-multi-" + i,
+    dependsOn: i ? ["task-multi-0"] : [],
+    providerId, modelId: "default",
+    workspaceFingerprint: hash("worktree-" + i),
+    headCommit: "b".repeat(40), branch: "main",
+    promptDigest: hash("multi-prompt-" + i),
+    acceptanceDigest: hash("multi-acceptance-" + i),
+    sandbox: "none", maxAttempts: 1, maxDurationMs: 10000, maxCostUSD: 0
+  }));
+  const manifest = await store.putExecutableManifest({
+    schemaVersion: 1, projectId, planDigest: hash("multi-plan"),
+    artifactDigest: hash("multi-artifact"), maxCostUSD: 0,
+    tasks: specs
+  });
+  const { submission } = await store.admitRunSubmission({
+    projectId, clientKey: "client-multi-dag-001",
+    planDigest: manifest.planDigest, artifactDigest: manifest.artifactDigest,
+    workspaceFingerprint: hash("worktree-0"), approvalDigest: hash("multi-approval"),
+    taskCount: 2, providers: ["agy", "opencode"], maxAttempts: 1,
+    maxDurationMs: 10000, maxCostUSD: 0, manifestId: manifest.id
+  });
+  let effect = 0;
+  const ports = trustedPorts(store, { onDispatch: () => { effect++; } });
+  ports.verifyApproval = async () => { throw new Error("must not enter provider approval"); };
+  const report = await processApprovedAdmissionCycle(ports);
+  assert.deepEqual(report.actions, [{
+    submissionId: submission.id, outcome: "BLOCKED", reason: "MULTI_TASK_DISPATCH_UNSUPPORTED"
+  }]);
+  assert.equal(effect, 0);
+  assert.equal((await store.getRunSubmission(submission.id)).status, "PENDING_WORKER");
+  assert.deepEqual(await store.listRuns({}), []);
+});
+
 test("expired claims are quarantined before dispatch and never automatically replayed", async (t) => {
   const { store } = await setup(t);
   const old = await admit(store, "expired");
