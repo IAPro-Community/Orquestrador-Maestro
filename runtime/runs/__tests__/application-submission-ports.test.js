@@ -14,6 +14,7 @@ const { bindingFromRealGitWorktree } = require("../workspace-authority");
 const { admitManifestBoundSubmission } = require("../manifest-admission");
 const { superviseSubmissionOnce } = require("../submission-supervisor");
 const { createApplicationSubmissionPorts } = require("../application-submission-ports");
+const { processApprovedAdmissionCycle } = require("../submission-worker");
 
 const hash = (text) => crypto.createHash("sha256").update(text).digest("hex");
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
@@ -133,4 +134,56 @@ test("Git HEAD changes before prepared dispatch block side effects", async (t) =
     signal: new AbortController().signal
   }), { code: "MANIFEST_WORKSPACE_CHANGED" });
   assert.equal(f.provider.calls, 0);
+});
+
+test("trusted Maestro worker executes one manifest-bound application Run and second client sees the receipt", async (t) => {
+  const f = await fixture(t);
+  const otherClient = new JsonFileRunStore({ filePath: f.store.filePath });
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const worker = {
+    ...ports,
+    store: f.store, projectId: f.manifest.projectId,
+    projectRoot: f.projectRoot, workerId: "worker-application-real-001",
+    leaseMs: 30000, heartbeatMs: 1000
+  };
+  const first = await processApprovedAdmissionCycle(worker);
+  assert.equal(first.authority, "MAESTRO");
+  assert.equal(first.actions.length, 1);
+  assert.equal(first.actions[0].outcome, "SUPERVISED");
+  assert.equal(first.actions[0].status, "COMPLETED");
+  assert.equal(first.actions[0].runId.startsWith("run-"), true);
+  assert.equal((await otherClient.getRunSubmission(f.submission.id)).status, "COMPLETED");
+  assert.equal((await otherClient.getRun(first.actions[0].runId)).status, "completed");
+  assert.equal(f.provider.calls, 1);
+  const repeated = await processApprovedAdmissionCycle({ ...worker, store: otherClient });
+  assert.equal(repeated.processed, 0);
+  assert.equal(f.provider.calls, 1);
+});
+
+test("worker does not call application provider if a manifest-bound approval was revoked", async (t) => {
+  const f = await fixture(t);
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot,
+    verifyApproval: async () => false,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const attempt = await processApprovedAdmissionCycle({
+    ...ports, store: f.store, projectId: f.manifest.projectId,
+    projectRoot: f.projectRoot, workerId: "worker-revoked-app-001"
+  });
+  assert.deepEqual(attempt.actions, [{
+    submissionId: f.submission.id, outcome: "BLOCKED", reason: "APPROVAL_NOT_VERIFIED"
+  }]);
+  assert.equal(f.provider.calls, 0);
+  assert.equal((await f.store.getRunSubmission(f.submission.id)).status, "PENDING_WORKER");
+  assert.deepEqual(await f.store.listRuns({}), []);
 });
