@@ -13,6 +13,12 @@
 | `IAPro-Community/Orquestrador-Maestro` | `release/v1.1.2` | latest published `v1.1.1` + existing `v1` commits | #62, #63, #64 already merged into `v1`; #65 copied with **exact file hashes and complete commit ancestry** |
 | `IAPro-Community/nexus` | `release/v1.0.0-beta.12` | `release/v1.0.0` | #207 + #208 merged as independent nonoverlapping trees with both PR heads as Git merge parents |
 
+The candidate package, lockfile and embedded OpenAI plugin metadata now say
+`1.1.2`. **Public bootstrap scripts and stable installation documentation
+intentionally remain pinned to published `1.1.1`** until the new version is
+actually validated and published; do not point public installers at a
+nonexistent npm release.
+
 No new feature, fix, or test branch should be used to continue these P0
 workstreams: develop on the canonical release branch only, with short reviewable
 commits and exact-SHA local evidence. Other teams' unrelated branches and
