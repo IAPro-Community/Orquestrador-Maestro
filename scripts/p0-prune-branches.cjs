@@ -53,15 +53,23 @@ function parse(argv) {
   return options;
 }
 
+function safeEntry(entry) {
+  return Boolean(
+    entry && typeof entry.name === "string" &&
+    /^(feat|fix|docs|test)\/[A-Za-z0-9._/-]+$/.test(entry.name) &&
+    !entry.name.includes("..") && !entry.name.includes("//") &&
+    !entry.name.endsWith("/") && !entry.name.startsWith("release/") &&
+    /^[a-f0-9]{40}$/.test(entry.expectedHeadSha) &&
+    /^[a-f0-9]{40}$/.test(entry.proofCommitSha) &&
+    Number.isInteger(entry.pr) && entry.pr > 0
+  );
+}
 function inspectProject(cwd, project) {
   assertCheckout(cwd, project);
   const results = [];
   for (const entry of project.branches) {
     const name = entry.name;
-    if (!/^(feat|fix|docs|test)\/[A-Za-z0-9._/-]+$/.test(name) ||
-        name.startsWith("release/") ||
-        !/^[a-f0-9]{40}$/.test(entry.expectedHeadSha) ||
-        !/^[a-f0-9]{40}$/.test(entry.proofCommitSha)) {
+    if (!safeEntry(entry)) {
       throw Error("Unsafe cleanup manifest entry");
     }
     const actual = remoteHead(cwd, name);
@@ -130,8 +138,11 @@ function main() {
   if (blocked) process.exitCode = 1;
 }
 
-try { main(); }
-catch (error) {
-  console.error("Cleanup stopped: " + String(error.message || error).slice(0, 350));
-  process.exitCode = 1;
+module.exports = { safeEntry, parse };
+if (require.main === module) {
+  try { main(); }
+  catch (error) {
+    console.error("Cleanup stopped: " + String(error.message || error).slice(0, 350));
+    process.exitCode = 1;
+  }
 }
