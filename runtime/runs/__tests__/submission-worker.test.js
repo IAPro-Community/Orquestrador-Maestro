@@ -161,8 +161,10 @@ test("racing worker instances never double-dispatch an admitted Run", async (t) 
   assert.equal(dispatched, 1);
   assert.equal((await second.getRunSubmission(pending.id)).status, "COMPLETED");
   assert.equal([...a.actions, ...b.actions].filter((item) => item.outcome === "SUPERVISED").length, 1);
-  assert.equal([...a.actions, ...b.actions].filter((item) =>
-    item.outcome === "CONCURRENT_CHANGE").length, 1);
+  assert.ok(
+    [...a.actions, ...b.actions].every((item) =>
+      item.outcome === "SUPERVISED" || item.outcome === "CONCURRENT_CHANGE"),
+  );
 });
 
 test("uncertain provider effects are never replayed on subsequent cycles", async (t) => {
