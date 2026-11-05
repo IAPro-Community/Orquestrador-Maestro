@@ -54,9 +54,17 @@ async function manifestBlocker(store, row) {
     return "EXECUTABLE_MANIFEST_MISMATCH";
   }
   if (manifest.tasks.length !== 1) return "MULTI_TASK_DISPATCH_UNSUPPORTED";
-  if (manifest.tasks[0].workspaceFingerprint !== row.workspaceFingerprint ||
-      manifest.tasks[0].modelId !== "default") {
+  const task = manifest.tasks[0];
+  if (task.workspaceFingerprint !== row.workspaceFingerprint ||
+      task.modelId !== "default") {
     return "WORKSPACE_OR_MODEL_DISPATCH_UNSUPPORTED";
+  }
+  // The current single-task adapter cannot enforce a requested sandbox.
+  if (task.sandbox !== "none") return "SANDBOX_DISPATCH_UNSUPPORTED";
+  if (task.maxAttempts > row.maxAttempts ||
+      task.maxDurationMs > row.maxDurationMs ||
+      task.maxCostUSD > row.maxCostUSD) {
+    return "EXECUTION_LIMITS_MISMATCH";
   }
   return null;
 }
