@@ -161,6 +161,16 @@ test("revoked approval during preparation cancels without provider dispatch", as
     ...ops, verifyApproval: async (subject) => {
       assert.equal(subject.projectId, "project-supervisor-001");
       assert.equal(subject.planDigest, digest("plan"));
+      assert.match(subject.requestDigest, /^[a-f0-9]{64}$/);
+      assert.equal(subject.manifestId, null); // legacy internal fixture without manifest
+      assert.equal(subject.approvalDigest, digest("approval"));
+      assert.match(subject.workspaceFingerprint, /^[a-f0-9]{64}$/);
+      assert.equal(subject.taskCount, 1);
+      assert.equal(subject.maxCostUSD, 0);
+      assert.equal(subject.maxAttempts, 1);
+      assert.equal(subject.maxDurationMs, 10000);
+      assert.deepEqual(subject.providers, ["opencode"]);
+      assert.equal(Object.isFrozen(subject.providers), true);
       assert.equal(Object.hasOwn(subject, "prompt"), false);
       checks++;
       return checks === 1;
