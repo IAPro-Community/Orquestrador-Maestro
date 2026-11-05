@@ -53,7 +53,9 @@ async function admit(store, suffix, { projectId = "project-worker-alpha", manife
 }
 function trustedPorts(store, { projectId = "project-worker-alpha", suffix = "alpha", onDispatch } = {}) {
   return {
-    store, projectId, workerId: "worker-trusted-" + suffix,
+    store, projectId,
+    projectRoot: path.join(path.dirname(path.dirname(store.filePath)), projectId),
+    workerId: "worker-trusted-" + suffix,
     verifyApproval: async (subject) => {
       assert.equal(subject.projectId, projectId);
       assert.match(subject.requestDigest, /^[a-f0-9]{64}$/);
@@ -102,6 +104,18 @@ test("two clients share the persistent ledger; scoped worker dispatches once and
   const other = await processApprovedAdmissionCycle(betaPorts);
   assert.equal(other.actions[0].status, "COMPLETED");
   assert.equal(dispatched, 2);
+});
+
+test("worker rejects a forged project/root binding before reading submissions or creating Runs", async (t) => {
+  const { store } = await setup(t);
+  const submission = await admit(store, "scope");
+  const ports = trustedPorts(store);
+  ports.projectRoot = path.join(path.dirname(path.dirname(store.filePath)), "project-worker-beta");
+  await assert.rejects(processApprovedAdmissionCycle(ports), {
+    code: "PROJECT_SCOPE_MISMATCH"
+  });
+  assert.equal((await store.getRunSubmission(submission.id)).status, "PENDING_WORKER");
+  assert.deepEqual(await store.listRuns({}), []);
 });
 
 test("legacy unbound submissions stay pending without approval checks, provider calls or forged Run", async (t) => {
