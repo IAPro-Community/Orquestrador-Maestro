@@ -50,3 +50,42 @@ O módulo `runtime/runs/submission-supervisor.js` adiciona `superviseSubmissionO
 6. Uma falha após efeitos possíveis deixa `DISPATCHED` e **não reexecuta automaticamente**. Lease expirado requer `runs reconcile --apply` e inspeção manual; não há retry cego.
 
 Testes cobrem execução uma vez, rejeição de aprovação falsa, cancelamento durante preparo e interrupção incerta sem replay. O próximo passo indispensável é integrar callbacks reais a `MaestroApplication.executePreparedRun` (mesmo Run ID), política de timeout/custo, prova de aprovação, servidor persistente e E2E com dois clientes/provedores. Este supervisor sozinho **não constitui execução durável concluída**.
+
+
+## Incremental Maestro-owned polling worker (internal, opt-in)
+
+`runtime/runs/submission-worker.js` provides
+`createPollingSubmissionWorker({ store, projectId, workerId, verifyApproval, prepareRun, dispatchRun, ... })`
+and `processApprovedAdmissionCycle`. Neither method is exposed in stdio Bridge,
+nor does import or construction start a worker. A trusted Maestro bootstrap must
+explicitly call `start()` and supply approval verification and
+`createApplicationSubmissionPorts` callbacks. `runs.submit` remains unsupported.
+
+Each bounded cycle uses the **existing canonical RunStore** and:
+
+1. Scopes reads to the bootstrap-provided registered `projectId`. IDs and
+   project authorization must never come from an arbitrary Bridge request.
+2. Quarantines expired `CLAIMED`, `DISPATCHED`, and `CANCEL_REQUESTED`
+   leases under the RunStore file lock. `RECONCILIATION_REQUIRED` cannot be
+   re-dispatched or silently released after restart.
+3. Accepts only `PENDING_WORKER` admissions with a **persisted immutable
+   executable manifest** matching the project's plan/artifact digests, provider
+   ordering, cost ceiling and physical workspace fingerprint.
+4. Intentionally supports only **one task with the default model**. Multi-task
+   DAGs and model overrides return a blocked *nonexecuting* decision.
+5. Delegates claim/fencing, pre-dispatch approval recheck, run preparation,
+   heartbeat and terminal receipt validation to `superviseSubmissionOnce`.
+   A provider error with uncertain side effects is **not** automatically retried.
+6. Emits bounded sanitized operational summaries. It never returns a prompt,
+   secret, approval receipt, raw output, or filesystem content.
+
+`stop()` ceases polling and drains an in-process cycle; it is **not** proof
+that an external provider was cancelled. Process kill/restart relies on lease
+expiry and quarantine, not speculative replay. Any production entrypoint must
+wire and validate real provider-specific adapters, restart orchestration,
+authorization and observability before enabling a public submit capability.
+
+This is an incremental P0 coordinator, **not** acceptance of the full #48:
+parallel DAG scheduling, dependency-aware join, per-task worktrees/provider
+routing, durable Goal Loop iterations, actual device-level E2E and externally
+verified approval remain incomplete.
