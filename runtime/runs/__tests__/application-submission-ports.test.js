@@ -19,11 +19,12 @@ const { processApprovedAdmissionCycle } = require("../submission-worker");
 const hash = (text) => crypto.createHash("sha256").update(text).digest("hex");
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
 class FakeOpenCode {
-  constructor() { this.id = "opencode"; this.calls = 0; }
+  constructor() { this.id = "opencode"; this.calls = 0; this.lastTimeoutMs = null; }
   async detect() { return { id: this.id, installed: true, executable: "fake-opencode" }; }
   async capabilities() { return capabilities({ headless: true, streaming: true }); }
-  async execute() {
+  async execute({ timeoutMs }) {
     this.calls++;
+    this.lastTimeoutMs = timeoutMs;
     return {
       pid: 10, cancel() {},
       result: Promise.resolve({
@@ -92,6 +93,7 @@ test("trusted MaestroApplication executes manifest-bound Run exactly once throug
   assert.equal(result.dispatched, true);
   assert.equal((await f.store.getRun(result.runId)).status, "completed");
   assert.equal(f.provider.calls, 1);
+  assert.equal(f.provider.lastTimeoutMs, 5000);
   await assert.rejects(superviseSubmissionOnce({
     store: f.store, submissionId: f.submission.id,
     workerId: "worker-executable-002", ...ports
@@ -161,6 +163,7 @@ test("trusted Maestro worker executes one manifest-bound application Run and sec
   assert.equal((await otherClient.getRunSubmission(f.submission.id)).status, "COMPLETED");
   assert.equal((await otherClient.getRun(first.actions[0].runId)).status, "completed");
   assert.equal(f.provider.calls, 1);
+  assert.equal(f.provider.lastTimeoutMs, 5000);
   const repeated = await processApprovedAdmissionCycle({ ...worker, store: otherClient });
   assert.equal(repeated.processed, 0);
   assert.equal(f.provider.calls, 1);
@@ -185,5 +188,20 @@ test("worker does not call application provider if a manifest-bound approval was
   }]);
   assert.equal(f.provider.calls, 0);
   assert.equal((await f.store.getRunSubmission(f.submission.id)).status, "PENDING_WORKER");
+  assert.deepEqual(await f.store.listRuns({}), []);
+});
+
+test("MaestroApplication rejects widened/invalid timeout before persisting any Run", async (t) => {
+  const f = await fixture(t);
+  for (const timeoutMs of [999, 900001, NaN, "900000", -1]) {
+    await assert.rejects(f.app.createRun({
+      projectId: f.manifest.projectId,
+      workspacePath: f.projectRoot,
+      providerId: "opencode",
+      description: f.description,
+      executionTimeoutMs: timeoutMs
+    }), { code: "INVALID_EXECUTION_TIMEOUT" });
+  }
+  assert.equal(f.provider.calls, 0);
   assert.deepEqual(await f.store.listRuns({}), []);
 });
