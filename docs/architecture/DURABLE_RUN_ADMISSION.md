@@ -77,7 +77,10 @@ Each bounded cycle uses the **existing canonical RunStore** and:
    DAGs and model overrides return a blocked *nonexecuting* decision.
 5. Delegates claim/fencing, pre-dispatch approval recheck, run preparation,
    heartbeat and terminal receipt validation to `superviseSubmissionOnce`.
-   A provider error with uncertain side effects is **not** automatically retried.
+   The manifest's per-task `maxDurationMs` is propagated as an immutable
+   `MaestroApplication.executionTimeoutMs`, bounded by the selected policy,
+   and passed to the provider and verification calls. A provider error with
+   uncertain side effects is **not** automatically retried.
 6. Emits bounded sanitized operational summaries. It never returns a prompt,
    secret, approval receipt, raw output, or filesystem content.
 
@@ -86,6 +89,13 @@ that an external provider was cancelled. Process kill/restart relies on lease
 expiry and quarantine, not speculative replay. Any production entrypoint must
 wire and validate real provider-specific adapters, restart orchestration,
 authorization and observability before enabling a public submit capability.
+
+**Limit currently not guaranteed:** these are component timeouts, not a
+hard end-to-end wall-clock deadline covering queueing, review, provider,
+verification and cleanup. Provider adapters must themselves honor the timeout;
+total budget enforcement, cancellation acknowledgement and cost receipts remain
+required before public `runs.submit`. A successful mock-provider test must
+not be presented as provider-level or device-level homologation.
 
 This is an incremental P0 coordinator, **not** acceptance of the full #48:
 parallel DAG scheduling, dependency-aware join, per-task worktrees/provider
