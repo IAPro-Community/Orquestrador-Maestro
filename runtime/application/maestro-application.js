@@ -41,6 +41,7 @@ const {
 } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
+const { samePhysicalPath } = require("../runs/workspace-authority");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
@@ -538,7 +539,7 @@ class MaestroApplication {
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     const existingProject = await this.store.getProject(projectId);
-    if (existingProject?.path && path.resolve(existingProject.path) !== workspacePath) {
+    if (existingProject?.path && !samePhysicalPath(existingProject.path, workspacePath)) {
       const error = new Error("PROJECT_SCOPE_MISMATCH: projectId is already bound to a different workspacePath");
       error.code = "PROJECT_SCOPE_MISMATCH";
       throw error;
