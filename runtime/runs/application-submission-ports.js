@@ -105,6 +105,7 @@ function createApplicationSubmissionPorts({
         projectId: manifest.projectId,
         workspacePath: binding.workspace,
         providerId: task.providerId,
+        executionTimeoutMs: task.maxDurationMs,
         description: source.description,
         semanticTask: {
           id: task.taskId, objective: source.description,
