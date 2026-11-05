@@ -24,7 +24,8 @@ async function setup(t) {
   return { root, store, second };
 }
 async function admit(store, suffix, { projectId = "project-worker-alpha", manifest = true,
-  provider = "opencode", workspace = "workspace-" + suffix } = {}) {
+  provider = "opencode", workspace = "workspace-" + suffix,
+  sandbox = "none", taskDurationMs = 10000, admissionDurationMs = 10000 } = {}) {
   const fingerprint = hash(workspace);
   let manifestId;
   if (manifest) {
@@ -35,8 +36,8 @@ async function admit(store, suffix, { projectId = "project-worker-alpha", manife
         taskId: "task-" + suffix, dependsOn: [], providerId: provider,
         modelId: "default", workspaceFingerprint: fingerprint, headCommit: "a".repeat(40),
         branch: "main", promptDigest: hash("prompt-" + suffix),
-        acceptanceDigest: hash("acceptance-" + suffix), sandbox: "none",
-        maxAttempts: 1, maxDurationMs: 10000, maxCostUSD: 0
+        acceptanceDigest: hash("acceptance-" + suffix), sandbox,
+        maxAttempts: 1, maxDurationMs: taskDurationMs, maxCostUSD: 0
       }]
     });
     manifestId = stored.id;
@@ -46,7 +47,7 @@ async function admit(store, suffix, { projectId = "project-worker-alpha", manife
     planDigest: hash("plan-" + suffix), artifactDigest: hash("artifact-" + suffix),
     workspaceFingerprint: fingerprint, approvalDigest: hash("approval-" + suffix),
     taskCount: 1, providers: [provider], maxAttempts: 1,
-    maxDurationMs: 10000, maxCostUSD: 0, ...(manifestId ? { manifestId } : {})
+    maxDurationMs: admissionDurationMs, maxCostUSD: 0, ...(manifestId ? { manifestId } : {})
   });
   return submission;
 }
@@ -153,6 +154,25 @@ test("multi-task DAG never degrades into a single-provider fallback", async (t) 
   }]);
   assert.equal(effect, 0);
   assert.equal((await store.getRunSubmission(submission.id)).status, "PENDING_WORKER");
+  assert.deepEqual(await store.listRuns({}), []);
+});
+
+test("unimplemented sandbox and exceeded admission limits fail closed without Run creation", async (t) => {
+  const { store } = await setup(t);
+  const sandbox = await admit(store, "sandbox", { sandbox: "read-only" });
+  const limits = await admit(store, "limits", {
+    taskDurationMs: 10000, admissionDurationMs: 1000
+  });
+  let calls = 0;
+  const ports = trustedPorts(store, { onDispatch: () => { calls++; } });
+  ports.verifyApproval = async () => { throw new Error("must not reach approval"); };
+  const response = await processApprovedAdmissionCycle(ports);
+  const byId = new Map(response.actions.map((action) => [action.submissionId, action]));
+  assert.equal(byId.get(sandbox.id).reason, "SANDBOX_DISPATCH_UNSUPPORTED");
+  assert.equal(byId.get(limits.id).reason, "EXECUTION_LIMITS_MISMATCH");
+  assert.equal(calls, 0);
+  assert.equal((await store.getRunSubmission(sandbox.id)).status, "PENDING_WORKER");
+  assert.equal((await store.getRunSubmission(limits.id)).status, "PENDING_WORKER");
   assert.deepEqual(await store.listRuns({}), []);
 });
 
