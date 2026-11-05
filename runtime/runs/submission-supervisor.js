@@ -19,8 +19,11 @@ function requirePort(name, value) {
 function approvalSubject(row) {
   return Object.freeze({
     submissionId: row.id, projectId: row.projectId,
+    requestDigest: row.requestDigest, manifestId: row.manifestId || null,
     planDigest: row.planDigest, artifactDigest: row.artifactDigest,
     approvalDigest: row.approvalDigest, workspaceFingerprint: row.workspaceFingerprint,
+    taskCount: row.taskCount, maxCostUSD: row.maxCostUSD,
+    maxAttempts: row.maxAttempts, maxDurationMs: row.maxDurationMs,
     providers: Object.freeze([...row.providers])
   });
 }
