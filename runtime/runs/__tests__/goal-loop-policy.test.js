@@ -54,6 +54,18 @@ test("PASS requires real per-criterion evidence with passed verification", () =>
   assert.equal(denied.reason, "EVIDENCE_OR_POLICY_REVIEW_REQUIRED");
 });
 
+test("cannot declare PASS when a completed task has no acceptance contract", () => {
+  const withoutCriteria = tasks.map((task) =>
+    task.id === "frontend" ? { ...task, acceptanceCriteria: [], evidenceRequirements: [] } : task
+  );
+  const results = verified();
+  results.set("frontend", { status: "completed" });
+  const decision = assessGoalCorrection(params({ tasks: withoutCriteria, results }));
+  assert.equal(decision.decision, "BLOCKED_NEEDS_USER");
+  assert.equal(decision.reason, "ACCEPTANCE_CONTRACT_REQUIRED");
+  assert.equal(decision.executionEnabled, false);
+});
+
 test("repeat fingerprints, missing lineage and exceeded budgets fail closed", () => {
   const results = verified();
   results.set("frontend", { status: "failed", error: "failed" });
