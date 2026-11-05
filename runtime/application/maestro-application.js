@@ -41,6 +41,7 @@ const {
 } = require("../resolution");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
+const { samePhysicalPath } = require("../runs/workspace-authority");
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
@@ -538,7 +539,7 @@ class MaestroApplication {
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     const existingProject = await this.store.getProject(projectId);
-    if (existingProject?.path && path.resolve(existingProject.path) !== workspacePath) {
+    if (existingProject?.path && !samePhysicalPath(existingProject.path, workspacePath)) {
       const error = new Error("PROJECT_SCOPE_MISMATCH: projectId is already bound to a different workspacePath");
       error.code = "PROJECT_SCOPE_MISMATCH";
       throw error;
@@ -754,12 +755,12 @@ class MaestroApplication {
         currentRun.taskId !== task.id || currentStep.runId !== run.id ||
         currentTask.projectId !== task.projectId ||
         currentTask.description !== task.description ||
-        path.resolve(currentProject.path || "") !== path.resolve(workspacePath) ||
+        !samePhysicalPath(currentProject.path, workspacePath) ||
         run.providerId !== provider.id || currentRun.providerId !== provider.id ||
         this.providers.get(provider.id) !== provider ||
         !request || request.description !== task.description ||
         (request.providerId && request.providerId !== provider.id) ||
-        (request.workspacePath && path.resolve(request.workspacePath) !== path.resolve(workspacePath)) ||
+        (request.workspacePath && !samePhysicalPath(request.workspacePath, workspacePath)) ||
         (request.profileId && request.profileId !== profile.id) ||
         (request.policyId && request.policyId !== policy.id)) {
       const error = new Error("PREPARED_RUN_STATE_MISMATCH: persisted Run or prepared arguments changed");

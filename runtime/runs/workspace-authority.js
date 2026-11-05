@@ -126,4 +126,4 @@ async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspaceP
   return Object.freeze({ ...result, binding });
 }
 
-module.exports = { bindingFromRealGitWorktree, admitCanonicalWorktreeSubmission };
+module.exports = { samePhysicalPath, bindingFromRealGitWorktree, admitCanonicalWorktreeSubmission };
