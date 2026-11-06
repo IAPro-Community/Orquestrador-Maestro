@@ -179,3 +179,48 @@ test("project.compose does not claim capability when Maestro runtime is not conn
     assert.equal(response.error?.code, -32602);
   } finally { f.close(); }
 });
+
+
+test("project.compose rejects an obsolete DAG if Maestro context changes during model planning", async () => {
+  const f = setup();
+  let calls = 0;
+  const proposal = { tasks: [{
+    id: "api", title: "Implement request validation",
+    objective: "Reject malformed payloads with typed errors",
+    type: "api", dependsOn: [],
+    acceptanceCriteria: ["Requests with invalid payloads produce 400"],
+    requiredCapabilities: ["backend"]
+  }] };
+  try {
+    const bridge = createBridge({
+      projectRoot: f.root,
+      services: {
+        runtime: {
+          providers: {
+            get(id) {
+              if (id !== "codex") return null;
+              return {
+                async detect() { return { installed: true }; },
+                async execute() {
+                  calls++;
+                  fs.writeFileSync(path.join(f.root, "AGENTS.md"),
+                    "# Canonical project\nChanged instructions during composition.\n");
+                  return { result: Promise.resolve({
+                    exitCode: 0, stdout: JSON.stringify(proposal)
+                  }) };
+                }
+              };
+            }
+          }
+        }
+      }
+    });
+    const response = await request(bridge, "project.compose", {
+      artifact: f.artifact, approvedModelUse: true, providerId: "codex"
+    });
+    assert.equal(calls, 1);
+    assert.equal(response.error?.code, -32602);
+    assert.match(response.error?.message || "", /context changed/i);
+    assert.equal(response.result, undefined);
+  } finally { f.close(); }
+});

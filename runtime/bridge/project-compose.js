@@ -91,6 +91,13 @@ function createComposePreview({ projectRoot, application }) {
     const validation = validatePlanPreview({
       projectPath: root, artifact, proposal: output.proposal
     }, root);
+    // The model planned against the context captured before its (potentially
+    // long-running) call. Do not return an approvable DAG if the canonical
+    // Maestro project context changed while the provider was working.
+    // The regular plan validator already re-reads the authoritative context.
+    if (validation.context?.contentDigest !== canonical.manifest.contentDigest) {
+      throw invalid("canonical project context changed during composition; regenerate the preview");
+    }
     if (!validation.validation.valid || !validation.tasks) {
       return Object.freeze({
         ...validation,
