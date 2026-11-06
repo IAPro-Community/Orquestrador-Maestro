@@ -35,6 +35,11 @@ modelControl:
 - default-only: only a verified harness configuration default is available.
 - unknown: no unverified override is attempted; use only a verified default.
 
+The additional modelLockGuarantee value is 'enforced', 'harness-fallback'
+or 'unknown'. Hard model locks are blocked unless a trusted adapter attests
+'enforced'. modelReporting is 'actual-model', 'requested-only' or 'unknown'.
+A request flag is never sufficient proof that the expected model actually ran.
+
 Do not confuse having a '--model' CLI argument with actual account/model
 availability. Warp may use its own built-in Auto router; unless it reports the
 underlying model, Maestro must not invent that identity.
@@ -85,6 +90,16 @@ requestedModelId. Cross-provider opt-in never overrides task locks.
 5. Finish Maestro #48 durable DAG worker, idempotency, recovery and cancellation.
 6. Homologate the API/harness/tool cases on real Linux, Windows and macOS.
 7. Project route preview and execution in Nexus without importing Maestro code.
+
+## Local unit verification
+
+From the Maestro repository root, without paid CI or model API calls:
+
+    node --test runtime/routing/__tests__/task-route-preview.test.js
+
+For the full baseline, run the existing repository test command on a clean
+checkout and record the exact SHA, Node version, OS and result. The initial
+isolated logic validations do not replace Node integration or E2E certification.
 
 Related: Maestro issues #48 and #53; Nexus issues #115 and #176;
 OpenFusion (https://github.com/calesthio/OpenFusion).
