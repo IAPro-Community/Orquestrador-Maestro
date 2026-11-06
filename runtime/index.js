@@ -4,6 +4,7 @@ module.exports = {
   ...require("./core"),
   ...require("./bridge"),
   ...require("./providers"),
+  ...require("./routing"),
   ...require("./skills"),
   ...require("./store"),
   ...require("./verification"),
