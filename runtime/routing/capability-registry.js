@@ -6,6 +6,8 @@ const KINDS = new Set(["agent-harness", "model-api", "local-tool"]);
 const AUTH = new Set(["chatgpt-subscription", "api-key", "oauth", "local", "unknown"]);
 const MODEL_CONTROL = new Set(["per-run", "session-only", "default-only", "unknown"]);
 const STATUS = new Set(["ready", "unverified", "unavailable"]);
+const LOCK_GUARANTEE = new Set(["enforced", "harness-fallback", "unknown"]);
+const MODEL_REPORTING = new Set(["actual-model", "requested-only", "unknown"]);
 const TIERS = new Set(["fast", "standard", "deep"]);
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,127}$/;
 const CAPABILITY = /^[a-z][a-z0-9.-]{0,79}$/;
@@ -50,12 +52,14 @@ function normalizeModel(value) {
 function normalizeConnection(value) {
   object(value, "connection");
   keys(value, ["id", "kind", "auth", "status", "modelControl", "defaultModelId",
-    "capabilities", "models"], "connection");
+    "capabilities", "models", "modelLockGuarantee", "modelReporting"], "connection");
   const id = identifier(value.id, "connection.id");
   const kind = enumField(value.kind, KINDS, "connection.kind");
   const status = enumField(value.status, STATUS, "connection.status");
   const auth = enumField(value.auth, AUTH, "connection.auth");
   const modelControl = enumField(value.modelControl, MODEL_CONTROL, "connection.modelControl");
+  const modelLockGuarantee = enumField(value.modelLockGuarantee || "unknown", LOCK_GUARANTEE, "connection.modelLockGuarantee");
+  const modelReporting = enumField(value.modelReporting || "unknown", MODEL_REPORTING, "connection.modelReporting");
   const caps = capabilities(value.capabilities, "connection.capabilities");
   const provided = value.models === undefined ? [] : value.models;
   if (!Array.isArray(provided) || provided.length > 128) throw invalid("connection.models must be bounded");
@@ -71,7 +75,8 @@ function normalizeConnection(value) {
     if (!models.some(m => m.id === defaultModelId)) throw invalid("default model is not cataloged");
   }
   return Object.freeze({ id, kind, auth, status, modelControl,
-    defaultModelId, capabilities: caps, models: Object.freeze(models) });
+    defaultModelId, modelLockGuarantee, modelReporting,
+    capabilities: caps, models: Object.freeze(models) });
 }
 function normalizeCatalog(value) {
   if (!Array.isArray(value) || value.length > 64) throw invalid("catalog must have at most 64 connections");
