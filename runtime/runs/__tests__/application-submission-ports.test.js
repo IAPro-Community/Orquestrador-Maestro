@@ -134,3 +134,48 @@ test("Git HEAD changes before prepared dispatch block side effects", async (t) =
   }), { code: "MANIFEST_WORKSPACE_CHANGED" });
   assert.equal(f.provider.calls, 0);
 });
+
+test("supervisor cancellation reaches the real application port and provider exactly once", async (t) => {
+  const f = await fixture(t);
+  let resolveStarted;
+  const started = new Promise((resolve) => { resolveStarted = resolve; });
+  let finishProvider;
+  let cancels = 0;
+  f.provider.execute = async () => {
+    f.provider.calls++;
+    const result = new Promise((resolve) => { finishProvider = resolve; });
+    resolveStarted();
+    return {
+      pid: 10,
+      cancel() {
+        cancels++;
+        finishProvider({
+          providerId: f.provider.id, pid: 10, exitCode: 130,
+          stdout: "", stderr: "", durationMs: 1,
+          cancelled: true, timedOut: false
+        });
+      },
+      result
+    };
+  };
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const supervision = superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-cancel-e2e-01", leaseMs: 2000, heartbeatMs: 200,
+    ...ports
+  });
+  await started;
+  const requested = await f.store.requestRunSubmissionCancellation(f.submission.id);
+  assert.equal(requested.status, "CANCEL_REQUESTED");
+  const settled = await supervision;
+  assert.equal(f.provider.calls, 1);
+  assert.equal(cancels, 1);
+  assert.equal(settled.submission.status, "CANCELLED");
+  assert.equal((await f.store.getRun(settled.runId)).status, "cancelled");
+});
