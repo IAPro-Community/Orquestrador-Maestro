@@ -8,12 +8,14 @@ function fixture() {
   return [
     { id: "codex-chatgpt", kind: "agent-harness", auth: "chatgpt-subscription",
       status: "ready", modelControl: "per-run", defaultModelId: "gpt-6.1-sol",
+      modelLockGuarantee: "enforced", modelReporting: "actual-model",
       capabilities: ["code.edit", "tool.call"], models: [
         { id: "gpt-6-luna", tier: "fast", status: "ready", capabilities: ["text.generate"] },
         { id: "gpt-6.1-sol", tier: "standard", status: "ready", capabilities: ["text.generate"] }
       ] },
     { id: "anthropic-api", kind: "model-api", auth: "api-key", status: "ready",
       modelControl: "per-run", defaultModelId: "claude-sonnet",
+      modelLockGuarantee: "enforced", modelReporting: "actual-model",
       capabilities: [], models: [
         { id: "claude-sonnet", tier: "standard", status: "ready", capabilities: ["text.generate"] },
         { id: "claude-opus", tier: "deep", status: "ready", capabilities: ["text.generate"] }
@@ -128,4 +130,23 @@ test("preview is inert and validates request boundaries", () => {
   const normalized = normalizeCatalog(fixture());
   assert.ok(Object.isFrozen(normalized));
   assert.ok(Object.isFrozen(normalized[0].models));
+});
+
+test("locks block harness-managed fallback even when the requested model exists", () => {
+  const catalog = fixture();
+  catalog[0].modelLockGuarantee = "harness-fallback";
+  catalog[0].modelReporting = "requested-only";
+  const route = previewTaskRoute({ catalog,
+    task: modelTask({requestedConnectionId: "codex-chatgpt", requestedModelId: "gpt-6-luna"}),
+    policy: {mode: "locked"} });
+  assert.equal(route.status, "BLOCKED");
+});
+
+test("auto preview does not claim actual model identity without execution evidence", () => {
+  const catalog = fixture();
+  catalog[0].modelReporting = "requested-only";
+  const route = previewTaskRoute({ catalog, task: modelTask(),
+    policy: {preferredConnectionId: "codex-chatgpt"} });
+  assert.equal(route.status, "READY_FOR_REVIEW");
+  assert.ok(route.reasons.includes("ACTUAL_MODEL_RECEIPT_NOT_AVAILABLE"));
 });
