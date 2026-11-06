@@ -1558,7 +1558,20 @@ async function handleBridgeCommand(args) {
     projectInspector: { inspect: (params) => app.inspectProject(params) },
     skillRegistry: app.skills,
     providerRegistry: { list: () => app.listProviders() },
-    runStore: { listRuns: (filters) => app.listRuns(filters), getRun: (id) => app.getRun(id), listArtifacts: (filters) => app.listArtifacts(filters), getArtifact: (id) => app.getArtifact(id), getVerification: (runId) => app.getVerification(runId) },
+    runStore: {
+      listRuns: (filters) => app.listRuns(filters),
+      getRun: (id) => app.getRun(id),
+      listArtifacts: (filters) => app.listArtifacts(filters),
+      getArtifact: (id) => app.getArtifact(id),
+      getVerification: (runId) => app.getVerification(runId),
+      // Scoped Bridge observers need the real persisted submission ledger.
+      // Expose only narrowly delegated methods; never provide a second
+      // scheduler, approval verifier, or executor through this adapter.
+      listProjects: () => app.store.listProjects(),
+      listRunSubmissions: (filters) => app.store.listRunSubmissions(filters),
+      getRunSubmission: (id) => app.store.getRunSubmission(id),
+      requestRunSubmissionCancellation: (id) => app.store.requestRunSubmissionCancellation(id)
+    },
     runtime: app
   } });
   createStdioServer(bridge);

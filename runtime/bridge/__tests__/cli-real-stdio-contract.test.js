@@ -68,6 +68,10 @@ test("installed CLI Bridge exposes canonical Nexus contract without dispatch or 
   assert.equal(capabilities.projectCompose, true);
   assert.equal(capabilities.plansRoutePreview, true);
   assert.equal(capabilities.runsObserve, true);
+  assert.equal(capabilities.runsSubmissionsRead, true);
+  assert.equal(capabilities.runsSubmissionsPoll, true);
+  assert.equal(capabilities.runsSubmissionsCancel, true);
+  assert.equal(capabilities.runsSubmit, false, "an observer must not advertise an executor");
   assert.equal(capabilities.memory.read, true);
   assert.equal(capabilities.memory.write, false);
   assert.equal(capabilities.subscriptions, false);
@@ -90,6 +94,22 @@ test("installed CLI Bridge exposes canonical Nexus contract without dispatch or 
   const unavailable = await rpc(4, "runs.observe", { runId: "nonexistent-run" });
   assert.equal(unavailable.error, undefined, JSON.stringify(unavailable.error));
   assert.equal(unavailable.result, null);
+
+  const unregisteredPoll = await rpc(6, "runs.submissions.poll", { limit: 10 });
+  assert.equal(unregisteredPoll.error?.code, -32602,
+    "unregistered roots must fail closed rather than acquiring foreign submissions");
+  const registered = await rpc(9, "projects.register", { projectPath: root });
+  assert.equal(registered.error, undefined, JSON.stringify(registered.error));
+  const idlePoll = await rpc(10, "runs.submissions.poll", { limit: 10 });
+  assert.equal(idlePoll.error, undefined, JSON.stringify(idlePoll.error));
+  assert.equal(idlePoll.result.delivery, "SNAPSHOT_POLL");
+  assert.equal(idlePoll.result.total, 0);
+  assert.equal(idlePoll.result.changed, true);
+  assert.equal(idlePoll.result.replayable, false);
+  const invalidCancel = await rpc(7, "runs.submissions.cancel", { submissionId: "../invalid" });
+  assert.equal(invalidCancel.error?.code, -32602);
+  const unavailableSubmit = await rpc(8, "runs.submit", {});
+  assert.equal(unavailableSubmit.error?.code, -32601);
 
   const subscriptions = await rpc(5, "events.subscribe", {});
   assert.equal(subscriptions.error?.code, -32601);
