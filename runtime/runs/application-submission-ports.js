@@ -118,7 +118,9 @@ function createApplicationSubmissionPorts({
       }
       await load(submission); // Recheck Git HEAD and immutable bindings before effects.
       preparedBySubmission.delete(submission.id);
-      await application.executePreparedRun(held.prepared, held.request);
+      // Forward the supervisor's fenced cancellation signal to the canonical
+      // MaestroApplication so the active provider handle can be cancelled.
+      await application.executePreparedRun(held.prepared, held.request, { signal });
     }
   });
 }

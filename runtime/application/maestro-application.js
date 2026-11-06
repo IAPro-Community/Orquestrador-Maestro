@@ -733,7 +733,7 @@ class MaestroApplication {
     return this.executePreparedRun(await this.createRun(request), request);
   }
 
-  async executePreparedRun(prepared, request) {
+  async executePreparedRun(prepared, request, { signal } = {}) {
     if (!prepared || !this._preparedRuns.has(prepared)) {
       const error = new Error("PREPARED_RUN_NOT_OWNED: preparation is one-shot and local to this Maestro instance");
       error.code = "PREPARED_RUN_NOT_OWNED";
@@ -835,9 +835,27 @@ class MaestroApplication {
     let handle;
     let result;
     try {
+      // Dispatch is already fenced by the supervisor before this method
+      // starts. An abort racing with provider startup is delivered to the
+      // returned handle and reconciled through the normal cancelled result.
       handle = await provider.execute({ prompt: promptEnvelope.prompt, workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
       this.activeRuns.set(run.id, handle);
-      result = await handle.result;
+      // Cancellation may race with provider.execute() returning the handle.
+      // Register first, then inspect aborted, so neither ordering is missed.
+      let cancelRequested = false;
+      const cancelProvider = () => {
+        if (cancelRequested) return;
+        cancelRequested = true;
+        try { Promise.resolve(handle.cancel()).catch(() => {}); }
+        catch { /* provider result/reconciliation owns the final outcome */ }
+      };
+      signal?.addEventListener("abort", cancelProvider, { once: true });
+      if (signal?.aborted) cancelProvider();
+      try {
+        result = await handle.result;
+      } finally {
+        signal?.removeEventListener("abort", cancelProvider);
+      }
     } catch (error) {
       this.activeRuns.delete(run.id);
       const completedAt = new Date().toISOString();
