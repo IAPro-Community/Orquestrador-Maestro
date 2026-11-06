@@ -96,3 +96,43 @@ test("runs.observe rejects forged cursors, unbounded params and unsupported runt
     assert.equal(response.error?.code, -32601);
   } finally { f.close(); }
 });
+
+
+test("runs.observe rejects a mismatched inspected run and prevents cross-run cursor injection", async () => {
+  const f = fixture();
+  try {
+    const inspect = f.runtime.inspectRun.bind(f.runtime);
+    f.runtime.inspectRun = async (id) => {
+      const base = await inspect("run-1");
+      return { ...base, run: { ...base.run, id: "run-other" } };
+    };
+    const bridge = createBridge({ projectRoot: f.root, services: { runtime: f.runtime } });
+    const foreign = await call(bridge, "runs.observe", { runId: "run-1" });
+    assert.equal(foreign.error, undefined);
+    assert.equal(foreign.result, null);
+  } finally { f.close(); }
+});
+
+test("runs.observe ignores foreign run envelopes even if nested payload names the requested run", async () => {
+  const f = fixture();
+  try {
+    f.events.push({
+      id: "ev-foreign", runId: "run-other",
+      type: "run.completed", occurredAt: "2026-11-02T10:00:03Z",
+      data: { runId: "run-1" }
+    });
+    f.events.push({
+      id: "ev-legacy", type: "run.completed",
+      occurredAt: "2026-11-02T10:00:04Z", data: { runId: "run-1" }
+    });
+    const bridge = createBridge({ projectRoot: f.root, services: { runtime: f.runtime } });
+    const response = await call(bridge, "runs.observe", { runId: "run-1" });
+    assert.equal(response.error, undefined);
+    assert.deepEqual(response.result.events.map((item) => item.id),
+      ["ev-1", "ev-3", "ev-legacy"]);
+    const forged = await call(bridge, "runs.observe", {
+      runId: "run-1", afterEventId: "ev-foreign"
+    });
+    assert.equal(forged.error?.code, -32602);
+  } finally { f.close(); }
+});

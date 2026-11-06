@@ -54,6 +54,7 @@ function createRunObserver({ projectRoot, runtime }) {
     // process has a single canonical root, not permission to enumerate every
     // RunStore project or worktree.
     if (!inspection?.run || !inspection?.task || !inspection?.project ||
+      inspection.run.id !== params.runId ||
       typeof inspection.project.path !== "string" ||
       !sameProject(root, inspection.project.path) ||
       inspection.run.taskId !== inspection.task.id ||
@@ -65,7 +66,11 @@ function createRunObserver({ projectRoot, runtime }) {
     // absent. Only recognized lifecycle event IDs/types/timestamps can replay.
     const items = rows.filter(item => item && EVENT_TYPES.has(item.type) &&
       typeof item.id === "string" && SAFE_ID.test(item.id) &&
-      (item.runId === params.runId || item.data?.runId === params.runId));
+      // A durable envelope's runId is authoritative. Nested metadata may
+      // reference another Run, but it cannot reassign a foreign event to
+      // the requested session. Old events without runId remain supported.
+      (item.runId === params.runId ||
+        (item.runId == null && item.data?.runId === params.runId)));
     const offset = params.afterEventId === undefined
       ? 0 : items.findIndex(item => item.id === params.afterEventId) + 1;
     if (params.afterEventId !== undefined && offset === 0) {
