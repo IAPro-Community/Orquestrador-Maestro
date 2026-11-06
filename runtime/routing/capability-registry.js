@@ -36,7 +36,7 @@ function capabilities(value, where) {
       new Set(value).size !== value.length) throw invalid(where + " must be a bounded capability array");
   return Object.freeze([...value].sort());
 }
-function normalizeModel(value, index) {
+function normalizeModel(value) {
   object(value, "model");
   keys(value, ["id", "tier", "status", "capabilities"], "model");
   const model = {
