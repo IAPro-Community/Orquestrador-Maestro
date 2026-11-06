@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const { createHash } = require("node:crypto");
 const path = require("node:path");
 
 function invalid(message) {
@@ -77,6 +78,42 @@ function createSubmissionStatusReader({ store, projectRoot }) {
         schemaVersion: 1, authority: "MAESTRO", projectId,
         total: filtered.length, truncated: filtered.length > limit,
         submissions: filtered.slice(0, limit).map(project),
+      });
+    },
+    // Snapshot polling, NOT replayable events or a push subscription. The
+    // cursor hashes only redacted project projections plus the requested page.
+    // Restarting the Bridge does not reset it because RunStore is canonical.
+    async poll(params = {}) {
+      if (!params || typeof params !== "object" || Array.isArray(params) ||
+          Object.keys(params).some((key) => !["cursor", "limit", "offset"].includes(key))) {
+        throw invalid("runs.submissions.poll allows only cursor, limit and offset");
+      }
+      const limit = params.limit === undefined ? 50 : params.limit;
+      const offset = params.offset === undefined ? 0 : params.offset;
+      const previous = params.cursor;
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100 ||
+          !Number.isSafeInteger(offset) || offset < 0 || offset > 1000000 ||
+          (previous !== undefined &&
+            (typeof previous !== "string" || !/^s1:[a-f0-9]{64}$/.test(previous)))) {
+        throw invalid("invalid bounded submission polling cursor, limit or offset");
+      }
+      const projectId = await scoped();
+      const rows = await store.listRunSubmissions({ projectId });
+      // Do not trust backend filtering. Deterministic ordering prevents cursor
+      // jitter across processes, and mapping strips secrets before hashing.
+      const visible = rows.filter((row) => row?.projectId === projectId)
+        .map(project).sort((a, b) => a.submissionId.localeCompare(b.submissionId));
+      const cursor = "s1:" + createHash("sha256").update(
+        JSON.stringify(["MAESTRO_SUBMISSIONS_SNAPSHOT_V1", projectId, limit, offset, visible])
+      ).digest("hex");
+      const changed = cursor !== previous;
+      const page = changed ? visible.slice(offset, offset + limit) : [];
+      return Object.freeze({
+        schemaVersion: 1, authority: "MAESTRO", owner: "MAESTRO",
+        delivery: "SNAPSHOT_POLL", replayable: false,
+        projectId, cursor, changed, total: visible.length,
+        offset, limit, nextOffset: offset + limit < visible.length ? offset + limit : null,
+        submissions: page
       });
     },
     async cancel(params = {}) {
