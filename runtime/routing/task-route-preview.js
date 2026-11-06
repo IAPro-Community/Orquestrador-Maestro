@@ -80,6 +80,9 @@ function previewTaskRoute({ catalog, task, policy = {} } = {}) {
   if (options.mode === "locked" && !request.requestedConnectionId) {
     throw invalid("locked mode requires task.requestedConnectionId");
   }
+  if (options.mode === "locked" && request.kind === "model" && !request.requestedModelId) {
+    throw invalid("locked model routing requires task.requestedModelId");
+  }
   const candidates = [];
   for (const connection of connections) {
     if (connection.status !== "ready") continue;
