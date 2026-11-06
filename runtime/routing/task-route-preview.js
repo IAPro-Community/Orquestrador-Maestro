@@ -101,8 +101,10 @@ function previewTaskRoute({ catalog, task, policy = {} } = {}) {
       if (TIERS.indexOf(model.tier) < TIERS.indexOf(request.minimumTier)) continue;
       if (request.requestedModelId && model.id !== request.requestedModelId) continue;
       if (!permittedModel(connection, model) || !supports(request.required, connection, model)) continue;
+      if (request.requestedModelId && connection.modelLockGuarantee !== "enforced") continue;
       candidates.push({ connectionId: connection.id, modelId: model.id,
-        tier: model.tier, connectionKind: connection.kind });
+        tier: model.tier, connectionKind: connection.kind,
+        modelReporting: connection.modelReporting });
     }
   }
   const ordered = candidates.map(c => {
@@ -127,6 +129,8 @@ function previewTaskRoute({ catalog, task, policy = {} } = {}) {
   const reasons = ["VERIFIED_CAPABILITY_MATCH",
     request.requestedConnectionId ? "CONNECTION_LOCK_RESPECTED" : "POLICY_SELECTED",
     request.requestedModelId ? "MODEL_LOCK_RESPECTED" : "MODEL_SELECTED_WITHIN_POLICY"];
+  if (chosen.modelId && chosen.modelReporting !== "actual-model")
+    reasons.push("ACTUAL_MODEL_RECEIPT_NOT_AVAILABLE");
   if (options.preferredConnectionId && chosen.connectionId !== options.preferredConnectionId)
     reasons.push("CROSS_PROVIDER_FALLBACK_PREVIEW");
   return Object.freeze({ schemaVersion: 1, authority: "MAESTRO", previewOnly: true,
