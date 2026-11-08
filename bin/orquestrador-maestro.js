@@ -115,6 +115,8 @@ Uso:
   orquestrador-maestro capabilities --json
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skills list --json [--project-path PATH]
+  orquestrador-maestro advise --json < request.json
+  orquestrador-maestro verify --json < request.json
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
@@ -1520,11 +1522,125 @@ function handleCapabilitiesCommand(args) {
   console.log(JSON.stringify({
     version: packageJson.version,
     modes: ["OFF", "ASSIST", "ORCHESTRATE"],
+    contracts: { advice: "1.0.0", verification: "1.0.0" },
     skills: listCanonicalSkills(process.cwd()),
     // This CLI release has no stable gate/process enumeration contract yet.
     gates: [],
     processes: []
   }));
+  return 0;
+}
+
+function readContractRequest(command, maxBytes = 65536) {
+  const raw = fs.readFileSync(0, "utf8");
+  if (Buffer.byteLength(raw, "utf8") === 0) throw new Error(`${command} exige um objeto JSON em stdin`);
+  if (Buffer.byteLength(raw, "utf8") > maxBytes) throw new Error(`${command} excede o limite de ${maxBytes} bytes`);
+  let request;
+  try { request = JSON.parse(raw); }
+  catch { throw new Error(`${command} recebeu JSON inválido`); }
+  if (!request || typeof request !== "object" || Array.isArray(request)) throw new Error(`${command} exige um objeto JSON`);
+  return request;
+}
+
+function contractString(value, name, { required = false, maxLength = 4096 } = {}) {
+  if (typeof value !== "string") {
+    if (required) throw new Error(`${name} é obrigatório`);
+    return "";
+  }
+  const normalized = value.trim();
+  if (required && !normalized) throw new Error(`${name} é obrigatório`);
+  if (normalized.length > maxLength) throw new Error(`${name} excede o limite de ${maxLength} caracteres`);
+  return normalized;
+}
+
+function handleAdviseCommand(args) {
+  if (args.length !== 1 || args[0] !== "--json") throw new Error("Uso: maestro advise --json < request.json");
+  const request = readContractRequest("advise");
+  const version = contractString(request.version, "version", { required: true, maxLength: 32 });
+  if (version !== "1.0.0") throw new Error(`Versão de advice não suportada: ${version}`);
+  const intent = contractString(request.intent, "intent", { required: true, maxLength: 4096 });
+  const scope = contractString(request.scope, "scope", { required: true, maxLength: 16 });
+  if (!["project", "agent", "task"].includes(scope)) throw new Error("scope deve ser project, agent ou task");
+  const lifecycle = contractString(request.lifecycle, "lifecycle", { required: true, maxLength: 16 });
+  if (!["PLAN", "TASK", "RECOVERY", "VERIFY"].includes(lifecycle)) throw new Error("lifecycle inválido");
+  const context = request.context;
+  if (!context || typeof context !== "object" || Array.isArray(context)) throw new Error("context deve ser um objeto");
+  const projectId = contractString(context.project_id, "context.project_id", { required: true, maxLength: 256 });
+  const agentId = contractString(context.agent_id, "context.agent_id", { maxLength: 256 });
+
+  const { SkillRouterV3 } = require(path.join(rootDir, "runtime", "planner", "skill-router-v3"));
+  const routed = new SkillRouterV3({ maestroRoot: rootDir }).resolve(intent);
+  const metadata = new Map(listCanonicalSkills(process.cwd()).map((skill) => [skill.id, skill]));
+  const recommendations = routed.allSkills
+    .map((skill) => metadata.get(skill.id))
+    .filter(Boolean)
+    .map((skill) => ({
+      id: skill.id,
+      type: "action",
+      title: skill.name,
+      description: skill.description,
+      apply: `skill:${skill.id}`,
+      why: `Selecionada pelo SkillRouterV3 para a intenção recebida; lifecycle ${lifecycle}.`,
+      risk: ["low", "medium", "high"].includes(skill.risk) ? skill.risk : "medium",
+      skills: [skill.id],
+      metadata: { source: "maestro-skill-router-v3", projectId, ...(agentId ? { agentId } : {}) }
+    }));
+
+  process.stdout.write(`${JSON.stringify({
+    version: packageJson.version,
+    mode: "ASSIST",
+    lifecycle,
+    required: [],
+    recommended: recommendations,
+    optional: [],
+    explanation: recommendations.length
+      ? `SkillRouterV3 selecionou ${recommendations.length} skill(s) canônica(s). Nenhuma ação foi executada.`
+      : "SkillRouterV3 não encontrou skill canônica com evidência suficiente; nenhuma recomendação foi inventada."
+  })}\n`);
+  return 0;
+}
+
+function handleMaestroVerifyCommand(args) {
+  if (args.length !== 1 || args[0] !== "--json") throw new Error("Uso: maestro verify --json < request.json");
+  const request = readContractRequest("verify");
+  const version = contractString(request.version, "version", { required: true, maxLength: 32 });
+  if (version !== "1.0.0") throw new Error(`Versão de verify não suportada: ${version}`);
+  const lifecycle = contractString(request.lifecycle, "lifecycle", { required: true, maxLength: 16 });
+  if (lifecycle !== "VERIFY") throw new Error("lifecycle deve ser VERIFY");
+  for (const field of ["project_id", "mission_id"]) {
+    if (request[field] !== undefined) contractString(request[field], field, { maxLength: 256 });
+  }
+  if (request.changed_paths !== undefined) {
+    const changedPaths = request.changed_paths;
+    if (!Array.isArray(changedPaths) || changedPaths.length > 256 || changedPaths.some((value) => typeof value !== "string" || value.trim().length === 0 || value.length > 1024)) {
+      throw new Error("changed_paths deve ser uma lista válida com até 256 itens");
+    }
+  }
+  const checks = request.checks === undefined ? [] : request.checks;
+  const evidenceRefs = request.evidence_refs === undefined ? [] : request.evidence_refs;
+  const riskSignals = request.risk_signals === undefined ? [] : request.risk_signals;
+  for (const [name, values, limit] of [["checks", checks, 128], ["evidence_refs", evidenceRefs, 256], ["risk_signals", riskSignals, 128]]) {
+    if (!Array.isArray(values) || values.length > limit || values.some((value) => typeof value !== "string" || value.trim().length === 0 || value.length > 2048)) {
+      throw new Error(`${name} deve ser uma lista válida com até ${limit} itens`);
+    }
+  }
+  const requiredActions = [];
+  if (checks.length === 0) requiredActions.push("Anexe os resultados dos checks executados pelo owner do runtime.");
+  const unpassedChecks = checks.filter((check) => !/^PASS(?::|\s)/iu.test(check.trim()));
+  if (unpassedChecks.length > 0) requiredActions.push("Marque como PASS somente checks concluídos com exit code zero; resultados pendentes ou falhos bloqueiam a verificação.");
+  if (evidenceRefs.length === 0) requiredActions.push("Anexe referências de evidência persistida para os checks.");
+  if (riskSignals.length > 0) requiredActions.push("Resolva os sinais de risco antes de aprovar a verificação.");
+  const passed = checks.length > 0 && unpassedChecks.length === 0 && evidenceRefs.length > 0 && riskSignals.length === 0;
+
+  process.stdout.write(`${JSON.stringify({
+    version: packageJson.version,
+    lifecycle: "VERIFY",
+    passed,
+    required_actions: requiredActions,
+    explanation: passed
+      ? "O pacote de verificação tem checks e referências de evidência e não declara riscos pendentes. Maestro avaliou somente a política; não executou comandos nem abriu referências."
+      : "A política de verificação não passou. Maestro não executou checks; consulte required_actions e reenvie a evidência do owner do runtime."
+  })}\n`);
   return 0;
 }
 
@@ -3227,6 +3343,7 @@ async function dispatch(command, args) {
   }
 
   if (command === "verify") {
+    if (args.length === 1 && args[0] === "--json") return handleMaestroVerifyCommand(args);
     return runVerify(args);
   }
 
@@ -3262,6 +3379,7 @@ async function dispatch(command, args) {
   if (command === "mission") return handleMissionCommand(args);
   if (command === "terminal") return handleTerminalCommand(args);
   if (command === "capabilities") return handleCapabilitiesCommand(args);
+  if (command === "advise") return handleAdviseCommand(args);
   if (command === "skills") return handleSkillsCommand(args);
   if (command === "skill-catalog") return handleSkillCatalogCommand(args);
   if (command === "providers") return handleProvidersCommand(args);

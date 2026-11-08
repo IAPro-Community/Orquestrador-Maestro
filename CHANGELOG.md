@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added read-only `capabilities --json` and `skills list --json` contracts for downstream clients. Both expose canonical skill metadata without local filesystem paths; gates/processes remain empty until Maestro publishes an authoritative enumeration.
+- Added versioned `advise --json` and `verify --json` stdin/stdout contracts for Nexus. Advice delegates only to Maestro SkillRouterV3 and returns canonical skill IDs; verify checks explicit `PASS:` results, evidence references, and unresolved risk signals without executing commands or opening references. The legacy installer `verify [options]` remains unchanged.
 
 ## 1.1.0 - 2026-10-15
 

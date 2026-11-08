@@ -53,6 +53,7 @@ test("machine-readable Maestro capabilities and skills contracts expose canonica
   const contract = JSON.parse(capabilities.stdout);
   assert.match(contract.version, SEMVER_OUTPUT_RE);
   assert.deepEqual(contract.modes, ["OFF", "ASSIST", "ORCHESTRATE"]);
+  assert.deepEqual(contract.contracts, { advice: "1.0.0", verification: "1.0.0" });
   assert.ok(Array.isArray(contract.skills));
   assert.deepEqual(contract.gates, []);
   assert.deepEqual(contract.processes, []);

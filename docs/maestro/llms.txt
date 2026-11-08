@@ -14,6 +14,7 @@ This directory documents the compatibility-first governance layer of Orquestrado
 - config.example.json: reference configuration.
 - assets/: versioned SVG diagrams.
 - interaction-profiles.md: interaction configuration, precedence, status, and projection.
+- nexus-contract-v1.md: machine-readable capabilities, advice, and verification contracts for Nexus.
 
 Core implementation references:
 
