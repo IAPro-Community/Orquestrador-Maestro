@@ -33,7 +33,11 @@ function runCliInstall(home, extra = []) {
     "--non-interactive",
     "--skip-skill-sync",
     ...extra
-  ], { encoding: "utf8", cwd: ROOT });
+  ], {
+    encoding: "utf8",
+    cwd: ROOT,
+    env: { ...process.env, ORQUESTRADOR_ALLOW_ROOT_INSTALL: "1" },
+  });
 }
 
 function pluginManifest(home) {

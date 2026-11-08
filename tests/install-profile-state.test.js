@@ -79,7 +79,7 @@ test("disabled profiles verify with an empty scope; legacy installs remain stric
   passed(install);
   const core = path.join(home, ".orquestrador");
   assert.deepEqual(readRoots(core), []);
-  assert.match(install.stdout, /ToolProfiles\s*:\s*false/iu);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(core, STATE_FILE), "utf8")).profiles, []);
   passed(cli(home, "verify"));
   fs.rmSync(path.join(core, STATE_FILE));
   const legacy = cli(home, "verify");

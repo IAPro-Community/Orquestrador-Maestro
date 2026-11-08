@@ -16,6 +16,8 @@ function Get-HostPowerShell {
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $TempHome = Join-Path ([System.IO.Path]::GetTempPath()) ("orquestrador-install-test-" + [Guid]::NewGuid().ToString("N"))
+$previousAllowRootInstall = $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL
+$env:ORQUESTRADOR_ALLOW_ROOT_INSTALL = "1"
 
 New-Item -ItemType Directory -Force -Path $TempHome | Out-Null
 
@@ -152,6 +154,11 @@ try {
 
   "Installer smoke test passed."
 } finally {
+  if ($null -eq $previousAllowRootInstall) {
+    Remove-Item Env:ORQUESTRADOR_ALLOW_ROOT_INSTALL -ErrorAction SilentlyContinue
+  } else {
+    $env:ORQUESTRADOR_ALLOW_ROOT_INSTALL = $previousAllowRootInstall
+  }
   if (-not $KeepTemp -and (Test-Path -LiteralPath $TempHome)) {
     Remove-Item -LiteralPath $TempHome -Recurse -Force
   } elseif ($KeepTemp) {

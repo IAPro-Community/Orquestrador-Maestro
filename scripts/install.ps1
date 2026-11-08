@@ -290,23 +290,8 @@ function Restore-MissingFilesFromTree {
 
 function Restore-MergedConfigFromBackup {
   param([string[]]$SourceFiles, [string]$DestinationFile)
-  $merged = [ordered]@{}
-  $foundConfig = $false
-  foreach ($sourceFile in $SourceFiles) {
-    if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) { continue }
-    try {
-      $config = Get-Content -LiteralPath $sourceFile -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ($null -eq $config -or $config -is [System.Array] -or $config -is [string]) { continue }
-      foreach ($property in $config.PSObject.Properties) { $merged[$property.Name] = $property.Value }
-      $foundConfig = $true
-    } catch {
-      Write-Warning "Could not migrate invalid config from backup: $sourceFile"
-    }
-  }
-  if (-not $foundConfig) { return }
-  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DestinationFile) | Out-Null
-  $json = $merged | ConvertTo-Json -Depth 100
-  [System.IO.File]::WriteAllText($DestinationFile, "$json`n", [System.Text.UTF8Encoding]::new($false))
+  & node (Join-Path $RepoRoot "scripts/update-migrations.js") merge $DestinationFile @SourceFiles
+  if ($LASTEXITCODE -ne 0) { throw "Versioned config migration failed; the existing installation was left intact." }
 }
 
 function Backup-MappedDirectory {
@@ -827,55 +812,17 @@ try {
     (Join-Path $BackupDir "$TargetOrquestradorName\config.json")
   ) -DestinationFile (Join-Path $StagedOrquestrador "config.json")
 
-  # 1.1.0 (#38, ADR-001): preserve unmanaged user files across the swap. See
-  # install.sh for the rationale: managed content always comes from the new
-  # bundle, files the previous install did not record in MANAGED_FILES.json are
-  # carried over. Pre-1.1.0 installs keep every file the new bundle does not
-  # ship (first 1.1.0 upgrade never deletes).
-  if ((Test-Path -LiteralPath $TargetOrquestrador) -and (Get-Command node -ErrorAction SilentlyContinue)) {
-    # Tombstone bookkeeping (v2 ownership): never deletes anything a v1
-    # manifest cannot prove, refuses user-modified files, and only removes
-    # stale source-owned files verified unchanged by sha256.
-    $managedPath = Join-Path $TargetOrquestrador "MANAGED_FILES.json"
-    if (Test-Path -LiteralPath $managedPath) {
-      & node (Join-Path $RepoRoot "scripts/managed-files.js") prune $SourceOrquestrador $TargetOrquestrador
-      if ($LASTEXITCODE -ne 0) { throw "Managed-file tombstone validation failed." }
+  # Preserve unmanaged user files across the swap; their content is carried over and stays active.
+  # The first upgrade never deletes those files; source tombstones are recorded for future runs.
+  # snapshot records the MANAGED_FILES.json ownership baseline for the next upgrade.
+  # Preserve user files and managed overrides in staging only. The report and
+  # new upstream copies stay beside the full rollback snapshot, not in the core.
+  if (Test-Path -LiteralPath $TargetOrquestrador) {
+    if (-not (Test-PathUnderRoot -Path $TargetOrquestrador -Root $HomePath)) {
+      throw "Refusing to read target outside home: $TargetOrquestrador"
     }
-    & node -e '
-      const fs = require("fs");
-      const path = require("path");
-      const [oldRoot, stagedRoot] = process.argv.slice(1);
-      let oldManaged = null;
-      try {
-        const raw = JSON.parse(fs.readFileSync(path.join(oldRoot, "MANAGED_FILES.json"), "utf8"));
-        oldManaged = new Set(Object.keys(raw.files || {}));
-      } catch {
-        oldManaged = null;
-      }
-      let preserved = 0;
-      const walk = (dir) => {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          const src = path.join(dir, entry.name);
-          const rel = path.relative(oldRoot, src).split(path.sep).join("/");
-          if (entry.isDirectory()) { walk(src); continue; }
-          if (!entry.isFile()) continue;
-          if (rel === "MANAGED_FILES.json") continue;
-          if (rel === "logs" || rel.startsWith("logs/")) continue;
-          if (oldManaged !== null && oldManaged.has(rel)) continue;
-          const dest = path.join(stagedRoot, ...rel.split("/"));
-          if (fs.existsSync(dest)) continue;
-          try {
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(src, dest);
-            preserved += 1;
-          } catch (error) {
-            console.error(`preserve warning: ${rel}: ${error.message}`);
-          }
-        }
-      };
-      walk(oldRoot);
-      if (preserved > 0) console.log(`Preserved user files: ${preserved}`);
-    ' $TargetOrquestrador $StagedOrquestrador
+    & node (Join-Path $RepoRoot "scripts/managed-files.js") preserve $TargetOrquestrador $StagedOrquestrador (Join-Path $BackupDir "update-artifacts")
+    if ($LASTEXITCODE -ne 0) { throw "Staged user-file preservation failed." }
   }
 
   $previousMoved = $false
@@ -913,13 +860,6 @@ try {
 
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
-# v2 manifest enumerates files shipped by source, never user-owned files;
-# feeds future tombstone pruning + verify/doctor diff.
-if (Get-Command node -ErrorAction SilentlyContinue) {
-  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
-  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
-}
-
 foreach ($target in $extraTargets) {
   Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
 }
@@ -935,7 +875,20 @@ if (-not $SkipSkillSync) {
       $syncArgs += "-Only"
       $syncArgs += ($SelectedComponents -join ",")
     }
-    & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    $previousArtifactsEnv = $env:ORQUESTRADOR_UPDATE_ARTIFACTS
+    $previousCoreEnv = $env:ORQUESTRADOR_PREVIOUS_ROOT
+    try {
+      if ($script:BackupDirCreated) {
+        $previousCore = Join-Path $BackupDir $TargetOrquestradorName
+        if (-not (Test-Path -LiteralPath $previousCore)) { $previousCore = Join-Path $BackupDir $LegacyOrquestradorName }
+        $env:ORQUESTRADOR_UPDATE_ARTIFACTS = Join-Path $BackupDir "update-artifacts\native-skills"
+        $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCore
+      }
+      & (Get-HostPowerShell) -NoProfile -ExecutionPolicy Bypass -File $syncScript @syncArgs
+    } finally {
+      $env:ORQUESTRADOR_UPDATE_ARTIFACTS = $previousArtifactsEnv
+      $env:ORQUESTRADOR_PREVIOUS_ROOT = $previousCoreEnv
+    }
   }
 }
 
@@ -956,9 +909,7 @@ $maestroSources = @(
   (Join-Path $SourceCodex "skills\orquestrador-maestro")
 )
 foreach ($pair in $nativeMinimum) {
-  $program = $pair[0]
   $rel = $pair[1]
-  if (-not (Test-SelectedComponent @($program, "freebuff", "agents", "codex", "claude", "opencode", "cursor", "gemini", "windsurf", "antigravity", "skills", "community-skills", "all"))) { continue }
   $root = Join-Path $HomePath $rel
   New-Item -ItemType Directory -Force -Path $root | Out-Null
   $destMaestro = Join-Path $root "orquestrador-maestro\SKILL.md"
@@ -979,6 +930,13 @@ foreach ($pair in $nativeMinimum) {
 $discoveryScript = Join-Path $RepoRoot "scripts\discover-skills.js"
 if (Test-Path -LiteralPath $discoveryScript) {
   & node $discoveryScript --home-path $HomePath --maestro-root $TargetOrquestrador --output (Join-Path $TargetOrquestrador "SKILLS_DISCOVERY.json")
+}
+
+# Snapshot after every installer-generated core update (skill libraries and
+# discovery included) so strict verification recognizes shipped overrides.
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  & node (Join-Path $RepoRoot "scripts/managed-files.js") snapshot $SourceOrquestrador $TargetOrquestrador
+  if ($LASTEXITCODE -ne 0) { throw "Managed-file snapshot failed." }
 }
 
 & node (Join-Path $PSScriptRoot "install-profile-state.js") write $TargetOrquestrador @($installedProfiles.ToArray())

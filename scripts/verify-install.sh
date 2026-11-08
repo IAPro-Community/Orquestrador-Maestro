@@ -175,6 +175,12 @@ if [ -f "$INSTALL_POLICY" ] && command -v node >/dev/null 2>&1; then
   )
 fi
 
+if [ "$STRICT" = true ]; then
+  if ! command -v node >/dev/null 2>&1 || ! node "$SCRIPT_DIR/managed-files.js" inspect "$ORQUESTRADOR" >/dev/null 2>&1; then
+    add_issue "Strict: managed core files are missing or modified, or MANAGED_FILES.json is unsupported; review the update report and run update."
+  fi
+fi
+
 assert_path "$ORQUESTRADOR/rules.md" "Orquestrador rules"
 assert_path "$ORQUESTRADOR/maestro.md" "Orquestrador maestro"
 assert_path "$ORQUESTRADOR/PERSISTENCE.md" "Orquestrador persistence contract"
@@ -253,7 +259,7 @@ EOF
           add_issue "Strict: skill $skill_name missing in native root $program: $root_path/$skill_name/SKILL.md (re-run sync --apply)"
         fi
       done
-    done < <(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const out=new Set(["orquestrador-maestro"]); for (const [n,e] of Object.entries(m.skills||{})) if(e.mirrorEverywhere) out.add(n); for (const n of [...out].sort()) console.log(n+"|");' "$ORQUESTRADOR/SKILLS_MANIFEST.json")
+    done < <(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const out=new Set(["orquestrador-maestro","skill-open-code-review","skill-open-code-delegate"]); for (const [n,e] of Object.entries(m.skills||{})) if(e.mirrorEverywhere) out.add(n); for (const n of [...out].sort()) console.log(n+"|");' "$ORQUESTRADOR/SKILLS_MANIFEST.json")
   fi
 fi
 

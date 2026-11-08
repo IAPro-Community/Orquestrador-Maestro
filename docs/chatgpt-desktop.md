@@ -38,7 +38,7 @@ informa**; a instalação é sua.
 
 | Plataforma | Comando |
 |---|---|
-| macOS / Windows | `codex app` (abre o app ou o instalador) ou baixe em <https://chatgpt.com/download> |
+| macOS / Windows | `codex app` (abre o app ou o instalador) ou baixe em [chatgpt.com/download](https://chatgpt.com/download) |
 | Windows (winget) | `winget install --id=9PLM9XGG6VKS -s msstore` |
 | Linux Ubuntu/Debian | `sudo apt install ./chatgpt_amd64.deb` (arm64: `chatgpt_arm64.deb`) |
 | Linux Fedora | `sudo dnf install ./chatgpt.x86_64.rpm` (arm64: `chatgpt.aarch64.rpm`) |

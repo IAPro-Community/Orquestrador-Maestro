@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "current": {
+    "managedFiles": 3,
+    "nativeSkillSync": 1,
+    "skillsRouter": 2,
+    "skillsManifest": 3,
+    "skillContract": 2,
+    "config": 1
+  },
+  "migrations": {
+    "managedFiles": {
+      "supportedFrom": [1, 2],
+      "v1": "Never prune from v1 ownership claims; use recorded hashes only to detect edits at paths that overlap the new package.",
+      "v2": "Treat recorded hashes as the previous installed package baseline and migrate to source-owned v3 hashes.",
+      "v3": "Store package source hashes separately from installed overrides and report missing or changed files."
+    },
+    "nativeSkillSync": {
+      "currentVersion": 1,
+      "unversionedInstall": "Compare with the backed-up previous package when available; otherwise preserve differing destinations as user customizations and save the upstream copy for review.",
+      "v1": "Record source and installed tree hashes per native skill; update only unchanged managed trees and preserve custom trees."
+    },
+    "skillsRouter": {
+      "currentVersion": 2,
+      "strategy": "Install the current packaged router. Preserve a user-modified router as an override and save the incoming package version beside the rollback snapshot for review."
+    },
+    "skillsManifest": {
+      "currentVersion": 3,
+      "skillContractVersion": 2,
+      "strategy": "Validate the current packaged manifest before swap; preserve modified local manifests as overrides and retain the incoming package copy for review."
+    },
+    "config": {
+      "currentVersion": 1,
+      "supportedFrom": [0, 1],
+      "steps": [
+        { "from": 0, "to": 1, "operation": "Add schemaVersion while preserving all existing keys and values." }
+      ],
+      "unknownFutureVersion": "Fail closed before publishing the staged update."
+    }
+  }
+}

@@ -144,6 +144,17 @@ try {
     Add-Issue "Orquestrador skill install policy is not v2 (found v$($policyJson.version)); re-run update to 1.1.0"
   }
 } catch { }
+if ($Strict) {
+  $managedFilesScript = Join-Path $PSScriptRoot "managed-files.js"
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Add-Issue "Strict: Node.js is unavailable; MANAGED_FILES.json cannot be verified."
+  } else {
+    & node $managedFilesScript inspect $orquestrador | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      Add-Issue "Strict: managed core files are missing or modified, or MANAGED_FILES.json is unsupported; review the update report and run update."
+    }
+  }
+}
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $HomePath "AGENTS.md") -Pattern "DEV/WORKLOG\.md" -Label "Global AGENTS.md"
 Assert-FileContains -Path (Join-Path $orquestrador "rules.md") -Pattern "DEV/WORKLOG\.md" -Label "Orquestrador rules"
@@ -191,7 +202,7 @@ if (-not $CoreOnly) {
   if ($Strict) {
     try {
       $manifest = Get-Content -LiteralPath (Join-Path $orquestrador "SKILLS_MANIFEST.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-      $mustHave = @("orquestrador-maestro") + @($manifest.skills.PSObject.Properties | Where-Object { $_.Value.mirrorEverywhere -eq $true } | ForEach-Object { $_.Name })
+      $mustHave = @("orquestrador-maestro", "skill-open-code-review", "skill-open-code-delegate") + @($manifest.skills.PSObject.Properties | Where-Object { $_.Value.mirrorEverywhere -eq $true } | ForEach-Object { $_.Name })
       foreach ($skill in ($mustHave | Sort-Object -Unique)) {
         foreach ($root in $nativeRootSpecs) {
           if (-not (Test-Path -LiteralPath (Join-Path $root.Path "$skill\SKILL.md"))) {

@@ -10,6 +10,7 @@ const { makeTempDir } = require("./test-helpers.js");
 
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(repoRoot, "bin", "orquestrador-maestro.js");
+const plainOutput = (value) => value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/gu, "").trimStart();
 
 test("dry-run does not create install targets under the provided home path", () => {
   const homePath = makeTempDir("orquestrador-dry-run-home-");
@@ -26,7 +27,7 @@ test("dry-run does not create install targets under the provided home path", () 
   });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^Mode\s+Target\s+Component/mu);
+  assert.match(plainOutput(result.stdout), /^Mode\s+Target\s+Component/mu);
   assert.equal(fs.existsSync(path.join(homePath, ".orquestrador")), false);
   assert.equal(fs.existsSync(path.join(homePath, "AGENTS.md")), false);
 });
@@ -48,7 +49,7 @@ test("update dry-run does not update the global npm CLI", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Atualizando a CLI npm/u);
-  assert.match(result.stdout, /^Mode\s+Target\s+Component/mu);
+  assert.match(plainOutput(result.stdout), /^Mode\s+Target\s+Component/mu);
   assert.equal(fs.existsSync(path.join(homePath, ".orquestrador")), false);
   assert.equal(fs.existsSync(path.join(homePath, "AGENTS.md")), false);
 });
