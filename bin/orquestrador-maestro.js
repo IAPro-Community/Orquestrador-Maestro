@@ -17,6 +17,7 @@ const { resolveGitContext } = require(path.join(rootDir, "orquestrador", "lib", 
 const workflowState = require(path.join(rootDir, "orquestrador", "bin", "workflow-state.js"));
 const { Memory } = require(path.join(rootDir, "orquestrador", "bin", "memory.js"));
 const { MaestroApplication } = require(path.join(rootDir, "runtime", "application"));
+const { SkillRegistry } = require(path.join(rootDir, "runtime", "skills", "registry"));
 const { createBridge, createStdioServer } = require(path.join(rootDir, "runtime", "bridge"));
 const { resolveMaestroRoot } = require(path.join(rootDir, "runtime", "config", "maestro-paths"));
 const { loadGovernanceConfig, writeGovernanceConfig } = require(path.join(rootDir, "runtime", "governance", "compatibility"));
@@ -108,7 +109,9 @@ Uso:
   orquestrador-maestro terminal list [--project-path PATH]
   orquestrador-maestro terminal start [--project-path PATH] -- <comando> [argumentos]
   orquestrador-maestro terminal stop <id> [--project-path PATH]
+  orquestrador-maestro capabilities --json
   orquestrador-maestro skills list [--project-path PATH]
+  orquestrador-maestro skills list --json [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
@@ -1212,10 +1215,42 @@ async function handleTerminalCommand(args) {
   throw new Error("Uso: maestro terminal <list|start|stop>");
 }
 
+function listCanonicalSkills(projectPath) {
+  return new SkillRegistry({ maestroRoot: rootDir, projectRoot: projectPath, userSources: [] })
+    .list()
+    .filter((skill) => skill.source === "maestro")
+    .map((skill) => ({
+      id: skill.id,
+      name: skill.displayName,
+      description: skill.description,
+      version: String(skill.schemaVersion || ""),
+      risk: skill.contract?.risk || "unknown"
+    }));
+}
+
+function handleCapabilitiesCommand(args) {
+  if (args.length !== 1 || args[0] !== "--json") {
+    throw new Error("Uso: maestro capabilities --json");
+  }
+  console.log(JSON.stringify({
+    version: packageJson.version,
+    modes: ["OFF", "ASSIST", "ORCHESTRATE"],
+    skills: listCanonicalSkills(process.cwd()),
+    // This CLI release has no stable gate/process enumeration contract yet.
+    gates: [],
+    processes: []
+  }));
+  return 0;
+}
+
 async function handleSkillsCommand(args) {
-  const options = parseRuntimeArgs(args.slice(1), ["--project-path"]);
+  const options = parseRuntimeArgs(args.slice(1), ["--project-path"], ["--json"]);
   if (args[0] !== "list" || options.values.length > 0) throw new Error("Uso: maestro skills list [--project-path PATH]");
-  console.log(JSON.stringify((await createRuntimeApplication(options.projectPath)).skills.list(), null, 2));
+  if (options.json) {
+    console.log(JSON.stringify({ skills: listCanonicalSkills(options.projectPath) }));
+  } else {
+    console.log(JSON.stringify((await createRuntimeApplication(options.projectPath)).skills.list(), null, 2));
+  }
   return 0;
 }
 
@@ -2941,6 +2976,7 @@ async function dispatch(command, args) {
   if (command === "missions") return handleMissionsCommand(args);
   if (command === "mission") return handleMissionCommand(args);
   if (command === "terminal") return handleTerminalCommand(args);
+  if (command === "capabilities") return handleCapabilitiesCommand(args);
   if (command === "skills") return handleSkillsCommand(args);
   if (command === "skill-catalog") return handleSkillCatalogCommand(args);
   if (command === "providers") return handleProvidersCommand(args);
@@ -2998,7 +3034,7 @@ async function main() {
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "rollback", "doctor",
     "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
-    "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
+    "capabilities", "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan", "desktop-plugin"
   ]);
   if (telemetryCommands.has(command)) {

@@ -47,6 +47,31 @@ test("CLI legacy commands remain discoverable and reject unknown commands", () =
   assert.match(unknown.stderr, /Comando desconhecido/u);
 });
 
+test("machine-readable Maestro capabilities and skills contracts expose canonical metadata only", () => {
+  const capabilities = runCli("capabilities", "--json");
+  assert.equal(capabilities.status, 0, capabilities.stderr);
+  const contract = JSON.parse(capabilities.stdout);
+  assert.match(contract.version, SEMVER_OUTPUT_RE);
+  assert.deepEqual(contract.modes, ["OFF", "ASSIST", "ORCHESTRATE"]);
+  assert.ok(Array.isArray(contract.skills));
+  assert.deepEqual(contract.gates, []);
+  assert.deepEqual(contract.processes, []);
+  assert.ok(contract.skills.length > 0);
+  assert.equal(Object.hasOwn(contract.skills[0], "path"), false);
+
+  const skills = runCli("skills", "list", "--json", "--project-path", repoRoot);
+  assert.equal(skills.status, 0, skills.stderr);
+  const inventory = JSON.parse(skills.stdout);
+  assert.ok(Array.isArray(inventory.skills));
+  assert.ok(inventory.skills.length > 0);
+  assert.equal(Object.hasOwn(inventory.skills[0], "path"), false);
+  assert.ok(inventory.skills.every((skill) => typeof skill.id === "string" && skill.id.length > 0));
+
+  const unsupported = runCli("capabilities");
+  assert.equal(unsupported.status, 1);
+  assert.match(unsupported.stderr, /capabilities --json/u);
+});
+
 test("legacy installer and verifier keep their explicit, non-destructive compatibility flags", () => {
   const installer = readText("install.sh");
   const verifier = readText("scripts/verify-install.sh");

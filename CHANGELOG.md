@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added read-only `capabilities --json` and `skills list --json` contracts for downstream clients. Both expose canonical skill metadata without local filesystem paths; gates/processes remain empty until Maestro publishes an authoritative enumeration.
+
 ## 1.1.0 - 2026-10-15
 
 Versão estrutural: atualização incremental e não destrutiva (issues #38 e #39), aliases deprecated, verificação com detecção de perda, rollback, hardening de runtime e integração com o app desktop ChatGPT/Codex. Esta linha incorpora a 1.0.1 (`v1`) por merge, tornando-se descendente direta da linha estável.
