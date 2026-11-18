@@ -102,8 +102,10 @@ test("real CLI bridges observe one durable submission across processes and resta
     assert.equal(response.result.capabilities.runsSubmissionsRead, true);
     assert.equal(response.result.capabilities.runsSubmissionsPoll, true);
     assert.equal(response.result.capabilities.runsSubmissionsCancel, true);
-    assert.equal(response.result.capabilities.runsSubmit, false,
-      "observability cannot imply an executable run worker");
+    // runs.submit admits durably (manifest + receipt + ACK); it never
+    // executes. Queued submissions stay observably PENDING_WORKER until the
+    // `maestro runs worker` process claims them.
+    assert.equal(response.result.capabilities.runsSubmit, true);
   }
   const first = await clientA.rpc("runs.submissions.poll", { limit: 5 });
   assert.equal(first.error, undefined, JSON.stringify(first.error));

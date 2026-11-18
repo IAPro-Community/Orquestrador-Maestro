@@ -29,18 +29,18 @@ test("Bridge does not advertise executable runs.submit before persistent worker 
   assert.equal(providerCalls, 0);
 });
 
-test("Bridge advertises runs.submit only with the full durable submission contract", async () => {
-  const calls = [];
+test("Bridge advertises runs.submit only with the full durable admission contract", async () => {
   const canonicalStore = {
     putExecutableManifest: async () => { throw new Error("not exercised here"); },
     saveApprovalReceipt: async () => { throw new Error("not exercised here"); },
     saveTask: async () => { throw new Error("not exercised here"); },
-    getExecutableManifest: async () => null
+    getExecutableManifest: async () => null,
+    admitRunSubmission: async () => { throw new Error("not exercised here"); },
+    listProjects: async () => []
   };
   const wired = createBridge({
     projectRoot: process.cwd(),
     services: {
-      worker: { workerId: "worker-fixture-001", step: async () => ({ claimed: 0, outcomes: [] }) },
       runStore: canonicalStore,
       runtime: { providers: { get: () => null } }
     }
@@ -49,10 +49,11 @@ test("Bridge advertises runs.submit only with the full durable submission contra
     jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: 1 }
   });
   assert.equal(init.result.capabilities.runsSubmit, true);
-  // Without the worker service the same store must NOT advertise submission.
+  // A queued submission stays observably PENDING_WORKER until a worker
+  // claims it (`maestro runs worker`); the ACK never fakes execution.
   const unwired = createBridge({
     projectRoot: process.cwd(),
-    services: { runStore: canonicalStore, runtime: { providers: { get: () => null } } }
+    services: { runtime: { providers: { get: () => null } } }
   });
   const unwiredInit = await unwired.handle({
     jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: 1 }
@@ -62,5 +63,4 @@ test("Bridge advertises runs.submit only with the full durable submission contra
     jsonrpc: "2.0", id: 2, method: "runs.submit", params: {}
   });
   assert.equal(blocked.error?.code, -32601);
-  assert.deepEqual(calls, []);
 });

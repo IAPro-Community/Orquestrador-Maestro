@@ -71,7 +71,10 @@ test("installed CLI Bridge exposes canonical Nexus contract without dispatch or 
   assert.equal(capabilities.runsSubmissionsRead, true);
   assert.equal(capabilities.runsSubmissionsPoll, true);
   assert.equal(capabilities.runsSubmissionsCancel, true);
-  assert.equal(capabilities.runsSubmit, false, "an observer must not advertise an executor");
+  // runs.submit is real durable ADMISSION (manifest + approval receipt + ACK),
+  // not execution: dispatch stays worker-owned and the queued submission is
+  // observably PENDING_WORKER until `maestro runs worker` claims it.
+  assert.equal(capabilities.runsSubmit, true);
   assert.equal(capabilities.memory.read, true);
   assert.equal(capabilities.memory.write, false);
   assert.equal(capabilities.subscriptions, false);
@@ -108,8 +111,9 @@ test("installed CLI Bridge exposes canonical Nexus contract without dispatch or 
   assert.equal(idlePoll.result.replayable, false);
   const invalidCancel = await rpc(7, "runs.submissions.cancel", { submissionId: "../invalid" });
   assert.equal(invalidCancel.error?.code, -32602);
-  const unavailableSubmit = await rpc(8, "runs.submit", {});
-  assert.equal(unavailableSubmit.error?.code, -32601);
+  const rejectedSubmit = await rpc(8, "runs.submit", {});
+  assert.equal(rejectedSubmit.error?.code, -32602);
+  assert.equal(rejectedSubmit.error?.data?.code, "INVALID_SUBMISSION");
 
   const subscriptions = await rpc(5, "events.subscribe", {});
   assert.equal(subscriptions.error?.code, -32601);

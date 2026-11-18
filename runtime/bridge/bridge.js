@@ -40,12 +40,15 @@ function createBridge(options = {}) {
     poll: Boolean(services.runStore?.listRunSubmissions &&
       services.runStore?.getRunSubmission && services.runStore?.listProjects),
     cancel: Boolean(services.runStore?.requestRunSubmissionCancellation),
-    // runs.submit is only advertiseable when a durable dispatch path exists:
-    // the full trusted store contract AND a persistent worker that will
-    // actually claim the admitted entry. Otherwise the ACK would be false.
-    submit: Boolean(services.worker &&
-      services.runStore?.putExecutableManifest && services.runStore?.saveApprovalReceipt &&
-      services.runStore?.saveTask && services.runStore?.getExecutableManifest)
+    // runs.submit is advertiseable only when the full durable admission
+    // contract exists in this runtime. Dispatch itself is the worker's job
+    // (`maestro runs worker` / bridge --with-worker): a queued submission
+    // stays observably PENDING_WORKER until a worker claims it, so the ACK
+    // never fakes execution.
+    submit: Boolean(services.runStore?.putExecutableManifest &&
+      services.runStore?.saveApprovalReceipt && services.runStore?.saveTask &&
+      services.runStore?.getExecutableManifest && services.runStore?.admitRunSubmission &&
+      services.runStore?.listProjects)
   };
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
   const memoryWriteEnabled = options.memoryWriteEnabled === true ||
@@ -322,23 +325,33 @@ async function invokeRunCreate(service, params) {
 
 /**
  * Durable submission admission. The ACK is a fenced ledger entry — never a
- * promise of completion. It stays unavailable while no persistent worker is
- * wired, because a submission that can never be dispatched is a false ACK.
+ * promise of completion. It stays unavailable while the runtime lacks the
+ * canonical store contract, because a submission that can never be admitted
+ * is a false ACK.
  */
 async function submitRun(params, projectRoot, services) {
-  if (!services.worker) {
-    return unsupported("Durable run worker is unavailable; submissions would never be dispatched");
-  }
   if (!services.runStore?.putExecutableManifest || !services.runStore?.saveApprovalReceipt) {
     return unsupported("Canonical RunStore contract is unavailable for durable submission");
   }
-  return submitExecutablePlan({
-    store: services.runStore,
-    providers: services.runtime?.providers,
-    projectRoot,
-    workspacePath: projectRoot,
-    params
-  });
+  try {
+    return await submitExecutablePlan({
+      store: services.runStore,
+      providers: services.runtime?.providers,
+      projectRoot,
+      workspacePath: projectRoot,
+      params
+    });
+  } catch (error) {
+    // Admission blockers are constant fail-closed codes (no secrets); expose
+    // them so clients can translate and act on specific blockers.
+    if (error && typeof error.code === "string" && /^[A-Z0-9_]{4,64}$/.test(error.code)) {
+      const wrapped = new Error("Maestro admission rejected: " + error.code);
+      wrapped.code = ERROR_CODES.invalidParams;
+      wrapped.data = { code: error.code };
+      throw wrapped;
+    }
+    throw error;
+  }
 }
 
 async function invokeResolutionGet(service, params) {
