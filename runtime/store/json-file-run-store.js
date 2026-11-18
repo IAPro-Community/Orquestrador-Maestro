@@ -6,11 +6,12 @@ const path = require("node:path");
 const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, validateAdmissionLedger, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
 const { normalizeExecutableManifest, validateStoredExecutableManifest } = require("../runs/executable-manifest");
+const { validateApprovalReceipt } = require("../runs/executable-submission");
 
-const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions", "executableManifests"]);
+const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions", "executableManifests", "approvalReceipts"]);
 
 function emptyState() {
-  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [], executableManifests: [] };
+  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [], executableManifests: [], approvalReceipts: [] };
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -131,6 +132,27 @@ class JsonFileRunStore extends RunStore {
   async listExecutableManifests(filters = {}) {
     return this._list("executableManifests", filters, ["projectId"]);
   }
+
+  // Approval receipts are immutable, self-verifying records bound to one
+  // executable manifest. They grant admission trust; they never dispatch.
+  async saveApprovalReceipt(input) {
+    const receipt = validateApprovalReceipt(input);
+    return this._mutate(async () => {
+      const previous = this._state.approvalReceipts.find((item) => item.id === receipt.id);
+      if (previous) {
+        // Only canonical digest-bound fields are immutable; non-canonical
+        // metadata (approvedAt/approvedBy) may differ on a replayed approval.
+        return clone(previous);
+      }
+      if (!this._state.projects.some((item) => item.id === receipt.projectId)) {
+        throw bad("approval receipt project is unregistered", "MANIFEST_PROJECT_NOT_FOUND");
+      }
+      this._state.approvalReceipts.push(clone(receipt));
+      await this._flush();
+      return clone(receipt);
+    });
+  }
+  async getApprovalReceipt(id) { return this._get("approvalReceipts", id); }
 
   async admitRunSubmission(input) {
     const spec = normalizeAdmission(input);
@@ -655,12 +677,19 @@ class JsonFileRunStore extends RunStore {
     if (!Array.isArray(state.attention)) state.attention = [];
     if (state.runSubmissions === undefined) state.runSubmissions = [];
     if (state.executableManifests === undefined) state.executableManifests = [];
+    if (state.approvalReceipts === undefined) state.approvalReceipts = [];
     if (!Array.isArray(state.executableManifests)) throw new Error("RunStore executable manifests are invalid");
     const manifestIds = new Set();
     for (const row of state.executableManifests) {
       validateStoredExecutableManifest(row);
       if (manifestIds.has(row.id)) throw new Error("RunStore has duplicate executable manifest");
       manifestIds.add(row.id);
+    }
+    const receiptIds = new Set();
+    for (const row of state.approvalReceipts || []) {
+      validateApprovalReceipt(row);
+      if (receiptIds.has(row.id)) throw new Error("RunStore has duplicate approval receipt");
+      receiptIds.add(row.id);
     }
     validateAdmissionLedger(state.runSubmissions);
     for (const collection of COLLECTIONS) {
