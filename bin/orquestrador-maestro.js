@@ -1612,6 +1612,7 @@ async function handleBridgeCommand(args) {
       // Expose only narrowly delegated methods; never provide a second
       // scheduler, approval verifier, or executor through this adapter.
       listProjects: () => app.store.listProjects(),
+      getProject: (id) => app.store.getProject(id),
       listRunSubmissions: (filters) => app.store.listRunSubmissions(filters),
       getRunSubmission: (id) => app.store.getRunSubmission(id),
       requestRunSubmissionCancellation: (id) => app.store.requestRunSubmissionCancellation(id),
