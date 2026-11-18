@@ -10,6 +10,7 @@ const { createComposePreview } = require("./project-compose");
 const { createRoutePreview } = require("./provider-route-preview");
 const { createRunObserver } = require("./run-observation");
 const { createSubmissionStatusReader } = require("./submission-status");
+const { submitExecutablePlan } = require("../runs/executable-submission");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -34,6 +35,18 @@ function createBridge(options = {}) {
   const router = createRoutePreview({ projectRoot, providerRegistry: routingProviders });
   const observer = createRunObserver({ projectRoot, runtime: services.runtime });
   const submissions = createSubmissionStatusReader({ projectRoot, store: services.runStore });
+  const submissionCapabilities = {
+    read: Boolean(services.runStore?.listRunSubmissions),
+    poll: Boolean(services.runStore?.listRunSubmissions &&
+      services.runStore?.getRunSubmission && services.runStore?.listProjects),
+    cancel: Boolean(services.runStore?.requestRunSubmissionCancellation),
+    // runs.submit is only advertiseable when a durable dispatch path exists:
+    // the full trusted store contract AND a persistent worker that will
+    // actually claim the admitted entry. Otherwise the ACK would be false.
+    submit: Boolean(services.worker &&
+      services.runStore?.putExecutableManifest && services.runStore?.saveApprovalReceipt &&
+      services.runStore?.saveTask && services.runStore?.getExecutableManifest)
+  };
   const memory = createScopedMemoryAPI({ projectRoot, memory: services.memory });
   const memoryWriteEnabled = options.memoryWriteEnabled === true ||
     (options.memoryWriteEnabled === undefined && process.env.ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE === "1");
@@ -44,10 +57,10 @@ function createBridge(options = {}) {
       projectCompose: Boolean(services.runtime?.providers?.get),
       plansRoutePreview: Boolean(routingProviders?.get),
       runsObserve: Boolean(services.runtime?.inspectRun),
-      runsSubmissionsRead: Boolean(services.runStore?.listRunSubmissions),
-      runsSubmissionsPoll: Boolean(services.runStore?.listRunSubmissions &&
-        services.runStore?.getRunSubmission && services.runStore?.listProjects),
-      runsSubmissionsCancel: Boolean(services.runStore?.requestRunSubmissionCancellation)
+      runsSubmissionsRead: submissionCapabilities.read,
+      runsSubmissionsPoll: submissionCapabilities.poll,
+      runsSubmissionsCancel: submissionCapabilities.cancel,
+      runsSubmit: submissionCapabilities.submit
     }),
     "project.inspect": (params) => inspectProject(params, projectRoot, services.projectInspector),
     "project.context": (params) => projectContext(params, projectRoot, services.projectInspector),
@@ -77,7 +90,7 @@ function createBridge(options = {}) {
     "runs.submissions.poll": (params) => submissions.poll(params),
     "runs.submissions.cancel": (params) => submissions.cancel(params),
     "runs.create": (params) => invokeRunCreate(services.runtime, params),
-    "runs.submit": () => unsupported("Durable run worker is unavailable; admission ledger is internal only"),
+    "runs.submit": (params) => submitRun(params, projectRoot, services),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
     "evidence.get": (params) => invokeGet(services.runtime, "getEvidence", params, "evidenceId"),
@@ -305,6 +318,27 @@ async function invokeRunCreate(service, params) {
   if (typeof service.executeTaskWithHandoff === "function") return service.executeTaskWithHandoff(params);
   if (typeof service.executeRun === "function") return service.executeRun(params);
   return unsupported("executeRun is unavailable");
+}
+
+/**
+ * Durable submission admission. The ACK is a fenced ledger entry — never a
+ * promise of completion. It stays unavailable while no persistent worker is
+ * wired, because a submission that can never be dispatched is a false ACK.
+ */
+async function submitRun(params, projectRoot, services) {
+  if (!services.worker) {
+    return unsupported("Durable run worker is unavailable; submissions would never be dispatched");
+  }
+  if (!services.runStore?.putExecutableManifest || !services.runStore?.saveApprovalReceipt) {
+    return unsupported("Canonical RunStore contract is unavailable for durable submission");
+  }
+  return submitExecutablePlan({
+    store: services.runStore,
+    providers: services.runtime?.providers,
+    projectRoot,
+    workspacePath: projectRoot,
+    params
+  });
 }
 
 async function invokeResolutionGet(service, params) {

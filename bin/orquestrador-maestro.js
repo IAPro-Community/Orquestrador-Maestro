@@ -1302,6 +1302,39 @@ async function handleStatusCommand(args) {
 
 async function handleRunsCommand(args) {
   const subcommand = args[0];
+  if (subcommand === "worker") {
+    const options = parseRuntimeArgs(args.slice(1), ["--project-path", "--interval", "--concurrency"], ["--once"]);
+    if (options.values.length) {
+      throw new Error("Uso: maestro runs worker --project-path PATH [--interval MS] [--concurrency N] [--once]");
+    }
+    const interval = options.interval === undefined ? 1000 : Number(options.interval);
+    if (!Number.isInteger(interval) || interval < 50 || interval > 60000) {
+      throw new Error("--interval deve ser um inteiro entre 50 e 60000.");
+    }
+    const concurrency = options.concurrency === undefined ? 1 : Number(options.concurrency);
+    if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) {
+      throw new Error("--concurrency deve ser um inteiro entre 1 e 8.");
+    }
+    const projectRoot = path.resolve(options.projectPath);
+    const app = await createRuntimeApplication(projectRoot);
+    const { createSubmissionWorker } = require(path.join(rootDir, "runtime", "runs", "submission-worker"));
+    const worker = createSubmissionWorker({
+      application: app, store: app.store, projectRoot,
+      workerId: "worker-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16),
+      concurrency, pollIntervalMs: interval
+    });
+    if (options.once === true) {
+      console.log(JSON.stringify(await worker.step(), null, 2));
+      return 0;
+    }
+    let stopping = false;
+    const shutdown = () => { if (!stopping) { stopping = true; void worker.stop(); } };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    console.log(JSON.stringify({ workerId: worker.workerId, concurrency, pollIntervalMs: interval }, null, 2));
+    await worker.run();
+    return 0;
+  }
   if (subcommand === "admissions" || subcommand === "reconcile") {
     const options = parseRuntimeArgs(args.slice(1), ["--project-path", "--limit"], ["--apply"]);
     if (options.values.length || (options.apply && subcommand !== "reconcile")) {
@@ -1551,9 +1584,20 @@ async function handleProvidersCommand(args) {
 
 async function handleBridgeCommand(args) {
   const hasStdio = args.includes("--stdio");
-  const options = parseRuntimeArgs(args.filter((arg) => arg !== "--stdio"), ["--project-path"]);
-  if (!hasStdio || options.values.length !== 0) throw new Error("Uso: maestro bridge --stdio [--project-path PATH]");
+  const withWorker = args.includes("--with-worker");
+  const options = parseRuntimeArgs(
+    args.filter((arg) => arg !== "--stdio" && arg !== "--with-worker"), ["--project-path"]);
+  if (!hasStdio || options.values.length !== 0) throw new Error("Uso: maestro bridge --stdio [--with-worker] [--project-path PATH]");
   const app = await createRuntimeApplication(options.projectPath);
+  // A durable submission ACK is only honest when a worker will actually
+  // claim it. --with-worker starts the bounded polling worker in-process;
+  // otherwise runs.submit stays unavailable (and unadvertised).
+  const worker = withWorker
+    ? require(path.join(rootDir, "runtime", "runs", "submission-worker")).createSubmissionWorker({
+        application: app, store: app.store, projectRoot: path.resolve(options.projectPath),
+        workerId: "worker-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16)
+      })
+    : null;
   const bridge = createBridge({ projectRoot: options.projectPath, services: {
     projectInspector: { inspect: (params) => app.inspectProject(params) },
     skillRegistry: app.skills,
@@ -1570,10 +1614,22 @@ async function handleBridgeCommand(args) {
       listProjects: () => app.store.listProjects(),
       listRunSubmissions: (filters) => app.store.listRunSubmissions(filters),
       getRunSubmission: (id) => app.store.getRunSubmission(id),
-      requestRunSubmissionCancellation: (id) => app.store.requestRunSubmissionCancellation(id)
+      requestRunSubmissionCancellation: (id) => app.store.requestRunSubmissionCancellation(id),
+      // Durable admission contract (runs.submit) is delegated verbatim to the
+      // same canonical store; validation stays inside the admission modules.
+      putExecutableManifest: (input) => app.store.putExecutableManifest(input),
+      getExecutableManifest: (id) => app.store.getExecutableManifest(id),
+      saveApprovalReceipt: (receipt) => app.store.saveApprovalReceipt(receipt),
+      getApprovalReceipt: (id) => app.store.getApprovalReceipt(id),
+      saveTask: (task) => app.store.saveTask(task),
+      getTask: (id) => app.store.getTask(id),
+      listTasks: (filters) => app.store.listTasks(filters),
+      admitRunSubmission: (input) => app.store.admitRunSubmission(input)
     },
-    runtime: app
+    runtime: app,
+    worker
   } });
+  if (worker) void worker.run();
   createStdioServer(bridge);
   return new Promise(() => {});
 }
