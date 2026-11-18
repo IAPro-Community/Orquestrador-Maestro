@@ -169,6 +169,42 @@ test("Fail closed on forged assignment, foreign checkout, unsupported sandbox or
 });
 
 
+test("route preview blocks stale Git HEAD changed during provider probing", async () => {
+  const f = setup();
+  let changed = false;
+  try {
+    const providers = {
+      get(id) {
+        const adapter = f.providers.get(id);
+        if (!adapter || id !== "agy") return adapter;
+        return {
+          ...adapter,
+          async detect() {
+            if (!changed) {
+              changed = true;
+              execFileSync("git", ["-C", f.frontend, "commit", "-qm", "concurrent worktree update", "--allow-empty"], { stdio: "pipe" });
+            }
+            return { installed: true };
+          }
+        };
+      }
+    };
+    const bridge = createBridge({ projectRoot: f.root, services: { providerRegistry: providers } });
+    const reply = await call(bridge, "plans.routePreview", {
+      artifact: f.artifact, proposal: f.proposal, assignments: f.assignments
+    });
+    assert.equal(reply.error, undefined, JSON.stringify(reply.error));
+    assert.equal(reply.result.ready, false, "stale HEAD must never be READY");
+    assert.equal(reply.result.assignments[0].status, "BLOCKED");
+    assert.equal(reply.result.assignments[0].code, "WORKTREE_CHANGED_DURING_PREFLIGHT");
+    assert.equal(reply.result.assignments[1].status, "READY_FOR_REVIEW");
+    assert.ok(reply.result.blockers.some((item) =>
+      item.code === "WORKTREE_CHANGED_DURING_PREFLIGHT" && item.taskId === "frontend-task"));
+    assert.equal(f.counters.execute, 0);
+    assert.ok(!JSON.stringify(reply.result).includes(f.frontend), "Worktree path must remain server-side");
+  } finally { f.close(); }
+});
+
 test("registered future adapters work without editing a hardcoded provider allowlist", async () => {
   const f = setup();
   try {

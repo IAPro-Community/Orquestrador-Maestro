@@ -120,12 +120,16 @@ function createRoutePreview({ projectRoot, providerRegistry }) {
     const IDs = new Set(tasks.map((t) => t.id));
     const seen = new Set();
     const requests = [];
+    const worktreePaths = [];
     for (const raw of params.assignments) {
       if (!raw || typeof raw.taskId !== "string" || !IDs.has(raw.taskId) || seen.has(raw.taskId)) {
         throw invalid("Duplicate or unknown task assignment");
       }
       seen.add(raw.taskId);
       const assignment = requiredAssignment(raw, raw.taskId);
+      // Keep the input path server-side only to recheck Git identity after
+      // asynchronous provider probes; never expose it to Bridge clients.
+      worktreePaths.push(assignment.worktreePath);
       requests.push({
         taskId: assignment.taskId, providerId: assignment.providerId,
         model: assignment.model || "default", sandbox: assignment.sandbox,
@@ -163,13 +167,31 @@ function createRoutePreview({ projectRoot, providerRegistry }) {
         code: !installed ? "PROVIDER_UNAVAILABLE" : !allowedMode ? "SANDBOX_NOT_SUPPORTED" : null
       });
     }));
-    for (const row of statuses) {
+    // Provider detect/capability probes can be slow. A checkout may switch
+    // HEAD, branch or identity during that await. The returned preview must
+    // not claim READY_FOR_REVIEW for a stale Git snapshot.
+    const checkedStatuses = statuses.map((row, index) => {
+      let unchanged = false;
+      try {
+        const current = validateWorktree(root, worktreePaths[index], canonical);
+        unchanged = current.workspaceId === row.workspaceId &&
+          current.branch === row.branch &&
+          current.headCommit === row.headCommit;
+      } catch {
+        unchanged = false;
+      }
+      if (unchanged) return row;
+      return Object.freeze({
+        ...row, status: "BLOCKED", code: "WORKTREE_CHANGED_DURING_PREFLIGHT"
+      });
+    });
+    for (const row of checkedStatuses) {
       if (row.code) blockers.push({ code: row.code, taskId: row.taskId, providerId: row.providerId });
     }
     return Object.freeze({
       schemaVersion: 1, authority: "MAESTRO",
       previewOnly: true, executable: false, approvalRequired: true,
-      ready: blockers.length === 0, plan, assignments: statuses, blockers
+      ready: blockers.length === 0, plan, assignments: checkedStatuses, blockers
     });
   }
   return Object.freeze({ preview });
