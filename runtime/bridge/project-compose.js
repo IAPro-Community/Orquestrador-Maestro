@@ -53,8 +53,26 @@ function createComposePreview({ projectRoot, application }) {
     if (typeof model !== "string" || !SAFE_MODEL.test(model) || model.includes("..")) {
       throw invalid("model must be a bounded provider identifier");
     }
-    if (!application?.providers?.get || !application.providers.get("codex")) {
+    const provider = application?.providers?.get?.("codex");
+    if (!provider) {
       throw invalid("Maestro Codex adapter unavailable; no provider fallback");
+    }
+    // A requested read-only sandbox is not evidence that the adapter
+    // enforces it. Refuse external model calls unless the *selected*
+    // Codex adapter explicitly supports and advertises this capability.
+    // No fallback to a different provider or to an unsandboxed preview.
+    let readOnlySupported = false;
+    try {
+      const capabilities = await provider.capabilities?.();
+      readOnlySupported = provider.id === "codex" &&
+        capabilities?.sandboxControl === true &&
+        typeof provider.supportsReadOnlyReview === "function" &&
+        await provider.supportsReadOnlyReview() === true;
+    } catch {
+      readOnlySupported = false;
+    }
+    if (!readOnlySupported) {
+      throw invalid("Maestro Codex adapter cannot verify read-only sandbox enforcement");
     }
 
     const canonical = buildBrief({ projectPath: root, task: "", maxChars: 8000 });

@@ -44,6 +44,9 @@ test("project.compose invokes only explicit read-only Codex and returns a nonexe
             get(id) {
               if (id !== "codex") throw Error("unexpected provider");
               return {
+                id: "codex",
+                async capabilities() { return { sandboxControl: true }; },
+                supportsReadOnlyReview() { return true; },
                 async detect() { return { installed: true }; },
                 async execute(options) {
                   invocations.push(options);
@@ -111,11 +114,48 @@ test("project.compose rejects missing consent, stale digests, other providers an
   } finally { f.close(); }
 });
 
+test("project.compose refuses incompatible sandbox providers before external calls", async () => {
+  const f = setup();
+  let executions = 0;
+  const base = {
+    id: "codex",
+    async capabilities() { return { sandboxControl: true }; },
+    supportsReadOnlyReview() { return true; },
+    async detect() { return { installed: true }; },
+    async execute() { executions++; throw Error("must never execute"); }
+  };
+  try {
+    for (const adapter of [
+      { ...base, id: "agy" },
+      { ...base, capabilities: async () => ({ sandboxControl: false }) },
+      { ...base, capabilities: async () => ({ sandboxControl: "true" }) },
+      { ...base, supportsReadOnlyReview: () => false },
+      { ...base, supportsReadOnlyReview: undefined },
+      { ...base, capabilities: async () => { throw Error("unavailable"); } }
+    ]) {
+      const bridge = createBridge({
+        projectRoot: f.root,
+        services: { runtime: { providers: { get: () => adapter } } }
+      });
+      const response = await request(bridge, "project.compose", {
+        artifact: f.artifact, providerId: "codex", approvedModelUse: true
+      });
+      assert.equal(response.error?.code, -32602);
+      assert.match(response.error?.message || "", /read-only sandbox/i);
+      assert.equal(response.result, undefined);
+    }
+    assert.equal(executions, 0, "incompatible adapters must never run");
+  } finally { f.close(); }
+});
+
 test("project.compose fails closed when provider unavailable and does not synthesize a generic plan", async () => {
   const f = setup();
   try {
     const bridge = createBridge({ projectRoot: f.root, services: {
       runtime: { providers: { get: () => ({
+        id: "codex",
+        capabilities: async () => ({ sandboxControl: true }),
+        supportsReadOnlyReview: () => true,
         detect: async () => ({ installed: false })
       }) } }
     } });
@@ -139,6 +179,9 @@ test("project.compose rejects failed provider process, even with valid-looking J
             get(id) {
               if (id !== "codex") return null;
               return {
+                id: "codex",
+                async capabilities() { return { sandboxControl: true }; },
+                supportsReadOnlyReview() { return true; },
                 async detect() { return { installed: true }; },
                 async execute() {
                   calls++;
@@ -200,6 +243,9 @@ test("project.compose rejects an obsolete DAG if Maestro context changes during 
             get(id) {
               if (id !== "codex") return null;
               return {
+                id: "codex",
+                async capabilities() { return { sandboxControl: true }; },
+                supportsReadOnlyReview() { return true; },
                 async detect() { return { installed: true }; },
                 async execute() {
                   calls++;
