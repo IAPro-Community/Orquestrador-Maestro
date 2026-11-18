@@ -1,0 +1,152 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+const test = require("node:test");
+const { capabilities } = require("../../core");
+const { MaestroApplication, ProviderRegistry } = require("../../application/maestro-application");
+const { JsonFileRunStore } = require("../../store");
+const { submitExecutablePlan } = require("../executable-submission");
+const { createSubmissionWorker } = require("../submission-worker");
+
+const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
+
+class FakeOpenCode {
+  constructor() { this.id = "opencode"; this.calls = 0; }
+  async detect() { return { id: this.id, installed: true, executable: "fake-opencode" }; }
+  async capabilities() { return capabilities({ headless: true, streaming: true }); }
+  async execute() {
+    this.calls++;
+    return {
+      pid: 10, cancel() {},
+      result: Promise.resolve({
+        providerId: this.id, pid: 10, exitCode: 0,
+        stdout: "verified", stderr: "", durationMs: 1,
+        cancelled: false, timedOut: false
+      })
+    };
+  }
+}
+
+async function fixture(t) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-worker-e2e-"));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const projectRoot = path.join(tmp, "project");
+  fs.mkdirSync(projectRoot);
+  git(projectRoot, "init", "-q");
+  git(projectRoot, "config", "user.name", "Fixture");
+  git(projectRoot, "config", "user.email", "fixture@example.invalid");
+  fs.writeFileSync(path.join(projectRoot, "README.md"), "base\n");
+  git(projectRoot, "add", "README.md");
+  git(projectRoot, "commit", "-qm", "base");
+  const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
+  await store.initialize();
+  await store.createProject({ id: "project-worker-001", path: projectRoot });
+  const provider = new FakeOpenCode();
+  const app = new MaestroApplication({
+    projectRoot, store, providers: new ProviderRegistry([provider]),
+    skills: { get: () => null }
+  });
+  return { store, app, provider, projectRoot };
+}
+
+function submitParams(clientKey) {
+  return {
+    clientKey,
+    artifact: {
+      id: "artifact-worker-001", version: 1,
+      content: "Worker fixture prompt with bounded length.",
+      sha256: null
+    },
+    approvedModelUse: true,
+    plan: {
+      tasks: [{
+        id: "task-worker-001", title: "Verify readme", objective: "Inspect the repository README",
+        dependsOn: [], acceptanceCriteria: ["README inspected without changes"]
+      }]
+    },
+    assignments: [{ taskId: "task-worker-001", providerId: "opencode", sandbox: "none" }],
+    approval: { decision: "approved", approvedBy: "operator" }
+  };
+}
+
+const sha = (value) => require("node:crypto").createHash("sha256").update(value).digest("hex");
+
+test("worker executes one durable submission exactly once and reports its terminal state", async (t) => {
+  const f = await fixture(t);
+  const params = submitParams("submit-worker-key-001");
+  params.artifact.sha256 = sha(params.artifact.content);
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: new ProviderRegistry([f.provider]),
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  assert.equal(ack.status, "PENDING_WORKER");
+
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-e2e-fixed-001", pollIntervalMs: 50
+  });
+  const first = await worker.step();
+  assert.equal(first.claimed, 1);
+  assert.equal(first.outcomes.length, 1);
+  assert.equal(first.outcomes[0].submissionStatus, "COMPLETED");
+  assert.equal(first.outcomes[0].runId, ack.submissionId ? first.outcomes[0].runId : null);
+  assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "COMPLETED");
+  assert.equal(f.provider.calls, 1);
+
+  // An exhausted queue claims nothing; a second worker cannot replay.
+  const second = await worker.step();
+  assert.equal(second.claimed, 0);
+  const workerTwo = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-e2e-fixed-002", pollIntervalMs: 50
+  });
+  const raced = await workerTwo.step();
+  assert.equal(raced.claimed, 0);
+  assert.equal(f.provider.calls, 1);
+});
+
+test("worker loop drains new pending submissions and stops cleanly", async (t) => {
+  const f = await fixture(t);
+  const registry = new ProviderRegistry([f.provider]);
+  const params = submitParams("submit-worker-loop-001");
+  params.artifact.sha256 = sha(params.artifact.content);
+  await submitExecutablePlan({
+    store: f.store, providers: registry,
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-loop-fixed-01", pollIntervalMs: 50
+  });
+  let drained = 0;
+  const deadline = Date.now() + 15000;
+  while (drained === 0 && Date.now() < deadline) {
+    const result = await worker.step();
+    drained += result.claimed;
+  }
+  assert.equal(drained, 1);
+  assert.equal((await f.store.getRunSubmission(
+    (await f.store.listRunSubmissions())[0].id)).status, "COMPLETED");
+  await worker.stop();
+  assert.equal(worker.stopping, true);
+  assert.equal(f.provider.calls, 1);
+});
+
+test("worker refuses an untrusted runtime or invalid options", async (t) => {
+  const f = await fixture(t);
+  assert.throws(() => createSubmissionWorker({
+    application: {}, store: f.store, projectRoot: f.projectRoot, workerId: "worker-invalid-001"
+  }), { code: "SUBMISSION_WORKER_UNAVAILABLE" });
+  assert.throws(() => createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-invalid-001", concurrency: 9
+  }), { code: "INVALID_SUBMISSION_WORKER" });
+  assert.throws(() => createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "short", pollIntervalMs: 50
+  }), { code: "INVALID_SUBMISSION" });
+});
