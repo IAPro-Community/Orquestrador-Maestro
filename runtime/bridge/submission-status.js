@@ -52,6 +52,54 @@ function project(row) {
     resultEvidence: "RUN_STORE_OBSERVED",
   });
 }
+// Measured per-run usage, read-only from the canonical RunStore. The single
+// evidence source per field is the persisted run's metadata.cognitiveTelemetry
+// (written once by the runtime when the run finalizes); the budget reservation
+// commit (`budget.reservation.actual`) is DERIVED from that same telemetry, so
+// it is never summed here — one source per field, no double counting.
+// tokenSource gates evidence: "provider-reported" | "derived" carry provider
+// measurements; "estimated"/"unavailable" do not. A field without measurement
+// stays null (never 0); when no token field has real evidence the whole usage
+// object is omitted so legacy clients keep the exact previous projection.
+const MEASURED_TOKEN_SOURCES = new Set(["provider-reported", "derived"]);
+function integerOrNull(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+function usageProjection(run) {
+  const telemetry = run?.metadata?.cognitiveTelemetry;
+  if (!telemetry || typeof telemetry !== "object") return null;
+  if (!MEASURED_TOKEN_SOURCES.has(telemetry.tokenSource)) return null;
+  const tokensInput = integerOrNull(telemetry.tokenInput);
+  const tokensOutput = integerOrNull(telemetry.tokenOutput);
+  // tokensCached maps cachedInputTokens (cachedOutputTokens has no slot in the
+  // frozen usage shape and is never summed with it).
+  const tokensCached = integerOrNull(telemetry.cachedInputTokens);
+  const tokensReasoning = integerOrNull(telemetry.reasoningTokens);
+  if (tokensInput === null && tokensOutput === null &&
+      tokensCached === null && tokensReasoning === null) return null;
+  return Object.freeze({
+    schemaVersion: 1,
+    evidence: "RUN_STORE_OBSERVED",
+    tokensInput,
+    tokensOutput,
+    tokensCached,
+    tokensReasoning,
+    durationMs: integerOrNull(telemetry.durationMs),
+  });
+}
+// Fail-closed: without a trusted getRun adapter (or if the run lookup fails)
+// the projection is returned unchanged, without usage — never guessed.
+async function projectWithUsage(store, row) {
+  const base = project(row);
+  if (!row?.runId || typeof store?.getRun !== "function") return base;
+  try {
+    const usage = usageProjection(await store.getRun(row.runId));
+    if (usage) return Object.freeze({ ...base, usage });
+  } catch {
+    // Omit usage; the redacted projection itself is still authoritative.
+  }
+  return base;
+}
 function createSubmissionStatusReader({ store, projectRoot }) {
   async function scoped() {
     if (!store?.listProjects || !store?.listRunSubmissions || !store?.getRunSubmission) {
@@ -77,7 +125,8 @@ function createSubmissionStatusReader({ store, projectRoot }) {
       return Object.freeze({
         schemaVersion: 1, authority: "MAESTRO", projectId,
         total: filtered.length, truncated: filtered.length > limit,
-        submissions: filtered.slice(0, limit).map(project),
+        submissions: await Promise.all(
+          filtered.slice(0, limit).map((row) => projectWithUsage(store, row))),
       });
     },
     // Snapshot polling, NOT replayable events or a push subscription. The
@@ -101,8 +150,10 @@ function createSubmissionStatusReader({ store, projectRoot }) {
       const rows = await store.listRunSubmissions({ projectId });
       // Do not trust backend filtering. Deterministic ordering prevents cursor
       // jitter across processes, and mapping strips secrets before hashing.
-      const visible = rows.filter((row) => row?.projectId === projectId)
-        .map(project).sort((a, b) => a.submissionId.localeCompare(b.submissionId));
+      const visible = (await Promise.all(
+        rows.filter((row) => row?.projectId === projectId)
+          .map((row) => projectWithUsage(store, row))))
+        .sort((a, b) => a.submissionId.localeCompare(b.submissionId));
       const cursor = "s1:" + createHash("sha256").update(
         JSON.stringify(["MAESTRO_SUBMISSIONS_SNAPSHOT_V1", projectId, limit, offset, visible])
       ).digest("hex");
@@ -136,7 +187,7 @@ function createSubmissionStatusReader({ store, projectRoot }) {
       if (!updated || updated.projectId !== projectId) {
         throw invalid("submission ownership changed during cancellation");
       }
-      return project(updated);
+      return projectWithUsage(store, updated);
     },
     async get(params = {}) {
       if (!params || typeof params !== "object" || Array.isArray(params) ||
@@ -148,7 +199,7 @@ function createSubmissionStatusReader({ store, projectRoot }) {
       const projectId = await scoped();
       const row = await store.getRunSubmission(params.submissionId);
       if (!row || row.projectId !== projectId) return null;
-      return project(row);
+      return projectWithUsage(store, row);
     },
   });
 }

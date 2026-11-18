@@ -293,3 +293,19 @@ Para dois clientes locais apontando para o mesmo RunStore, as mudanças são
 persistidas pelo lock canônico multiprocesso; sem um worker real, esse contrato
 oferece cancelamento da admissão e sinalização segura, não abort remoto do
 processo de um provider.
+
+### Campo opcional `usage` nas projeções de submissão
+
+Quando a submissão tem `runId` e o Run persistido no RunStore expõe
+`metadata.cognitiveTelemetry` com `tokenSource` `provider-reported` ou
+`derived` e ao menos um campo de token medido, as projeções de
+`runs.submissions.list/get/poll/cancel` incluem um campo opcional `usage` com
+forma congelada `{ schemaVersion: 1, evidence: "RUN_STORE_OBSERVED",
+tokensInput, tokensOutput, tokensCached, tokensReasoning, durationMs }`.
+Cada campo é `int` quando houve medição real (fonte única:
+`metadata.cognitiveTelemetry`; o commit do reservation orçamentário é derivado
+dela e nunca somado aqui) e `null` quando não houve (nunca `0`); sem uso
+medido, o campo `usage` é omitido por inteiro (clientes antigos continuam
+funcionando) e um RunStore sem `getRun` falha fechado sem `usage`. Como `usage`
+faz parte da projeção serializada, o cursor de snapshot muda quando ele passa a
+existir — polls com cursor antigo retornam `changed=true`.

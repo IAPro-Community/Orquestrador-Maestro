@@ -149,6 +149,167 @@ test("Bridge cancellation is project-scoped, idempotent and never fabricates wor
   assert.equal(rows[2].status, "PENDING_WORKER");
 });
 
+test("Bridge projects measured run usage only with real evidence and omits it otherwise", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-usage-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const rows = [
+    { id: "submission-measured-001", projectId: "project-usage-001", status: "COMPLETED",
+      runId: "run-measured", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-unmeasured-002", projectId: "project-usage-001", status: "FAILED",
+      runId: "run-unmeasured", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-estimated-003", projectId: "project-usage-001", status: "COMPLETED",
+      runId: "run-estimated", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-partial-004", projectId: "project-usage-001", status: "COMPLETED",
+      runId: "run-partial", taskCount: 1, providers: ["opencode"] },
+    { id: "submission-no-run-005", projectId: "project-usage-001", status: "PENDING_WORKER",
+      runId: null, taskCount: 1, providers: ["opencode"] }
+  ];
+  const runs = [
+    {
+      id: "run-measured",
+      metadata: {
+        cognitiveTelemetry: {
+          tokenSource: "provider-reported", usageComplete: true,
+          tokenInput: 500, tokenOutput: 120,
+          cachedInputTokens: 200, cachedOutputTokens: 8, reasoningTokens: 42,
+          durationMs: 2500
+        }
+      }
+    },
+    // No telemetry at all: legacy/older runs.
+    { id: "run-unmeasured", metadata: { resolution: { outcome: "failed" } } },
+    // Estimated tokens are NOT measured evidence: usage must be omitted.
+    {
+      id: "run-estimated",
+      metadata: {
+        cognitiveTelemetry: {
+          tokenSource: "estimated", tokenInput: 999, tokenOutput: 999, durationMs: 10
+        }
+      }
+    },
+    // Partial measurement: measured fields survive, unmeasured stay null (never 0).
+    {
+      id: "run-partial",
+      metadata: {
+        cognitiveTelemetry: {
+          tokenSource: "provider-reported", usageComplete: false,
+          tokenInput: null, tokenOutput: 77, cachedInputTokens: null,
+          reasoningTokens: null, durationMs: -1
+        }
+      }
+    }
+  ];
+  const store = {
+    listProjects: async () => [{ id: "project-usage-001", path: root }],
+    listRunSubmissions: async () => rows,
+    getRunSubmission: async (id) => rows.find((row) => row.id === id),
+    getRun: async (id) => runs.find((run) => run.id === id) || null
+  };
+  const bridge = createBridge({ projectRoot: root, services: { runStore: store } });
+  await bridge.handle(request("initialize"));
+  const detail = async (submissionId) =>
+    (await bridge.handle(request("runs.submissions.get", { submissionId }))).result;
+
+  const measured = await detail("submission-measured-001");
+  assert.deepEqual(measured.usage, {
+    schemaVersion: 1,
+    evidence: "RUN_STORE_OBSERVED",
+    tokensInput: 500, tokensOutput: 120, tokensCached: 200,
+    tokensReasoning: 42, durationMs: 2500
+  });
+  assert.deepEqual(Object.keys(measured.usage),
+    ["schemaVersion", "evidence", "tokensInput", "tokensOutput", "tokensCached", "tokensReasoning", "durationMs"]);
+
+  // No measured usage: the usage field is omitted entirely (legacy shape).
+  for (const submissionId of [
+    "submission-unmeasured-002", "submission-estimated-003", "submission-no-run-005"
+  ]) {
+    assert.equal("usage" in (await detail(submissionId)), false,
+      submissionId + " must not carry a usage field without measured evidence");
+  }
+
+  // Partial run: only measured fields present; unmeasured fields stay null.
+  const partial = await detail("submission-partial-004");
+  assert.deepEqual(partial.usage, {
+    schemaVersion: 1, evidence: "RUN_STORE_OBSERVED",
+    tokensInput: null, tokensOutput: 77, tokensCached: null,
+    tokensReasoning: null, durationMs: null
+  });
+
+  // The same projections hold in list and poll surfaces.
+  const list = (await bridge.handle(request("runs.submissions.list", { limit: 10 }))).result;
+  const listed = list.submissions.find((row) => row.submissionId === "submission-measured-001");
+  assert.deepEqual(listed.usage, measured.usage);
+  assert.equal("usage" in list.submissions.find((row) => row.submissionId === "submission-estimated-003"), false);
+  const poll = (await bridge.handle(request("runs.submissions.poll", { limit: 10 }))).result;
+  const polled = poll.submissions.find((row) => row.submissionId === "submission-measured-001");
+  assert.deepEqual(polled.usage, measured.usage);
+});
+
+test("usage projection is fail-closed without getRun and poll cursors change when usage appears", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-usage-cursor-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const rows = [
+    { id: "submission-usage-001", projectId: "project-cursor-001", status: "COMPLETED",
+      runId: "run-usage", taskCount: 1, providers: ["agy"] }
+  ];
+  const run = {
+    id: "run-usage",
+    metadata: {
+      cognitiveTelemetry: {
+        tokenSource: "provider-reported", usageComplete: true,
+        tokenInput: 320, tokenOutput: 64, cachedInputTokens: null,
+        reasoningTokens: null, durationMs: 900
+      }
+    }
+  };
+  const listProjects = async () => [{ id: "project-cursor-001", path: root }];
+  const listRunSubmissions = async () => rows;
+  // Legacy adapter without getRun: no usage, no error.
+  const legacyBridge = createBridge({ projectRoot: root, services: {
+    runStore: { listProjects, listRunSubmissions, getRunSubmission: async () => rows[0] }
+  } });
+  await legacyBridge.handle(request("initialize"));
+  const legacy = (await legacyBridge.handle(request("runs.submissions.poll", { limit: 5 }))).result;
+  assert.equal("usage" in legacy.submissions[0], false);
+
+  // getRun that fails must also fail closed, without breaking the projection.
+  const failingBridge = createBridge({ projectRoot: root, services: {
+    runStore: {
+      listProjects, listRunSubmissions, getRunSubmission: async () => rows[0],
+      getRun: async () => { throw new Error("store unavailable"); }
+    }
+  } });
+  await failingBridge.handle(request("initialize"));
+  const failing = (await failingBridge.handle(request("runs.submissions.get", {
+    submissionId: "submission-usage-001"
+  }))).result;
+  assert.equal("usage" in failing, false);
+  assert.equal(failing.submissionId, "submission-usage-001");
+
+  // Adapter with getRun: usage appears and the cursor differs from the
+  // legacy projection, so old cursors observe changed=true.
+  const bridge = createBridge({ projectRoot: root, services: {
+    runStore: { listProjects, listRunSubmissions, getRunSubmission: async () => rows[0], getRun: async () => run }
+  } });
+  await bridge.handle(request("initialize"));
+  const first = (await bridge.handle(request("runs.submissions.poll", { limit: 5 }))).result;
+  assert.deepEqual(first.submissions[0].usage, {
+    schemaVersion: 1, evidence: "RUN_STORE_OBSERVED",
+    tokensInput: 320, tokensOutput: 64, tokensCached: null,
+    tokensReasoning: null, durationMs: 900
+  });
+  assert.notEqual(first.cursor, legacy.cursor);
+  assert.equal((await bridge.handle(request("runs.submissions.poll", {
+    limit: 5, cursor: first.cursor
+  }))).result.changed, false, "two polls of the same state must share one cursor");
+  const withOldCursor = (await bridge.handle(request("runs.submissions.poll", {
+    limit: 5, cursor: legacy.cursor
+  }))).result;
+  assert.equal(withOldCursor.changed, true, "a pre-usage cursor must observe the change");
+  assert.equal("usage" in withOldCursor.submissions[0], true);
+});
+
 test("Bridge does not advertise cancellation without a trusted durable RunStore mutation", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-bridge-cancel-denied-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
