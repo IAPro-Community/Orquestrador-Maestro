@@ -4,6 +4,7 @@ const { validateID, bad } = require("./submission-admission");
 const { superviseSubmissionOnce } = require("./submission-supervisor");
 const { createApplicationSubmissionPorts } = require("./application-submission-ports");
 const { createTrustedApprovalVerifier, createApprovedTaskResolver } = require("./executable-submission");
+const { assessSubmissionGoal } = require("./goal-loop-driver");
 
 /**
  * Persistent, Maestro-owned bounded polling worker. It claims admitted
@@ -17,7 +18,8 @@ const { createTrustedApprovalVerifier, createApprovedTaskResolver } = require(".
 function createSubmissionWorker({
   application, store, projectRoot, workerId,
   concurrency = 1, pollIntervalMs = 1000, leaseMs = 30000, heartbeatMs = 5000,
-  pendingBatchLimit = 10, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  pendingBatchLimit = 10, goalLoop = true,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
   validateID(workerId, "workerId");
   if (!application?.createRun || !application?.executePreparedRun) {
@@ -62,14 +64,40 @@ function createSubmissionWorker({
       return execution;
     });
     const settled = await Promise.allSettled(executions);
-    return {
-      claimed: batch.length,
-      outcomes: settled.map((entry) => entry.status === "fulfilled"
-        ? { status: "COMPLETED_SUPERVISION", submissionStatus: entry.value?.submission?.status || null,
-            submissionId: entry.value?.submission?.id || null, runId: entry.value?.runId || null,
-            taskOutcomes: entry.value?.taskOutcomes || null }
-        : { status: "SUPERVISION_ERROR", code: entry.reason?.code || "SUBMISSION_WORKER_ERROR" })
-    };
+    const outcomes = [];
+    for (const entry of settled) {
+      if (entry.status !== "fulfilled") {
+        outcomes.push({ status: "SUPERVISION_ERROR", code: entry.reason?.code || "SUBMISSION_WORKER_ERROR" });
+        continue;
+      }
+      const value = entry.value || {};
+      const outcome = {
+        status: "COMPLETED_SUPERVISION",
+        submissionStatus: value.submission?.status || null,
+        submissionId: value.submission?.id || null,
+        runId: value.runId || null,
+        taskOutcomes: value.taskOutcomes || null
+      };
+      // Read-only Goal Loop assessment over every non-PASS terminal. It
+      // persists a durable decision; corrective dispatch always requires a
+      // fresh human-approved runs.submit within the approved budget.
+      if (goalLoop && outcome.submissionId &&
+          ["FAILED", "BLOCKED", "TIMED_OUT"].includes(outcome.submissionStatus)) {
+        try {
+          const assessment = await assessSubmissionGoal({ store, submissionId: outcome.submissionId });
+          outcome.goalLoop = {
+            decision: assessment.decision.decision,
+            reason: assessment.decision.reason || null,
+            affectedTaskIds: [...assessment.decision.affectedTaskIds],
+            preservedTaskIds: [...assessment.decision.preservedTaskIds]
+          };
+        } catch (error) {
+          outcome.goalLoop = { decision: "ASSESSMENT_ERROR", code: error?.code || "GOAL_LOOP_UNAVAILABLE" };
+        }
+      }
+      outcomes.push(outcome);
+    }
+    return { claimed: batch.length, outcomes };
   }
 
   async function run() {

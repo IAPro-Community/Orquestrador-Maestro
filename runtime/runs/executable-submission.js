@@ -399,10 +399,26 @@ async function submitExecutablePlan({
   if (!params || typeof params !== "object" || Array.isArray(params)) {
     throw invalidParams("submission parameters must be an object");
   }
-  const allowed = new Set(["clientKey", "artifact", "approvedModelUse", "plan", "assignments", "approval"]);
+  const allowed = new Set(["clientKey", "artifact", "approvedModelUse", "plan", "assignments", "approval", "budget"]);
   for (const key of Object.keys(params)) {
     if (!allowed.has(key)) throw invalidParams("Unknown submission parameter: " + key);
   }
+  // Explicit, human-approved execution budget. Without one, corrective Goal
+  // Loop iterations fail closed to the human decision (UNKNOWN cost is never
+  // invented to unlock automation).
+  const budget = params.budget === undefined
+    ? { maxCostUSD: DEFAULT_TASK_MAX_COST_USD }
+    : (() => {
+      if (!params.budget || typeof params.budget !== "object" || Array.isArray(params.budget) ||
+          Object.keys(params.budget).some((key) => key !== "maxCostUSD")) {
+        throw invalidParams("budget must declare only maxCostUSD");
+      }
+      const maxCostUSD = params.budget.maxCostUSD;
+      if (typeof maxCostUSD !== "number" || !Number.isFinite(maxCostUSD) || maxCostUSD < 0 || maxCostUSD > 100) {
+        throw invalidParams("budget.maxCostUSD must be a finite USD limit in [0, 100]");
+      }
+      return { maxCostUSD };
+    })();
   validateID(params.clientKey, "clientKey");
   if (params.approvedModelUse !== true) {
     throw bad("external model use must be explicitly approved for planning provenance",
@@ -462,7 +478,7 @@ async function submitExecutablePlan({
     projectId,
     planDigest,
     artifactDigest: artifact.sha256,
-    maxCostUSD: DEFAULT_TASK_MAX_COST_USD * semanticTasks.length,
+    maxCostUSD: budget.maxCostUSD,
     tasks: semanticTasks.map((task) => {
       const assignment = assignments.find((item) => item.taskId === task.id);
       const content = approvedTaskContent(task);

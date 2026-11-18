@@ -15,6 +15,8 @@ class RunStore {
   async listExecutableManifests() { throw new Error("RunStore.listExecutableManifests must be implemented"); }
   async saveApprovalReceipt() { throw new Error("RunStore.saveApprovalReceipt must be implemented"); }
   async getApprovalReceipt() { throw new Error("RunStore.getApprovalReceipt must be implemented"); }
+  async saveGoalLoopDecision() { throw new Error("RunStore.saveGoalLoopDecision must be implemented"); }
+  async listGoalLoopDecisions() { throw new Error("RunStore.listGoalLoopDecisions must be implemented"); }
   async admitRunSubmission() { throw new Error("RunStore.admitRunSubmission must be implemented"); }
   async getRunSubmission() { throw new Error("RunStore.getRunSubmission must be implemented"); }
   async listRunSubmissions() { throw new Error("RunStore.listRunSubmissions must be implemented"); }

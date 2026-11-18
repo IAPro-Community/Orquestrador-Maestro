@@ -7,11 +7,12 @@ const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, val
 const { RunStore } = require("./run-store");
 const { normalizeExecutableManifest, validateStoredExecutableManifest } = require("../runs/executable-manifest");
 const { validateApprovalReceipt } = require("../runs/executable-submission");
+const { validateGoalLoopDecision } = require("../runs/goal-loop-driver");
 
-const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions", "executableManifests", "approvalReceipts"]);
+const COLLECTIONS = Object.freeze(["projects", "missions", "tasks", "runs", "steps", "executions", "events", "artifacts", "evidence", "verifications", "terminals", "projectSnapshots", "intentSessions", "missionBriefs", "taskGraphs", "attention", "runSubmissions", "executableManifests", "approvalReceipts", "goalLoopDecisions"]);
 
 function emptyState() {
-  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [], executableManifests: [], approvalReceipts: [] };
+  return { version: 1, projects: [], missions: [], tasks: [], runs: [], steps: [], executions: [], events: [], artifacts: [], evidence: [], verifications: [], terminals: [], projectSnapshots: [], intentSessions: [], missionBriefs: [], taskGraphs: [], attention: [], runSubmissions: [], executableManifests: [], approvalReceipts: [], goalLoopDecisions: [] };
 }
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -153,6 +154,27 @@ class JsonFileRunStore extends RunStore {
     });
   }
   async getApprovalReceipt(id) { return this._get("approvalReceipts", id); }
+
+  // Goal Loop decisions are durable audit records produced by the read-only
+  // correction policy. They never dispatch anything by themselves.
+  async saveGoalLoopDecision(input) {
+    const decision = validateGoalLoopDecision(input);
+    return this._mutate(async () => {
+      const previous = this._state.goalLoopDecisions.find((item) => item.id === decision.id);
+      if (previous) {
+        if (JSON.stringify(previous) !== JSON.stringify(decision)) {
+          throw bad("goal loop decision is immutable", "GOAL_LOOP_DECISION_CONFLICT");
+        }
+        return clone(previous);
+      }
+      this._state.goalLoopDecisions.push(clone(decision));
+      await this._flush();
+      return clone(decision);
+    });
+  }
+  async listGoalLoopDecisions(filters = {}) {
+    return this._list("goalLoopDecisions", filters, ["projectId", "planDigest", "submissionId"]);
+  }
 
   async admitRunSubmission(input) {
     const spec = normalizeAdmission(input);
@@ -737,6 +759,7 @@ class JsonFileRunStore extends RunStore {
     if (state.runSubmissions === undefined) state.runSubmissions = [];
     if (state.executableManifests === undefined) state.executableManifests = [];
     if (state.approvalReceipts === undefined) state.approvalReceipts = [];
+    if (state.goalLoopDecisions === undefined) state.goalLoopDecisions = [];
     if (!Array.isArray(state.executableManifests)) throw new Error("RunStore executable manifests are invalid");
     const manifestIds = new Set();
     for (const row of state.executableManifests) {
