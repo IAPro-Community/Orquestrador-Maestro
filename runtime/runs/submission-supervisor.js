@@ -1,6 +1,7 @@
 "use strict";
 
 const { validateID, bad } = require("./submission-admission");
+const { validateStoredExecutableManifest } = require("./executable-manifest");
 
 const TERMINAL_BY_RUN_STATUS = Object.freeze({
   completed: "COMPLETED",
@@ -28,16 +29,39 @@ function approvalSubject(row) {
   });
 }
 
+// Deterministic Kahn topological order; the manifest itself already rejects
+// cycles, so an unorderable graph is a corrupted store and must fail closed.
+function topoOrder(tasks) {
+  const byId = new Map(tasks.map((task) => [task.taskId, task]));
+  const remaining = new Map(tasks.map((task) => [task.taskId, [...task.dependsOn]]));
+  const ordered = [];
+  while (remaining.size > 0) {
+    const ready = [...remaining.entries()]
+      .filter(([, deps]) => deps.every((dep) => !remaining.has(dep)))
+      .map(([id]) => id);
+    if (ready.length === 0) throw bad("manifest dependencies are cyclic", "RUN_STORE_CORRUPTED");
+    for (const id of ready.sort()) {
+      ordered.push(byId.get(id));
+      remaining.delete(id);
+    }
+  }
+  return ordered;
+}
+
 /**
  * Execute one already-admitted submission, never re-claim a crashed one.
  *
- * This internal one-shot coordinator is not a daemon and never exposed by the
- * Bridge. Trusted callbacks must implement server-side human approval,
- * create a persisted PENDING Maestro Run, and dispatch a provider only after
- * its Run ID is fenced in the ledger.
+ * This internal coordinator is not a daemon and never exposed by the Bridge.
+ * Trusted callbacks must implement server-side human approval, create
+ * persisted PENDING Maestro Runs, and dispatch providers only after each Run
+ * ID is fenced in the ledger. Multi-task manifests execute in dependency
+ * order: a task runs only when all its manifest dependencies completed, and
+ * the descendants of a failed task are blocked without any provider effects.
  *
  * A crashed/expired/uncertain dispatch is quarantined by the reconciler:
- * it is NEVER replayed by this function.
+ * it is NEVER replayed by this function. A cancellation requested after some
+ * tasks already dispatched is left as CANCEL_REQUESTED for operator review
+ * when the remaining outcomes cannot be honestly aggregated.
  */
 async function superviseSubmissionOnce({
   store, submissionId, workerId, verifyApproval, prepareRun, dispatchRun,
@@ -101,57 +125,155 @@ async function superviseSubmissionOnce({
     return Object.freeze({ submission: terminal, runId: null, dispatched: false });
   }
 
+  const manifest = claimed.manifestId
+    ? validateStoredExecutableManifest(await store.getExecutableManifest(claimed.manifestId))
+    : null;
+
   try {
-    const first = await store.getRunSubmission(submissionId);
-    if (first.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch();
+    if (!manifest) {
+      // Legacy single-Run contract without an executable manifest binding.
+      const first = await store.getRunSubmission(submissionId);
+      if (first.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch();
 
-    const prepared = await prepareRun({
-      submission: Object.freeze({ ...claimed }),
-      signal: controller.signal
-    });
-    if (typeof prepared?.runId !== "string") {
-      throw bad("prepareRun must return a persisted Maestro Run ID", "RUN_PROVENANCE_MISMATCH");
+      const prepared = await prepareRun({
+        submission: Object.freeze({ ...claimed }),
+        signal: controller.signal
+      });
+      if (typeof prepared?.runId !== "string") {
+        throw bad("prepareRun must return a persisted Maestro Run ID", "RUN_PROVENANCE_MISMATCH");
+      }
+
+      // Preparation is durable, but it is not execution. Reserve its exact
+      // persisted Run identity before cancellation or any provider side effect.
+      // A stale worker cannot bind another process's pending Run after fencing.
+      await store.bindPreparedRunSubmission(submissionId, {
+        workerId, fence: claimed.fence, runId: prepared.runId
+      });
+
+      if (leaseFailure) throw leaseFailure;
+      const latest = await store.getRunSubmission(submissionId);
+      if (latest.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch(prepared.runId);
+
+      // Approval may have been revoked while a Run was being prepared.
+      if (await verifyApproval(approvalSubject(claimed)) !== true) {
+        await store.requestRunSubmissionCancellation(submissionId);
+        return await cancelBeforeDispatch(prepared.runId);
+      }
+      if (leaseFailure) throw leaseFailure;
+
+      const dispatched = await store.markRunSubmissionDispatched(submissionId, {
+        workerId, fence: claimed.fence, runId: prepared.runId
+      });
+
+      // This callback may cause external effects. Never call it unless the
+      // ledger already holds the real Run ID and the current worker fence.
+      await dispatchRun({
+        submission: Object.freeze({ ...dispatched }),
+        runId: prepared.runId, signal: controller.signal
+      });
+      if (leaseFailure) throw leaseFailure;
+
+      const run = await store.getRun(prepared.runId);
+      const terminalStatus = TERMINAL_BY_RUN_STATUS[run?.status];
+      if (!terminalStatus) {
+        throw bad("provider returned without a persisted terminal Run", "RUN_RESULT_UNCERTAIN");
+      }
+      const terminal = await store.finishRunSubmission(submissionId, {
+        workerId, fence: claimed.fence, status: terminalStatus
+      });
+      return Object.freeze({ submission: terminal, runId: prepared.runId, dispatched: true });
     }
 
-    // Preparation is durable, but it is not execution. Reserve its exact
-    // persisted Run identity before cancellation or any provider side effect.
-    // A stale worker cannot bind another process's pending Run after fencing.
-    await store.bindPreparedRunSubmission(submissionId, {
-      workerId, fence: claimed.fence, runId: prepared.runId
-    });
+    // Manifest-bound DAG execution: dependency order, per-task Runs.
+    const ordered = topoOrder(manifest.tasks);
+    const outcomes = new Map();
+    const dispatchedRunIds = [];
+    let dispatchedAny = false;
+    let ranToCompletion = true;
 
-    if (leaseFailure) throw leaseFailure;
-    const latest = await store.getRunSubmission(submissionId);
-    if (latest.status === "CANCEL_REQUESTED") return await cancelBeforeDispatch(prepared.runId);
+    for (const task of ordered) {
+      if (leaseFailure) throw leaseFailure;
+      const latest = await store.getRunSubmission(submissionId);
+      if (latest.status === "CANCEL_REQUESTED") {
+        ranToCompletion = false;
+        if (!dispatchedAny) return await cancelBeforeDispatch();
+        // Outcomes already dispatched cannot be honestly aggregated as a
+        // fabricated terminal state; leave the request for operator review.
+        break;
+      }
+      // Approval may have been revoked while the DAG was executing.
+      if (await verifyApproval(approvalSubject(claimed)) !== true) {
+        ranToCompletion = false;
+        await store.requestRunSubmissionCancellation(submissionId);
+        if (!dispatchedAny) return await cancelBeforeDispatch();
+        break;
+      }
+      if (!task.dependsOn.every((dep) => outcomes.get(dep) === "completed")) {
+        // A failed/blocked dependency invalidates only its descendants.
+        outcomes.set(task.taskId, "blocked");
+        continue;
+      }
 
-    // Approval may have been revoked while a Run was being prepared.
-    if (await verifyApproval(approvalSubject(claimed)) !== true) {
-      await store.requestRunSubmissionCancellation(submissionId);
-      return await cancelBeforeDispatch(prepared.runId);
+      const prepared = await prepareRun({
+        submission: Object.freeze({ ...claimed }), task, signal: controller.signal
+      });
+      if (typeof prepared?.runId !== "string") {
+        throw bad("prepareRun must return a persisted Maestro Run ID", "RUN_PROVENANCE_MISMATCH");
+      }
+      await store.bindPreparedRunSubmission(submissionId, {
+        workerId, fence: claimed.fence, runId: prepared.runId, taskId: task.taskId
+      });
+      if (leaseFailure) throw leaseFailure;
+
+      const before = await store.getRunSubmission(submissionId);
+      if (before.status === "CANCEL_REQUESTED") {
+        ranToCompletion = false;
+        if (!dispatchedAny) return await cancelBeforeDispatch(prepared.runId);
+        break;
+      }
+
+      const dispatched = await store.markRunSubmissionDispatched(submissionId, {
+        workerId, fence: claimed.fence, runId: prepared.runId, taskId: task.taskId
+      });
+      dispatchedAny = true;
+      dispatchedRunIds.push(prepared.runId);
+
+      await dispatchRun({
+        submission: Object.freeze({ ...dispatched }), task,
+        runId: prepared.runId, signal: controller.signal
+      });
+      if (leaseFailure) throw leaseFailure;
+
+      const run = await store.getRun(prepared.runId);
+      const terminalStatus = TERMINAL_BY_RUN_STATUS[run?.status];
+      if (!terminalStatus) {
+        throw bad("provider returned without a persisted terminal Run", "RUN_RESULT_UNCERTAIN");
+      }
+      outcomes.set(task.taskId, run.status);
     }
-    if (leaseFailure) throw leaseFailure;
 
-    const dispatched = await store.markRunSubmissionDispatched(submissionId, {
-      workerId, fence: claimed.fence, runId: prepared.runId
-    });
-
-    // This callback may cause external effects. Never call it unless the
-    // ledger already holds the real Run ID and the current worker fence.
-    await dispatchRun({
-      submission: Object.freeze({ ...dispatched }),
-      runId: prepared.runId, signal: controller.signal
-    });
-    if (leaseFailure) throw leaseFailure;
-
-    const run = await store.getRun(prepared.runId);
-    const terminalStatus = TERMINAL_BY_RUN_STATUS[run?.status];
-    if (!terminalStatus) {
-      throw bad("provider returned without a persisted terminal Run", "RUN_RESULT_UNCERTAIN");
+    if (!ranToCompletion) {
+      // No fabricated terminal state: the reconciler quarantines after the
+      // lease expires and the operator decides from the persisted evidence.
+      return Object.freeze({ submission: await store.getRunSubmission(submissionId), runId: null, dispatched: dispatchedAny });
     }
+
+    const statuses = [...outcomes.values()].map((raw) => TERMINAL_BY_RUN_STATUS[raw] || "BLOCKED");
+    const aggregate = statuses.includes("FAILED") ? "FAILED"
+      : statuses.includes("TIMED_OUT") ? "TIMED_OUT"
+      : statuses.includes("BLOCKED") ? "BLOCKED"
+      : statuses.includes("CANCELLED") ? "CANCELLED"
+      : "COMPLETED";
     const terminal = await store.finishRunSubmission(submissionId, {
-      workerId, fence: claimed.fence, status: terminalStatus
+      workerId, fence: claimed.fence, status: aggregate
     });
-    return Object.freeze({ submission: terminal, runId: prepared.runId, dispatched: true });
+    return Object.freeze({
+      submission: terminal,
+      // Backwards compatibility: the first dispatched Run identity.
+      runId: dispatchedRunIds[0] || null,
+      dispatched: dispatchedAny,
+      taskOutcomes: Object.freeze(Object.fromEntries(outcomes))
+    });
   } finally {
     clearInterval(heartbeat);
     if (!controller.signal.aborted) controller.abort();

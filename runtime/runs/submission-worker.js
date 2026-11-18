@@ -66,7 +66,8 @@ function createSubmissionWorker({
       claimed: batch.length,
       outcomes: settled.map((entry) => entry.status === "fulfilled"
         ? { status: "COMPLETED_SUPERVISION", submissionStatus: entry.value?.submission?.status || null,
-            submissionId: entry.value?.submission?.id || null, runId: entry.value?.runId || null }
+            submissionId: entry.value?.submission?.id || null, runId: entry.value?.runId || null,
+            taskOutcomes: entry.value?.taskOutcomes || null }
         : { status: "SUPERVISION_ERROR", code: entry.reason?.code || "SUBMISSION_WORKER_ERROR" })
     };
   }

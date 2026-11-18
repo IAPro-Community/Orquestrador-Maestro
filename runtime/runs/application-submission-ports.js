@@ -12,9 +12,9 @@ const hash = (value) => crypto.createHash("sha256").update(value, "utf8").digest
  * existing MaestroApplication. It does not expose runs.submit or recover a
  * prepared handle after a process crash: uncertain effects stay quarantined.
  *
- * Multi-task DAGs, model-specific routing and cross-process restart still
- * require a durable execution coordinator; reject those instead of silently
- * falling back to a different provider or scheduler.
+ * Multi-task manifests dispatch one Maestro Run per task in dependency order
+ * (the supervisor owns the ordering); model-specific routing stays locked to
+ * the provider default until adapters certify explicit models.
  */
 function createApplicationSubmissionPorts({
   application, store, projectRoot, workspacePath, verifyApproval, resolveApprovedTask
@@ -25,8 +25,8 @@ function createApplicationSubmissionPorts({
     throw bad("trusted Maestro application and artifact/approval resolvers required",
       "SUBMISSION_DISPATCH_UNAVAILABLE");
   }
-  const preparedBySubmission = new Map();
-  async function load(submission) {
+  const preparedByTask = new Map();
+  async function load(submission, task) {
     if (!submission?.manifestId) {
       throw bad("submission must reference a stored executable manifest",
         "EXECUTABLE_MANIFEST_REQUIRED");
@@ -39,53 +39,50 @@ function createApplicationSubmissionPorts({
         manifest.planDigest !== submission.planDigest ||
         manifest.artifactDigest !== submission.artifactDigest ||
         manifest.tasks.length !== submission.taskCount ||
-        JSON.stringify(manifest.tasks.map((task) => task.providerId)) !==
+        JSON.stringify(manifest.tasks.map((item) => item.providerId)) !==
         JSON.stringify(submission.providers) ||
         manifest.maxCostUSD !== submission.maxCostUSD) {
       throw bad("prepared submission differs from immutable manifest",
         "EXECUTABLE_MANIFEST_MISMATCH");
     }
-    if (manifest.tasks.length !== 1) {
-      throw bad("multi-task DAG requires a durable dependency-aware scheduler",
-        "MULTI_TASK_DISPATCH_UNSUPPORTED");
-    }
-    const task = manifest.tasks[0];
-    if (task.modelId !== "default") {
+    const target = task || manifest.tasks[0];
+    if (target.modelId !== "default") {
       throw bad("model-specific dispatch is not certified by the current adapter",
         "MODEL_LOCK_DISPATCH_UNSUPPORTED");
     }
-    const binding = bindingFromRealGitWorktree({ projectRoot, workspacePath });
-    if (binding.fingerprint !== task.workspaceFingerprint ||
-        binding.branch !== task.branch || binding.headCommit !== task.headCommit ||
-        binding.fingerprint !== submission.workspaceFingerprint) {
+    const dispatchPath = submission.workspacePaths?.[target.workspaceFingerprint] || workspacePath;
+    const binding = bindingFromRealGitWorktree({ projectRoot, workspacePath: dispatchPath });
+    if (binding.fingerprint !== target.workspaceFingerprint ||
+        binding.branch !== target.branch || binding.headCommit !== target.headCommit) {
       throw bad("Git scope changed since manifest approval", "MANIFEST_WORKSPACE_CHANGED");
     }
-    return { manifest, task, binding };
+    return { manifest, task: target, binding };
   }
   return Object.freeze({
     verifyApproval,
     async releasePreparedRun({ submissionId } = {}) {
-      const held = preparedBySubmission.get(submissionId);
-      if (!held) return false;
-      preparedBySubmission.delete(submissionId);
-      application.discardPreparedRun?.(held.prepared);
-      return true;
+      const held = [...preparedByTask.values()].filter((item) => item.submissionId === submissionId);
+      for (const item of held) {
+        preparedByTask.delete(item.task.taskId);
+        application.discardPreparedRun?.(item.prepared);
+      }
+      return held.length > 0;
     },
-    async prepareRun({ submission, signal }) {
+    async prepareRun({ submission, task, signal }) {
       if (signal?.aborted) throw bad("submission cancelled before preparation",
         "SUBMISSION_CANCEL_REQUESTED");
-      const { manifest, task, binding } = await load(submission);
+      const { manifest, task: target, binding } = await load(submission, task);
       const source = await resolveApprovedTask(Object.freeze({
         manifestId: manifest.id, manifestDigest: manifest.digest,
-        taskId: task.taskId, promptDigest: task.promptDigest,
-        acceptanceDigest: task.acceptanceDigest
+        taskId: target.taskId, promptDigest: target.promptDigest,
+        acceptanceDigest: target.acceptanceDigest
       }));
       if (typeof source?.description !== "string" || !source.description.trim() ||
           Buffer.byteLength(source.description, "utf8") > 64000 ||
-          hash(source.description) !== task.promptDigest ||
+          hash(source.description) !== target.promptDigest ||
           typeof source.acceptanceText !== "string" ||
           Buffer.byteLength(source.acceptanceText, "utf8") > 8000 ||
-          hash(source.acceptanceText) !== task.acceptanceDigest) {
+          hash(source.acceptanceText) !== target.acceptanceDigest) {
         throw bad("approved executable artifact digest mismatch",
           "EXECUTABLE_ARTIFACT_MISMATCH");
       }
@@ -94,10 +91,10 @@ function createApplicationSubmissionPorts({
       const request = Object.freeze({
         projectId: manifest.projectId,
         workspacePath: binding.workspace,
-        providerId: task.providerId,
+        providerId: target.providerId,
         description: source.description,
         semanticTask: {
-          id: task.taskId, objective: source.description,
+          id: target.taskId, objective: source.description,
           acceptanceCriteria: [source.acceptanceText], evidenceRequirements: []
         },
         verificationCommands: []
@@ -107,17 +104,20 @@ function createApplicationSubmissionPorts({
         throw bad("Maestro Run was blocked during canonical preparation",
           "PREPARED_RUN_BLOCKED");
       }
-      preparedBySubmission.set(submission.id, { prepared, request });
-      return { runId: prepared.run.id };
+      preparedByTask.set(target.taskId, { prepared, request, submissionId: submission.id, task: target });
+      return { runId: prepared.run.id, taskId: target.taskId };
     },
-    async dispatchRun({ submission, runId, signal }) {
-      const held = preparedBySubmission.get(submission?.id);
-      if (!held || held.prepared.run.id !== runId || signal?.aborted) {
+    async dispatchRun({ submission, task, runId, signal }) {
+      const target = task || [...preparedByTask.values()]
+        .find((item) => item.prepared.run.id === runId)?.task;
+      const held = target && preparedByTask.get(target.taskId);
+      if (!held || held.prepared.run.id !== runId || held.submissionId !== submission?.id ||
+          signal?.aborted) {
         throw bad("prepared handle missing, changed or cancelled",
           "PREPARED_RUN_NOT_OWNED");
       }
-      await load(submission); // Recheck Git HEAD and immutable bindings before effects.
-      preparedBySubmission.delete(submission.id);
+      await load(submission, held.task); // Recheck Git HEAD and immutable bindings before effects.
+      preparedByTask.delete(target.taskId);
       // Forward the supervisor's fenced cancellation signal to the canonical
       // MaestroApplication so the active provider handle can be cancelled.
       await application.executePreparedRun(held.prepared, held.request, { signal });

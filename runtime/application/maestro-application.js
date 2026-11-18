@@ -43,6 +43,19 @@ const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 const { samePhysicalPath } = require("../runs/workspace-authority");
 
+// A run may execute in any live, attached Git worktree of the registered
+// project's repository (worktree isolation is the point); unrelated
+// directories stay rejected fail-closed.
+function isProjectExecutionScope(projectPath, workspacePath) {
+  if (samePhysicalPath(projectPath, workspacePath)) return true;
+  const projectScope = resolveGitContext(projectPath);
+  const requestScope = resolveGitContext(workspacePath);
+  return projectScope.vcs === "git" && requestScope.vcs === "git" &&
+    Boolean(projectScope.repositoryId) && projectScope.repositoryId === requestScope.repositoryId &&
+    Boolean(requestScope.workspaceId) && !requestScope.detached &&
+    Boolean(requestScope.branch) && requestScope.headCommit && requestScope.headCommit !== "unknown";
+}
+
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
 
@@ -539,7 +552,7 @@ class MaestroApplication {
     const run = core.createRun({ id: id("run"), taskId: task.id, providerId: provider.id, status: "pending", metadata: taskMetadata });
     const step = core.createStep({ id: id("step"), runId: run.id, profileId: profile.id, status: "pending" });
     const existingProject = await this.store.getProject(projectId);
-    if (existingProject?.path && !samePhysicalPath(existingProject.path, workspacePath)) {
+    if (existingProject?.path && !isProjectExecutionScope(existingProject.path, workspacePath)) {
       const error = new Error("PROJECT_SCOPE_MISMATCH: projectId is already bound to a different workspacePath");
       error.code = "PROJECT_SCOPE_MISMATCH";
       throw error;
@@ -755,7 +768,7 @@ class MaestroApplication {
         currentRun.taskId !== task.id || currentStep.runId !== run.id ||
         currentTask.projectId !== task.projectId ||
         currentTask.description !== task.description ||
-        !samePhysicalPath(currentProject.path, workspacePath) ||
+        !isProjectExecutionScope(currentProject.path, workspacePath) ||
         run.providerId !== provider.id || currentRun.providerId !== provider.id ||
         this.providers.get(provider.id) !== provider ||
         !request || request.description !== task.description ||

@@ -166,13 +166,32 @@ class JsonFileRunStore extends RunStore {
         return { submission: clone(existing), replayed: true };
       }
       const busy = this._state.runSubmissions.find((row) =>
-        row.workspaceFingerprint === spec.workspaceFingerprint &&
+        [row.workspaceFingerprint, ...(row.extraWorkspaceFingerprints || [])]
+          .some((fingerprint) => spec.workspaceFingerprint === fingerprint ||
+            (spec.extraWorkspaceFingerprints || []).includes(fingerprint)) &&
         isWorkspaceOccupied(row.status));
       if (busy) throw bad("workspace is already reserved by a pending or unresolved submission", "WORKSPACE_RESERVED");
       const now = new Date().toISOString();
+      const workspacePaths = input.workspacePaths === undefined ? undefined : (() => {
+        const raw = input.workspacePaths;
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+          throw bad("workspacePaths must bind every reserved fingerprint to a path");
+        }
+        const fingerprints = [spec.workspaceFingerprint, ...(spec.extraWorkspaceFingerprints || [])];
+        const mapped = {};
+        for (const fingerprint of fingerprints) {
+          const value = raw[fingerprint];
+          if (typeof value !== "string" || value.length === 0 || value.length > 4096) {
+            throw bad("reserved workspace lacks a dispatch path");
+          }
+          mapped[fingerprint] = value;
+        }
+        return mapped;
+      })();
       const submission = {
         id: "submission-" + crypto.randomUUID(),
         ...spec,
+        ...(workspacePaths ? { workspacePaths } : {}),
         status: "PENDING_WORKER",
         fence: 0,
         workerId: null,
@@ -238,15 +257,18 @@ class JsonFileRunStore extends RunStore {
   // Bind a prepared (but never executed) Run to the fenced submission.
   // This evidence is persisted before cancellation or provider dispatch, so
   // a caller cannot cancel an unrelated pending Run in the same project.
-  async bindPreparedRunSubmission(submissionId, { workerId, fence, runId } = {}) {
+  // Multi-task manifests pass taskId to record the per-task Run binding.
+  async bindPreparedRunSubmission(submissionId, { workerId, fence, runId, taskId } = {}) {
     validateID(submissionId, "submissionId");
     validateWorker(workerId, fence);
     validateID(runId, "runId");
+    if (taskId !== undefined) validateID(taskId, "taskId");
     return this._mutate(async () => {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
-      if (!["CLAIMED", "CANCEL_REQUESTED"].includes(row.status) || row.runId !== null ||
-          (row.preparedRunId != null && row.preparedRunId !== runId)) {
+      if (taskId === undefined &&
+          (!["CLAIMED", "CANCEL_REQUESTED"].includes(row.status) || row.runId !== null ||
+            (row.preparedRunId != null && row.preparedRunId !== runId))) {
         throw bad("prepared Run cannot be rebound or attached after dispatch", "RUN_PROVENANCE_MISMATCH");
       }
       const preparedRun = this._state.runs.find((run) => run.id === runId);
@@ -260,7 +282,20 @@ class JsonFileRunStore extends RunStore {
             other.id !== row.id && (other.runId === runId || other.preparedRunId === runId))) {
         throw bad("only an unexecuted Run of this submission may be bound", "RUN_PROVENANCE_MISMATCH");
       }
-      row.preparedRunId = runId;
+      if (taskId === undefined) {
+        row.preparedRunId = runId;
+      } else {
+        // Provenance: the bound Run must belong to the manifest task itself.
+        if (task.id !== taskId) {
+          throw bad("task Run binding does not match the manifest task", "RUN_PROVENANCE_MISMATCH");
+        }
+        row.taskRuns = row.taskRuns || {};
+        if (row.taskRuns[taskId] !== undefined && row.taskRuns[taskId] !== runId) {
+          throw bad("task already bound to another Run", "RUN_PROVENANCE_MISMATCH");
+        }
+        row.taskRuns[taskId] = runId;
+        row.preparedRunId = runId;
+      }
       row.updatedAt = new Date().toISOString();
       await this._flush();
       return clone(row);
@@ -268,8 +303,9 @@ class JsonFileRunStore extends RunStore {
   }
 
   // DISPATCHED is only written after a real Maestro Run ID is known. This
-  // ledger does not create runs or call a provider by itself.
-  async markRunSubmissionDispatched(submissionId, { workerId, fence, runId } = {}) {
+  // ledger does not create runs or call a provider by itself. Multi-task
+  // manifests dispatch per task; row.runId keeps the FIRST dispatched Run.
+  async markRunSubmissionDispatched(submissionId, { workerId, fence, runId, taskId } = {}) {
     validateID(submissionId, "submissionId");
     validateID(workerId, "workerId");
     validateWorker(workerId, fence);
@@ -277,8 +313,13 @@ class JsonFileRunStore extends RunStore {
     return this._mutate(async () => {
       const row = this._state.runSubmissions.find((record) => record.id === submissionId);
       this._requireCurrentWorker(row, workerId, fence);
-      if (row.status !== "CLAIMED") throw bad("submission was already dispatched or cancelled", "SUBMISSION_NOT_CLAIMABLE");
-      if (row.preparedRunId != null && row.preparedRunId !== runId) {
+      // Single-task dispatch keeps the strict CLAIMED gate; multi-task DAG
+      // dispatches later tasks while the submission is already DISPATCHED.
+      if (row.status !== "CLAIMED" &&
+          !(row.status === "DISPATCHED" && row.taskRuns !== undefined)) {
+        throw bad("submission was already dispatched or cancelled", "SUBMISSION_NOT_CLAIMABLE");
+      }
+      if (row.preparedRunId != null && row.preparedRunId !== runId && row.taskRuns === undefined) {
         throw bad("dispatch Run differs from the bound prepared Run", "RUN_PROVENANCE_MISMATCH");
       }
       const persistedRun = this._state.runs.find((run) => run.id === runId);
@@ -289,7 +330,12 @@ class JsonFileRunStore extends RunStore {
           persistedRun.status !== "pending") {
         throw bad("dispatch requires a persisted matching pending Maestro Run", "RUN_PROVENANCE_MISMATCH");
       }
-      row.runId = runId;
+      if (taskId !== undefined) {
+        if (row.taskRuns?.[taskId] !== runId || persistedTask.id !== taskId) {
+          throw bad("dispatched Run does not match the bound manifest task", "RUN_PROVENANCE_MISMATCH");
+        }
+      }
+      if (row.runId === null) row.runId = runId;
       row.status = "DISPATCHED";
       row.updatedAt = new Date().toISOString();
       await this._flush();
@@ -320,7 +366,20 @@ class JsonFileRunStore extends RunStore {
       const cancelledBeforeDispatch = status === "CANCELLED" &&
         row.status === "CANCEL_REQUESTED" && row.runId === null;
       if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
-        throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
+        // Multi-task aggregates prove themselves across every bound task Run:
+        // COMPLETED needs all completed; other terminals need all terminal
+        // with at least one matching the aggregate.
+        const taskRuns = row.taskRuns && typeof row.taskRuns === "object"
+          ? Object.values(row.taskRuns) : [];
+        const runs = taskRuns.map((id) => this._state.runs.find((run) => run.id === id));
+        const TERMINAL = new Set(["completed", "failed", "blocked", "timed_out", "cancelled"]);
+        const allTerminal = runs.length > 0 && runs.every((run) => run && TERMINAL.has(run.status));
+        const proven = status === "COMPLETED"
+          ? allTerminal && runs.every((run) => run.status === "completed")
+          : allTerminal && runs.some((run) => run.status === runStatus);
+        if (!proven) {
+          throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
+        }
       }
       // When preparation persisted a Run but provider dispatch never began,
       // atomically cancel that Run and its pending Steps with the submission.

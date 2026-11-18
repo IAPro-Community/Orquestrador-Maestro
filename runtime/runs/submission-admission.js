@@ -63,10 +63,27 @@ function normalizeAdmission(input) {
   // submissions without a persisted, independently authorized manifest.
   const manifestId = input.manifestId === undefined ? undefined :
     validateID(input.manifestId, "manifestId");
+  // Atomic workspace-set reservation: a multi-worktree submission reserves
+  // its additional worktree fingerprints atomically with the primary one.
+  // Empty by default; single-worktree admissions never set it.
+  const extraWorkspaceFingerprints = input.extraWorkspaceFingerprints === undefined ? undefined :
+    (() => {
+      const raw = input.extraWorkspaceFingerprints;
+      if (!Array.isArray(raw) || raw.length < 1 || raw.length > 4) {
+        throw bad("extraWorkspaceFingerprints must bind 1..4 additional worktrees");
+      }
+      const values = raw.map((value) => validateDigest(value, "extraWorkspaceFingerprints"));
+      if (values.some((value) => value === workspaceFingerprint) ||
+          new Set(values).size !== values.length) {
+        throw bad("duplicate workspace reservation in the workspace set");
+      }
+      return Object.freeze(values);
+    })();
   const immutable = {
     projectId, planDigest, artifactDigest, workspaceFingerprint, approvalDigest,
     taskCount, providers: Object.freeze([...providers]), maxAttempts, maxDurationMs, maxCostUSD,
-    ...(manifestId ? { manifestId } : {})
+    ...(manifestId ? { manifestId } : {}),
+    ...(extraWorkspaceFingerprints ? { extraWorkspaceFingerprints } : {})
   };
   const requestDigest = crypto.createHash("sha256").update(JSON.stringify(immutable)).digest("hex");
   return Object.freeze({ clientKey, requestDigest, ...immutable });
@@ -81,6 +98,10 @@ function validateWorker(ownerId, fence, leaseMs) {
 }
 function isTerminal(status) { return TERMINAL.has(status); }
 function isWorkspaceOccupied(status) { return ACTIVE.has(status); }
+
+function submissionWorkspaceFingerprints(row) {
+  return [row.workspaceFingerprint, ...(row.extraWorkspaceFingerprints || [])];
+}
 
 function validateAdmissionLedger(rows) {
   if (!Array.isArray(rows)) throw bad("RunStore runSubmissions collection must be an array", "RUN_STORE_CORRUPTED");
@@ -122,9 +143,49 @@ function validateAdmissionLedger(rows) {
         (typeof row.preparedRunId !== "string" || !SAFE_ID.test(row.preparedRunId))) {
       throw bad("invalid prepared Run identity", "RUN_STORE_CORRUPTED");
     }
-    if (row.preparedRunId != null && row.runId != null &&
+    if (row.preparedRunId != null && row.runId != null && row.taskRuns === undefined &&
         row.preparedRunId !== row.runId) {
       throw bad("prepared and dispatched Run IDs disagree", "RUN_STORE_CORRUPTED");
+    }
+
+    // Multi-task manifests dispatch one Maestro Run per task; the operational
+    // taskRuns map records them. It is non-canonical (not part of the
+    // request digest) but every binding must be a safe identity pair.
+    if (row.taskRuns !== undefined) {
+      if (!row.taskRuns || typeof row.taskRuns !== "object" || Array.isArray(row.taskRuns)) {
+        throw bad("invalid task Run bindings", "RUN_STORE_CORRUPTED");
+      }
+      const bindings = Object.entries(row.taskRuns);
+      if (bindings.length > 32) throw bad("task Run bindings exceed the manifest size", "RUN_STORE_CORRUPTED");
+      for (const [taskId, runId] of bindings) {
+        if (!SAFE_ID.test(taskId) || typeof runId !== "string" || !SAFE_ID.test(runId)) {
+          throw bad("invalid task Run binding", "RUN_STORE_CORRUPTED");
+        }
+      }
+      if (row.preparedRunId != null &&
+          !bindings.some(([, runId]) => runId === row.preparedRunId)) {
+        throw bad("prepared Run is not bound to a task", "RUN_STORE_CORRUPTED");
+      }
+    }
+
+    // Operational workspace paths are not part of the request digest (paths
+    // can move); every reserved fingerprint must still resolve to a bounded
+    // path for dispatch-time re-verification.
+    if (row.workspacePaths !== undefined) {
+      if (!row.workspacePaths || typeof row.workspacePaths !== "object" || Array.isArray(row.workspacePaths)) {
+        throw bad("invalid workspace path bindings", "RUN_STORE_CORRUPTED");
+      }
+      for (const [fingerprint, value] of Object.entries(row.workspacePaths)) {
+        if (!HASH.test(fingerprint) || typeof value !== "string" ||
+            value.length === 0 || value.length > 4096) {
+          throw bad("invalid workspace path binding", "RUN_STORE_CORRUPTED");
+        }
+      }
+      for (const fingerprint of submissionWorkspaceFingerprints(row)) {
+        if (typeof row.workspacePaths[fingerprint] !== "string") {
+          throw bad("reserved workspace lacks a dispatch path", "RUN_STORE_CORRUPTED");
+        }
+      }
     }
 
     if (row.leaseExpiresAt !== null &&
@@ -142,7 +203,9 @@ function validateAdmissionLedger(rows) {
       throw bad("submission lifecycle is contradictory", "RUN_STORE_CORRUPTED");
     }
     ids.add(row.id); keys.add(key);
-    if (isWorkspaceOccupied(row.status)) occupied.add(row.workspaceFingerprint);
+    if (isWorkspaceOccupied(row.status)) {
+      for (const fingerprint of submissionWorkspaceFingerprints(row)) occupied.add(fingerprint);
+    }
   }
   return rows;
 }

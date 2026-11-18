@@ -436,19 +436,25 @@ async function submitExecutablePlan({
   }
 
   const projectId = await resolveProjectIdForRoot({ store, projectRoot: root });
-  // v1 reserves exactly one physical worktree per submission. Independent
-  // tasks must not share it; a workspace-set ledger is required for fan-out.
-  const bindings = new Map();
+  // Bind every distinct worktree server-side. v1 reserves the canonical root
+  // plus up to four additional worktrees atomically; independent tasks must
+  // not share a worktree (enforced again by the manifest normalizer).
+  const bindingsByPath = new Map();
   for (const assignment of assignments) {
     const target = assignment.worktreePath || resolvedWorkspace;
-    if (target !== resolvedWorkspace) {
-      throw bad("multi-worktree submission requires an atomic workspace-set ledger",
-        "MANIFEST_MULTI_WORKTREE_UNSUPPORTED");
+    if (!bindingsByPath.has(target)) {
+      bindingsByPath.set(target, bindingFromRealGitWorktree({ projectRoot: root, workspacePath: target }));
     }
-    const binding = bindingFromRealGitWorktree({ projectRoot: root, workspacePath: target });
-    bindings.set(assignment.taskId, binding);
   }
-  const binding = bindings.get(assignments[0].taskId);
+  if (bindingsByPath.size > 5) {
+    throw bad("multi-worktree submission is limited to five distinct worktrees",
+      "MANIFEST_MULTI_WORKTREE_UNSUPPORTED");
+  }
+  const extraWorkspaces = [...bindingsByPath.keys()]
+    .filter((target) => target !== resolvedWorkspace)
+    .map((target) => ({ workspacePath: target }));
+  const bindingFor = (assignment) =>
+    bindingsByPath.get(assignment.worktreePath || resolvedWorkspace);
 
   const planDigest = canonicalPlanDigest(semanticTasks);
   const manifest = await store.putExecutableManifest({
@@ -460,6 +466,7 @@ async function submitExecutablePlan({
     tasks: semanticTasks.map((task) => {
       const assignment = assignments.find((item) => item.taskId === task.id);
       const content = approvedTaskContent(task);
+      const binding = bindingFor(assignment);
       return {
         taskId: task.id,
         dependsOn: [...task.dependsOn],
@@ -488,7 +495,8 @@ async function submitExecutablePlan({
   const admission = await admitManifestBoundSubmission({
     store, manifestId: manifest.id, projectRoot: root, workspacePath: resolvedWorkspace,
     clientKey: params.clientKey, approvalDigest: receipt.id,
-    verifyApproval: createTrustedApprovalVerifier({ store })
+    verifyApproval: createTrustedApprovalVerifier({ store }),
+    ...(extraWorkspaces.length > 0 ? { extraWorkspaces } : {})
   });
   return Object.freeze({
     schemaVersion: SCHEMA_VERSION,
@@ -499,9 +507,9 @@ async function submitExecutablePlan({
     approvalDigest: receipt.id,
     status: admission.submission.status,
     replayed: admission.replayed === true,
-    workspaceFingerprint: binding.fingerprint,
-    branch: binding.branch,
-    headCommit: binding.headCommit
+    workspaceFingerprint: bindingFor(assignments[0]).fingerprint,
+    branch: bindingFor(assignments[0]).branch,
+    headCommit: bindingFor(assignments[0]).headCommit
   });
 }
 

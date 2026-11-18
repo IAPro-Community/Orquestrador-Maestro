@@ -180,7 +180,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
       runsSubmissionsRead: capabilities.runsSubmissionsRead === true,
       runsSubmissionsPoll: capabilities.runsSubmissionsPoll === true,
       runsSubmissionsCancel: capabilities.runsSubmissionsCancel === true,
-      runsSubmit: false,
+      runsSubmit: capabilities.runsSubmit === true,
       memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
     })
   });

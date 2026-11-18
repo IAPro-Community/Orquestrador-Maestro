@@ -122,7 +122,12 @@ async function admitCanonicalWorktreeSubmission({ store, projectRoot, workspaceP
       latest.branch !== binding.branch) {
     throw bad("Git worktree changed while checking approval", "WORKSPACE_CHANGED_DURING_APPROVAL");
   }
-  const result = await store.admitRunSubmission(admission);
+  const result = await store.admitRunSubmission({
+    ...admission,
+    // Operational dispatch paths are not part of the immutable admission
+    // digest; the store validates that every reserved fingerprint resolves.
+    ...(input.workspacePaths ? { workspacePaths: input.workspacePaths } : {})
+  });
   return Object.freeze({ ...result, binding });
 }
 

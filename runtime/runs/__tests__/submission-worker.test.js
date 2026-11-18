@@ -150,3 +150,127 @@ test("worker refuses an untrusted runtime or invalid options", async (t) => {
     workerId: "short", pollIntervalMs: 50
   }), { code: "INVALID_SUBMISSION" });
 });
+
+function dagParams(clientKey, { worktreePath } = {}) {
+  return {
+    clientKey,
+    artifact: {
+      id: "artifact-dag-001", version: 1,
+      content: "DAG fixture prompt with bounded length.",
+      sha256: null
+    },
+    approvedModelUse: true,
+    plan: {
+      tasks: [
+        {
+          id: "task-dag-front-001", title: "Frontend step", objective: "Implement the frontend part",
+          dependsOn: [], acceptanceCriteria: ["frontend step finished"]
+        },
+        {
+          id: "task-dag-integ-001", title: "Integration step", objective: "Integrate the frontend part",
+          dependsOn: ["task-dag-front-001"], acceptanceCriteria: ["integration step finished"]
+        }
+      ]
+    },
+    assignments: [
+      { taskId: "task-dag-front-001", providerId: "opencode", sandbox: "none", ...(worktreePath ? {} : {}) },
+      { taskId: "task-dag-integ-001", providerId: "opencode", sandbox: "none" }
+    ],
+    approval: { decision: "approved", approvedBy: "operator" }
+  };
+}
+
+test("dependent DAG tasks execute in order and failures block only descendants", async (t) => {
+  const f = await fixture(t);
+  const registry = new ProviderRegistry([f.provider]);
+  const params = dagParams("submit-dag-key-0001");
+  params.artifact.sha256 = sha(params.artifact.content);
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: registry,
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-dag-fixed-0001", pollIntervalMs: 50
+  });
+  const result = await worker.step();
+  assert.equal(result.claimed, 1);
+  assert.deepEqual(result.outcomes[0].submissionStatus, "COMPLETED");
+  assert.deepEqual(result.outcomes[0].taskOutcomes, {
+    "task-dag-front-001": "completed", "task-dag-integ-001": "completed"
+  });
+  assert.equal(f.provider.calls, 2);
+  assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "COMPLETED");
+});
+
+test("a failed task invalidates only its descendants and keeps the ledger consistent", async (t) => {
+  const f = await fixture(t);
+  f.provider.execute = async () => {
+    f.provider.calls++;
+    return {
+      pid: 10, cancel() {},
+      result: Promise.resolve({
+        providerId: f.provider.id, pid: 10, exitCode: 1,
+        stdout: "", stderr: "boom", durationMs: 1,
+        cancelled: false, timedOut: false
+      })
+    };
+  };
+  const registry = new ProviderRegistry([f.provider]);
+  const params = dagParams("submit-dag-fail-001");
+  params.artifact.sha256 = sha(params.artifact.content);
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: registry,
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-dag-fail-0001", pollIntervalMs: 50
+  });
+  const result = await worker.step();
+  assert.equal(result.outcomes[0].submissionStatus, "FAILED");
+  assert.deepEqual(result.outcomes[0].taskOutcomes, {
+    "task-dag-front-001": "failed", "task-dag-integ-001": "blocked"
+  });
+  // Only the failed root task ever reached the provider.
+  assert.equal(f.provider.calls, 1);
+  assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "FAILED");
+});
+
+test("independent tasks reserve distinct worktrees atomically and execute in both", async (t) => {
+  const f = await fixture(t);
+  git(f.projectRoot, "worktree", "add", "-b", "feature-secondary", path.join(path.dirname(f.projectRoot), "secondary"));
+  const secondary = path.join(path.dirname(f.projectRoot), "secondary");
+  const registry = new ProviderRegistry([f.provider]);
+  const params = dagParams("submit-dual-wt-key01");
+  params.artifact.sha256 = sha(params.artifact.content);
+  // Independent tasks on distinct worktrees; the integration task depends on
+  // the frontend task but uses the secondary worktree.
+  params.assignments = [
+    { taskId: "task-dag-front-001", providerId: "opencode", sandbox: "none" },
+    { taskId: "task-dag-integ-001", providerId: "opencode", sandbox: "none", worktreePath: secondary }
+  ];
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: registry,
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  assert.equal(ack.status, "PENDING_WORKER");
+  const row = await f.store.getRunSubmission(ack.submissionId);
+  assert.equal(Object.keys(row.workspacePaths).length, 2);
+  // Both worktrees are atomically reserved: a second submission on either
+  // one must fail closed.
+  const second = dagParams("submit-dual-wt-key02");
+  second.artifact = { ...second.artifact, content: "second body", sha256: sha("second body") };
+  await assert.rejects(submitExecutablePlan({
+    store: f.store, providers: registry,
+    projectRoot: f.projectRoot, workspacePath: secondary, params: second
+  }), { code: "WORKSPACE_RESERVED" });
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-dual-wt-0001", pollIntervalMs: 50
+  });
+  const result = await worker.step();
+  assert.equal(result.outcomes[0].submissionStatus, "COMPLETED");
+  assert.equal(f.provider.calls, 2);
+  assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "COMPLETED");
+});
