@@ -132,14 +132,16 @@ The detailed Skills documentation is currently in Portuguese:
 
 **[Fernando Bolzan](https://github.com/FernandoBolzan)** — original concept and creation of Orquestrador Maestro.
 
-### Development and community
+### Technical leadership and project evolution
 
-Maestro welcomes contributions from more people. Its code, documentation and integrations evolve through community collaboration, without limiting recognition to a fixed team.
+<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="88" height="88" alt="Kiver Teixeira's GitHub profile photo"></a>
 
-<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="72" height="72" alt="Kiver Teixeira's GitHub profile photo"></a>
+**[Kiver Teixeira](https://github.com/kivervinicius)** — **technical lead and primary contributor to Maestro's ongoing evolution**, responsible for developing most of the new features and improvements introduced in recent versions.
 
-**[Kiver Teixeira](https://github.com/kivervinicius)** — collaboration on the project's development and evolution.
+### Community and contributors
+
+Maestro welcomes contributions in code, documentation, testing, discussions and reviews.
 
 **[View GitHub contributors](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors)** · **[How to contribute](CONTRIBUTING.md)**
 
-GitHub maintains the commit-contributor list as more people contribute. Documentation, discussions and code reviews are welcome contributions too.
+GitHub automatically updates its commit-author list. That list does not replace recognition for contributions made in other ways, nor does it limit future recognition in this project.
