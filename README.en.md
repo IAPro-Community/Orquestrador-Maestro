@@ -123,3 +123,13 @@ The detailed Skills documentation is currently in Portuguese:
 ## Next step
 
 **[Install Maestro](docs/installation.md)**, then **[run the benchmark](docs/benchmark.md#quick-start)** in your environment. Improvements are welcome through [contributions](CONTRIBUTING.md).
+
+## Creation and ongoing development
+
+Orquestrador Maestro was created by [Fernando Bolzan](https://github.com/FernandoBolzan). Its ongoing development in the IAPro Community includes contributions from [Kiver Teixeira](https://github.com/kivervinicius).
+
+| Original creator | IAPro Community development |
+| :---: | :---: |
+| [<img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" alt="Fernando Bolzan's GitHub profile photo" width="88" height="88">](https://github.com/FernandoBolzan) | [<img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" alt="Kiver Teixeira's GitHub profile photo" width="88" height="88">](https://github.com/kivervinicius) |
+| **[Fernando Bolzan](https://github.com/FernandoBolzan)** | **[Kiver Teixeira](https://github.com/kivervinicius)** |
+
