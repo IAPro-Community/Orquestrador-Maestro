@@ -3,6 +3,28 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+/**
+ * Root-level build markers are signals, never proof that an application is
+ * implemented or that its tests run. Deliberately no recursive filesystem
+ * walk, process execution, dependency installation, or code generation.
+ */
+const BUILD_MARKERS = Object.freeze([
+  ["pom.xml", "Java", "Maven"],
+  ["build.gradle", "Java/Kotlin", "Gradle"],
+  ["build.gradle.kts", "Java/Kotlin", "Gradle"],
+  ["pyproject.toml", "Python", "pyproject"],
+  ["requirements.txt", "Python", "pip"],
+  ["go.mod", "Go", "Go Modules"],
+  ["Cargo.toml", "Rust", "Cargo"],
+  ["composer.json", "PHP", "Composer"],
+  ["Gemfile", "Ruby", "Bundler"]
+]);
+
+function isRegularFile(file) {
+  try { return fs.lstatSync(file).isFile(); }
+  catch { return false; }
+}
+
 
 /**
  * Monta um snapshot de contexto do projeto sem perguntar nada ao usuário.
@@ -20,7 +42,12 @@ function gatherPreflight(workspacePath, intent, options = {}) {
     hasTests: false,
     framework: null,
     existingRoutes: [],
-    fileCount: 0
+    fileCount: 0,
+    // Additional additive provenance fields. Legacy consumers keep stack,
+    // hasTests, framework and dependencies unchanged for Node projects.
+    stackSourcePath: null,
+    projectNameSourcePath: null,
+    buildSignals: []
   };
 
   // 1. Package.json analysis
@@ -29,8 +56,10 @@ function gatherPreflight(workspacePath, intent, options = {}) {
     try {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
       facts.projectName = pkg.name || facts.projectName;
+      facts.projectNameSourcePath = pkg.name ? "package.json" : null;
       facts.dependencies = { ...pkg.dependencies, ...pkg.devDependencies };
       facts.stack = detectStack(facts.dependencies);
+      facts.stackSourcePath = "package.json";
       facts.framework = detectFramework(facts.dependencies);
       facts.hasAuth = hasAuthDep(facts.dependencies);
       facts.hasDatabase = hasDatabaseDep(facts.dependencies);
@@ -39,7 +68,23 @@ function gatherPreflight(workspacePath, intent, options = {}) {
     } catch { /* corrupt package.json */ }
   }
 
-  // 2. DEV state (HANDOFF, CONTEXT, SPECS/ACTIVE)
+  // 2. Stack signals outside the npm ecosystem. These only inspect
+  // root-level, non-symlinked build manifests and cannot claim test success.
+  const markers = BUILD_MARKERS
+    .filter(([file]) => isRegularFile(path.join(workspacePath, file)))
+    .map(([file, stack, tool]) => Object.freeze({ path: file, stack, tool }));
+  facts.buildSignals = Object.freeze([
+    ...(facts.stackSourcePath ? [{ path: "package.json", stack: facts.stack, tool: "npm" }] : []),
+    ...markers
+  ]);
+  if (!facts.stack && markers.length === 1) {
+    facts.stack = markers[0].stack;
+    facts.stackSourcePath = markers[0].path;
+  }
+  // A multi-stack repository must report all concrete signals rather
+  // than guessing one dominant stack from file names alone.
+
+  // 3. DEV state (HANDOFF, CONTEXT, SPECS/ACTIVE)
   for (const devFile of ["DEV/HANDOFF.md", "DEV/CONTEXT.md", "DEV/SPECS/ACTIVE.md"]) {
     const devPath = path.join(workspacePath, devFile);
     if (fs.existsSync(devPath)) {
