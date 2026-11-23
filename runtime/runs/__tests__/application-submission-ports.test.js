@@ -220,7 +220,7 @@ test("provider exit code zero still runs an inferred failing test command", asyn
     workerId: "worker-failed-verification-001", ...ports
   });
   const run = await f.store.getRun(result.runId);
-  const verification = await f.store.getVerification(result.runId);
+  const verification = await f.app.getVerification(result.runId);
   assert.equal(f.provider.calls, 1);
   assert.ok(["completed", "failed"].includes(run.status));
   assert.equal(verification.status, "failed");
@@ -257,7 +257,7 @@ test("agent cannot replace the approved npm test script with a vacuous passing c
     workerId: "worker-verifier-tamper-001", ...ports
   });
   const run = await f.store.getRun(result.runId);
-  const verification = await f.store.getVerification(result.runId);
+  const verification = await f.app.getVerification(result.runId);
   assert.equal(f.provider.calls, 1);
   assert.equal(verification.status, "passed", "tampered test can exit zero");
   assert.equal(run.status, "failed", "a tampered verifier must block acceptance");
