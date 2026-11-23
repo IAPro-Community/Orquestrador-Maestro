@@ -41,6 +41,8 @@ O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro
 5. Execute as verificações relevantes e descreva quaisquer limitações de ambiente.
 6. **Contribuição externa:** abra PR para `v1` com motivo, solução, testes, riscos e migração. **Manutenção autorizada:** registre essas evidências no commit ou na issue da mudança direta em `v1`.
 
+Ao adicionar ou atualizar um workflow em `.github/workflows/`, fixe cada Action em um SHA completo de 40 caracteres e mantenha um comentário com a versão legível (por exemplo, `uses: actions/checkout@<40-character-SHA> # vX`). O GitHub rejeita referências por tag neste repositório. Para atualizar uma Action, confira o SHA no repositório oficial do fornecedor; não copie um SHA sem confirmar que ele corresponde à versão comentada.
+
 Pull requests podem receber pedidos de ajuste. Discussões técnicas devem focar comportamento, impacto e evidências, não a pessoa que propôs a mudança. A aprovação e a incorporação dependem da revisão dos mantenedores.
 
 ### Checklist para o pull request
@@ -50,6 +52,7 @@ Pull requests podem receber pedidos de ajuste. Discussões técnicas devem focar
 - [ ] Testes e verificações pertinentes foram executados, com resultado registrado.
 - [ ] Documentação e changelog foram atualizados quando necessário.
 - [ ] Não há credenciais, dados pessoais, conteúdo local privado nem material de terceiros sem autorização.
+- [ ] Actions adicionadas ou atualizadas em workflows estão fixadas por SHA completo, com versão anotada.
 
 ## Verificação e qualidade
 

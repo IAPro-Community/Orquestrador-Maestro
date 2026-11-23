@@ -40,3 +40,4 @@ git diff -- .
 - Antes de integrar, sincronize com o estado atual da branch; não faça force push nem sobrescreva mudanças de terceiros.
 - Estar na branch não prova homologação: `runs.submit` permanece desabilitado até execução durável E2E verificada.
 - A publicação npm depende de versionamento e gates próprios, não apenas de commits em `v1`.
+- Em `.github/workflows/`, use SHA completo de 40 caracteres em toda referência `uses:` e anote a versão correspondente. O GitHub rejeita refs de Actions por tag neste repositório; confirme SHA e versão no repositório oficial antes de editar.
