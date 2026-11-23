@@ -28,30 +28,48 @@ function git(cwd, ...args) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
 }
 
-function shimProviderBin(t) {
+const providerShimSource = [
+  "const fs = require('node:fs');",
+  "const path = require('node:path');",
+  "const dir = process.env.SHIM_MARK_DIR || '.';",
+  "fs.writeFileSync(path.join(dir, 'shim-executed.marker'), String(process.pid));",
+  "process.stdout.write(JSON.stringify({ part: { type: 'text', text: 'shim provider output' } }) + '\\n');",
+  "process.exit(0);"
+].join("\n");
+
+function shimProviderBin(t, workspaceRoot) {
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-shim-provider-"));
   t.after(() => fs.rmSync(bin, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(bin, "opencode"), [
-    "#!/usr/bin/env node",
-    "// Provider shim: proves the real subprocess dispatch path. It is NOT",
-    "// a homologated provider CLI. Marks execution and emits NDJSON text.",
-    "const fs = require('node:fs');",
-    "const path = require('node:path');",
-    "const dir = process.env.SHIM_MARK_DIR || '.';",
-    "fs.writeFileSync(path.join(dir, 'shim-executed.marker'), String(process.pid));",
-    "process.stdout.write(JSON.stringify({ part: { type: 'text', text: 'shim provider output' } }) + '\\n');",
-    "process.exit(0);"
-  ].join("\n"), { mode: 0o755 });
+  if (process.platform === "win32") {
+    // Keep the provider invocation shell-free: a renamed Node executable
+    // starts the committed `run` fixture from the project working directory.
+    // Windows cannot directly spawn npm-style .cmd shims with shell:false.
+    fs.copyFileSync(process.execPath, path.join(bin, "opencode.exe"));
+    fs.writeFileSync(path.join(workspaceRoot, "run"), providerShimSource);
+  } else {
+    fs.writeFileSync(path.join(bin, "opencode"), `#!/usr/bin/env node\n${providerShimSource}\n`, { mode: 0o755 });
+  }
   return bin;
 }
 
-function startBridge(root, t, extraEnv = {}) {
+function waitForClose(closeEvent, timeoutMs) {
+  let timer;
+  return Promise.race([
+    closeEvent,
+    new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function startBridge(root, extraEnv = {}) {
   const child = spawn(process.execPath, [cli, "bridge", "--stdio", "--project-path", root], {
     cwd: root, shell: false, windowsHide: true,
     env: { ...process.env, ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE: "0", ...extraEnv },
     stdio: ["pipe", "pipe", "pipe"]
   });
   const reader = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+  const closeEvent = new Promise((resolve) => {
+    child.once("close", (code, signal) => resolve({ code, signal }));
+  });
   let nextId = 1;
   const waiting = new Map();
   let stderr = "";
@@ -65,16 +83,31 @@ function startBridge(root, t, extraEnv = {}) {
     clearTimeout(pending.timer);
     pending.resolve(response);
   });
+  let closePromise;
   const close = () => {
-    reader.close();
-    if (!child.killed && child.exitCode === null) child.kill();
-    for (const { reject, timer } of waiting.values()) {
-      clearTimeout(timer);
-      reject(new Error("Maestro bridge was closed"));
-    }
-    waiting.clear();
+    if (closePromise) return closePromise;
+    closePromise = (async () => {
+      for (const { reject, timer } of waiting.values()) {
+        clearTimeout(timer);
+        reject(new Error("Maestro bridge was closed"));
+      }
+      waiting.clear();
+
+      if (child.exitCode === null && child.signalCode === null && child.stdin.writable) child.stdin.end();
+      let result = await waitForClose(closeEvent, 5000);
+      if (!result && child.exitCode === null && child.signalCode === null) {
+        child.kill();
+        result = await waitForClose(closeEvent, 5000);
+      }
+      reader.close();
+      if (!result) throw new Error("Maestro bridge did not close after stdin EOF and termination");
+      if (result.code !== 0 || result.signal) {
+        throw new Error(`Maestro bridge exited unexpectedly (code=${result.code}, signal=${result.signal})`);
+      }
+      return result;
+    })();
+    return closePromise;
   };
-  t.after(close);
   return {
     close,
     rpc(method, params = {}) {
@@ -115,23 +148,29 @@ test("durable admission over real CLI, executed by a separate worker process, ob
   timeout: 120000
 }, async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-worker-e2e-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bridges = [];
+  t.after(async () => {
+    const closeResults = await Promise.allSettled(bridges.map((bridge) => bridge.close()));
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    const failure = closeResults.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
+  });
   fs.writeFileSync(path.join(root, "README.md"), "e2e base\n");
+  const shimBin = shimProviderBin(t, root);
   git(root, "init", "-q");
   git(root, "config", "user.name", "E2E");
   git(root, "config", "user.email", "e2e@example.invalid");
-  git(root, "add", "README.md");
+  git(root, "add", "-A");
   git(root, "commit", "-qm", "base");
-
-  const shimBin = shimProviderBin(t);
   const env = { PATH: `${shimBin}${path.delimiter}${process.env.PATH}`, SHIM_MARK_DIR: root };
   const content = submitParams("client-e2e-001", "x").artifact.content;
 
   const app = new MaestroApplication({ projectRoot: root });
   const registered = await app.registerProject({ projectPath: root });
 
-  const bridge = startBridge(root, t, env);
-  const observer = startBridge(root, t, env);
+  const bridge = startBridge(root, env);
+  const observer = startBridge(root, env);
+  bridges.push(bridge, observer);
 
   const init = await bridge.rpc("initialize", { protocolVersion: 1 });
   assert.equal(init.error, undefined);
@@ -162,11 +201,14 @@ test("durable admission over real CLI, executed by a separate worker process, ob
       env: { ...process.env, ...env },
       stdio: ["ignore", "pipe", "pipe"]
     });
-  const workerExit = new Promise((resolve) => worker.on("exit", resolve));
+  const workerExit = new Promise((resolve) => worker.once("exit", resolve));
   let workerStdout = "";
   worker.stdout.on("data", (chunk) => { workerStdout += String(chunk); });
-  const workerCode = await Promise.race([workerExit, new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("worker process timed out")), 90000))]);
+  let workerTimer;
+  const workerTimeout = new Promise((_, reject) => {
+    workerTimer = setTimeout(() => reject(new Error("worker process timed out")), 90000);
+  });
+  const workerCode = await Promise.race([workerExit, workerTimeout]).finally(() => clearTimeout(workerTimer));
   assert.equal(workerCode, 0, "worker exited cleanly: " + workerStdout.slice(-400));
   assert.match(workerStdout, /"submissionStatus":\s*"COMPLETED"/);
 
@@ -194,7 +236,13 @@ test("expired worker lease is quarantined by the real CLI reconciler, never redi
   timeout: 120000
 }, async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-reconcile-e2e-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bridges = [];
+  t.after(async () => {
+    const closeResults = await Promise.allSettled(bridges.map((bridge) => bridge.close()));
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    const failure = closeResults.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
+  });
   fs.writeFileSync(path.join(root, "README.md"), "reconcile base\n");
   git(root, "init", "-q");
   git(root, "config", "user.name", "E2E");
@@ -204,7 +252,8 @@ test("expired worker lease is quarantined by the real CLI reconciler, never redi
   const app = new MaestroApplication({ projectRoot: root });
   const registered = await app.registerProject({ projectPath: root });
 
-  const bridge = startBridge(root, t);
+  const bridge = startBridge(root);
+  bridges.push(bridge);
   const content = "reconcile prompt";
   const submit = await bridge.rpc("runs.submit", submitParams("client-reconcile-001", content));
   assert.equal(submit.error, undefined);
