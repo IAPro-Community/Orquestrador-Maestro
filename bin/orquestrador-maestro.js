@@ -115,7 +115,7 @@ Uso:
   orquestrador-maestro terminal stop <id> [--project-path PATH]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
-  orquestrador-maestro providers list [--project-path PATH]
+  orquestrador-maestro providers <list|goals> [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
   orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
   orquestrador-maestro adapters <list|paths|validate> [id]
@@ -1576,9 +1576,31 @@ function handleSkillCatalogCommand(args) {
 }
 
 async function handleProvidersCommand(args) {
-  const options = parseRuntimeArgs(args.slice(1), ["--project-path"]);
-  if (args[0] !== "list" || options.values.length > 0) throw new Error("Uso: maestro providers list [--project-path PATH]");
-  console.log(JSON.stringify(await (await createRuntimeApplication(options.projectPath)).listProviders(), null, 2));
+  const [subcommand = "list", ...rest] = args;
+  const options = parseRuntimeArgs(rest, ["--project-path"]);
+  if (!["list", "goals"].includes(subcommand) || options.values.length > 0) {
+    throw new Error("Uso: maestro providers <list|goals> [--project-path PATH]");
+  }
+  const app = await createRuntimeApplication(options.projectPath);
+  if (subcommand === "list") {
+    console.log(JSON.stringify(await app.listProviders(), null, 2));
+    return 0;
+  }
+  // Read-only /goal capability inventory. This DOES NOT enter native Goal
+  // mode, start a provider, approve fallback, or enable autonomy.
+  const { inspectProviderGoal } = require(path.join(rootDir, "runtime", "providers"));
+  const probes = await Promise.all(["codex", "claude", "opencode"].map(async (id) => {
+    const adapter = app.providers.get(id);
+    return adapter ? await inspectProviderGoal(adapter) : {
+      schemaVersion: 1, providerId: id, installed: false,
+      nativeOvernightReady: false, managedOvernightReady: false,
+      reason: "PROVIDER_NOT_REGISTERED"
+    };
+  }));
+  console.log(JSON.stringify({
+    schemaVersion: 1, mode: "read-only", autonomyEnabled: false,
+    providers: probes
+  }, null, 2));
   return 0;
 }
 
