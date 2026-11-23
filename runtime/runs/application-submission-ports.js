@@ -93,6 +93,10 @@ function createApplicationSubmissionPorts({
         workspacePath: binding.workspace,
         providerId: target.providerId,
         description: source.description,
+        // Safety-only flag: keep project verification configuration immutable
+        // during this trust-bound durable submission. Legacy one-shot Runs are
+        // unaffected; goal acceptance is blocked if the verifier is changed.
+        requireVerificationConfigIntegrity: true,
         semanticTask: {
           id: target.taskId, objective: source.description,
           acceptanceCriteria: source.acceptanceText.split("\n").map((item) => item.trim()).filter(Boolean),
