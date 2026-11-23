@@ -1,0 +1,31 @@
+name: "Sugerir melhoria"
+description: "Proposta de nova capacidade, integração ou aperfeiçoamento"
+title: "[Proposta] "
+body:
+  - type: markdown
+    attributes:
+      value: "Comece pelo problema, não pela solução. Mudanças de arquitetura podem exigir RFC."
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problema e cenário de uso"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Solução ou comportamento esperado"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternativas, riscos e compatibilidade"
+    validations:
+      required: false
+  - type: textarea
+    id: criteria
+    attributes:
+      label: "Como verificar o resultado?"
+    validations:
+      required: false

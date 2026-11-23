@@ -1,120 +1,31 @@
-# Roadmap - Orquestrador Maestro Evolution
+# Roadmap — Orquestrador Maestro
 
-> Nota: roadmap descreve plano, não capability. O que vale como capability
-> atual está em `docs/product/CAPABILITY_MATRIX.json` com `status: stable`.
+> Este documento descreve direção e trabalho planejado, não funcionalidades homologadas. A fonte para estados de capacidade é a [matriz do produto](docs/product/CAPABILITY_MATRIX.json). Concluir uma issue não substitui testes e evidências.
 
-## Overview
-Evolve Maestro to include episodic memory and benchmark engine, following the Master Prompt phases.
+## Estado atual
 
-## Phase 0: Discovery ✅
-**Status:** Completed
-**Output:**
-- INSPIRATION_MATRIX.md
-- ADR-001 (Episodic Memory)
+A versão publicada é [1.1.1](https://github.com/IAPro-Community/Orquestrador-Maestro/releases/tag/v1.1.1); a linha 1.x evolui na branch `v1`. A base inclui CLI, instalação multiplataforma, Skills, routing, memória e mecanismos de verificação. Recursos experimentais não devem ser apresentados como disponíveis para produção.
 
-## Phase 1: Benchmark Protocol
-**Status:** Complete (superseded by shipped `benchmark-harness/` with scenarios in 0.2.0–0.4.4)
-**Goal:** Define benchmark schema, scenarios, isolation, acceptance
-**Output:**
-- BENCHMARK_SCHEMA.json
-- scenarios/ directory with 6 initial scenarios
-- Benchmark runner implementation
-- Tests for benchmark
+## Prioridades abertas
 
-## Phase 2: Baseline V0
-**Status:** Partial (harness infrastructure shipped: `compareConditions`, paired runs, evidence gate; no official baseline execution yet)
-**Goal:** Execute Vanilla vs Maestro Core baseline
-**Output:**
-- Raw benchmark data
-- Initial report
+| Prioridade | Tema | Critério principal |
+| --- | --- | --- |
+| P0 | [#67 — Goal Loop overnight](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/67) | Providers reais, recuperação e execução overnight comprovada |
+| P0 | Estabilização da CI `v1` | Testes e gates multiplataforma íntegros |
+| P1 | [#48 — Homologação do runtime](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48) | Execução/recuperação E2E com evidências |
+| P1 | [#44 — Linux e Claude Code](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/44) | Cenários reproduzíveis nos ambientes afetados |
+| P2 | [#41 — API de memória](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/41) | Contrato versionado, isolamento e testes |
 
-## Phase 3: Episodic Memory Core
-**Status:** Complete (shipped: `memory record/search/show/timeline` with JSONL, isolation, redaction, tests)
-**Goal:** Implement record, search, show, timeline with JSONL
-**Output:**
-- memory.js module
-- Observation schema
-- Project isolation
-- Redaction
-- Tests
+Esta é uma proposta de prioridade, sem prazo ou promessa de entrega.
 
-## Phase 4: Context Intelligence
-**Status:** Complete (shipped: `context-brief` with `buildBrief`, `computeBudget`, memory retrieval, task classification; tests in `context-brief.test.js`, `smart-targets.test.js`)
-**Goal:** Integrate context brief + episodic search + budget + classification
-**Output:**
-- Enhanced context-brief.js
-- Task classification
-- Context budget management
+## Avaliações contínuas
 
-## Phase 5: Knowledge Promotion
-**Status:** Complete (shipped: `memory promote --apply` with `verified:true`, conflict detection; tests in `memory.test.js`)
-**Goal:** Implement memory promote with conflict and security
-**Output:**
-- memory promote command
-- Promotion rules
+- Benchmark A/B entre condições equivalentes, obedecendo ao [evidence gate](docs/benchmark.md), antes de publicar métricas.
+- Compatibilidade real entre ferramentas, providers e plataformas, com fallback e diagnóstico explícitos.
+- Privacidade, segurança da distribuição, testes e documentação para contribuidores.
 
-## Phase 6: Retention/Dedupe/Consolidation
-**Status:** Complete (shipped: `memory dedupe`, `retention`, `prune`, `consolidate`, `cleanup` in `orquestrador/bin/memory.js`)
-**Goal:** Implement necessary complexity for data management
-**Output:**
-- Retention policy
-- Deduplication
-- Consolidation rules
+## Acompanhamento
 
-## Phase 7: Automatic Capture Adapters
-**Status:** Partial (runtime adapters shipped for codex/claude/opencode/agy; declarative adapters in TOOL_ADAPTERS for junie/goose/openhands/continue/cline/copilot/ollama/lm-studio/freebuff; Freebuff event-adapter for memory)
-**Goal:** Implement adapters for different tools progressively
-**Output:**
-- Tool-specific adapters (Claude, Codex, OpenCode, etc.)
+As [issues](https://github.com/IAPro-Community/Orquestrador-Maestro/issues) registram trabalho aberto. [CHANGELOG.md](CHANGELOG.md) e [releases](https://github.com/IAPro-Community/Orquestrador-Maestro/releases) documentam entregas realizadas. A [matriz de capacidades](docs/product/CAPABILITY_MATRIX.json) distingue estados `stable`, `experimental` e `planned`.
 
-## Phase 8: Benchmark V1
-**Status:** Planned (harness infrastructure complete: scenarios, evidence gate, paired comparison; awaiting official execution with N>=20)
-**Goal:** Execute Vanilla vs Maestro Core vs Maestro Memory
-**Output:**
-- Complete benchmark data
-- Statistical analysis
-
-## Phase 9: Analysis
-**Status:** Planned (statistical functions implemented in `benchmark-harness/src/metrics/`; awaiting data from Phase 8)
-**Goal:** Calculate success rate, median tokens, tokens/successful task, etc.
-**Output:**
-- Analysis report
-
-## Phase 10: Public Report
-**Status:** Planned (report generation and claims policy defined in `docs/benchmark.md`; awaiting data from Phase 8-9)
-**Goal:** Generate benchmark.md, benchmark.json, optional HTML
-**Output:**
-- Reproducible public report
-- Marketing summary
-
-## Current Focus
-Stabilize the 0.4.x runtime: durable privacy, terminal persistence, diagnostic sanitizer, usage CLI and cross-platform validation.
-
-## Success Criteria
-- Memory isolated per project
-- Record, search, show, timeline work
-- Redaction has tests
-- Malformed data doesn't break Maestro
-- Context brief works without memory
-- Context brief retrieves relevant memory
-- Irrelevant memory not loaded
-- Budget respected
-- Canonical context prevails
-- Injection via observation has no authority
-- Windows/Linux/macOS considered
-- Node supported continues working
-- Tests are green
-
-## Risks
-1. Complexity increase
-2. Performance overhead
-3. Maintenance burden
-4. Dependency creep
-5. Cross-platform compatibility
-
-## Mitigations
-1. Start simple, evolve based on evidence
-2. Measure performance in benchmarks
-3. Keep zero-dependency principle
-4. Test on all platforms
-5. Graceful degradation
+O histórico 0.x permanece no changelog e nas releases; não representa o foco da V1.

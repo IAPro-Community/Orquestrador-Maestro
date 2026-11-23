@@ -17,16 +17,18 @@ Antes de investir numa alteração extensa, vale discutir o escopo em uma issue 
 
 Você vai precisar de Git, Node.js **20.19 ou superior** e npm. PowerShell é necessário para executar o conjunto completo de validações públicas; em Linux e macOS ele pode ser instalado como `pwsh`.
 
-Para trabalhar a partir do código, faça um fork (ou utilize um clone, caso tenha acesso de escrita), selecione a branch estável `v1` e instale as dependências:
+Para colaborar externamente, faça um fork, clone **seu fork** e crie uma branch curta baseada em `v1`:
 
 ```bash
-git clone --branch v1 https://github.com/IAPro-Community/Orquestrador-Maestro.git
+git clone --branch v1 https://github.com/SEU_USUARIO/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 npm ci
 git switch -c docs/minha-melhoria
 ```
 
-Para enviar mudanças sem acesso de escrita ao repositório original, clone **seu fork** em vez da URL acima e abra o pull request para `IAPro-Community/Orquestrador-Maestro`, com destino à branch `v1`.
+Abra um PR do fork para `IAPro-Community/Orquestrador-Maestro`, com destino à `v1`.
+
+**Manutenção autorizada:** pessoas com permissão de escrita e agentes explicitamente autorizados podem integrar diretamente na `v1`, seguindo a [política do repositório](AGENTS.md), verificações e evidências equivalentes. Não precisam criar branches internas para cada etapa.
 
 O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro; contribuir com o código não exige executar uma instalação global na sua máquina.
 
@@ -37,7 +39,7 @@ O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro
 3. Faça alterações pequenas e coesas, preservando contratos existentes. Inclua testes quando modificar comportamento.
 4. Atualize documentação, exemplos e changelog quando a mudança alterar a experiência ou o contrato público.
 5. Execute as verificações relevantes e descreva quaisquer limitações de ambiente.
-6. Abra um **pull request para `v1`** explicando o motivo, a solução, as evidências de teste, os riscos e a eventual migração.
+6. **Contribuição externa:** abra PR para `v1` com motivo, solução, testes, riscos e migração. **Manutenção autorizada:** registre essas evidências no commit ou na issue da mudança direta em `v1`.
 
 Pull requests podem receber pedidos de ajuste. Discussões técnicas devem focar comportamento, impacto e evidências, não a pessoa que propôs a mudança. A aprovação e a incorporação dependem da revisão dos mantenedores.
 
@@ -107,7 +109,7 @@ Este é um repositório público e sanitizado. **Nunca inclua** em commits, issu
 
 Substitua dados reais por exemplos sintéticos e use caminhos genéricos, como `$HOME`, `%USERPROFILE%` e `{{USER_NAME}}`.
 
-Se identificar uma vulnerabilidade que possa expor usuários, **não divulgue detalhes exploráveis em uma issue pública**. Busque contato privado com os mantenedores ou, se estiver habilitado no repositório, use o mecanismo de reporte privado de vulnerabilidades do GitHub. Para outras questões de segurança, consulte o [modelo de privacidade](docs/privacy-model.md).
+Para vulnerabilidades, **não publique detalhes exploráveis em issues**: siga a [política de segurança](SECURITY.md) e o [modelo de privacidade](docs/privacy-model.md).
 
 ## Documentação e histórico de mudanças
 

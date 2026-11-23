@@ -115,7 +115,8 @@ Uso:
   orquestrador-maestro terminal stop <id> [--project-path PATH]
   orquestrador-maestro skills list [--project-path PATH]
   orquestrador-maestro skill-catalog <generate|check|validate>
-  orquestrador-maestro providers <list|goals> [--project-path PATH]
+  orquestrador-maestro providers list [--project-path PATH]
+  orquestrador-maestro providers goals [--project-path PATH]
   orquestrador-maestro bridge --stdio [--project-path PATH]
   orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
   orquestrador-maestro adapters <list|paths|validate> [id]

@@ -3,6 +3,11 @@ name: Auto-tag release
 on:
   push:
     branches: [main, v1]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'CHANGELOG.md'
+      - '.github/workflows/auto-tag.yml'
 
 permissions:
   contents: write

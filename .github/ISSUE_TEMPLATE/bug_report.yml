@@ -1,0 +1,41 @@
+name: "Relatar problema"
+description: "Bug ou regressão reproduzível no Maestro"
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Não inclua credenciais, dados pessoais ou detalhes de vulnerabilidades. Para segurança, consulte SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: "Versão ou commit"
+      placeholder: "Ex.: 1.1.1 ou v1 + SHA"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: "Ambiente"
+      placeholder: "Sistema operacional, Node e ferramenta integrada"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "Passos para reproduzir"
+      description: "Use exemplos sintéticos"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Resultado esperado"
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: "Resultado observado"
+      description: "Anexe somente logs sanitizados"
+    validations:
+      required: true

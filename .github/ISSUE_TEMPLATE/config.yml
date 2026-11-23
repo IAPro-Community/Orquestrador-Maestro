@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "Relatar vulnerabilidade"
+    url: "https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/SECURITY.md"
+    about: "Não divulgue vulnerabilidades publicamente."
+  - name: "Ajuda e documentação"
+    url: "https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/SUPPORT.md"
+    about: "Consulte os guias e os canais de suporte."

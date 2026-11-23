@@ -9,7 +9,7 @@ Este repositório é um espelho público e sanitizado de uma configuração Orqu
 - Não inclua dados pessoais, caminhos reais de usuário, tokens, logs, backups, memórias locais ou arquivos de cache.
 - Prefira alterar a fonte local em `~/.orquestrador` e depois rodar `scripts/sync-from-local.ps1`.
 - Depois de qualquer sync ou edição, rode `scripts/validate-public.ps1`.
-- Não faça commit nem push automaticamente.
+- Commit e push exigem autorização explícita do responsável; nunca publique conteúdo privado ou crie uma release fora dos gates.
 - Trate `DEV/` neste clone como memória operacional local ignorada pelo Git; publique a convenção em `docs/` e scripts, não o worklog local.
 - Use UTF-8 e corrija texto quebrado ou mojibake antes de concluir.
 
@@ -31,10 +31,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-public.ps
 git diff -- .
 ```
 
-## Política de branch única de release (diretriz vigente)
 
-- **Única branch de desenvolvimento de runtime:** `v1`. Todas as correções, etapas do Maestro, testes e documentação da execução durável ocorrem diretamente em `v1`. Não criar branches `feat/*`, `fix/*` nem PRs sucessivos para continuar o mesmo escopo.
-- O [PR #59](https://github.com/IAPro-Community/Orquestrador-Maestro/pull/59) já foi integrado a `v1` no commit `5896ba429693765d0517798e187632c535440683`; os PRs #60 e #61 foram consolidados e fechados. Não usá-los como branches ativas.
-- Preservar commits pequenos, testes automatizados no SHA exato e evidência de homologação. **Estar na release não transforma uma funcionalidade experimental em homologada**: manter `runs.submit` desabilitado até existir execução durável real e E2E.
-- Antes de trabalhar, atualizar a cópia local a partir de `v1`; não sobrescrever alterações remotas. Não alterar `main` para desenvolvimento de runtime.
-- Branches e PRs antigos podem permanecer apenas como histórico até auditoria de conteúdo; encerrar PRs redundantes depois de comprovar a incorporação, sem descartar código exclusivo.
+## Política de integração e release
+
+- A branch `v1` é a linha canônica do desenvolvimento e release 1.x. `main` permanece histórica; não mover trabalho de runtime entre ambas sem decisão explícita.
+- Mantenedores ou agentes explicitamente autorizados podem integrar diretamente em `v1`, com commits pequenos, testes relevantes e evidência no SHA. Não criar branches internas nem PRs sucessivos apenas para continuar a mesma tarefa.
+- Contribuições externas chegam por fork e pull request para `v1`, conforme [CONTRIBUTING.md](CONTRIBUTING.md).
+- Antes de integrar, sincronize com o estado atual da branch; não faça force push nem sobrescreva mudanças de terceiros.
+- Estar na branch não prova homologação: `runs.submit` permanece desabilitado até execução durável E2E verificada.
+- A publicação npm depende de versionamento e gates próprios, não apenas de commits em `v1`.
