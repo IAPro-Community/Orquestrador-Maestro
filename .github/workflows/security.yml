@@ -11,23 +11,52 @@ permissions:
   contents: read
 
 jobs:
-  repository-scan:
-    name: Repository security scan
+  codeql:
+    name: CodeQL — JavaScript and TypeScript
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Run local security checks
-        shell: bash
-        run: bash scripts/security-scan.sh --repo .
-      - name: Upload reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-reports
-          path: security-reports/
-          if-no-files-found: ignore
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-# Strix/DAST fica fora deste workflow: exige staging e aprovação explícita.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d # v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d # v3
+
+  dependency-audit:
+    name: npm dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Audit CLI and bundled examples
+        run: npm run audit
+
+      - name: Audit documentation site
+        run: |
+          npm ci --prefix site --no-audit --no-fund
+          npm audit --prefix site
+
+      - name: Audit benchmark harness
+        run: |
+          npm ci --prefix benchmark-harness --no-audit --no-fund
+          npm audit --prefix benchmark-harness
+
+# GitHub Secret Scanning and push protection are enabled in repository settings.
