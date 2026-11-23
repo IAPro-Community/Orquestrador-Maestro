@@ -11,7 +11,7 @@ const { MaestroApplication, ProviderRegistry } = require("../../application/maes
 const { JsonFileRunStore } = require("../../store");
 const { submitExecutablePlan } = require("../executable-submission");
 const { createSubmissionWorker } = require("../submission-worker");
-const { assessSubmissionGoal, validateGoalLoopDecision } = require("../goal-loop-driver");
+const { assessSubmissionGoal, validateGoalLoopDecision, collectTaskResults } = require("../goal-loop-driver");
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
 const sha = (value) => require("node:crypto").createHash("sha256").update(value).digest("hex");
@@ -154,4 +154,50 @@ test("legacy numeric Goal decision usage stays readable while unknown is explici
   assert.equal(validateGoalLoopDecision({
     ...legacy, id: "goal-unknown", usage: { ...legacy.usage, totalCostUSD: null }
   }).usage.totalCostUSD, null);
+});
+
+test("stale and foreign evidence never covers an approved Goal criterion", async () => {
+  const planDigest = sha("bound-plan");
+  const taskId = "grade-ui";
+  const storedTaskId = `exec-${planDigest.slice(0, 16)}-${taskId}`;
+  const runId = "run-test-bound-01";
+  const manifest = {
+    planDigest, tasks: [{ taskId, dependsOn: [] }]
+  };
+  const store = {
+    async getRun(id) {
+      assert.equal(id, runId);
+      return {
+        id, taskId: storedTaskId, status: "completed",
+        metadata: { resolution: { outcome: { state: "validated" } } }
+      };
+    },
+    async getTask(id) {
+      assert.equal(id, storedTaskId);
+      return { metadata: { semantic: {
+        id: taskId, dependsOn: [], acceptanceCriteria: ["note range checked"]
+      } } };
+    },
+    async getVerification() {
+      return { id: "check-verified-01", runId, status: "passed", checks: [{ exitCode: 0 }] };
+    },
+    async listEvidence() {
+      return [
+        // All have matching semantic text; only the immutable Run/Task/
+        // verification associations may count toward completion.
+        { runId: "run-from-old-revision", taskId: storedTaskId,
+          verificationId: "check-verified-01", acceptanceCriterion: "note range checked", content: "old proof" },
+        { runId, taskId: "foreign-task",
+          verificationId: "check-verified-01", acceptanceCriterion: "note range checked", content: "foreign proof" },
+        { runId, taskId: storedTaskId,
+          verificationId: "older-check", acceptanceCriterion: "note range checked", content: "old check" }
+      ];
+    }
+  };
+  const { results } = await collectTaskResults({
+    store, manifest, submission: { taskRuns: { [taskId]: runId } },
+    taskOutcomes: { [taskId]: "completed" }
+  });
+  assert.deepEqual(results.get(taskId).evidence, []);
+  assert.equal(results.get(taskId).resolutionState, "validated");
 });
