@@ -1,19 +1,30 @@
-# Diagnóstico e reconciliação operacional de Runs — fase 2
+# Reconciliação operacional de Runs e submissões (v1)
 
-A fila de admissão do Maestro é persistente, mas a execução de providers em segundo plano **continua indisponível**. Este incremento acrescenta diagnóstico e tratamento conservador de leases expirados, sem simular um executor.
+**Status auditado:** branch `v1`; issue [#67](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/67). A documentação anterior afirmava incorretamente que o worker persistente era inexistente.
 
-## Comandos
+## Implementação existente
 
-- `orquestrador-maestro runs admissions --project-path /repo [--limit 100]`: projeção read-only de status, contagens e reservas, sem prompt, hash de aprovação, credenciais, tokens ou output bruto.
-- `orquestrador-maestro runs reconcile --project-path /repo [--limit 100]`: dry-run; mostra claims cujo lease expirou.
-- `orquestrador-maestro runs reconcile --project-path /repo --apply`: marca atomicamente claims expirados como `RECONCILIATION_REQUIRED`. Não aprova nova execução, não mata provider nem concede retry.
+O Maestro já dispõe de um worker persistente (`runtime/runs/submission-worker.js`), um supervisor de submissões (`submission-supervisor.js`) com claim, lease/fencing, heartbeat, cancelamento e execução por DAG e um reconciliador canônico (`runtime/runs/reconciliation.js`). `maestro runs worker` executa o consumidor da fila, mas a existência deste entrypoint **não garante supervisão pelo sistema operacional nem continuidade durante desligamento ou suspensão da máquina**.
 
-`RECONCILIATION_REQUIRED` **mantém a reserva do workspace**, porque o processo antigo pode ter produzido alterações externas. A inspeção e o apply usam o RunStore canônico; o apply revalida a expiração sob lock multiprocesso, de modo que um worker que renovou o lease não seja sobrescrito.
+O `RunStore` contém as submissões, manifests, receipts de aprovação e Run IDs. Em um restart, o worker só reclama entradas `PENDING_WORKER`. Ele **não redispatcha** `CLAIMED`/`DISPATCHED` incertos quando expira lease. A reconciliadora move essas entradas para `RECONCILIATION_REQUIRED` até investigação operacional.
 
-## Gate seguinte
+## Comandos existentes
 
-O próximo incremento precisa de worker Maestro-owned supervisionado, com plano aprovado persistido, validação de fingerprint real Git/worktree, lease/epoch/cancel, revalidação de provider antes do dispatch e correlação com o Run criado.
+- `orquestrador-maestro runs admissions --project-path /repo [--limit 100]`: status read-only.
+- `orquestrador-maestro runs reconcile --project-path /repo [--limit 100]`: inspeção dry-run de leases expirados.
+- `orquestrador-maestro runs reconcile --project-path /repo --apply`: quarentena atômica de claims expirados.
+- `orquestrador-maestro runs worker`: execução do consumidor persistente da fila; opções e instalação devem ser conferidas via `--help` da versão instalada.
 
-`runs.submit` continua respondendo `-32601`, e `initialize.capabilities.runsSubmit=false`. O Nexus não deve habilitar execução de planos Maestro antes desse gate.
+## Distinção importante para Goals
 
-Referências: https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48 e https://github.com/IAPro-Community/nexus/issues/185.
+- `Run.status=completed` registra conclusão operacional do provider, **não** aprovação do Goal.
+- `Verification.status=passed` atesta checks executados, mas não prova isoladamente cada regra de negócio.
+- `Resolution.outcome.state=validated` só pode ser declarado no Goal após evidência aprovada e vinculada ao Run e artefato corretos.
+- `goal-loop-driver.js` cria uma decisão auditável read-only no mesmo RunStore. Sem orçamento verificável, a correção permanece bloqueada e **não é retomada automaticamente**.
+- O preflight `runtime/providers/goal-preflight.js` bloqueia Native Goal overnight em Codex, Claude e OpenCode, até comprovação real de lifecycle headless. Nenhum `/goal` interativo autoriza a execução headless.
+
+## Incidentes, segurança e rollback
+
+Nunca usar `runs reconcile --apply` como permissão de replay. Antes de decidir sobre uma entrada incerta, conferir a identidade do Run persistido, efeitos no worktree e efeitos externos. Não liberar reservas de workspace sob efeitos desconhecidos. O fluxo de recuperação com providers reais e crash/restart ainda é um **gate não cumprido** da issue #67.
+
+**Rollout:** autonomia OFF por padrão. Desativar Goal não apaga o histórico nem modifica o comportamento de Runs simples. A implementação de modo supervised/bounded, correções fenced e o serviço overnight ainda dependem das fases futuras descritas no [ADR 0067](ADR_0067_GOAL_OWNERSHIP.md).
