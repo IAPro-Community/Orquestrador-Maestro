@@ -382,17 +382,19 @@ A telemetria vem **desabilitada por padrão** (opt-in via `orquestrador-maestro 
 
 **[Fernando Bolzan](https://github.com/FernandoBolzan)** — idealização e criação original do Orquestrador Maestro.
 
-### Desenvolvimento e comunidade
+### Liderança técnica e evolução do projeto
 
-O Maestro é um projeto aberto à participação de outras pessoas. A evolução do código, da documentação e das integrações é um esforço contínuo da comunidade, sem limitar o reconhecimento a uma equipe fixa.
+<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="88" height="88" alt="Foto de Kiver Teixeira no GitHub"></a>
 
-<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="72" height="72" alt="Foto de Kiver Teixeira no GitHub"></a>
+**[Kiver Teixeira](https://github.com/kivervinicius)** — **liderança técnica e principal responsável pela evolução do Maestro**, incluindo o desenvolvimento da maior parte das novas funcionalidades e melhorias introduzidas nas versões recentes.
 
-**[Kiver Teixeira](https://github.com/kivervinicius)** — colaboração no desenvolvimento e evolução do projeto.
+### Comunidade e contribuidores
+
+O Maestro é aberto à participação de outras pessoas. As contribuições em código, documentação, testes, discussões e revisões ajudam a ampliar e manter o projeto.
 
 **[Veja os contribuidores no GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors)** · **[Saiba como contribuir](CONTRIBUTING.md)**
 
-A lista de contribuidores com commits é mantida pelo próprio GitHub e cresce conforme novas pessoas participam do repositório. Contribuições por documentação, discussão e revisão também são bem-vindas.
+O GitHub atualiza automaticamente a relação de autores de commits. Essa lista não substitui o reconhecimento de contribuições feitas por outros meios, nem limita futuros destaques no projeto.
 
 ## Licença
 
