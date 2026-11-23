@@ -123,3 +123,26 @@ test("independent evidence without canonical Resolution validation is not Goal P
   assert.equal(decision.decision, "BLOCKED_NEEDS_USER");
   assert.equal(decision.reason, "RESOLUTION_NOT_VALIDATED");
 });
+
+test("an already verified Goal may PASS with unknown USD but cannot spend again", () => {
+  const complete = verified();
+  for (const task of tasks) {
+    complete.set(task.id, { ...completed(task), resolutionState: "validated" });
+  }
+  const accepted = assessGoalCorrection(params({
+    results: complete,
+    usage: { iterations: 1, totalCostUSD: null, elapsedMs: 100 }
+  }));
+  assert.equal(accepted.decision, "PASS");
+  assert.equal(accepted.executionEnabled, false);
+  assert.equal(accepted.requiresApproval, false);
+  const failed = verified();
+  failed.set("frontend", { status: "failed", error: "validation failed" });
+  failed.set("integration", { status: "failed", error: "blocked by failed dependency: frontend" });
+  const blocked = assessGoalCorrection(params({
+    results: failed,
+    usage: { iterations: 1, totalCostUSD: null, elapsedMs: 100 }
+  }));
+  assert.equal(blocked.decision, "BLOCKED_NEEDS_USER");
+  assert.equal(blocked.reason, "COST_USAGE_UNAVAILABLE");
+});
