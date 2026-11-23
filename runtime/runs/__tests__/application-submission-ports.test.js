@@ -229,3 +229,40 @@ test("provider exit code zero still runs an inferred failing test command", asyn
   // must never be represented as a validated goal.
   assert.notEqual(run.metadata?.resolution?.outcome?.state, "validated");
 });
+
+
+test("agent cannot replace the approved npm test script with a vacuous passing check", async (t) => {
+  const f = await fixture(t, { testScript: 'node -e "process.exit(1)"' });
+  f.provider.execute = async () => {
+    f.provider.calls++;
+    fs.writeFileSync(path.join(f.projectRoot, "package.json"),
+      JSON.stringify({ private: true, scripts: { test: 'node -e "process.exit(0)"' } }));
+    return {
+      pid: 10, cancel() {},
+      result: Promise.resolve({
+        providerId: "opencode", pid: 10, exitCode: 0, stdout: "done",
+        stderr: "", durationMs: 1, cancelled: false, timedOut: false
+      })
+    };
+  };
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const result = await superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-verifier-tamper-001", ...ports
+  });
+  const run = await f.store.getRun(result.runId);
+  const verification = await f.store.getVerification(result.runId);
+  assert.equal(f.provider.calls, 1);
+  assert.equal(verification.status, "passed", "tampered test can exit zero");
+  assert.equal(run.status, "failed", "a tampered verifier must block acceptance");
+  assert.equal(result.submission.status, "FAILED");
+  assert.ok(run.metadata.qualityFindings.some((finding) =>
+    finding.code === "VERIFICATION_CONFIG_DRIFT" && finding.blocking === true));
+  assert.notEqual(run.metadata.resolution?.outcome?.state, "validated");
+});
