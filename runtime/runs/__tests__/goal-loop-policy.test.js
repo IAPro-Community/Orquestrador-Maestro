@@ -103,3 +103,23 @@ test("rejects cycles, dangling DAG edges and unverifiable immutable approvals", 
   assert.throws(() => assessGoalCorrection(params({ planDigest: "not-a-digest" })), /planDigest/);
   assert.throws(() => assessGoalCorrection(params({ usage: { iterations: 0 } })), /budget/);
 });
+
+test("unknown measured cost never unlocks a corrective iteration", () => {
+  const results = verified();
+  results.set("frontend", { status: "failed", error: "contract failure" });
+  results.set("integration", { status: "failed", error: "blocked by failed dependency: frontend" });
+  const decision = assessGoalCorrection(params({
+    results, usage: { iterations: 1, totalCostUSD: null, elapsedMs: 500 }
+  }));
+  assert.equal(decision.decision, "BLOCKED_NEEDS_USER");
+  assert.equal(decision.reason, "COST_USAGE_UNAVAILABLE");
+  assert.equal(decision.executionEnabled, false);
+});
+
+test("independent evidence without canonical Resolution validation is not Goal PASS", () => {
+  const results = verified();
+  results.set("frontend", { ...completed(tasks[0]), resolutionState: "pending" });
+  const decision = assessGoalCorrection(params({ results }));
+  assert.equal(decision.decision, "BLOCKED_NEEDS_USER");
+  assert.equal(decision.reason, "RESOLUTION_NOT_VALIDATED");
+});
