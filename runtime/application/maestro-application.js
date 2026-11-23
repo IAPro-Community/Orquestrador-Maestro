@@ -59,6 +59,29 @@ function isProjectExecutionScope(projectPath, workspacePath) {
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function projectIdForPath(workspacePath) { return `project-${crypto.createHash("sha256").update(path.resolve(workspacePath)).digest("hex").slice(0, 16)}`; }
 
+/**
+ * A narrow, opt-in guard for durable Node-project verification. A coding
+ * agent may change package.json scripts after dispatch and cause 'npm test'
+ * to pass without exercising the approved verifier. Treat unreadable and
+ * symlinked configurations as unsafe, not a validated baseline.
+ *
+ * This is intentionally NOT a multi-stack quality profile; its limitations
+ * are tracked in the Harness ADR.
+ */
+function verifierConfigSnapshot(workspacePath) {
+  const file = path.join(workspacePath, "package.json");
+  try {
+    const info = fs.lstatSync(file);
+    if (!info.isFile()) return Object.freeze({ digest: null, unsafe: true });
+    const digest = crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    return Object.freeze({ digest, unsafe: false });
+  } catch (error) {
+    if (error?.code === "ENOENT") return Object.freeze({ digest: null, unsafe: false });
+    return Object.freeze({ digest: null, unsafe: true });
+  }
+}
+
+
 
 // Ephemeral provider stream vs durable telemetry contract:
 // - provider.started / provider.output / provider.completed carry raw chunks
@@ -790,6 +813,12 @@ class MaestroApplication {
     await this.store.saveExecution(execution);
     await this.record(run.id, "run.started", { executionId: execution.id });
     const before = snapshot(workspacePath);
+    // Freeze verifier configuration BEFORE the provider can mutate it.
+    // Only executable, trust-bound submissions enable this stricter gate.
+    const verifierBaseline = request.requireVerificationConfigIntegrity === true
+      ? verifierConfigSnapshot(workspacePath) : null;
+    const preDispatchCommands = verifierBaseline
+      ? (request.verificationCommands || this.inferProjectVerification(workspacePath)) : null;
     const engineeringContract = request.engineeringContract
       || buildEngineeringContract({ task: request.semanticTask || task, missionBrief: request.missionBrief });
     const interaction = request.interactionProfile
@@ -990,7 +1019,11 @@ class MaestroApplication {
     const changes = diff(workspacePath);
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: durableChangeArtifactMetadata(before, changes) });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
-    const commands = request.verificationCommands || this.inferProjectVerification(workspacePath);
+    const verifierAfter = verifierBaseline ? verifierConfigSnapshot(workspacePath) : null;
+    const verifierConfigDrift = Boolean(verifierBaseline &&
+      (verifierBaseline.unsafe || verifierAfter.unsafe ||
+        verifierBaseline.digest !== verifierAfter.digest));
+    const commands = preDispatchCommands || request.verificationCommands || this.inferProjectVerification(workspacePath);
     const verificationApplicability = request.verificationNotApplicable === true
       || request.semanticTask?.verification?.applicability === "not_applicable";
     const verificationReason = request.verificationNotApplicableReason
@@ -1022,13 +1055,22 @@ class MaestroApplication {
     const filesToReview = gitChangedFiles.length > 0
       ? [...new Set([...gitChangedFiles, ...allSourceFiles])]
       : allSourceFiles;
-    const qualityFindings = qualityReview
-      ? filesToReview.map((filePath) => {
-        const fullPath = path.join(workspacePath, filePath);
-        if (!fs.existsSync(fullPath)) return [];
-        return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });
-      }).flat()
-      : [];
+    const qualityFindings = [
+      ...(qualityReview
+        ? filesToReview.map((filePath) => {
+          const fullPath = path.join(workspacePath, filePath);
+          if (!fs.existsSync(fullPath)) return [];
+          return detectQualityFindings({ filePath, source: fs.readFileSync(fullPath, "utf8") });
+        }).flat()
+        : []),
+      ...(verifierConfigDrift ? [{
+        code: "VERIFICATION_CONFIG_DRIFT",
+        category: "DATA_INTEGRITY",
+        severity: "BLOCKER",
+        blocking: true,
+        message: "Verification configuration was changed or unsafe during the Run"
+      }] : [])
+    ];
     const evidenceEntries = (value) => Array.isArray(value) ? value : value ? [value] : [];
     const producedEvidence = [...evidenceEntries(request.evidence), ...evidenceEntries(result.evidence)];
     let review = Object.freeze({ status: "disabled", verdict: "not-requested", calls: 0 });
@@ -1070,7 +1112,11 @@ class MaestroApplication {
       status,
       startedAt: execution.startedAt,
       completedAt,
-      metadata: { ...run.metadata, resolution: finalizedResolution }
+      metadata: {
+        ...run.metadata,
+        ...(verifierConfigDrift ? { qualityFindings } : {}),
+        resolution: finalizedResolution
+      }
     });
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status, resolutionState: finalizedResolution.outcome.state });
     if (unexpectedSubagents) {
