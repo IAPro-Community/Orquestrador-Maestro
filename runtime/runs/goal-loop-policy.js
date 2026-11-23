@@ -24,7 +24,8 @@ function assessGoalCorrection({
       !Number.isFinite(limits.maxTotalCostUSD) || limits.maxTotalCostUSD < 0 ||
       !Number.isInteger(limits.maxDurationMs) || limits.maxDurationMs < 1000 ||
       !Number.isInteger(usage.iterations) || usage.iterations < 0 ||
-      !Number.isFinite(usage.totalCostUSD) || usage.totalCostUSD < 0 ||
+      (usage.totalCostUSD !== null &&
+        (!Number.isFinite(usage.totalCostUSD) || usage.totalCostUSD < 0)) ||
       !Number.isFinite(usage.elapsedMs) || usage.elapsedMs < 0 ||
       !Array.isArray(history) || history.length > 100) {
     throw new TypeError("bounded verified Goal Loop budget, usage and history required");
@@ -92,6 +93,21 @@ function assessGoalCorrection({
   });
   if (missingAcceptanceContract) return blocked("ACCEPTANCE_CONTRACT_REQUIRED");
   if (unsafe.length) return blocked("EVIDENCE_OR_POLICY_REVIEW_REQUIRED");
+  // Only the canonical Maestro Resolution outcome may authorize Goal PASS.
+  // In-memory policy fixtures without a resolutionState remain supported;
+  // durable assessment always supplies an explicit state from the RunStore.
+  if (tasks.some((task) => {
+    const result = results.get(task.id);
+    return result?.status === "completed" &&
+      Object.prototype.hasOwnProperty.call(result, "resolutionState") &&
+      result.resolutionState !== "validated";
+  })) return blocked("RESOLUTION_NOT_VALIDATED");
+  // No reliable USD telemetry exists in the current runtime. Unknown must
+  // neither become 0 nor silently unlock an unattended continuation.
+  if (failedIds.length > 0 && limits.maxTotalCostUSD === 0) {
+    return blocked("COST_BUDGET_EXHAUSTED");
+  }
+  if (usage.totalCostUSD === null) return blocked("COST_USAGE_UNAVAILABLE");
   if (failedIds.length === 0) {
     // All tasks must have real verified completion evidence; resolveOutcomes
     // refuses a claimed completion with missing verification or criteria.
