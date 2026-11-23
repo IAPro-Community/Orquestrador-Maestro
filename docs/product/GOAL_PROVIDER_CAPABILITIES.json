@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "referenceIssue": 67,
+  "branch": "v1",
+  "baselineCommit": "f9a93336167cc0449ac1672c6f00784494343dbb",
+  "environment": {
+    "os": "Linux x86_64",
+    "node": "v22.16.0",
+    "codex": "NOT_INSTALLED",
+    "claude": "NOT_INSTALLED",
+    "opencode": "NOT_INSTALLED",
+    "realProviderTests": "NOT_TESTED"
+  },
+  "states": [
+    "supported",
+    "unsupported",
+    "unknown"
+  ],
+  "goalFields": [
+    "create",
+    "observe",
+    "pause",
+    "resume",
+    "cancel",
+    "attach",
+    "recover",
+    "budget",
+    "evidence",
+    "headless"
+  ],
+  "providers": [
+    {
+      "id": "codex",
+      "documentedInteractiveGoal": {
+        "status": "supported",
+        "minimumVersion": "0.128.0",
+        "surface": "CLI/TUI",
+        "reference": "https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex"
+      },
+      "maestroHeadless": {
+        "adapter": "codex exec --json",
+        "controller": "unsupported",
+        "allLifecycleFields": "unknown",
+        "liveVersion": "NOT_TESTED",
+        "overnight": "BLOCKED",
+        "upstreamIssue": "https://github.com/openai/codex/issues/60308"
+      }
+    },
+    {
+      "id": "claude",
+      "documentedInteractiveGoal": {
+        "status": "supported",
+        "minimumVersion": "unknown",
+        "surface": "Claude Code slash commands",
+        "reference": "https://code.claude.com/docs/en/commands"
+      },
+      "maestroHeadless": {
+        "adapter": "claude --print --output-format stream-json",
+        "controller": "unsupported",
+        "allLifecycleFields": "unknown",
+        "liveVersion": "NOT_TESTED",
+        "overnight": "BLOCKED"
+      }
+    },
+    {
+      "id": "opencode",
+      "documentedInteractiveGoal": {
+        "status": "supported",
+        "minimumVersion": "2.2.1",
+        "surface": "TUI/Desktop",
+        "reference": "https://opencode.ai/changelog"
+      },
+      "maestroHeadless": {
+        "adapter": "opencode run --format json",
+        "controller": "unsupported",
+        "allLifecycleFields": "unknown",
+        "liveVersion": "NOT_TESTED",
+        "overnight": "BLOCKED"
+      }
+    }
+  ],
+  "notes": [
+    "Interactive support comes from published documentation, NOT from an installed binary.",
+    "unknown fields never grant permission or promise headless support.",
+    "No managed corrective dispatch has been certified yet; all overnight combinations remain blocked.",
+    "Default autonomy flag is OFF."
+  ]
+}
