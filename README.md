@@ -350,6 +350,7 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 | Entender o método | [Guia operacional para IAs](docs/ai-agent-operating-guide.md) · [referência técnica](docs/orquestrador-reference.md) |
 | Reduzir custo de contexto | [Economia de contexto](docs/context-economy.md) |
 | Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) · [Resolution Engine](docs/maestro-resolution-engine.md) |
+| Avaliar a evolução para Harness Orchestrator | [ADR e arquitetura](docs/architecture/ADR_0068_HARNESS_ORCHESTRATOR.md) · [auditoria #67](docs/architecture/HARNESS_AUDIT_ISSUE_67.md) · [benchmark open-source](docs/research/HARNESS_ORCHESTRATOR_BENCHMARK_2026.md) |
 | Avaliar privacidade | [Modelo de privacidade](docs/privacy-model.md) |
 | Retomar tarefas longas | [Workflows](docs/workflows.md) · [contratos](docs/task-and-workspace-contracts.md) |
 | Organizar memória | [Hierarquia DEV/](docs/project-dev-hierarchy.md) · [escopos](docs/memory-scopes.md) |
