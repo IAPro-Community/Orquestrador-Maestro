@@ -33,7 +33,7 @@ class FakeOpenCode {
     };
   }
 }
-async function fixture(t) {
+async function fixture(t, { testScript } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-executable-once-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const projectRoot = path.join(tmp, "project");
@@ -42,7 +42,9 @@ async function fixture(t) {
   git(projectRoot, "config", "user.name", "Fixture");
   git(projectRoot, "config", "user.email", "fixture@example.invalid");
   fs.writeFileSync(path.join(projectRoot, "README.md"), "base\n");
-  git(projectRoot, "add", "README.md");
+  if (testScript) fs.writeFileSync(path.join(projectRoot, "package.json"),
+    JSON.stringify({ private: true, scripts: { test: testScript } }));
+  git(projectRoot, "add", ".");
   git(projectRoot, "commit", "-qm", "base");
   const projectId = "project-executable-001";
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
@@ -180,7 +182,7 @@ test("supervisor cancellation reaches the real application port and provider exa
   assert.equal((await f.store.getRun(settled.runId)).status, "cancelled");
 });
 
-test("exit-zero provider cannot bypass a failing inferred project test", async (t) => {
+test("Git HEAD changed by adding verification script requires new approval", async (t) => {
   const f = await fixture(t);
   // This package.json is an approved project file at dispatch time, not a
   // provider-authored command. The checker is inferred from the allowlist.
@@ -202,4 +204,28 @@ test("exit-zero provider cannot bypass a failing inferred project test", async (
     submission: f.submission, signal: new AbortController().signal
   }), { code: "MANIFEST_WORKSPACE_CHANGED" });
   assert.equal(f.provider.calls, 0);
+});
+
+test("provider exit code zero still runs an inferred failing test command", async (t) => {
+  const f = await fixture(t, { testScript: 'node -e "process.exit(1)"' });
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const result = await superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-failed-verification-001", ...ports
+  });
+  const run = await f.store.getRun(result.runId);
+  const verification = await f.store.getVerification(result.runId);
+  assert.equal(f.provider.calls, 1);
+  assert.ok(["completed", "failed"].includes(run.status));
+  assert.equal(verification.status, "failed");
+  assert.ok(verification.checks.some((check) => check.exitCode !== 0));
+  // Submission status is execution bookkeeping; this failed verification
+  // must never be represented as a validated goal.
+  assert.notEqual(run.metadata?.resolution?.outcome?.state, "validated");
 });
