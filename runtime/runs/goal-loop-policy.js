@@ -107,7 +107,8 @@ function assessGoalCorrection({
   if (failedIds.length > 0 && limits.maxTotalCostUSD === 0) {
     return blocked("COST_BUDGET_EXHAUSTED");
   }
-  if (usage.totalCostUSD === null) return blocked("COST_USAGE_UNAVAILABLE");
+  // Financial telemetry gates NEW spending, not the acceptance of work
+  // already independently validated. Unknown USD remains null in the record.
   if (failedIds.length === 0) {
     // All tasks must have real verified completion evidence; resolveOutcomes
     // refuses a claimed completion with missing verification or criteria.
@@ -121,6 +122,7 @@ function assessGoalCorrection({
     }
     return blocked("INCOMPLETE_OR_BLOCKED_GOAL");
   }
+  if (usage.totalCostUSD === null) return blocked("COST_USAGE_UNAVAILABLE");
   if (usage.iterations >= limits.maxIterations) return blocked("ITERATION_BUDGET_EXHAUSTED");
   if (usage.totalCostUSD >= limits.maxTotalCostUSD) return blocked("COST_BUDGET_EXHAUSTED");
   if (usage.elapsedMs >= limits.maxDurationMs) return blocked("DURATION_BUDGET_EXHAUSTED");
