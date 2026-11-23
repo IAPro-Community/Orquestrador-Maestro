@@ -95,9 +95,14 @@ function createApplicationSubmissionPorts({
         description: source.description,
         semanticTask: {
           id: target.taskId, objective: source.description,
-          acceptanceCriteria: [source.acceptanceText], evidenceRequirements: []
-        },
-        verificationCommands: []
+          acceptanceCriteria: source.acceptanceText.split("\n").map((item) => item.trim()).filter(Boolean),
+          evidenceRequirements: []
+        }
+        // Do NOT supply verificationCommands: [] here. It is truthy and
+        // disables MaestroApplication.inferProjectVerification(), allowing
+        // an exit-0 provider to bypass the project's lint/test/build checks.
+        // Explicit approved verifier commands require a digest-bound contract
+        // before they can be introduced to this durable dispatch path.
       });
       const prepared = await application.createRun(request);
       if (!prepared?.run?.id || prepared.preflightBlock) {
