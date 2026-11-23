@@ -49,7 +49,8 @@ function validateGoalLoopDecision(row) {
   }
   if (row.usage === undefined || !row.usage || typeof row.usage !== "object" ||
       !Number.isInteger(row.usage.iterations) || row.usage.iterations < 0 ||
-      !Number.isFinite(row.usage.totalCostUSD) || row.usage.totalCostUSD < 0 ||
+      (row.usage.totalCostUSD !== null &&
+        (!Number.isFinite(row.usage.totalCostUSD) || row.usage.totalCostUSD < 0)) ||
       !Number.isFinite(row.usage.elapsedMs) || row.usage.elapsedMs < 0) {
     throw bad("malformed goal loop usage record", "RUN_STORE_CORRUPTED");
   }
@@ -118,10 +119,24 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
     const run = await store.getRun(runId);
     if (!run) throw bad("bound task Run is missing from the RunStore", "RUN_STORE_CORRUPTED");
     if (run.status === "completed") {
+      const verification = await store.getVerification(runId);
+      // Evidence is accepted only when the persisted linkage matches the
+      // EXACT Run, its stored Task and its persisted verification receipt.
+      // Remap the trusted canonical Task ID to the approved semantic ID
+      // solely after verifying those links, never from provider-authored text.
+      const persistedTaskId = `exec-${manifest.planDigest.slice(0, 16)}-${task.taskId}`.slice(0, 200);
+      const rawEvidence = await store.listEvidence({ runId }) || [];
+      const evidence = verification?.runId === runId && run.taskId === persistedTaskId
+        ? rawEvidence.filter((item) => item?.runId === runId &&
+            item.taskId === persistedTaskId && item.verificationId === verification.id)
+          .slice(0, MAX_EVIDENCE_ITEMS)
+          .map((item) => ({ ...item, taskId: task.taskId }))
+        : [];
       results.set(task.taskId, {
         status: "completed",
-        verification: await store.getVerification(runId),
-        evidence: (await store.listEvidence({ runId }) || []).slice(0, MAX_EVIDENCE_ITEMS),
+        verification,
+        evidence,
+        resolutionState: run.metadata?.resolution?.outcome?.state || null,
         qualityFindings: run.metadata?.qualityFindings || []
       });
     } else {
@@ -209,7 +224,7 @@ async function assessSubmissionGoal({
     },
     usage: {
       iterations: history.length + 1,
-      totalCostUSD: 0,
+      totalCostUSD: null,
       elapsedMs
     },
     history: priorEntries,
@@ -237,7 +252,7 @@ async function assessSubmissionGoal({
     failureFingerprints,
     usage: {
       iterations: history.length + 1,
-      totalCostUSD: 0,
+      totalCostUSD: null,
       elapsedMs
     },
     createdAt: now.toISOString()
