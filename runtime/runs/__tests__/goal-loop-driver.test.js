@@ -100,17 +100,19 @@ test("failed submission without an explicit budget blocks to the human decision"
   assert.deepEqual(decisions[0].failedTaskIds, ["task-goal-front-001"]);
 });
 
-test("explicit budget yields a corrective review proposal with proven failure fingerprints", async (t) => {
+test("priced budget cannot unlock unattended correction with unknown actual USD usage", async (t) => {
   const { store, ack, worker } = await failedSubmissionFixture(t, { budget: { maxCostUSD: 5 } });
   const result = await worker.step();
   assert.equal(result.outcomes[0].submissionStatus, "FAILED");
-  assert.equal(result.outcomes[0].goalLoop.decision, "CORRECTIVE_REVIEW");
-  assert.deepEqual(result.outcomes[0].goalLoop.affectedTaskIds, ["task-goal-front-001", "task-goal-integ-001"]);
+  assert.equal(result.outcomes[0].goalLoop.decision, "BLOCKED_NEEDS_USER");
+  assert.equal(result.outcomes[0].goalLoop.reason, "COST_USAGE_UNAVAILABLE");
+  assert.deepEqual(result.outcomes[0].goalLoop.affectedTaskIds, []);
   const decisions = await store.listGoalLoopDecisions({ submissionId: ack.submissionId });
   assert.equal(decisions.length, 1);
   const record = validateGoalLoopDecision(decisions[0]);
+  assert.equal(record.usage.totalCostUSD, null);
   assert.match(record.failureFingerprints["task-goal-front-001"], /^[a-f0-9]{64}$/);
-  // Same assessment again is an idempotent durable record, not a new entry.
+  // Same assessment is an idempotent durable record, not a new entry.
   const again = await assessSubmissionGoal({ store, submissionId: ack.submissionId });
   assert.equal(again.record.id, record.id);
   assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 1);
@@ -121,4 +123,35 @@ test("assessment refuses non-terminal or manifest-less submissions", async (t) =
   // The submission is still PENDING_WORKER: no worker cycle ran.
   await assert.rejects(assessSubmissionGoal({ store, submissionId: ack.submissionId }),
     { code: "GOAL_LOOP_INVALID_STATE" });
+});
+
+test("provider exit zero never validates a Goal without required evidence", async (t) => {
+  const f = await failedSubmissionFixture(t, { budget: { maxCostUSD: 5 } });
+  f.provider.exitCode = 0;
+  const result = await f.worker.step();
+  assert.equal(result.outcomes[0].submissionStatus, "COMPLETED");
+  assert.equal(result.outcomes[0].goalLoop.decision, "BLOCKED_NEEDS_USER");
+  assert.notEqual(result.outcomes[0].goalLoop.decision, "PASS");
+  const decisions = await f.store.listGoalLoopDecisions({ submissionId: f.ack.submissionId });
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].usage.totalCostUSD, null);
+  assert.equal(f.provider.calls, 2);
+  // No corrective dispatch is scheduled by read-only decision persistence.
+  assert.equal((await f.worker.step()).claimed, 0);
+  assert.equal(f.provider.calls, 2);
+});
+
+test("legacy numeric Goal decision usage stays readable while unknown is explicit", () => {
+  const legacy = {
+    id: "goal-legacy", schemaVersion: 1, submissionId: "sub-legacy",
+    projectId: "project-legacy", planDigest: sha("plan"), artifactDigest: sha("artifact"),
+    decision: "BLOCKED_NEEDS_USER", iteration: 1,
+    failedTaskIds: [], affectedTaskIds: [], preservedTaskIds: [],
+    usage: { iterations: 1, totalCostUSD: 0, elapsedMs: 1000 },
+    createdAt: new Date().toISOString()
+  };
+  assert.equal(validateGoalLoopDecision(legacy).usage.totalCostUSD, 0);
+  assert.equal(validateGoalLoopDecision({
+    ...legacy, id: "goal-unknown", usage: { ...legacy.usage, totalCostUSD: null }
+  }).usage.totalCostUSD, null);
 });
