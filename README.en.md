@@ -124,24 +124,21 @@ The detailed Skills documentation is currently in Portuguese:
 
 **[Install Maestro](docs/installation.md)**, then **[run the benchmark](docs/benchmark.md#quick-start)** in your environment. Improvements are welcome through [contributions](CONTRIBUTING.md).
 
-## People behind Maestro
+## Contributors
 
-### Original concept
+Orquestrador Maestro is shaped by ideas, development work and improvements shared over time. Thanks to everyone who helps build and improve the project.
 
-<a href="https://github.com/FernandoBolzan"><img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" width="72" height="72" alt="Fernando Bolzan's GitHub profile photo"></a>
+<p align="center">
+  <a href="https://github.com/FernandoBolzan"><img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" alt="Fernando Bolzan" width="72" height="72"></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" alt="Kiver Teixeira" width="72" height="72"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/FernandoBolzan">Fernando Bolzan</a> &nbsp;·&nbsp; <a href="https://github.com/kivervinicius">Kiver Teixeira</a>
+</p>
 
-**[Fernando Bolzan](https://github.com/FernandoBolzan)** — original concept and creation of Orquestrador Maestro.
+<p align="center">
+  <a href="https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors">View GitHub contributors</a> · <a href="CONTRIBUTING.md">How to contribute</a>
+</p>
 
-### Technical leadership and project evolution
-
-<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="88" height="88" alt="Kiver Teixeira's GitHub profile photo"></a>
-
-**[Kiver Teixeira](https://github.com/kivervinicius)** — **technical lead and primary contributor to Maestro's ongoing evolution**, responsible for developing most of the new features and improvements introduced in recent versions.
-
-### Community and contributors
-
-Maestro welcomes contributions in code, documentation, testing, discussions and reviews.
-
-**[View GitHub contributors](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors)** · **[How to contribute](CONTRIBUTING.md)**
-
-GitHub automatically updates its commit-author list. That list does not replace recognition for contributions made in other ways, nor does it limit future recognition in this project.
+The project welcomes contributions through code, documentation, testing, reviews and ideas.
