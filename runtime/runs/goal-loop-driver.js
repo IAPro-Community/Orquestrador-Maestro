@@ -120,17 +120,19 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
     if (!run) throw bad("bound task Run is missing from the RunStore", "RUN_STORE_CORRUPTED");
     if (run.status === "completed") {
       const verification = await store.getVerification(runId);
-      // Evidence is accepted only when the persisted linkage matches the
-      // EXACT Run, its stored Task and its persisted verification receipt.
-      // Remap the trusted canonical Task ID to the approved semantic ID
-      // solely after verifying those links, never from provider-authored text.
-      const persistedTaskId = `exec-${manifest.planDigest.slice(0, 16)}-${task.taskId}`.slice(0, 200);
+      // The approved plan's namespace is used for the *stored plan Task*,
+      // but createRun deliberately persists a Run under the semantic taskId
+      // (runtime/core/task-identity.js). Never confuse those two identities.
+      // Require the Run/task/verification/evidence linkage to agree, without
+      // trusting arbitrary provider text or cross-run receipts.
       const rawEvidence = await store.listEvidence({ runId }) || [];
-      const evidence = verification?.runId === runId && run.taskId === persistedTaskId
+      const boundTask = run.taskId === task.taskId &&
+        run.metadata?.semanticTaskId === task.taskId &&
+        run.metadata?.semanticTask?.id === task.taskId;
+      const evidence = verification?.runId === runId && boundTask
         ? rawEvidence.filter((item) => item?.runId === runId &&
-            item.taskId === persistedTaskId && item.verificationId === verification.id)
+            item.taskId === task.taskId && item.verificationId === verification.id)
           .slice(0, MAX_EVIDENCE_ITEMS)
-          .map((item) => ({ ...item, taskId: task.taskId }))
         : [];
       results.set(task.taskId, {
         status: "completed",
