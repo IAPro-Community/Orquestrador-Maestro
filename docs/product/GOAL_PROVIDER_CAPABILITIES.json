@@ -40,10 +40,21 @@
       "maestroHeadless": {
         "adapter": "codex exec --json",
         "controller": "unsupported",
-        "allLifecycleFields": "unknown",
         "liveVersion": "NOT_TESTED",
         "overnight": "BLOCKED",
-        "upstreamIssue": "https://github.com/openai/codex/issues/60308"
+        "upstreamIssue": "https://github.com/openai/codex/issues/60308",
+        "goalCapabilities": {
+          "goal.create": "unknown",
+          "goal.observe": "unknown",
+          "goal.pause": "unknown",
+          "goal.resume": "unknown",
+          "goal.cancel": "unknown",
+          "goal.attach": "unknown",
+          "goal.recover": "unknown",
+          "goal.budget": "unknown",
+          "goal.evidence": "unknown",
+          "goal.headless": "unknown"
+        }
       }
     },
     {
@@ -57,9 +68,20 @@
       "maestroHeadless": {
         "adapter": "claude --print --output-format stream-json",
         "controller": "unsupported",
-        "allLifecycleFields": "unknown",
         "liveVersion": "NOT_TESTED",
-        "overnight": "BLOCKED"
+        "overnight": "BLOCKED",
+        "goalCapabilities": {
+          "goal.create": "unknown",
+          "goal.observe": "unknown",
+          "goal.pause": "unknown",
+          "goal.resume": "unknown",
+          "goal.cancel": "unknown",
+          "goal.attach": "unknown",
+          "goal.recover": "unknown",
+          "goal.budget": "unknown",
+          "goal.evidence": "unknown",
+          "goal.headless": "unknown"
+        }
       }
     },
     {
@@ -73,9 +95,20 @@
       "maestroHeadless": {
         "adapter": "opencode run --format json",
         "controller": "unsupported",
-        "allLifecycleFields": "unknown",
         "liveVersion": "NOT_TESTED",
-        "overnight": "BLOCKED"
+        "overnight": "BLOCKED",
+        "goalCapabilities": {
+          "goal.create": "unknown",
+          "goal.observe": "unknown",
+          "goal.pause": "unknown",
+          "goal.resume": "unknown",
+          "goal.cancel": "unknown",
+          "goal.attach": "unknown",
+          "goal.recover": "unknown",
+          "goal.budget": "unknown",
+          "goal.evidence": "unknown",
+          "goal.headless": "unknown"
+        }
       }
     }
   ],
