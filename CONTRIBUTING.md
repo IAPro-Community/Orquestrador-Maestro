@@ -1,93 +1,132 @@
-# Contribuindo
+# Como contribuir com o Orquestrador Maestro
 
-Obrigado por ajudar o Orquestrador Maestro. Este repositório é público, instalável e sanitizado; a contribuição precisa preservar essas três propriedades.
+Obrigado por considerar uma contribuição! O Maestro é um projeto aberto a melhorias em código, documentação, testes, integrações e experiência de uso. Você não precisa conhecer toda a arquitetura para participar.
 
-## Escopo Do Projeto
+Este repositório distribui software instalável e conteúdo público. As mudanças devem preservar compatibilidade, verificabilidade e privacidade.
 
-O projeto mantém:
+## Por onde começar
 
-- instaladores Windows, Linux e macOS;
-- CLI npm `@iapro/orquestrador-maestro-cli`;
-- núcleo `orquestrador/` com regras, Maestro, hooks, roteadores e skills canônicas;
-- perfis de ferramentas para Codex, Claude Code, OpenCode, Cursor, Gemini CLI, Windsurf e Antigravity;
-- documentação da hierarquia `DEV/` para projetos;
-- validação para impedir publicação de dados privados.
+- **Encontrou um problema?** Confira as [issues existentes](https://github.com/IAPro-Community/Orquestrador-Maestro/issues) e, se necessário, abra uma nova com cenário, comportamento esperado, comportamento observado e passos para reprodução (sem dados privados).
+- **Tem uma ideia?** Descreva o problema que deseja resolver, exemplos de uso e alternativas. Mudanças maiores devem passar pela [discussão de RFCs](docs/rfcs/README.md).
+- **Quer ajudar sem programar?** Melhorias em exemplos, documentação, traduções, testes e revisões também são contribuições.
+- **Primeira contribuição?** Prefira uma mudança pequena, delimitada e que possa ser verificada independentemente.
 
-## Antes De Abrir PR
+Antes de investir numa alteração extensa, vale discutir o escopo em uma issue para reduzir retrabalho. Uma issue prévia não é obrigatória para correções pequenas.
 
-Rode os gates principais:
+## Preparar o ambiente
 
-```powershell
+Você vai precisar de Git, Node.js **20.19 ou superior** e npm. PowerShell é necessário para executar o conjunto completo de validações públicas; em Linux e macOS ele pode ser instalado como `pwsh`.
+
+Para trabalhar a partir do código, faça um fork (ou utilize um clone, caso tenha acesso de escrita), selecione a branch estável `v1` e instale as dependências:
+
+```bash
+git clone --branch v1 https://github.com/IAPro-Community/Orquestrador-Maestro.git
+cd Orquestrador-Maestro
+npm ci
+git switch -c docs/minha-melhoria
+```
+
+Para enviar mudanças sem acesso de escrita ao repositório original, clone **seu fork** em vez da URL acima e abra o pull request para `IAPro-Community/Orquestrador-Maestro`, com destino à branch `v1`.
+
+O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro; contribuir com o código não exige executar uma instalação global na sua máquina.
+
+## Fluxo de contribuição
+
+1. Entenda o comportamento existente e delimite o problema. Consulte o [README](README.md) e a documentação pertinente.
+2. Para mudanças que afetem arquitetura, memória, privacidade, compatibilidade, instaladores ou várias ferramentas, proponha uma [RFC](docs/rfcs/README.md) antes da implementação extensa.
+3. Faça alterações pequenas e coesas, preservando contratos existentes. Inclua testes quando modificar comportamento.
+4. Atualize documentação, exemplos e changelog quando a mudança alterar a experiência ou o contrato público.
+5. Execute as verificações relevantes e descreva quaisquer limitações de ambiente.
+6. Abra um **pull request para `v1`** explicando o motivo, a solução, as evidências de teste, os riscos e a eventual migração.
+
+Pull requests podem receber pedidos de ajuste. Discussões técnicas devem focar comportamento, impacto e evidências, não a pessoa que propôs a mudança. A aprovação e a incorporação dependem da revisão dos mantenedores.
+
+### Checklist para o pull request
+
+- [ ] O problema e a solução estão descritos de forma objetiva.
+- [ ] A alteração é compatível ou apresenta plano de migração e rollback.
+- [ ] Testes e verificações pertinentes foram executados, com resultado registrado.
+- [ ] Documentação e changelog foram atualizados quando necessário.
+- [ ] Não há credenciais, dados pessoais, conteúdo local privado nem material de terceiros sem autorização.
+
+## Verificação e qualidade
+
+Na raiz do repositório, depois de `npm ci`:
+
+```bash
 npm run validate
+npm test
+npm run verify:pr
 npm run audit
 npm pack --dry-run
 git diff --check
 ```
 
-Se você alterou scripts Bash, rode também uma checagem de sintaxe no ambiente disponível:
+Esses comandos exercitam verificações diferentes. `npm run verify:pr` inclui testes, smoke checks, integridade e verificações contra publicação acidental de conteúdo sensível; `npm run audit` verifica dependências, podendo depender da rede. `npm pack --dry-run` permite inspecionar o que entraria no pacote npm.
+
+**Atenção:** sem PowerShell, `npm run validate` entra no modo **`DEGRADED`**, que verifica somente um subconjunto dos contratos JSON. Um resultado positivo nesse modo **não equivale à validação pública completa**. Para executar a validação completa, use Windows com PowerShell ou instale `pwsh` em Linux/macOS e rode novamente `npm run validate`. Informe no PR quando algum teste não puder ser executado.
+
+Se alterar scripts Bash, verifique a sintaxe dos arquivos modificados com `bash -n caminho/do/script.sh`. Para mudanças apenas em documentação, confira ao menos os links alterados, a formatação Markdown e `git diff --check`; os demais checks podem ser solicitados na revisão.
+
+Não altere resultados de testes ou exemplos de benchmark para sugerir melhorias que não foram medidas. Afirmações quantitativas precisam de metodologia e evidência reproduzível, conforme o [guia de benchmark](docs/benchmark.md).
+
+## Organização do código e Skills
+
+O projeto inclui o CLI npm em `bin/`, o núcleo em `orquestrador/`, runtime em `runtime/`, scripts em `scripts/`, perfis em `tool-profiles/` e documentação em `docs/`. Evite copiar regras entre ferramentas sem necessidade; procure primeiro a fonte canônica.
+
+Skills canônicas ficam em `orquestrador/skills/` e seguem o [contrato de Skills](docs/skills/README.md). Para gerar uma nova Skill, o script atual exige, entre outros campos, **capability** e **output**:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\new-canonical-skill.ps1 `
+  -Name "skill-exemplo" `
+  -Description "Descreve quando esta capacidade deve ser usada" `
+  -Category "general" `
+  -Risk "low" `
+  -Capability "repo-analysis" `
+  -Output "analysis-report"
+```
+
+Os valores acima são ilustrativos: escolha capabilities e outputs compatíveis com o contrato do projeto. Depois, valide o catálogo:
 
 ```bash
-bash -n install.sh
-bash -n scripts/install.sh
-bash -n scripts/verify-install.sh
+node scripts/skill-catalog.js validate
+node scripts/public-skill-catalog.js check
+npm run skills:contract-audit
 ```
 
-## Segurança E Privacidade
+Não edite apenas cópias/espelhos em `.codex`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` ou `.agents`: altere primeiro a fonte canônica e siga o mecanismo de geração/sincronização do repositório. Evite editar arquivos marcados como gerados.
 
-Não envie:
+## Segurança e privacidade
 
-- tokens, chaves, cookies, recovery codes, `.env` ou credenciais;
-- logs, caches, sessões, memórias locais, backups ou histórico de execução;
-- caminhos reais de usuário;
-- conteúdo da pasta `DEV/` local;
-- prints contendo telefone, e-mail privado, conversas ou dados pessoais.
+Este é um repositório público e sanitizado. **Nunca inclua** em commits, issues, PRs, logs ou capturas de tela:
 
-Use placeholders como `%USERPROFILE%`, `$HOME`, `{{USER_HOME}}`, `{{USER_NAME}}` e `{{USER_FULL_NAME}}`.
+- tokens, chaves, cookies, senhas, recovery codes, conteúdo de `.env` ou credenciais;
+- sessões, caches, backups, memórias pessoais e conteúdo local da pasta `DEV/`;
+- prompts ou históricos de terceiros, dados pessoais, informações de clientes e caminhos de usuário identificáveis;
+- saídas de depuração contendo informações privadas ou dados de produção.
 
-## Fluxo Recomendado
+Substitua dados reais por exemplos sintéticos e use caminhos genéricos, como `$HOME`, `%USERPROFILE%` e `{{USER_NAME}}`.
 
-1. Abra uma issue ou descreva claramente o problema no PR.
-2. Para mudanças que afetem arquitetura, memória, privacidade, compatibilidade ou mais de uma ferramenta, abra uma RFC em [`docs/rfcs/`](docs/rfcs/README.md).
-3. Faça a menor mudança que resolve o caso.
-4. Atualize README ou docs quando o comportamento público mudar.
-5. Atualize `CHANGELOG.md` e o resumo do changelog no README quando a mudança for relevante para usuários.
-6. Rode validação.
-7. Explique no PR: o que mudou, por que mudou, como foi verificado e risco restante.
+Se identificar uma vulnerabilidade que possa expor usuários, **não divulgue detalhes exploráveis em uma issue pública**. Busque contato privado com os mantenedores ou, se estiver habilitado no repositório, use o mecanismo de reporte privado de vulnerabilidades do GitHub. Para outras questões de segurança, consulte o [modelo de privacidade](docs/privacy-model.md).
 
-## Contribuições De Skills
+## Documentação e histórico de mudanças
 
-Skills canônicas ficam em `orquestrador/skills/`. Use os scripts de criação quando possível:
+Use linguagem direta, exemplos reproduzíveis e links relativos para documentos internos. Documente limitações, diferenças entre plataformas e comportamentos que exigem ação do usuário.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\new-canonical-skill.ps1 -Name "skill-exemplo" -Description "Use for ..." -Category "general" -Risk "low"
+O histórico de versões fica em [`CHANGELOG.md`](CHANGELOG.md). Para mudanças relevantes ainda não publicadas, registre-as sob `## Unreleased`, quando essa seção existir, sem inventar uma versão já lançada. Na publicação, siga o padrão utilizado pelo arquivo:
+
+```markdown
+## x.y.z - YYYY-MM-DD
+
+### Melhorias
+
+- Descrição objetiva da mudança e do impacto para quem utiliza o Maestro.
 ```
 
-Depois valide:
+Não altere a versão do pacote nem anuncie releases por conta própria. Decisões de versionamento e publicação pertencem ao fluxo de manutenção.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-skills.ps1
-```
+## Licença e reconhecimento
 
-Não edite apenas os espelhos em `.codex`, `.claude`, `.opencode`, `.cursor`, `.gemini`, `.windsurf` ou `.agents`. A fonte canônica deve ser atualizada primeiro.
+Ao contribuir, envie apenas conteúdo que você tem direito de disponibilizar sob a [licença Apache 2.0 do projeto](LICENSE). Não copie código, imagens, textos ou assets de terceiros sem verificar os termos de uso; quando relevante, documente a origem e as condições.
 
-## Padrão De Changelog
-
-O histórico canônico fica em `CHANGELOG.md`. O `README.md` mantém o resumo rápido e a data da revisão pública mais recente para quem está avaliando a atualização antes de instalar.
-
-Use em `CHANGELOG.md`:
-
-```text
-### x.y.z - YYYY-MM-DD
-
-- Added: novo recurso, arquivo ou fluxo.
-- Changed: alteração de comportamento, documentação ou compatibilidade.
-- Fixed: correção de bug, instalação, validação ou texto.
-- Security: melhoria de privacidade, sanitização, dependência ou validação.
-- Migration: ação necessária para quem já usa o Orquestrador.
-```
-
-Mudanças já mergeadas, mas ainda não publicadas no npm, devem ficar em `## Unreleased`. Quando houver publish, renomeie a seção para a próxima versão semver e alinhe `package.json`.
-
-## Licenças E Referências
-
-Não copie código, texto ou assets de outros repositórios sem confirmar licença compatível. Para referências externas, prefira documentar o padrão extraído e criar implementação própria.
+Toda contribuição é bem-vinda, independentemente de tamanho ou formato. O [histórico de contribuidores do GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors) reúne autores de commits, mas não representa todas as formas de colaboração. O reconhecimento no [README](README.md#contribuidores) não define uma hierarquia ou impede a inclusão de novas pessoas.
