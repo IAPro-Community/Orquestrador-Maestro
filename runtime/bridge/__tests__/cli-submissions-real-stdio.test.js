@@ -13,11 +13,24 @@ const { MaestroApplication } = require("../../application/maestro-application");
 const cli = path.resolve(__dirname, "../../../bin/orquestrador-maestro.js");
 const digest = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-function startBridge(root, t) {
+function waitForClose(closeEvent, timeoutMs) {
+  let timer;
+  return Promise.race([
+    closeEvent,
+    new Promise((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function startBridge(root) {
   const child = spawn(process.execPath, [cli, "bridge", "--stdio", "--project-path", root], {
     cwd: root, shell: false, windowsHide: true,
     env: { ...process.env, ORQUESTRADOR_MAESTRO_BRIDGE_MEMORY_WRITE: "0" },
     stdio: ["pipe", "pipe", "pipe"]
+  });
+  const closeEvent = new Promise((resolve) => {
+    child.once("close", (code, signal) => resolve({ code, signal }));
   });
   const reader = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
   let nextId = 1;
@@ -36,16 +49,33 @@ function startBridge(root, t) {
     clearTimeout(pending.timer);
     pending.resolve(response);
   });
+  let closePromise;
   const close = () => {
-    reader.close();
-    if (!child.killed && child.exitCode === null) child.kill();
-    for (const { reject, timer } of waiting.values()) {
-      clearTimeout(timer);
-      reject(new Error("Maestro bridge was closed"));
-    }
-    waiting.clear();
+    if (closePromise) return closePromise;
+    closePromise = (async () => {
+      for (const { reject, timer } of waiting.values()) {
+        clearTimeout(timer);
+        reject(new Error("Maestro bridge was closed"));
+      }
+      waiting.clear();
+
+      if (child.exitCode === null && child.signalCode === null && child.stdin.writable) {
+        child.stdin.end();
+      }
+      let result = await waitForClose(closeEvent, 5000);
+      if (!result && child.exitCode === null && child.signalCode === null) {
+        child.kill();
+        result = await waitForClose(closeEvent, 5000);
+      }
+      reader.close();
+      if (!result) throw new Error("Maestro bridge did not close after stdin EOF and termination");
+      if (result.code !== 0 || result.signal) {
+        throw new Error(`Maestro bridge exited unexpectedly (code=${result.code}, signal=${result.signal})`);
+      }
+      return result;
+    })();
+    return closePromise;
   };
-  t.after(close);
   return {
     close,
     rpc(method, params = {}) {
@@ -69,7 +99,13 @@ test("real CLI bridges observe one durable submission across processes and resta
   timeout: 60000
 }, async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-stdio-replay-"));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const clients = [];
+  t.after(async () => {
+    const closeResults = await Promise.allSettled(clients.map((client) => client.close()));
+    fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    const failure = closeResults.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
+  });
   fs.writeFileSync(path.join(root, "AGENTS.md"), "# Durable project context\n");
   const foreign = path.join(root, "unrelated-checkout");
   fs.mkdirSync(foreign);
@@ -91,8 +127,9 @@ test("real CLI bridges observe one durable submission across processes and resta
     taskCount: 1, providers: ["agy"], maxAttempts: 1,
     maxDurationMs: 10000, maxCostUSD: 0
   });
-  const clientA = startBridge(root, t);
-  const clientB = startBridge(root, t);
+  const clientA = startBridge(root);
+  const clientB = startBridge(root);
+  clients.push(clientA, clientB);
   const [initA, initB] = await Promise.all([
     clientA.rpc("initialize", { protocolVersion: 1 }),
     clientB.rpc("initialize", { protocolVersion: 1 })
@@ -128,8 +165,10 @@ test("real CLI bridges observe one durable submission across processes and resta
   assert.notEqual(changed.result.cursor, first.result.cursor);
   assert.deepEqual(await app.store.listRuns({}), [], "poll/cancel cannot dispatch a Run");
 
-  clientB.close();
-  const restarted = startBridge(root, t);
+  const clientBClose = await clientB.close();
+  assert.equal(clientBClose.code, 0, "Bridge should exit cleanly after stdin EOF");
+  const restarted = startBridge(root);
+  clients.push(restarted);
   const afterRestart = await restarted.rpc("runs.submissions.poll", {
     limit: 5, cursor: changed.result.cursor
   });
