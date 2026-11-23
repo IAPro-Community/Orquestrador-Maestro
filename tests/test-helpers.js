@@ -62,7 +62,11 @@ function runInstaller(home, {
   if (skipSkillSync) args.push("--skip-skill-sync");
   if (nonInteractive) args.push("--non-interactive");
   if (only.length > 0) args.push("--only", only.join(","));
-  return spawnSync("bash", args, { encoding: "utf8", env, ...options });
+  return spawnSync("bash", args, {
+    encoding: "utf8",
+    env: { ...process.env, ...env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, ".codex") },
+    ...options,
+  });
 }
 
 function runVerifier(home, { directory = "scripts", skipToolProfiles = false, strict = false, env = process.env, ...options } = {}) {
@@ -82,7 +86,11 @@ function runVerifier(home, { directory = "scripts", skipToolProfiles = false, st
   const args = [path.join(ROOT, directory, "verify-install.sh"), "--home-path", home];
   if (skipToolProfiles) args.push("--skip-tool-profiles");
   if (strict) args.push("--strict");
-  return spawnSync("bash", args, { encoding: "utf8", env, ...options });
+  return spawnSync("bash", args, {
+    encoding: "utf8",
+    env: { ...process.env, ...env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, ".codex") },
+    ...options,
+  });
 }
 
 function runSkillSync(scriptPath, home, { only, apply = true, env = process.env, ...options } = {}) {
@@ -105,7 +113,11 @@ function runSkillSync(scriptPath, home, { only, apply = true, env = process.env,
   if (apply) args.push("--apply");
   args.push("--home-path", home);
   if (only) args.push("--only", only);
-  return spawnSync("bash", args, { encoding: "utf8", env, ...options });
+  return spawnSync("bash", args, {
+    encoding: "utf8",
+    env: { ...process.env, ...env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, ".codex") },
+    ...options,
+  });
 }
 
 module.exports = {

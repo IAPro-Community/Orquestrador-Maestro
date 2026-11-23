@@ -22,7 +22,13 @@ function cli(home, command, args = []) {
     cwd: ROOT,
     encoding: "utf8",
     timeout: 180000,
-    env: { ...process.env, ORQUESTRADOR_ALLOW_ROOT_INSTALL: "1" }
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      CODEX_HOME: path.join(home, ".codex"),
+      ORQUESTRADOR_ALLOW_ROOT_INSTALL: "1"
+    }
   });
 }
 
