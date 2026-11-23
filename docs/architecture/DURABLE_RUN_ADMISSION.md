@@ -10,7 +10,7 @@
 - Reserva de workspace: a submissão reserva atomicamente o worktree canônico do projeto + até 4 worktrees adicionais (`extraWorkspaceFingerprints`); os caminhos de despacho ficam em `workspacePaths` (operacional, fora do digest). O mesmo fingerprint **em qualquer projeto** não pode ter duas submissões simultâneas não terminais. Reservas `RECONCILIATION_REQUIRED` continuam bloqueando novos writes até houver reconciliação auditável.
 - O worker (`maestro runs worker`, `createSubmissionWorker`) recebe fencing token monotônico por lease. Status `CLAIMED` **não** significa provider iniciado. `DISPATCHED` exige Run `pending` já persistido no Maestro, Task do mesmo projeto e provider presente no plano aprovado. Multi-tarefa: um Run por tarefa (`taskRuns`), em ordem topológica; tarefa só executa com todas as dependências `completed`; descendentes de tarefa falhada são bloqueados sem efeitos externos; o agregado (`COMPLETED/FAILED/TIMED_OUT/BLOCKED`) é provado contra todos os Runs de tarefa persistidos. `MODEL_LOCK_DISPATCH_UNSUPPORTED` mantém v1 no modelo padrão do provider. Cancelamento de `PENDING_WORKER` é seguro e imediato; cancel de `CLAIMED/DISPATCHED` é **solicitação** ao worker. Cancel confirmável somente antes de qualquer dispatch; cancel tardio com resultados mistos permanece `CANCEL_REQUESTED` para revisão operacional (quarentena via reconciler), sem fabricar terminal.
 - Claim expirado vira `RECONCILIATION_REQUIRED`, nunca é redispatchado automaticamente: um processo pode ter realizado alterações externas antes do crash.
-- O Goal Loop corretivo (`assessGoalCorrection`) ainda não possui caller no runtime; execução é single-attempt por tarefa.
+- O Goal Loop corretivo (`assessGoalCorrection`) já possui caller em `submission-worker.js` via `assessSubmissionGoal` para submissões terminais (`COMPLETED`, `FAILED`, `BLOCKED`, `TIMED_OUT`). Essa avaliação é **read-only** e persiste decisão no RunStore; correções não são despachadas automaticamente e cada tarefa continua single-attempt.
 
 ## Invariantes e testes
 
@@ -18,10 +18,10 @@ Suítes: `runtime/runs/__tests__/executable-submission.test.js` (ACK durável, r
 
 ## Próxima fatia
 
-1. Goal Loop materializado no runtime: após terminal de tarefa, avaliar evidências, persistir decisão/receipt e re-admitir somente as tarefas afetadas dentro do orçamento.
+1. Goal Loop gerenciado e seguro: a avaliação/read-only já existe; falta aprovação bounded, contabilização de custo real, verificador por critério com revisão exata e re-admissão fenced somente de tarefas afetadas.
 2. Paralelismo por lane (worktrees independentes) no worker, mantendo o limite de concorrência configurável.
 3. Cursor de eventos replayável por submissão (hoje `runs.submissions.poll` é snapshot).
-4. Homologar em Linux amd64, Windows amd64 e macOS arm64; dois clientes e AGY→OpenCode reais, restart durante execução/approval, logs sanitizados e prova exact-SHA antes de habilitar o botão de execução no Nexus.
+4. Homologar em Linux amd64, Windows amd64 e macOS arm64; dois providers reais, dois clientes, restart durante execução/approval, logs sanitizados e prova exact-SHA antes de habilitar autonomia **no próprio Maestro**. Nenhum produto externo é requisito.
 
 Ref: [Maestro #48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48), [Nexus #185](https://github.com/IAPro-Community/nexus/issues/185).
 
