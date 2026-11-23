@@ -13,7 +13,8 @@ O `RunStore` contém as submissões, manifests, receipts de aprovação e Run ID
 - `orquestrador-maestro runs admissions --project-path /repo [--limit 100]`: status read-only.
 - `orquestrador-maestro runs reconcile --project-path /repo [--limit 100]`: inspeção dry-run de leases expirados.
 - `orquestrador-maestro runs reconcile --project-path /repo --apply`: quarentena atômica de claims expirados.
-- `orquestrador-maestro runs worker`: execução do consumidor persistente da fila; opções e instalação devem ser conferidas via `--help` da versão instalada.
+- `orquestrador-maestro runs worker [--project-path PATH] [--interval MS] [--concurrency N] [--once]`: execução do consumidor persistente da fila. Sem supervisão externa, o processo pode ser encerrado pelo sistema operacional; `--once` executa um único ciclo.
+- `orquestrador-maestro bridge --stdio --with-worker`: inicia o mesmo worker no processo do Bridge. O worker deixa de consumir a fila quando o Bridge termina.
 
 ## Distinção importante para Goals
 

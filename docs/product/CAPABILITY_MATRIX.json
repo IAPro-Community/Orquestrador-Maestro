@@ -409,6 +409,42 @@
       "notes": "Somente provider-failure pode acionar fallback; checkpoint é provider-neutral, bounded e preserva a mesma Task em Runs distintos. Fallback por ID usa o modelo default do provider salvo override explícito."
     },
     {
+      "id": "durable-run-admission",
+      "name": "Admissão durável de runs com worker e Goal Loop",
+      "category": "runtime",
+      "status": "experimental",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/runs/executable-submission.js",
+        "runtime/runs/submission-admission.js",
+        "runtime/runs/submission-worker.js",
+        "runtime/runs/submission-supervisor.js",
+        "runtime/runs/goal-loop-driver.js",
+        "runtime/runs/goal-loop-policy.js",
+        "runtime/runs/reconciliation.js",
+        "runtime/runs/workspace-authority.js",
+        "runtime/bridge/submission-status.js"
+      ],
+      "testEvidence": [
+        "runtime/runs/__tests__/executable-submission.test.js",
+        "runtime/runs/__tests__/submission-worker.test.js",
+        "runtime/runs/__tests__/submission-supervisor.test.js",
+        "runtime/runs/__tests__/application-submission-ports.test.js",
+        "runtime/runs/__tests__/goal-loop-driver.test.js",
+        "runtime/runs/__tests__/goal-loop-policy.test.js",
+        "runtime/runs/__tests__/manifest-admission.test.js",
+        "runtime/runs/__tests__/bridge-admission-gate.test.js",
+        "tests/cli-durable-worker-e2e.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/DURABLE_RUN_ADMISSION.md",
+        "docs/architecture/RUN_RECONCILIATION.md",
+        "docs/architecture/MAESTRO_INTEGRATION_API.md"
+      ],
+      "publicClaimAllowed": false,
+      "notes": "runs.submit = admissão durável (manifesto imutável + recibo autoverificável + ACK PENDING_WORKER); dispatch é do worker Maestro-owned (runs worker / bridge --with-worker) com lease/fencing, DAG topológico, um Run por tarefa e reserva atômica de até 5 worktrees. Goal Loop avalia COMPLETED/FAILED/BLOCKED/TIMED_OUT; PASS exige Resolution validada e evidência vinculada, e correção permanece bloqueada sem custo real medido. E2E usa provider shim: prova admissão, claim, dispatch, observação e reconciliação, não homologação. Suíte completa aprovada na CI pública para Linux, Windows e macOS; CLIs reais, macOS arm64, restart durante execução e dois clientes em hosts distintos permanecem pendentes. Limites completos em docs/architecture/DURABLE_RUN_ADMISSION.md; não habilitar autonomia por padrão."
+    },
+    {
       "id": "resolution-enforce",
       "name": "Resolution policy enforce",
       "category": "runtime",

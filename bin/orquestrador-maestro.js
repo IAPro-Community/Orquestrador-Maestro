@@ -98,6 +98,7 @@ Uso:
   orquestrador-maestro go [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
+  orquestrador-maestro runs worker [--project-path PATH] [--interval MS] [--concurrency N] [--once]
   orquestrador-maestro runs admissions [--project-path PATH] [--limit N]
   orquestrador-maestro runs reconcile [--project-path PATH] [--limit N] [--apply]
   orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
@@ -117,7 +118,7 @@ Uso:
   orquestrador-maestro skill-catalog <generate|check|validate>
   orquestrador-maestro providers list [--project-path PATH]
   orquestrador-maestro providers goals [--project-path PATH]
-  orquestrador-maestro bridge --stdio [--project-path PATH]
+  orquestrador-maestro bridge --stdio [--with-worker] [--project-path PATH]
   orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]

@@ -1,8 +1,9 @@
 # Maestro Integration API
 
-> Status: ativo na linha 1.0 Alpha. O contrato suportado é o protocolo v1 via
+> Status: ativo na linha V1 (1.1.x). O contrato suportado é o protocolo v1 via
 > `orquestrador-maestro bridge --stdio`. O daemon/socket e o protocolo v2 da
-> antiga linha `cli-novo` foram removidos.
+> antiga linha `cli-novo` foram removidos. A execução durável descrita abaixo é
+> experimental e depende de um worker Maestro-owned.
 
 `orquestrador-maestro bridge --stdio` expõe JSON-RPC 2.0 delimitado por linha.
 O método `initialize` negocia `PROTOCOL_VERSION=1`.
@@ -148,7 +149,9 @@ a proposta é fornecida pelo cliente e apenas validada pelo **motor Maestro**.
 Não declarar GO ou execução autorizada por `valid=true`. A geração canônica
 `project.compose`, sandbox de providers, controles de custo e persistência
 após aprovação seguem em [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
-Execução durável e Goal Loop continuam em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
+A admissão e a execução durável de um plano aprovado usam o contrato de
+[execução durável](DURABLE_RUN_ADMISSION.md); `plans.validate` em si continua
+sem autorizar dispatch.
 
 ## Memória semântica canônica — leitura com isolamento (Bridge v1)
 
@@ -233,9 +236,10 @@ a chamada falha, sem fallback para outro provider ou pacote genérico.
 
 `project.compose` **não** registra mission, executa Run, grava memória ou
 autoriza dispatch. A autoridade e a revisão ficam no Maestro; a UI do
-Nexus pode mostrar o preview e solicitar aprovação. Para execução durável
-e recuperação, ver [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48).
-Para suporte a outros providers e políticas de custo verificáveis, ver
+Nexus pode mostrar o preview e solicitar aprovação. Para transformar um plano
+revisado em submissão durável, use `runs.submit` conforme
+[execução durável](DURABLE_RUN_ADMISSION.md). Para suporte a outros providers
+e políticas de custo verificáveis, ver
 [#47](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/47).
 
 ## Plans.routePreview — roteamento multiagente sem executar
@@ -248,7 +252,7 @@ O Maestro confere: DAG, integridade do artifact, IDs, modelo, instalação/capab
 
 A resposta contém `ready`, `previewOnly=true`, `executable=false`, `approvalRequired=true`, o plano já verificado, atribuições selecionadas com estado `READY_FOR_REVIEW` ou `BLOCKED` e `blockers` específicos (ausência de provider, sandbox incompatível, worktree compartilhado). **Nenhum provider é substituído automaticamente**: AGY ausente não vira Codex; OpenCode indisponível não vira Claude. A ausência de provider bloqueia sua tarefa mas não apaga a seleção das outras.
 
-Isso **não é um scheduler, um GO ou uma autorização real para alterar arquivos**. O método não chama `execute` de adapters, não salva missões ou runs, não fornece leases/reconnect. A execução em paralelo durável permanece dependente de [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48) e [#53](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/53).
+Isso **não é um scheduler, um GO ou uma autorização real para alterar arquivos**. O método não chama `execute` de adapters, não salva missões ou runs, não fornece leases/reconnect. A admissão e a execução durável de planos aprovados usam `runs.submit` + worker, descritos em [execução durável](DURABLE_RUN_ADMISSION.md). O preview não habilita esse caminho e o paralelismo por lane de worktrees continua pendente em [#53](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/53).
 
 ## Run observation — polling de eventos sanitizados (não é subscribe)
 
@@ -258,41 +262,71 @@ Requisição: `{ "runId":"run-123", "afterEventId":"ev-123"?, "limit":50? }`, li
 
 O Bridge valida que o Run e o Task pertencem ao Project com `realpath` igual ao root do processo. Runs inexistentes ou de outro projeto retornam `null`. Um cursor expirado ou inexistente falha fechado; o cliente deve recarregar o snapshot. O resultado não promete paginação entre snapshots atômicos nem que todos os eventos anteriores sejam reconstituíveis. O runtime mantém saída bruta **somente efêmera**, por privacidade.
 
-**Limites importantes:** `runs.observe` é apenas uma projeção de leitura. Não cria/reativa jobs, não dá ACK assíncrono, não administra leases, não corrige estados órfãos e não equivale a `runs.subscribe`. Um produto pronto ainda exige daemon/worker supervisor, fencing, idempotência, cursor/epoch e restart/reconnect validados em [#48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48). Enquanto esses gates faltarem, o Nexus deve tratar a API como consulta diagnóstica e nunca como prova de execução durável.
+**Limites importantes:** `runs.observe` é apenas uma projeção de leitura. Não cria/reativa jobs, não dá ACK assíncrono, não administra leases, não corrige estados órfãos e não equivale a `runs.subscribe`. A admissão e o dispatch durável existem em `runs.submit` + worker, mas `runs.observe` continua sendo consulta diagnóstica de um Run já criado. Para estado da submissão, use `runs.submissions.poll`; ele é snapshot, não stream replayável.
 
 ### Compatibilidade de subscriptions (fail-closed)
 
-O Bridge stdio v1 **não** implementa push de eventos duráveis. Portanto `initialize.capabilities.subscriptions=false` e `events.subscribe` devolve erro `-32601`, em vez de reconhecer uma subscription fictícia. Clientes legados que interpretavam `subscribed:true` como fluxo ativo precisam usar `runs.observe` para polling de lifecycle, sem raw output, ou aguardar a API de worker/event stream real de #48. Isso é uma correção de contrato, não uma implementação de subscribe.
+O Bridge stdio v1 **não** implementa push de eventos duráveis. Portanto `initialize.capabilities.subscriptions=false` e `events.subscribe` devolve erro `-32601`, em vez de reconhecer uma subscription fictícia. Clientes legados que interpretavam `subscribed:true` como fluxo ativo precisam usar `runs.observe` para polling de lifecycle, sem raw output, ou `runs.submissions.poll` para o estado da submissão. Isso é uma correção de contrato, não uma implementação de subscribe.
 
-## Run submissions — cancelamento de admissão (sem habilitar dispatch)
+## Run submissions — admissão durável, status e cancelamento
 
-O Bridge v1 pode anunciar `initialize.capabilities.runsSubmissionsRead=true`
-quando o RunStore canônico disponibiliza `listRunSubmissions`. O método
-`runs.submissions.get` recebe `{ "submissionId": "submission-..." }`
+O Bridge v1 pode anunciar estas capabilities independentes:
+
+- `runsSubmissionsRead=true` quando o RunStore oferece `listRunSubmissions`.
+- `runsSubmissionsPoll=true` quando há ledger, `getRunSubmission` e projetos.
+- `runsSubmissionsCancel=true` quando existe `requestRunSubmissionCancellation`.
+- `runsSubmit=true` quando o contrato completo de admissão existe: manifesto
+  imutável, recibo de aprovação, tasks, store e ledger.
+
+`runsSubmit=true` anuncia **admissão**, não execução. O ACK devolve
+`PENDING_WORKER`; um worker Maestro-owned precisa reivindicar a submissão para
+criar Runs e chamar providers. Use `bridge --stdio --with-worker` ou
+`orquestrador-maestro runs worker`. Sem worker ativo, a submissão permanece
+durável e observável em `PENDING_WORKER`. A capability não depende de o Bridge
+ter sido iniciado com `--with-worker`.
+
+O método `runs.submit` recebe `clientKey`, `artifact`, `approvedModelUse`,
+`plan`, `assignments`, `approval` e `budget` opcional. A resposta inclui
+`schemaVersion`, `submissionId`, `requestDigest`, `manifestId`,
+`manifestDigest`, `approvalDigest`, `status`, `replayed`,
+`workspaceFingerprint`, `branch` e `headCommit`. A mesma `clientKey` com o
+mesmo request digest é replay idempotente; qualquer mudança de escopo falha
+com conflito. O contrato completo, limites e exemplo de requisição estão em
+[execução durável](DURABLE_RUN_ADMISSION.md).
+
+### Leitura e polling
+
+O método `runs.submissions.get` recebe `{ "submissionId": "submission-..." }`
 e projeta apenas metadados operacionais sanitizados. A identidade do projeto
 vem exclusivamente do root físico vinculado ao processo Bridge: IDs pertencentes
 a outros projetos retornam `null`, sem revelar existência.
 
-A capability aditiva `initialize.capabilities.runsSubmissionsCancel=true`
-depende de `requestRunSubmissionCancellation` no RunStore. O método
-`runs.submissions.cancel` recebe exclusivamente `submissionId`; não aceita
-`projectId`, caminhos, tokens, requests de approval nem provider substituto.
+`runs.submissions.list` aceita `limit` de 1 a 100. `runs.submissions.poll`
+aceita `cursor`, `limit` e `offset`, retorna `delivery:"SNAPSHOT_POLL"`,
+`replayable:false`, `changed`, `nextOffset` e a página de submissões. O cursor
+é estável entre reinícios porque o RunStore é canônico; ele não é um stream de
+eventos e não garante replay de eventos individuais.
+
+### Cancelamento
+
+O método `runs.submissions.cancel` recebe exclusivamente `submissionId`; não
+aceita `projectId`, caminhos, tokens, requests de approval nem provider
+substituto.
 
 - `PENDING_WORKER` transita de forma atômica para `CANCELLED`: não houve
   dispatch e o workspace pode ser liberado pela política do RunStore.
-- `CLAIMED` ou `DISPATCHED` passam a `CANCEL_REQUESTED`: isso solicita
-  interrupção ao worker, **não** afirma cancelamento efetivo. Os efeitos
-  externos podem já ter ocorrido, e a confirmação exige Run/receipt real.
+- `CLAIMED`, `DISPATCHED` ou `CANCEL_REQUESTED` passam ou permanecem em
+  `CANCEL_REQUESTED`: isso solicita interrupção ao worker, **não** afirma
+  cancelamento efetivo. Os efeitos externos podem já ter ocorrido.
+- Cancelamento tardio com resultados mistos permanece não terminal para
+  revisão operacional; o Maestro não fabrica `CANCELLED`.
 - Repetições retornam a mesma identidade e estado do registro atual; nenhuma
   operação cancela submissões de outro projeto, mesmo com ID conhecido.
-- O método não cria um Run, não fornece heartbeat/daemon, não subscreve eventos
-  e não autoriza execução. `runsSubmit` **permanece false** até a implementação
-  completa do supervisor persistente da issue #48.
 
 Para dois clientes locais apontando para o mesmo RunStore, as mudanças são
-persistidas pelo lock canônico multiprocesso; sem um worker real, esse contrato
-oferece cancelamento da admissão e sinalização segura, não abort remoto do
-processo de um provider.
+persistidas pelo lock canônico multiprocesso. O cancelamento não mata
+diretamente um processo de provider; ele sinaliza o worker, que aplica o
+fencing e decide o estado final conforme o resultado real.
 
 ### Campo opcional `usage` nas projeções de submissão
 

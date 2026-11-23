@@ -38,6 +38,6 @@ git diff -- .
 - Mantenedores ou agentes explicitamente autorizados podem integrar diretamente em `v1`, com commits pequenos, testes relevantes e evidência no SHA. Não criar branches internas nem PRs sucessivos apenas para continuar a mesma tarefa.
 - Contribuições externas chegam por fork e pull request para `v1`, conforme [CONTRIBUTING.md](CONTRIBUTING.md).
 - Antes de integrar, sincronize com o estado atual da branch; não faça force push nem sobrescreva mudanças de terceiros.
-- Estar na branch não prova homologação: `runs.submit` permanece desabilitado até execução durável E2E verificada.
+- Estar na branch não prova homologação: a admissão durável está implementada e coberta por E2E com provider shim, mas não homologada para providers reais. Não habilite autonomia por padrão nem trate o ACK como prova de execução.
 - A publicação npm depende de versionamento e gates próprios, não apenas de commits em `v1`.
 - Em `.github/workflows/`, use SHA completo de 40 caracteres em toda referência `uses:` e anote a versão correspondente. O GitHub rejeita refs de Actions por tag neste repositório; confirme SHA e versão no repositório oficial antes de editar.

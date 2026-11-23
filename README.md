@@ -342,6 +342,22 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 
 **Próximo passo:** [inspecione a evidência gerada](docs/benchmark.md#evidence) antes de transformar qualquer número em claim.
 
+## Execução durável de planos
+
+O Bridge v1 aceita a admissão durável de um plano revisado com `runs.submit`. A chamada persiste um manifesto imutável, um recibo de aprovação e um ACK idempotente; ela **não** inicia um provider. O dispatch pertence a um worker Maestro-owned:
+
+```bash
+# worker no mesmo processo do Bridge
+orquestrador-maestro bridge --stdio --with-worker --project-path /repo
+
+# ou um worker separado, com lease e fencing
+orquestrador-maestro runs worker --project-path /repo --concurrency 1
+```
+
+Submissões recém-admitidas ficam em `PENDING_WORKER` até um worker reivindicá-las. O worker executa o DAG em ordem topológica, cria um Run por tarefa, bloqueia descendentes de tarefas falhadas e registra uma decisão do Goal Loop sem re-despachar automaticamente. O status pode ser observado por `runs.submissions.list/get/poll` e cancelado por `runs.submissions.cancel`.
+
+A superfície é **experimental**: o caminho está coberto por testes e E2E com provider shim, com suíte completa aprovada na CI pública para Linux, Windows e macOS. Continuam pendentes CLIs reais de provider, macOS arm64, restart durante execução e dois clientes em hosts distintos. Contrato completo, exemplos, status e lista de limites em [Execução durável de Runs](docs/architecture/DURABLE_RUN_ADMISSION.md).
+
 ## Guias técnicos
 
 | Se você quer… | Comece aqui |
@@ -350,6 +366,7 @@ Para preparar o ambiente e executar uma comparação, siga o [quick start do ben
 | Entender o método | [Guia operacional para IAs](docs/ai-agent-operating-guide.md) · [referência técnica](docs/orquestrador-reference.md) |
 | Reduzir custo de contexto | [Economia de contexto](docs/context-economy.md) |
 | Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) · [Resolution Engine](docs/maestro-resolution-engine.md) |
+| Executar planos com admissão durável | [Execução durável de Runs](docs/architecture/DURABLE_RUN_ADMISSION.md) · [reconciliação](docs/architecture/RUN_RECONCILIATION.md) |
 | Avaliar a evolução para Harness Orchestrator | [ADR e arquitetura](docs/architecture/ADR_0068_HARNESS_ORCHESTRATOR.md) · [auditoria #67](docs/architecture/HARNESS_AUDIT_ISSUE_67.md) · [benchmark open-source](docs/research/HARNESS_ORCHESTRATOR_BENCHMARK_2026.md) |
 | Avaliar privacidade | [Modelo de privacidade](docs/privacy-model.md) |
 | Retomar tarefas longas | [Workflows](docs/workflows.md) · [contratos](docs/task-and-workspace-contracts.md) |

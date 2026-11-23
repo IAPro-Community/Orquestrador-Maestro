@@ -12,6 +12,8 @@ Escolha o ponto de entrada conforme o que você quer fazer:
 | Organizar um projeto | [Hierarquia DEV](project-dev-hierarchy.md) |
 | Retomar tarefas longas | [Workflows](workflows.md) |
 | Garantir qualidade | [Engenharia guiada](engineering-quality.md) |
+| Executar planos com admissão durável | [Execução durável de Runs](architecture/DURABLE_RUN_ADMISSION.md) |
+| Diagnosticar leases e reconciliação | [Reconciliação de Runs](architecture/RUN_RECONCILIATION.md) |
 | Medir resultados | [Benchmark](benchmark.md) |
 | Evoluir o runtime com orçamento e review por risco | [Evolução controlada](maestro/controlled-evolution.md) |
 | Conferir privacidade | [Modelo de privacidade](privacy-model.md) |

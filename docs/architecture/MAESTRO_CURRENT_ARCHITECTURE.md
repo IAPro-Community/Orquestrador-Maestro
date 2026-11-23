@@ -20,6 +20,7 @@ CLI
  ├─ DEV helpers and context brief
  ├─ changelog and telemetry
  ├─ runtime, bridge, providers, runs, and verification
+ ├─ durable run admission, worker, reconciliation and Goal Loop
  └─ packaged Orquestrador content
       ├─ rules and persistence contract
       ├─ skills registry and synchronizer
@@ -33,6 +34,8 @@ CLI
 `SKILLS_ROUTER.json`, aliases, chains, and execution profiles guide agents toward a compact set of skills. `SKILLS_MANIFEST.json` is the managed canonical registry, while `sync-skills` mirrors only approved compact content into native roots. Community and Codex catalogs are kept in the Orquestrador library rather than copied wholesale into native scanned directories.
 
 `WORKFLOW_SCHEMAS.json` remains declarative and opt-in. The runtime executes approved local runs through provider adapters and persists lifecycle evidence without replacing the human-readable DEV memory.
+
+Durable execution is an experimental additive path. `runs.submit` admits a reviewed plan as an immutable manifest plus a self-verifying approval receipt and returns an idempotent `PENDING_WORKER` ACK. A Maestro-owned worker (`runs worker` or `bridge --with-worker`) claims the submission with lease/fencing, creates one Run per task, dispatches in topological order and records Goal Loop decisions for terminal submissions. The Bridge never executes a provider by itself. The full suite passed in public CI for Linux, Windows and macOS; real provider CLIs, macOS arm64 and restart during execution remain pending.
 
 ## Context and Persistence Today
 

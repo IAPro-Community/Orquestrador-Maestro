@@ -6,6 +6,17 @@
 **Issue de origem:** https://github.com/IAPro-Community/Orquestrador-Maestro/issues/67  
 **Teste histórico auditado:** https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45095130768 — conclusão **cancelled**, mas jobs Ubuntu/macOS **failure** antes do cancelamento. O status cancelado da execução não apaga falhas detectadas.
 
+## Estado atual (2026-11-23)
+
+Este documento é o snapshot da auditoria do baseline `dcf6631` e permanece como registro histórico. O que mudou desde então:
+
+- o E2E durável real existe e roda no CI: `tests/cli-durable-worker-e2e.test.js` cobre Bridge stdio, worker em processo separado, segundo cliente e reconciliação (`2165abb`, `1c3cb32`);
+- o defeito do heartbeat `unref()` apontado na matriz foi corrigido, e o E2E foi tornado seguro no Windows (`1c3cb32`);
+- a suíte completa passou na CI pública para Linux, Windows (Node 20 e 24) e macOS (Node 20 e 24) em `1c3cb32`;
+- a regressão de help registrada na seção “Bugs e riscos” está resolvida.
+
+Continuam válidos: CLIs reais de provider, macOS arm64, restart durante execução, dois clientes em hosts distintos e cursor replayável. O contrato vigente está em [DURABLE_RUN_ADMISSION.md](DURABLE_RUN_ADMISSION.md).
+
 ## Matriz requerida
 
 | Capacidade | Implementação atual | Evidência | Problema | Duplicação | Recomendação | Prioridade |

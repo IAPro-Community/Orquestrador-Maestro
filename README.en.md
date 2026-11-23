@@ -109,6 +109,17 @@ The detailed Skills documentation is currently in Portuguese:
 - [Recipes and combinations (PT)](docs/skills/recipes.md)
 - [Full generated reference (PT)](docs/skills/reference/README.md)
 
+## Durable plan execution (experimental)
+
+Bridge v1 can admit a reviewed plan with `runs.submit`. The call persists an immutable manifest, a self-verifying approval receipt and an idempotent ACK; it does **not** start a provider. A Maestro-owned worker owns dispatch:
+
+```bash
+orquestrador-maestro bridge --stdio --with-worker --project-path /repo
+orquestrador-maestro runs worker --project-path /repo --concurrency 1
+```
+
+Submissions stay `PENDING_WORKER` until a worker claims them. The worker runs the DAG in topological order, creates one Run per task, blocks descendants of failed tasks and records a Goal Loop decision without automatic re-dispatch. The full suite passed in public CI for Linux, Windows and macOS; real provider CLIs, macOS arm64, restart during execution and two clients on distinct hosts remain pending. See the full contract in Portuguese: [durable Run execution](docs/architecture/DURABLE_RUN_ADMISSION.md).
+
 
 ## Keep exploring
 
@@ -116,6 +127,7 @@ The detailed Skills documentation is currently in Portuguese:
 - [How agents work with Maestro](docs/ai-agent-operating-guide.md)
 - [Context economy](docs/context-economy.md)
 - [Engineering quality](docs/engineering-quality.md)
+- [Durable plan execution (PT)](docs/architecture/DURABLE_RUN_ADMISSION.md)
 - [Skills portal (detailed documentation in Portuguese)](docs/skills/README.md)
 - [Privacy model](docs/privacy-model.md)
 - [Full technical documentation](docs/)

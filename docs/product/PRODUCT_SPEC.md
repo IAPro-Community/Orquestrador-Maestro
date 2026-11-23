@@ -58,6 +58,8 @@ ORQUESTRADOR MAESTRO
 | Mission | Intenção de trabalho decomposta em tarefas | Runtime |
 | Task / TaskGraph | Unidade de trabalho e seu grafo de dependências | Runtime planner |
 | Run / Step / Execution | Execução rastreável de Task via provider | RunStore JSON v1 |
+| RunSubmission / ExecutableManifest / ApprovalReceipt | Admissão durável de um plano aprovado, com manifesto imutável, recibo autoverificável e ACK idempotente | RunStore (`runSubmissions`, `executableManifests`, `approvalReceipts`) |
+| GoalLoopDecision | Decisão auditável pós-terminal (`PASS`, `CORRECTIVE_REVIEW`, `BLOCKED_NEEDS_USER`) sem re-dispatch automático | RunStore (`goalLoopDecisions`) |
 | Provider | Adapter real de execução (`detect/capabilities/execute`) | `runtime/providers/` |
 | Agent | Processo de ferramenta executado pelo provider | efêmero |
 | Skill | Capacidade empacotada (`SKILL.md` + manifesto) | `orquestrador/skills` (catálogo canônico; contagem derivada do manifesto) |
@@ -77,7 +79,8 @@ ORQUESTRADOR MAESTRO
 
 ```text
 Intent → Mission → Context → Skills → Plan → Task Graph
-→ Resolution Contract → Execution → Verification → Review
+→ Resolution Contract → Durable Admission → Worker/DAG
+→ Execution → Verification → Review
 → Definition of Done → Validated Outcome → Evidence → Memory/Handoff
 ```
 
@@ -93,6 +96,21 @@ Git, observabilidade de uso, telemetria opt-in, benchmark com evidence gate,
 Maestro Resolution Engine, Validated Outcome, Proof Bundle, provider handoff
 e Bridge v1 por stdio.
 
+### Em avaliação (experimental, sem claim público)
+
+- **Admissão durável de Runs:** `runs.submit` persiste manifesto imutável,
+  recibo autoverificável e ACK `PENDING_WORKER`; um worker Maestro-owned executa
+  o DAG em ordem topológica, com fencing e um Run por tarefa.
+- **Goal Loop:** avalia `COMPLETED`, `FAILED`, `BLOCKED` e `TIMED_OUT`. `PASS`
+  exige Resolution validada e evidência vinculada; correções permanecem
+  bloqueadas sem custo real medido e nunca são re-despachadas automaticamente.
+- **Observação de submissões:** `runs.submissions.list/get/poll/cancel` com
+  escopo de projeto, redaction e `usage` medido opcional.
+
+O caminho tem testes automatizados e E2E com provider shim; a suíte completa
+passou na CI pública para Linux, Windows e macOS. A lista vigente de limites
+está em [Execução durável de Runs](../architecture/DURABLE_RUN_ADMISSION.md).
+
 ## 6. Limitações explícitas
 
 - Apenas os providers Runtime listados em `CAPABILITY_MATRIX.json`; demais ferramentas são contrato/integração, não execução.
@@ -102,3 +120,4 @@ e Bridge v1 por stdio.
 - Benchmark: claim público exige N≥20 pareados e condições de elegibilidade.
 - Resolution `enforce` não é modo normal de CLI: permanece bloqueado até evidência hard-validada, policy-bound e autorização explícita. `shadow` e `advisory` não alteram silenciosamente a seleção normal de contexto.
 - Bridge suportado na V1 usa somente JSON-RPC v1 por stdio; daemon/socket e protocolo visual v2 não fazem parte da release.
+- Execução durável (`runs.submit` + worker) é experimental: o E2E usa provider shim, não homologa CLIs reais e ainda não cobre macOS arm64, restart durante execução nem dois clientes em hosts distintos. Não habilitar autonomia por padrão. Limites completos em [Execução durável de Runs](../architecture/DURABLE_RUN_ADMISSION.md).
