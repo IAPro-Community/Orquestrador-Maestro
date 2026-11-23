@@ -80,7 +80,8 @@ class ContextEngine {
         kind: "FACT",
         confidence: 1,
         relevance: 1,
-        sources: [{ type: "package.json", path: "package.json" }]
+        sources: facts.projectNameSourcePath
+          ? [{ type: "package.json", path: facts.projectNameSourcePath }] : []
       });
     }
 
@@ -91,7 +92,21 @@ class ContextEngine {
         kind: "FACT",
         confidence: 1,
         relevance: 1,
-        sources: [{ type: "package.json", path: "package.json" }]
+        sources: facts.stackSourcePath
+          ? [{ type: "build-marker", path: facts.stackSourcePath }] : []
+      });
+    }
+
+    if (Array.isArray(facts.buildSignals) && facts.buildSignals.length > 0) {
+      items.push({
+        key: "project.buildSignals",
+        value: facts.buildSignals,
+        kind: "FACT",
+        confidence: 1,
+        relevance: 1,
+        sources: facts.buildSignals.map((entry) => ({
+          type: "build-marker", path: entry.path
+        }))
       });
     }
 
