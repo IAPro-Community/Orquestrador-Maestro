@@ -82,8 +82,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\new-canonical-skil
   -Description "Descreve quando esta capacidade deve ser usada" `
   -Category "general" `
   -Risk "low" `
-  -Capability "repo-analysis" `
-  -Output "analysis-report"
+  -Capability "documentation" `
+  -Output "documentation-update"
 ```
 
 Os valores acima são ilustrativos: escolha capabilities e outputs compatíveis com o contrato do projeto. Depois, valide o catálogo:
