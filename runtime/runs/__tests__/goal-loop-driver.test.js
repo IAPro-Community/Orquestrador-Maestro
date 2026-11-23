@@ -159,7 +159,7 @@ test("legacy numeric Goal decision usage stays readable while unknown is explici
 test("stale and foreign evidence never covers an approved Goal criterion", async () => {
   const planDigest = sha("bound-plan");
   const taskId = "grade-ui";
-  const storedTaskId = `exec-${planDigest.slice(0, 16)}-${taskId}`;
+  const approvedPlanTaskId = `exec-${planDigest.slice(0, 16)}-${taskId}`;
   const runId = "run-test-bound-01";
   const manifest = {
     planDigest, tasks: [{ taskId, dependsOn: [] }]
@@ -168,12 +168,16 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
     async getRun(id) {
       assert.equal(id, runId);
       return {
-        id, taskId: storedTaskId, status: "completed",
-        metadata: { resolution: { outcome: { state: "validated" } } }
+        id, taskId, status: "completed",
+        metadata: {
+          semanticTaskId: taskId,
+          semanticTask: { id: taskId, acceptanceCriteria: ["note range checked"] },
+          resolution: { outcome: { state: "validated" } }
+        }
       };
     },
     async getTask(id) {
-      assert.equal(id, storedTaskId);
+      assert.equal(id, approvedPlanTaskId);
       return { metadata: { semantic: {
         id: taskId, dependsOn: [], acceptanceCriteria: ["note range checked"]
       } } };
@@ -185,11 +189,11 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
       return [
         // All have matching semantic text; only the immutable Run/Task/
         // verification associations may count toward completion.
-        { runId: "run-from-old-revision", taskId: storedTaskId,
+        { runId: "run-from-old-revision", taskId,
           verificationId: "check-verified-01", acceptanceCriterion: "note range checked", content: "old proof" },
         { runId, taskId: "foreign-task",
           verificationId: "check-verified-01", acceptanceCriterion: "note range checked", content: "foreign proof" },
-        { runId, taskId: storedTaskId,
+        { runId, taskId,
           verificationId: "older-check", acceptanceCriterion: "note range checked", content: "old check" }
       ];
     }
@@ -200,4 +204,15 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
   });
   assert.deepEqual(results.get(taskId).evidence, []);
   assert.equal(results.get(taskId).resolutionState, "validated");
+  // A receipt with the exact *runtime* semantic Task ID is accepted;
+  // the namespaced approved-plan ID is only for immutable spec lookup.
+  store.listEvidence = async () => [{
+    runId, taskId, verificationId: "check-verified-01",
+    acceptanceCriterion: "note range checked", content: "independent proof"
+  }];
+  const correct = await collectTaskResults({
+    store, manifest, submission: { taskRuns: { [taskId]: runId } },
+    taskOutcomes: { [taskId]: "completed" }
+  });
+  assert.equal(correct.results.get(taskId).evidence.length, 1);
 });
