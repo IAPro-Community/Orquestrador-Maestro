@@ -374,6 +374,15 @@ A telemetria vem **desabilitada por padrão** (opt-in via `orquestrador-maestro 
 
 **[Instale em dois minutos](docs/installation.md)** para usar o mesmo processo nas suas ferramentas de IA. Depois, **[rode o benchmark](docs/benchmark.md#quick-start)** para ver os dados no seu ambiente. Encontrou algo que pode melhorar? **[Contribua](CONTRIBUTING.md)**.
 
+## Criação e evolução
+
+O Orquestrador Maestro foi criado por [Fernando Bolzan](https://github.com/FernandoBolzan). A evolução do projeto na IAPro Community conta com a colaboração de [Kiver Teixeira](https://github.com/kivervinicius).
+
+| Criação original | Evolução na IAPro Community |
+| :---: | :---: |
+| [<img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" alt="Foto de Fernando Bolzan no GitHub" width="88" height="88">](https://github.com/FernandoBolzan) | [<img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" alt="Foto de Kiver Teixeira no GitHub" width="88" height="88">](https://github.com/kivervinicius) |
+| **[Fernando Bolzan](https://github.com/FernandoBolzan)** | **[Kiver Teixeira](https://github.com/kivervinicius)** |
+
 ## Licença
 
 Consulte [LICENSE](LICENSE). Este projeto organiza o processo de trabalho; decisões, credenciais e efeitos externos continuam sob controle humano.
