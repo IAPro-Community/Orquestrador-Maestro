@@ -374,27 +374,24 @@ A telemetria vem **desabilitada por padrão** (opt-in via `orquestrador-maestro 
 
 **[Instale em dois minutos](docs/installation.md)** para usar o mesmo processo nas suas ferramentas de IA. Depois, **[rode o benchmark](docs/benchmark.md#quick-start)** para ver os dados no seu ambiente. Encontrou algo que pode melhorar? **[Contribua](CONTRIBUTING.md)**.
 
-## Pessoas por trás do Maestro
+## Contribuidores
 
-### Idealização
+O Orquestrador Maestro é resultado de ideias, desenvolvimento e melhorias compartilhadas ao longo do tempo. Nosso agradecimento a todas as pessoas que participam dessa construção.
 
-<a href="https://github.com/FernandoBolzan"><img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" width="72" height="72" alt="Foto de Fernando Bolzan no GitHub"></a>
+<p align="center">
+  <a href="https://github.com/FernandoBolzan"><img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" alt="Fernando Bolzan" width="72" height="72"></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" alt="Kiver Teixeira" width="72" height="72"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/FernandoBolzan">Fernando Bolzan</a> &nbsp;·&nbsp; <a href="https://github.com/kivervinicius">Kiver Teixeira</a>
+</p>
 
-**[Fernando Bolzan](https://github.com/FernandoBolzan)** — idealização e criação original do Orquestrador Maestro.
+<p align="center">
+  <a href="https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors">Ver contribuidores no GitHub</a> · <a href="CONTRIBUTING.md">Como contribuir</a>
+</p>
 
-### Liderança técnica e evolução do projeto
-
-<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="88" height="88" alt="Foto de Kiver Teixeira no GitHub"></a>
-
-**[Kiver Teixeira](https://github.com/kivervinicius)** — **liderança técnica e principal responsável pela evolução do Maestro**, incluindo o desenvolvimento da maior parte das novas funcionalidades e melhorias introduzidas nas versões recentes.
-
-### Comunidade e contribuidores
-
-O Maestro é aberto à participação de outras pessoas. As contribuições em código, documentação, testes, discussões e revisões ajudam a ampliar e manter o projeto.
-
-**[Veja os contribuidores no GitHub](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors)** · **[Saiba como contribuir](CONTRIBUTING.md)**
-
-O GitHub atualiza automaticamente a relação de autores de commits. Essa lista não substitui o reconhecimento de contribuições feitas por outros meios, nem limita futuros destaques no projeto.
+O projeto está aberto a novas contribuições, seja com código, documentação, testes, revisões ou ideias.
 
 ## Licença
 
