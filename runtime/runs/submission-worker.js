@@ -78,11 +78,12 @@ function createSubmissionWorker({
         runId: value.runId || null,
         taskOutcomes: value.taskOutcomes || null
       };
-      // Read-only Goal Loop assessment over every non-PASS terminal. It
-      // persists a durable decision; corrective dispatch always requires a
-      // fresh human-approved runs.submit within the approved budget.
+      // A submission COMPLETED means only that the provider's Run(s)
+      // finished. It NEVER proves a Goal was validated. Assess successful
+      // as well as failed terminals through canonical verification/resolution.
+      // Still read-only: no unattended correction is authorized by this step.
       if (goalLoop && outcome.submissionId &&
-          ["FAILED", "BLOCKED", "TIMED_OUT"].includes(outcome.submissionStatus)) {
+          ["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT"].includes(outcome.submissionStatus)) {
         try {
           const assessment = await assessSubmissionGoal({ store, submissionId: outcome.submissionId });
           outcome.goalLoop = {
