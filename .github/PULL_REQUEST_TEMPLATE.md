@@ -18,4 +18,4 @@ Compatibilidade, instalação, privacidade, migração, rollback e riscos restan
 - [ ] Sem credenciais, dados privados ou materiais de terceiros não licenciados.
 - [ ] Sem afirmações de benchmark ou homologação sem evidências.
 
-Veja [CONTRIBUTING.md](../CONTRIBUTING.md) e [SECURITY.md](../SECURITY.md).
+Veja [CONTRIBUTING.md](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/CONTRIBUTING.md) e [SECURITY.md](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/SECURITY.md).
