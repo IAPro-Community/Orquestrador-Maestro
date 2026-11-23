@@ -179,3 +179,27 @@ test("supervisor cancellation reaches the real application port and provider exa
   assert.equal(settled.submission.status, "CANCELLED");
   assert.equal((await f.store.getRun(settled.runId)).status, "cancelled");
 });
+
+test("exit-zero provider cannot bypass a failing inferred project test", async (t) => {
+  const f = await fixture(t);
+  // This package.json is an approved project file at dispatch time, not a
+  // provider-authored command. The checker is inferred from the allowlist.
+  fs.writeFileSync(path.join(f.projectRoot, "package.json"), JSON.stringify({
+    private: true, scripts: { test: "node -e \"process.exit(1)\"" }
+  }));
+  git(f.projectRoot, "add", "package.json");
+  git(f.projectRoot, "commit", "-qm", "add failing project check");
+  // The immutable manifest is bound to the earlier HEAD; first prove that
+  // drift cannot dispatch. A fresh admission is needed for a changed HEAD.
+  const stalePorts = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  await assert.rejects(stalePorts.prepareRun({
+    submission: f.submission, signal: new AbortController().signal
+  }), { code: "MANIFEST_WORKSPACE_CHANGED" });
+  assert.equal(f.provider.calls, 0);
+});
