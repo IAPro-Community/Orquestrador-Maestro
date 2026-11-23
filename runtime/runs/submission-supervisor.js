@@ -111,7 +111,10 @@ async function superviseSubmissionOnce({
       if (!controller.signal.aborted) controller.abort(err);
     }).finally(() => { heartbeatBusy = false; });
   }, heartbeatMs);
-  heartbeat.unref?.();
+  // Keep the lease/cancellation monitor alive while a provider Run is pending.
+  // With unref(), the only active operation may be a provider Promise and the
+  // process can exit before CANCEL_REQUESTED is observed (CI #45095130768).
+  // The interval is always cleared in finally; it cannot leak post-Run.
 
   async function cancelBeforeDispatch(preparedRunId) {
     const row = await store.getRunSubmission(submissionId);
