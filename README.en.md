@@ -124,12 +124,22 @@ The detailed Skills documentation is currently in Portuguese:
 
 **[Install Maestro](docs/installation.md)**, then **[run the benchmark](docs/benchmark.md#quick-start)** in your environment. Improvements are welcome through [contributions](CONTRIBUTING.md).
 
-## Creation and ongoing development
+## People behind Maestro
 
-Orquestrador Maestro was created by [Fernando Bolzan](https://github.com/FernandoBolzan). Its ongoing development in the IAPro Community includes contributions from [Kiver Teixeira](https://github.com/kivervinicius).
+### Original concept
 
-| Original creator | IAPro Community development |
-| :---: | :---: |
-| [<img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" alt="Fernando Bolzan's GitHub profile photo" width="88" height="88">](https://github.com/FernandoBolzan) | [<img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" alt="Kiver Teixeira's GitHub profile photo" width="88" height="88">](https://github.com/kivervinicius) |
-| **[Fernando Bolzan](https://github.com/FernandoBolzan)** | **[Kiver Teixeira](https://github.com/kivervinicius)** |
+<a href="https://github.com/FernandoBolzan"><img src="https://avatars.githubusercontent.com/u/160259741?s=112&v=4" width="72" height="72" alt="Fernando Bolzan's GitHub profile photo"></a>
 
+**[Fernando Bolzan](https://github.com/FernandoBolzan)** — original concept and creation of Orquestrador Maestro.
+
+### Development and community
+
+Maestro welcomes contributions from more people. Its code, documentation and integrations evolve through community collaboration, without limiting recognition to a fixed team.
+
+<a href="https://github.com/kivervinicius"><img src="https://avatars.githubusercontent.com/u/4115328?s=112&v=4" width="72" height="72" alt="Kiver Teixeira's GitHub profile photo"></a>
+
+**[Kiver Teixeira](https://github.com/kivervinicius)** — collaboration on the project's development and evolution.
+
+**[View GitHub contributors](https://github.com/IAPro-Community/Orquestrador-Maestro/graphs/contributors)** · **[How to contribute](CONTRIBUTING.md)**
+
+GitHub maintains the commit-contributor list as more people contribute. Documentation, discussions and code reviews are welcome contributions too.
