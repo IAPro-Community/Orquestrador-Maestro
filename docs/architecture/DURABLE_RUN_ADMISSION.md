@@ -62,6 +62,8 @@ Limites dos comandos:
 - `--concurrency` aceita de `1` a `8`; o padrão é `1`.
 - `--once` executa um passo de polling e encerra.
 
+A recuperação de avaliações terminais ausentes é feita em lotes limitados pelo worker: ela somente persiste decisões de Goal faltantes, sem reivindicar ou redespachar providers. Falhas de supervisão e avaliação são reportadas em diagnósticos sanitizados; erros repetidos não eliminam a pausa de polling. Ao encerrar o stdin do Bridge, o consumidor deixa de adquirir trabalho e drena o processamento em andamento. Isso não equivale a cancelar providers ou garantir sobrevivência após crash.
+
 O worker não é supervisionado pelo sistema operacional. `bridge --with-worker` mantém o worker vivo apenas enquanto o processo do Bridge estiver vivo; `runs worker` precisa ser mantido por um supervisor externo se o uso for contínuo.
 
 ## Capability `runsSubmit`
