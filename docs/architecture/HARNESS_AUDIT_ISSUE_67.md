@@ -15,7 +15,7 @@ Este documento é o snapshot da auditoria do baseline `dcf6631` e permanece como
 - a suíte completa passou na CI pública para Linux, Windows (Node 20 e 24) e macOS (Node 20 e 24) em `1c3cb32`;
 - a regressão de help registrada na seção “Bugs e riscos” está resolvida.
 
-Continuam válidos: CLIs reais de provider, macOS arm64, restart durante execução, dois clientes em hosts distintos e cursor replayável. O contrato vigente está em [DURABLE_RUN_ADMISSION.md](DURABLE_RUN_ADMISSION.md).
+Continuam válidos: CLIs reais de provider, macOS arm64, restart durante execução, dois clientes em hosts distintos, cursor replayável e paralelismo por lane. O contrato vigente está em [DURABLE_RUN_ADMISSION.md](DURABLE_RUN_ADMISSION.md).
 
 ## Matriz requerida
 

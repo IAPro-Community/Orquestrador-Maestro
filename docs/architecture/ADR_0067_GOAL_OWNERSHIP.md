@@ -4,6 +4,16 @@
 **Issue:** [#67](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/67)  
 **Baseline auditado:** branch `v1`, commit `f9a93336167cc0449ac1672c6f00784494343dbb`; revalidar HEAD antes de cada fase.
 
+## Estado atual
+
+Este ADR conserva o inventário do baseline histórico indicado acima. Desde então,
+a inferência de verificadores voltou ao caminho durável, o Goal Loop foi ligado
+ao worker e o custo não medido é representado por `null`, não por zero.
+As decisões terminais são imutáveis; correção e Native Goal headless continuam
+bloqueados. A lista canônica de limites e a evidência atual estão em
+[Execução durável de Runs](DURABLE_RUN_ADMISSION.md). Os testes novos de hardening
+não constituem homologação com providers reais.
+
 ## Inventário comprovado
 
 | Tema | Situação | Evidência |

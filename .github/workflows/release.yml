@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: npm-release-publication
   cancel-in-progress: false
 
 jobs:
@@ -40,11 +40,13 @@ jobs:
 
       - name: Validate tag and package version
         shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            tag="${{ inputs.tag }}"
+            tag="$REQUESTED_TAG"
           fi
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
           version="${tag#v}"
@@ -52,7 +54,21 @@ jobs:
           lock_version="$(node -p "require('./package-lock.json').version")"
           [[ "$package_version" == "$version" ]]
           [[ "$lock_version" == "$version" ]]
-          grep -qE "^## ${version}([ -]|$)" CHANGELOG.md
+          EXPECTED_VERSION="$version" node <<'NODE'
+          const fs = require('node:fs');
+          const version = process.env.EXPECTED_VERSION;
+          const read = p => JSON.parse(fs.readFileSync(p, 'utf8'));
+          const values = [
+            read('package-lock.json').packages[''].version,
+            read('plugins/maestro-openai/plugin.json').version,
+            read('plugins/maestro-openai/.codex-plugin/plugin.json').version,
+            read('docs/product/CAPABILITY_MATRIX.json').product.packageVersion,
+            /^PACKAGE_VERSION="([^"]+)"/m.exec(fs.readFileSync('scripts/bootstrap-install.sh', 'utf8'))?.[1],
+            /^\$packageVersion = "([^"]+)"/m.exec(fs.readFileSync('scripts/bootstrap-install.ps1', 'utf8'))?.[1]
+          ];
+          if (values.some(value => value !== version)) throw new Error('Release manifest version mismatch');
+          if (!fs.readFileSync('CHANGELOG.md', 'utf8').split(/\r?\n/).some(line => line === '## '+version || line.startsWith('## '+version+' '))) throw new Error('Missing changelog heading');
+          NODE
 
       - name: Verify release is ancestor of its release line
         id: release
@@ -217,23 +233,77 @@ jobs:
               return 1
             fi
           }
-          if published_integrity="$(npm view "$package@$version" dist.integrity --json 2>/dev/null)"; then
-            # npm 12 wraps field queries in an array; older CLIs return a scalar.
-            published_integrity="$(node -e "let value=JSON.parse(process.argv[1]); if(Array.isArray(value)&&value.length===1)value=value[0]; if(typeof value!=='string')throw new Error('Invalid registry integrity response'); process.stdout.write(value)" "$published_integrity")"
-            artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64'))" "./$TARBALL")"
-            if [[ "$published_integrity" != "$artifact_integrity" ]]; then
-              echo "ERROR: Existing npm version differs from the validated artifact."
-              exit 1
-            fi
-            echo "Validated artifact already published; resuming dist-tag updates."
-            update_dist_tag "$dist_tag"
+          artifact_integrity="$(node -e "const fs=require('node:fs'),crypto=require('node:crypto'); console.log('sha512-'+crypto.createHash('sha512').update(fs.readFileSync(process.argv[1])).digest('base64'))" "./$TARBALL")"
+          registry_value() {
+            node -e "let value=JSON.parse(process.argv[1]); if(Array.isArray(value)&&value.length===1)value=value[0]; if(typeof value!=='string')throw new Error('Invalid registry response'); process.stdout.write(value)" "$1"
+          }
+          # A failed registry request is not proof that a version is absent.
+          err_file="$(mktemp)"
+          if published_integrity="$(npm view "$package@$version" dist.integrity --json --prefer-online 2>"$err_file")"; then
+            published_integrity="$(registry_value "$published_integrity")"
+            [[ "$published_integrity" == "$artifact_integrity" ]] || { echo "Existing version differs from validated artifact"; exit 1; }
+          elif grep -qE 'E404|No match found for version' "$err_file"; then
+            publish_tag="$dist_tag"
+            if [[ "$dist_tag" == latest ]]; then publish_tag=staged; fi
+            npm publish "./$TARBALL" --ignore-scripts --access public --tag "$publish_tag"
           else
-            npm publish "./$TARBALL" --access public --tag "$dist_tag"
+            echo "Registry lookup failed; refusing to publish."
+            exit 1
           fi
-          # Let existing V1 beta CLIs graduate through their normal update
-          # command. Future beta releases may move this tag again.
+          rm -f "$err_file"
+
+          # Registry propagation can lag behind successful npm publish. Never
+          # publish twice; confirm exact integrity and retrieve the same bytes.
+          deadline=$((SECONDS + 1200))
+          delay=5
+          while true; do
+            if raw="$(npm view "$package@$version" dist.integrity --json --prefer-online 2>/dev/null)" &&
+               actual="$(registry_value "$raw" 2>/dev/null)"; then
+              [[ "$actual" == "$artifact_integrity" ]] || { echo "Registry integrity mismatch"; exit 1; }
+              break
+            fi
+            (( SECONDS < deadline )) || { echo "Timed out waiting for npm registry visibility"; exit 1; }
+            sleep "$delay"
+            delay=$((delay < 30 ? delay * 2 : 30))
+          done
+          registry_dir="$(mktemp -d)"
+          trap 'rm -rf "$registry_dir"' EXIT
+          while ! npm pack "$package@$version" --prefer-online --pack-destination "$registry_dir" >/dev/null 2>&1; do
+            (( SECONDS < deadline )) || { echo "Timed out fetching registry tarball"; exit 1; }
+            sleep 15
+          done
+          test "$(sha256sum "$registry_dir/$TARBALL" | awk '{print $1}')" = "$(cat package.sha256)"
+          # Do not run package lifecycle scripts in a job holding publishing credentials.
+          env -u NODE_AUTH_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN npm install --ignore-scripts --global --prefix "$registry_dir/install" "$registry_dir/$TARBALL"
+          test "$(env -u NODE_AUTH_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN "$registry_dir/install/bin/orquestrador-maestro" --version)" = "$version"
+
+          # Do not promote an older stable release over a newer stable release.
+          if [[ "$dist_tag" == latest ]]; then
+            current_latest="$(npm view "$package" dist-tags.latest --prefer-online)"
+            node -e 'const [current,next]=process.argv.slice(1); if(!/^\d+\.\d+\.\d+$/.test(current)||!/^\d+\.\d+\.\d+$/.test(next))process.exit(1);const a=current.split(".").map(Number),b=next.split(".").map(Number);for(let i=0;i<3;i++){if(a[i]>b[i])process.exit(1);if(a[i]<b[i])break;}' "$current_latest" "$version"
+          fi
+          update_dist_tag "$dist_tag"
+          confirm_tag() {
+            local tag_name="$1" deadline=$((SECONDS + 1200)) current
+            while true; do
+              current="$(npm view "$package" "dist-tags.$tag_name" --prefer-online 2>/dev/null || true)"
+              [[ "$current" == "$version" ]] && return 0
+              (( SECONDS < deadline )) || { echo "Timed out confirming dist-tag $tag_name"; return 1; }
+              sleep 15
+            done
+          }
+          confirm_tag "$dist_tag"
+          # Graduate RC users only if next still targets this release line.
+          if [[ "$dist_tag" == latest ]]; then
+            next_version="$(npm view "$package" dist-tags.next --prefer-online)"
+            if [[ "$next_version" == "$version"-rc.* ]]; then
+              update_dist_tag next
+              confirm_tag next
+            fi
+          fi
           if [[ "$version" == "1.0.0" ]]; then
             update_dist_tag beta
+            confirm_tag beta
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -231,13 +231,34 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
 
 test("terminal Goal decisions replay identically across concurrent assessments and later state changes", async (t) => {
   const { store, ack, worker } = await failedSubmissionFixture(t, { budget: { maxCostUSD: 5 } });
-  await worker.step();
-  const first = await assessSubmissionGoal({ store, submissionId: ack.submissionId });
+  const save = store.saveGoalLoopDecision.bind(store);
+  store.saveGoalLoopDecision = async () => { throw new Error("assessment interrupted"); };
+  const execution = await worker.step();
+  assert.equal(execution.outcomes[0].goalLoop.decision, "ASSESSMENT_ERROR");
+  store.saveGoalLoopDecision = save;
+  assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 0);
   const competingStore = new JsonFileRunStore({ filePath: store.filePath });
+  const competingSave = competingStore.saveGoalLoopDecision.bind(competingStore);
+  let arrivals = 0;
+  let release;
+  const barrier = new Promise((resolve) => { release = resolve; });
+  function synchronize(saveDecision) {
+    return async (record) => {
+      if (++arrivals === 2) release();
+      await barrier;
+      return saveDecision(record);
+    };
+  }
+  store.saveGoalLoopDecision = synchronize(save);
+  competingStore.saveGoalLoopDecision = synchronize(competingSave);
   const concurrent = await Promise.all([
     assessSubmissionGoal({ store, submissionId: ack.submissionId, now: new Date("2030-01-01T00:00:00Z") }),
     assessSubmissionGoal({ store: competingStore, submissionId: ack.submissionId })
   ]);
+  assert.equal(arrivals, 2);
+  store.saveGoalLoopDecision = save;
+  competingStore.saveGoalLoopDecision = competingSave;
+  const first = concurrent[0];
   for (const replay of concurrent) {
     assert.deepEqual(replay.record, first.record);
     assert.deepEqual(replay.decision, first.decision);
@@ -249,4 +270,18 @@ test("terminal Goal decisions replay identically across concurrent assessments a
     reason: undefined
   }), { code: "GOAL_LOOP_DECISION_CONFLICT" });
   assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 1);
+});
+
+test("worker recovers missing terminal Goal decision without provider redispatch", async (t) => {
+  const { store, ack, worker, provider } = await failedSubmissionFixture(t);
+  const save = store.saveGoalLoopDecision.bind(store);
+  store.saveGoalLoopDecision = async () => { throw new Error("temporary write failure"); };
+  const first = await worker.step();
+  assert.equal(first.outcomes[0].goalLoop.decision, "ASSESSMENT_ERROR");
+  assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 0);
+  store.saveGoalLoopDecision = save;
+  const calls = provider.calls;
+  assert.equal((await worker.step()).claimed, 0);
+  assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 1);
+  assert.equal(provider.calls, calls);
 });

@@ -65,7 +65,7 @@ function topoOrder(tasks) {
  */
 async function superviseSubmissionOnce({
   store, submissionId, workerId, verifyApproval, prepareRun, dispatchRun,
-  releasePreparedRun, leaseMs = 30000, heartbeatMs = 5000
+  releasePreparedRun, onClaim, leaseMs = 30000, heartbeatMs = 5000
 } = {}) {
   validateID(submissionId, "submissionId");
   validateID(workerId, "workerId");
@@ -96,20 +96,19 @@ async function superviseSubmissionOnce({
 
   const controller = new AbortController();
   let leaseFailure = null;
-  let heartbeatBusy = false;
+  let heartbeatPending = null;
   const heartbeat = setInterval(() => {
-    if (heartbeatBusy) return;
-    heartbeatBusy = true;
-    void store.renewRunSubmissionLease(submissionId, {
+    if (heartbeatPending) return;
+    heartbeatPending = Promise.resolve().then(() => store.renewRunSubmissionLease(submissionId, {
       workerId, fence: claimed.fence, leaseMs
-    }).then((row) => {
+    })).then((row) => {
       if (row.status === "CANCEL_REQUESTED" && !controller.signal.aborted) {
         controller.abort(bad("cancellation requested", "SUBMISSION_CANCEL_REQUESTED"));
       }
     }).catch((err) => {
       leaseFailure = err;
       if (!controller.signal.aborted) controller.abort(err);
-    }).finally(() => { heartbeatBusy = false; });
+    }).finally(() => { heartbeatPending = null; });
   }, heartbeatMs);
   // Keep the lease/cancellation monitor alive while a provider Run is pending.
   // With unref(), the only active operation may be a provider Promise and the
@@ -128,11 +127,11 @@ async function superviseSubmissionOnce({
     return Object.freeze({ submission: terminal, runId: null, dispatched: false });
   }
 
-  const manifest = claimed.manifestId
-    ? validateStoredExecutableManifest(await store.getExecutableManifest(claimed.manifestId))
-    : null;
-
   try {
+    if (typeof onClaim === "function") onClaim(claimed.id);
+    const manifest = claimed.manifestId
+      ? validateStoredExecutableManifest(await store.getExecutableManifest(claimed.manifestId))
+      : null;
     if (!manifest) {
       // Legacy single-Run contract without an executable manifest binding.
       const first = await store.getRunSubmission(submissionId);
@@ -289,6 +288,8 @@ async function superviseSubmissionOnce({
   } finally {
     clearInterval(heartbeat);
     if (!controller.signal.aborted) controller.abort();
+    // Drain an already-started renewal before returning ownership to the caller.
+    if (heartbeatPending) await heartbeatPending;
     // The RunStore handles the durable cancellation; this cleanup only
     // drops unconsumed same-process handles and is not permission to retry.
     if (typeof releasePreparedRun === "function") {

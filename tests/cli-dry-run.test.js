@@ -91,10 +91,36 @@ test("version --check exposes the installed and published npm versions", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Versão instalada: \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
-  assert.match(result.stdout, /Versão publicada no canal (?:latest|alpha|beta|next): \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
+  assert.match(result.stdout, /Versão publicada (?:no canal (?:latest|alpha|beta|next)|no npm \(consulta exata\)): \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/u);
 
   const installed = /Versão instalada: (\S+)/u.exec(result.stdout)?.[1] || "";
   if (/^\d+\.\d+\.\d+-/u.test(installed) && /Versão publicada no canal latest:/u.test(result.stdout)) {
     assert.match(result.stdout, /Canal \S+ ainda não publicado no npm; exibindo o canal latest\./u);
   }
+});
+
+test("registry fallback is deterministic and only absence permits fallback", () => {
+  const { getPublishedNpmVersion } = require("../orquestrador/lib/npm-version");
+  const name = "@iapro/orquestrador-maestro-cli", version = "1.2.0-rc.2";
+  const ok = (v) => ({ status: 0, stdout: JSON.stringify(v) });
+  const missing = { status: 1, stderr: "npm error code E404" };
+  function resolve(responses, installed = version) {
+    const calls = [];
+    const result = getPublishedNpmVersion({ name, version: installed, runNpm(args) {
+      calls.push(args[1]);
+      assert.ok(responses.length, "unexpected fallback");
+      return responses.shift();
+    }});
+    return { result, calls };
+  }
+  assert.deepEqual(resolve([ok(["1.2.0-rc.3"])]).result, { channel: "next", version: "1.2.0-rc.3" });
+  assert.deepEqual(resolve([missing, ok(version)]).result, { channel: "next", version, unavailableChannel: "next", exact: true });
+  assert.deepEqual(resolve([missing, missing, ok("1.1.1")]), {
+    result: { channel: "latest", version: "1.1.1", unavailableChannel: "next" },
+    calls: [name + "@next", name + "@" + version, name + "@latest"]
+  });
+  assert.throws(() => resolve([{ status: 1, stderr: "E401" }]), /Falha na consulta/);
+  assert.throws(() => resolve([{ error: new Error("timeout") }]), /timeout/);
+  assert.throws(() => resolve([{ status: 0, stdout: "invalid" }]), /Resposta inválida/);
+  assert.throws(() => resolve([missing], "1.2.0"), /não encontrada/);
 });

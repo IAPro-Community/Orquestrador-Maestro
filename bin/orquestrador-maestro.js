@@ -290,54 +290,9 @@ function runNpm(args, options = {}) {
   return spawnSync(getNpmCommand(), args, { ...options, shell: false });
 }
 
-function getNpmChannel(version) {
-  const prerelease = /^\d+\.\d+\.\d+-([0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*$/u.exec(version)?.[1];
-  if (!prerelease) return "latest";
-  if (prerelease === "alpha") return "alpha";
-  if (prerelease === "beta") return "beta";
-  if (prerelease === "rc") return "next";
-  return "next";
-}
-
-function queryNpmPublishedVersion(spec) {
-  const result = runNpm(["view", spec, "version", "--json", "--prefer-online"], {
-    encoding: "utf8"
-  });
-
-  if (result.error || result.status !== 0) return null;
-
-  let version;
-  try {
-    version = JSON.parse(result.stdout.trim());
-  } catch {
-    version = result.stdout.trim().replace(/^['"]|['"]$/gu, "");
-  }
-
-  if (typeof version !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
-    return null;
-  }
-
-  return version;
-}
-
+const { getNpmChannel, getPublishedNpmVersion: resolvePublishedNpmVersion } = require("../orquestrador/lib/npm-version");
 function getPublishedNpmVersion() {
-  const channel = getNpmChannel(packageJson.version);
-  const published = queryNpmPublishedVersion(`${packageJson.name}@${channel}`);
-  if (published) return { channel, version: published };
-  if (channel === "latest") {
-    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
-  }
-
-  // Canal de pré-release ainda sem dist-tag (primeiro RC da linha): tenta a
-  // versão exata e, depois, o canal estável, sem falhar o diagnóstico.
-  const exact = queryNpmPublishedVersion(`${packageJson.name}@${packageJson.version}`);
-  if (exact) return { channel, version: exact };
-
-  const latest = queryNpmPublishedVersion(`${packageJson.name}@latest`);
-  if (!latest) {
-    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
-  }
-  return { channel: "latest", version: latest, unavailableChannel: channel };
+  return resolvePublishedNpmVersion({ name: packageJson.name, version: packageJson.version, runNpm });
 }
 
 function compareVersions(left, right) {
@@ -1631,9 +1586,8 @@ async function handleBridgeCommand(args) {
     args.filter((arg) => arg !== "--stdio" && arg !== "--with-worker"), ["--project-path"]);
   if (!hasStdio || options.values.length !== 0) throw new Error("Uso: maestro bridge --stdio [--with-worker] [--project-path PATH]");
   const app = await createRuntimeApplication(options.projectPath);
-  // A durable submission ACK is only honest when a worker will actually
-  // claim it. --with-worker starts the bounded polling worker in-process;
-  // otherwise runs.submit stays unavailable (and unadvertised).
+  // Admission is durable independently of a worker; --with-worker adds an
+  // in-process consumer. Without it submissions remain PENDING_WORKER.
   const worker = withWorker
     ? require(path.join(rootDir, "runtime", "runs", "submission-worker")).createSubmissionWorker({
         application: app, store: app.store, projectRoot: path.resolve(options.projectPath),
@@ -1673,9 +1627,25 @@ async function handleBridgeCommand(args) {
     runtime: app,
     worker
   } });
-  if (worker) void worker.run();
-  createStdioServer(bridge);
-  return new Promise(() => {});
+  const server = createStdioServer(bridge);
+  let workerFailure = null;
+  const workerTask = worker?.run().catch((error) => {
+    workerFailure = error;
+    server.close();
+  });
+  const shutdown = () => server.close();
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+  try {
+    await server.done;
+  } finally {
+    process.removeListener("SIGINT", shutdown);
+    process.removeListener("SIGTERM", shutdown);
+    if (worker) await worker.stop();
+    await workerTask;
+  }
+  if (workerFailure) throw new Error("Embedded worker stopped unexpectedly; inspect the worker diagnostics.");
+  return 0;
 }
 
 function getTelemetryConfigPath() {
@@ -2095,16 +2065,21 @@ function handleVersionCommand(args) {
   }
 
   console.log(`Versão instalada: ${packageJson.version}`);
-  console.log(`Versão publicada no canal ${published.channel}: ${published.version}`);
-  if (published.unavailableChannel) {
-    console.log(`Canal ${published.unavailableChannel} ainda não publicado no npm; exibindo o canal ${published.channel}.`);
+  if (published.exact) {
+    console.log(`Versão publicada no npm (consulta exata): ${published.version}`);
+    console.log(`Canal ${published.unavailableChannel} ainda não publicado no npm; exibindo a versão exata.`);
+  } else {
+    console.log(`Versão publicada no canal ${published.channel}: ${published.version}`);
+    if (published.unavailableChannel) console.log(`Canal ${published.unavailableChannel} ainda não publicado no npm; exibindo o canal ${published.channel}.`);
   }
   const comparison = compareVersions(packageJson.version, published.version);
-  const channel = getNpmChannel(packageJson.version);
+  const channel = published.channel;
   if (comparison < 0) {
     console.log(`Atualização disponível: npm install -g ${packageJson.name}@${channel} --force --prefer-online`);
   } else if (comparison > 0) {
     console.log(`A instalação local é mais nova que o canal ${published.channel} publicado no npm.`);
+  } else if (published.exact) {
+    console.log("A versão instalada existe no npm, mas o canal de atualização ainda não está disponível.");
   } else {
     console.log("A CLI já está atualizada.");
   }
