@@ -67,6 +67,7 @@ const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const packResult = spawnSync(npmCommand, ["pack", "--dry-run", "--json"], {
   cwd: rootDir,
   stdio: "pipe",
+  maxBuffer: 50 * 1024 * 1024,
   shell: process.platform === "win32"
 });
 if (packResult.status !== 0) {
