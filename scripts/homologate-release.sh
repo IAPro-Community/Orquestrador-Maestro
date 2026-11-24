@@ -7,7 +7,7 @@ expected="${1:-}"
 [[ "$(git rev-parse HEAD)" == "$expected" ]] || { echo "HEAD differs from requested SHA" >&2; exit 1; }
 [[ -z "$(git status --porcelain)" ]] || { echo "Clean checkout required" >&2; exit 1; }
 command -v pwsh >/dev/null || { echo "PowerShell is required for full public and skill validation; no degraded release evidence" >&2; exit 1; }
-version="$(node -p "require('./package.json').version")"
+version="$(node scripts/check-release-version.js)"
 branch=main
 [[ "$version" != 1.* ]] || branch=v1
 git fetch origin "$branch"
@@ -48,7 +48,7 @@ const report = {
   createdAt: new Date().toISOString(),
   artifact: { filename: file, sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
     integrity: "sha512-" + crypto.createHash("sha512").update(bytes).digest("base64") },
-  checks: ["verify:pr", "skills:contract-audit:strict", "validate:paths", "validate-public.ps1", "validate-skills.ps1",
+  checks: ["check-release-version", "verify:pr", "skills:contract-audit:strict", "validate:paths", "validate-public.ps1", "validate-skills.ps1",
     "npm audit", "site npm ci/audit", "tarball install/verify/update/verify"],
   notCovered: ["other OS/Node versions", "CodeQL", "real provider homologation", "registry publication", "maintainer authorization"]
 };
