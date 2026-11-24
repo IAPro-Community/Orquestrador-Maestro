@@ -6,6 +6,8 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 
 ## Fluxo do mantenedor
 
+A migração planejada para publicação exclusiva pela `main` está documentada em [BRANCH_RELEASE_TRANSITION.md](architecture/BRANCH_RELEASE_TRANSITION.md). Ela ainda não está ativa: siga as regras vigentes abaixo até autorização e validação do cutover.
+
 1. Atualize `package.json`, `package-lock.json`, os dois manifestos em `plugins/maestro-openai/`, os bootstraps e `docs/product/CAPABILITY_MATRIX.json`. Crie a seção correspondente no `CHANGELOG.md`.
 2. Rode `npm ci`, `npm run verify:pr`, `npm run validate` e `npm run skills:contract-audit:strict`. Para a linha V1, use `VERIFY_BASE_REF=origin/v1` no gate de ancestralidade.
 3. Para versões `1.x`, integre o candidato homologado em `v1`; a linha histórica `0.x` usa `main`. Alterar a versão ou fazer push não autoriza criar tags nem publicar. Verifique se os workflows manuais desta revisão já estão presentes na branch de publicação antes de alterar a versão.

@@ -34,6 +34,8 @@ git diff -- .
 
 ## Política de integração e release
 
+A transição proposta para uma única branch `main` está em [BRANCH_RELEASE_TRANSITION.md](docs/architecture/BRANCH_RELEASE_TRANSITION.md). Enquanto não houver cutover autorizado, as regras vigentes abaixo permanecem válidas.
+
 - A branch `v1` é a linha canônica do desenvolvimento e release 1.x. `main` permanece histórica; não mover trabalho de runtime entre ambas sem decisão explícita.
 - Mantenedores ou agentes explicitamente autorizados podem integrar diretamente em `v1`, com commits pequenos, testes relevantes e evidência no SHA. Não criar branches internas nem PRs sucessivos apenas para continuar a mesma tarefa.
 - Contribuições externas chegam por fork e pull request para `v1`, conforme [CONTRIBUTING.md](CONTRIBUTING.md).
