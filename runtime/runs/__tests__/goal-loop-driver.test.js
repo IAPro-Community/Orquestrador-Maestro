@@ -238,10 +238,26 @@ test("terminal Goal decisions replay identically across concurrent assessments a
   store.saveGoalLoopDecision = save;
   assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 0);
   const competingStore = new JsonFileRunStore({ filePath: store.filePath });
+  const competingSave = competingStore.saveGoalLoopDecision.bind(competingStore);
+  let arrivals = 0;
+  let release;
+  const barrier = new Promise((resolve) => { release = resolve; });
+  function synchronize(saveDecision) {
+    return async (record) => {
+      if (++arrivals === 2) release();
+      await barrier;
+      return saveDecision(record);
+    };
+  }
+  store.saveGoalLoopDecision = synchronize(save);
+  competingStore.saveGoalLoopDecision = synchronize(competingSave);
   const concurrent = await Promise.all([
     assessSubmissionGoal({ store, submissionId: ack.submissionId, now: new Date("2030-01-01T00:00:00Z") }),
     assessSubmissionGoal({ store: competingStore, submissionId: ack.submissionId })
   ]);
+  assert.equal(arrivals, 2);
+  store.saveGoalLoopDecision = save;
+  competingStore.saveGoalLoopDecision = competingSave;
   const first = concurrent[0];
   for (const replay of concurrent) {
     assert.deepEqual(replay.record, first.record);
