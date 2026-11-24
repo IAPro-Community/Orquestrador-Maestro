@@ -227,3 +227,26 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
   assert.equal(ambiguous.results.get(taskId).verification, null);
   assert.deepEqual(ambiguous.results.get(taskId).evidence, []);
 });
+
+
+test("terminal Goal decisions replay identically across concurrent assessments and later state changes", async (t) => {
+  const { store, ack, worker } = await failedSubmissionFixture(t, { budget: { maxCostUSD: 5 } });
+  await worker.step();
+  const first = await assessSubmissionGoal({ store, submissionId: ack.submissionId });
+  const competingStore = new JsonFileRunStore({ filePath: store.filePath });
+  const concurrent = await Promise.all([
+    assessSubmissionGoal({ store, submissionId: ack.submissionId, now: new Date("2030-01-01T00:00:00Z") }),
+    assessSubmissionGoal({ store: competingStore, submissionId: ack.submissionId })
+  ]);
+  for (const replay of concurrent) {
+    assert.deepEqual(replay.record, first.record);
+    assert.deepEqual(replay.decision, first.decision);
+  }
+  await assert.rejects(competingStore.saveGoalLoopDecision({
+    ...first.record,
+    id: "goal-conflicting-verdict-01",
+    decision: "PASS",
+    reason: undefined
+  }), { code: "GOAL_LOOP_DECISION_CONFLICT" });
+  assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 1);
+});

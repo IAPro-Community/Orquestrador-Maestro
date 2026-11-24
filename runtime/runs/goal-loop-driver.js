@@ -160,6 +160,33 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
   return { results, semanticTasks: await Promise.all(manifest.tasks.map((task) => semanticTask(task.taskId))) };
 }
 
+// Decisions are immutable per terminal submission. A later invocation must
+// replay the persisted result, never recompute a new verdict from changed
+// history or mutable verification state.
+function decisionFromRecord(row) {
+  return Object.freeze({
+    schemaVersion: 1, authority: "MAESTRO", planDigest: row.planDigest,
+    executionEnabled: false, requiresApproval: row.decision !== "PASS",
+    decision: row.decision, ...(row.reason !== undefined ? { reason: row.reason } : {}),
+    failedTaskIds: row.failedTaskIds, affectedTaskIds: row.affectedTaskIds,
+    preservedTaskIds: row.preservedTaskIds
+  });
+}
+
+async function readExistingDecision(store, submission) {
+  const rows = await store.listGoalLoopDecisions({ submissionId: submission.id });
+  if (!Array.isArray(rows) || rows.length > 1) {
+    throw bad("multiple or unreadable immutable Goal decisions", "GOAL_LOOP_DECISION_CONFLICT");
+  }
+  if (rows.length === 0) return null;
+  const record = validateGoalLoopDecision(rows[0]);
+  if (record.submissionId !== submission.id || record.projectId !== submission.projectId ||
+      record.planDigest !== submission.planDigest || record.artifactDigest !== submission.artifactDigest) {
+    throw bad("Goal decision does not match submission identity", "GOAL_LOOP_DECISION_CONFLICT");
+  }
+  return Object.freeze({ decision: decisionFromRecord(record), record });
+}
+
 /**
  * Assess a finished submission with the read-only correction policy and
  * persist the decision as a durable audit record. Corrective dispatch is
@@ -180,6 +207,8 @@ async function assessSubmissionGoal({
   if (!["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT"].includes(submission.status)) {
     throw bad("goal assessment requires a terminal submission", "GOAL_LOOP_INVALID_STATE");
   }
+  const existingDecision = await readExistingDecision(store, submission);
+  if (existingDecision) return existingDecision;
   const manifest = validateStoredExecutableManifest(
     await store.getExecutableManifest(submission.manifestId));
 
@@ -236,12 +265,10 @@ async function assessSubmissionGoal({
     failureFingerprints
   });
   const iteration = history.length + 1;
-  // The first durable decision for a terminal submission is final: a replay
-  // returns the existing immutable record instead of re-writing history.
-  const existing = (await store.listGoalLoopDecisions({ submissionId }) || [])[0];
+  // The store enforces one immutable decision per terminal submission.
   const record = validateGoalLoopDecision({
-    // Deterministic per submission+verdict: re-assessing the same terminal
-    // submission replays one immutable record instead of duplicating history.
+    // Keep the existing ID format for historical compatibility; uniqueness
+    // is enforced by the canonical submission identity in the store.
     id: `goal-${hash(`${submissionId}\0${decision.decision}\0${decision.reason || ""}\0${[...decision.failedTaskIds].sort().join(",")}`).slice(0, 40)}`,
     schemaVersion: 1,
     submissionId,
@@ -262,11 +289,16 @@ async function assessSubmissionGoal({
     },
     createdAt: now.toISOString()
   });
-  if (existing?.id === record.id) {
-    return Object.freeze({ decision, record: validateGoalLoopDecision(existing) });
+  try {
+    await store.saveGoalLoopDecision(record);
+  } catch (error) {
+    if (error?.code !== "GOAL_LOOP_DECISION_CONFLICT") throw error;
+    // Another process may have committed the first decision while we assessed.
+    const winner = await readExistingDecision(store, submission);
+    if (winner) return winner;
+    throw error;
   }
-  await store.saveGoalLoopDecision(record);
-  return Object.freeze({ decision, record });
+  return Object.freeze({ decision: decisionFromRecord(record), record });
 }
 
 module.exports = { validateGoalLoopDecision, assessSubmissionGoal, failureFingerprint, collectTaskResults };

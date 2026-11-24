@@ -167,6 +167,9 @@ class JsonFileRunStore extends RunStore {
         }
         return clone(previous);
       }
+      if (this._state.goalLoopDecisions.some((item) => item.submissionId === decision.submissionId)) {
+        throw bad("a Goal decision already exists for this submission", "GOAL_LOOP_DECISION_CONFLICT");
+      }
       this._state.goalLoopDecisions.push(clone(decision));
       await this._flush();
       return clone(decision);
