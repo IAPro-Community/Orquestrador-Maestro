@@ -66,3 +66,12 @@ test("missing roots and non-exported files do not invent components", (t) => {
   write(root, "src/components/PrivateForm.tsx", "const PrivateForm = () => null;\n");
   assert.deepEqual(discoverReuseCandidates(root).candidates, []);
 });
+
+test("large directory discovery caps work and reports truncation", (t) => {
+  const root = project(t);
+  for (let i = 0; i < 800; i++) write(root, "src/components/Item" + i + ".tsx", "export const Item = 1;");
+  const result = discoverReuseCandidates(root, "item");
+  assert.equal(result.truncated, true);
+  assert.ok(result.scannedEntries <= 768);
+  assert.ok(result.scannedFiles <= 128);
+});
