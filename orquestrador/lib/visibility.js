@@ -49,7 +49,7 @@ function isObservationVisible(observation, currentContext, options = {}) {
       if (obsScope.repositoryId !== currentContext.repositoryId) return false;
       if (!options.taskId) return false;
       if (obsScope.taskId !== options.taskId) return false;
-      if (obsScope.branch && currentContext.branch && obsScope.branch !== currentContext.branch) return false;
+      if (obsScope.branch && (currentContext.detached || obsScope.branch !== currentContext.branch)) return false;
       return true;
 
     case "commit":
