@@ -75,7 +75,9 @@ test("reject invalid requests before any persistence", () => {
       { type: "__unknown" }, { scopeLevel: "global" },
       { scopeLevel: "task", taskId: undefined }, { summary: "x".repeat(501) },
       { projectPath: "/tmp/not-the-project" }, { repositoryId: "forged" },
-      { tags: Array.from({ length: 17 }, () => "tag") }
+      { tags: Array.from({ length: 17 }, () => "tag") },
+      { files: ["../outside.ts"] }, { files: ["/tmp/outside.ts"] }, { files: ["C:\\outside.ts"] },
+      { taskId: ".." }, { idempotencyKey: "." }
     ]) {
       assert.throws(() => writer.record({ ...f.input, ...change }));
     }
