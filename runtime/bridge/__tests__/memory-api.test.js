@@ -105,6 +105,16 @@ test("branch, workspace, task and project isolation deny cross-scope reads", asy
     assert.equal(taskFound.result.observation.id, task.id);
     const noTask = await request(fixture.bridge, "memory.get", { id: task.id });
     assert.equal(noTask.result, null);
+    const workspace = fixture.record("environment", "Only original workspace", { level: "workspace" });
+    const detached = path.join(fixture.base, "detached-worktree");
+    git(fixture.projectRoot, ["worktree", "add", "--detach", detached, "HEAD"]);
+    const detachedBridge = createBridge({ projectRoot: detached, services: { memory: fixture.memory } });
+    const otherWorkspace = await request(detachedBridge, "memory.get", { id: workspace.id });
+    assert.equal(otherWorkspace.result, null);
+    const detachedTask = await request(detachedBridge, "memory.get", { id: task.id, taskId: "task-1" });
+    assert.equal(detachedTask.result, null);
+    const repoWide = await request(detachedBridge, "memory.get", { id: repo.id });
+    assert.equal(repoWide.result.observation.id, repo.id);
   } finally { fixture.cleanup(); }
 });
 
