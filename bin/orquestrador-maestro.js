@@ -1627,9 +1627,25 @@ async function handleBridgeCommand(args) {
     runtime: app,
     worker
   } });
-  if (worker) void worker.run();
-  createStdioServer(bridge);
-  return new Promise(() => {});
+  const server = createStdioServer(bridge);
+  let workerFailure = null;
+  const workerTask = worker?.run().catch((error) => {
+    workerFailure = error;
+    server.close();
+  });
+  const shutdown = () => server.close();
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+  try {
+    await server.done;
+  } finally {
+    process.removeListener("SIGINT", shutdown);
+    process.removeListener("SIGTERM", shutdown);
+    if (worker) await worker.stop();
+    await workerTask;
+  }
+  if (workerFailure) throw new Error("Embedded worker stopped unexpectedly; inspect the worker diagnostics.");
+  return 0;
 }
 
 function getTelemetryConfigPath() {
