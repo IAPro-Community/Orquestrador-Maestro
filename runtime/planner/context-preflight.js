@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { discoverReuseCandidates } = require("./reuse-discovery");
 /**
  * Root-level build markers are signals, never proof that an application is
  * implemented or that its tests run. Deliberately no recursive filesystem
@@ -47,7 +48,8 @@ function gatherPreflight(workspacePath, intent, options = {}) {
     // hasTests, framework and dependencies unchanged for Node projects.
     stackSourcePath: null,
     projectNameSourcePath: null,
-    buildSignals: []
+    buildSignals: [],
+    reuseDiscovery: null
   };
 
   // 1. Package.json analysis
@@ -108,6 +110,9 @@ function gatherPreflight(workspacePath, intent, options = {}) {
       facts.contextBrief = JSON.parse(result);
     } catch { /* context-brief unavailable or failed */ }
   }
+
+  // Advisory, bounded source paths only; not proof that the component fits.
+  facts.reuseDiscovery = discoverReuseCandidates(workspacePath, intent);
 
   return Object.freeze(facts);
 }

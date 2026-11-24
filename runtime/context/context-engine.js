@@ -110,6 +110,19 @@ class ContextEngine {
       });
     }
 
+    if (facts.reuseDiscovery?.candidates?.length) {
+      items.push({
+        key: "project.reuseCandidates",
+        value: facts.reuseDiscovery,
+        kind: "FACT",
+        confidence: 0.7,
+        relevance: 0.9,
+        sources: facts.reuseDiscovery.candidates.map((entry) => ({
+          type: "source-file", path: entry.path, sourceDigest: entry.sourceDigest
+        }))
+      });
+    }
+
     if (facts.hasAuth) {
       items.push({
         key: "project.hasAuth",
