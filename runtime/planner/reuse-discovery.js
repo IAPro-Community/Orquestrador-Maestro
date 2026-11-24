@@ -37,7 +37,9 @@ function discoverReuseCandidates(workspacePath, intent = "") {
   if (typeof workspacePath !== "string" || !workspacePath.trim()) {
     throw new TypeError("workspacePath required");
   }
-  const root = path.resolve(workspacePath);
+  let root;
+  try { root = fs.realpathSync(path.resolve(workspacePath)); }
+  catch { return Object.freeze({ schemaVersion: 1, status: "CANDIDATES_NOT_VERIFIED", scannedEntries: 0, scannedFiles: 0, truncated: false, candidates: Object.freeze([]) }); }
   const queue = [];
   for (const name of ROOTS) {
     const directory = path.join(root, name);
@@ -53,13 +55,28 @@ function discoverReuseCandidates(workspacePath, intent = "") {
   let truncated = false;
   while (queue.length && scannedEntries < MAX_ENTRIES && scannedFiles < MAX_SOURCE_FILES) {
     const current = queue.shift();
-    let entries;
+    const entries = [];
+    let dir;
     try {
-      entries = fs.readdirSync(current.directory, { withFileTypes: true })
-        .sort((a, b) => a.name.localeCompare(b.name, "en"));
+      if (!fs.lstatSync(current.directory).isDirectory() ||
+          fs.realpathSync(current.directory) !== current.directory) continue;
+      dir = fs.opendirSync(current.directory);
+      while (scannedEntries < MAX_ENTRIES) {
+        const entry = dir.readSync();
+        if (!entry) break;
+        scannedEntries++;
+        entries.push(entry);
+      }
+      // A truncated directory is not a deterministic candidate set. Do not
+      // advertise arbitrary filesystem enumeration order as a ranked result.
+      if (scannedEntries === MAX_ENTRIES && dir.readSync()) {
+        truncated = true;
+        break;
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name, "en"));
     } catch { continue; }
+    finally { if (dir) dir.closeSync(); }
     for (const entry of entries) {
-      if (++scannedEntries > MAX_ENTRIES) { truncated = true; break; }
       if (entry.isSymbolicLink() || IGNORED.has(entry.name)) continue;
       const absolute = path.join(current.directory, entry.name);
       if (entry.isDirectory()) {
@@ -73,10 +90,21 @@ function discoverReuseCandidates(workspacePath, intent = "") {
       const role = roleFor(relative);
       if (!role) continue;
       if (++scannedFiles > MAX_SOURCE_FILES) { truncated = true; break; }
+      let fd;
       try {
-        const info = fs.lstatSync(absolute);
+        if (fs.realpathSync(absolute) !== absolute || !fs.lstatSync(absolute).isFile()) continue;
+        fd = fs.openSync(absolute, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+        const info = fs.fstatSync(fd);
         if (!info.isFile() || info.size > MAX_BYTES_PER_FILE) continue;
-        const bytes = fs.readFileSync(absolute);
+        const buffer = Buffer.alloc(MAX_BYTES_PER_FILE + 1);
+        let length = 0;
+        while (length < buffer.length) {
+          const read = fs.readSync(fd, buffer, length, buffer.length - length, null);
+          if (!read) break;
+          length += read;
+        }
+        if (length > MAX_BYTES_PER_FILE || length !== info.size || fs.realpathSync(absolute) !== absolute) continue;
+        const bytes = buffer.subarray(0, length);
         // Filename-only matches can be non-public implementation details.
         // An export is evidence of a symbol, NOT proof of reusable behavior.
         if (!EXPORTED.test(bytes.toString("utf8"))) continue;
@@ -84,6 +112,7 @@ function discoverReuseCandidates(workspacePath, intent = "") {
         const score = intentTerms.filter((word) => relative.toLowerCase().includes(word)).length;
         candidates.push({ path: relative, role, sourceDigest, evidence: "export-and-path", score });
       } catch { /* Unreadable source is not evidence. */ }
+      finally { if (fd !== undefined) fs.closeSync(fd); }
     }
   }
   if (queue.length || scannedEntries >= MAX_ENTRIES || scannedFiles >= MAX_SOURCE_FILES) truncated = true;
