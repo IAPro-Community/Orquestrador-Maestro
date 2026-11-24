@@ -430,7 +430,7 @@ function maybeInstallDesktopPlugin(args, installStatus) {
     const integration = require(path.join(rootDir, "runtime", "integrations", "openai", "installer.js"));
     const result = integration.installDesktopPlugin({ home: homePath, packageRoot: rootDir });
     console.log(`Plugin desktop ChatGPT/Codex instalado em ${result.destination}.`);
-    console.log("Reabra o app e aprove os hooks na primeira execucao.");
+    console.log("Reabra o ChatGPT Desktop ou Codex e aprove os hooks do plugin somente se confiar na integração.");
   } catch (error) {
     console.error(`Aviso: plugin desktop nao instalado (${error.message || error}).`);
   }
@@ -924,16 +924,16 @@ function runDoctor(args) {
   if (strict) psArgs.push("-Strict");
   if (process.platform === "win32") {
     const code = run("powershell", psArgs);
-    diagnostics.printClaudeGuidance(home);
-    return code;
+    const findings = diagnostics.printClaudeGuidance(home);
+    return code || (strict && findings.length ? 1 : 0);
   }
   // Preserve the detailed report when pwsh exists. Otherwise reuse the
   // existing Unix verifier, including its strict managed-file/policy gates.
   for (const command of ["pwsh", "powershell"]) {
     try {
       const code = run(command, psArgs);
-      diagnostics.printClaudeGuidance(home);
-      return code;
+      const findings = diagnostics.printClaudeGuidance(home);
+      return code || (strict && findings.length ? 1 : 0);
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
     }
@@ -2813,7 +2813,7 @@ function handleTargetsCommand(args) {
         ToolId: toolId,
         Detection: detection.state,
         DetectionReason: detection.reason,
-        Configuration: require("../orquestrador/lib/install-diagnostics").configurationState(toolId, homePath, detection),
+        Configuration: require("../orquestrador/lib/install-diagnostics").configurationState(toolId, homePath),
         Enabled: enabled ? "yes" : "no"
       });
     }
