@@ -4,7 +4,7 @@ const path = require("node:path");
 const { resolveToolConfigPaths } = require("./tool-registry");
 const { hasMaestroMarker } = require("./tool-detector");
 
-function configurationState(toolId, home, detection) {
+function configurationState(toolId, home) {
   const present = resolveToolConfigPaths(toolId, home).some(p => fs.existsSync(p));
   if (!present) return "absent";
   return hasMaestroMarker(home, toolId) ? "maestro-managed" : "present";
@@ -43,8 +43,8 @@ function inspectClaude(home) {
 function printClaudeGuidance(home, write = console.error) {
   const findings = inspectClaude(home);
   for (const item of findings) write("Maestro [" + item.code + "] " + item.path + ": " + item.message);
-  if (fs.existsSync(path.join(home, ".claude", "CLAUDE.md"))) {
-    write("Claude Code: abra uma sessão nova para carregar CLAUDE.md e skills. hooks.md contém instruções textuais; Maestro não pressupõe hooks executáveis nem aprova confiança.");
+  if (fs.existsSync(path.join(home, ".claude", "CLAUDE.md")) || fs.existsSync(path.join(home, ".claude", "skills", "orquestrador-maestro", "SKILL.md"))) {
+    write("Claude Code: abra uma sessão nova para carregar os arquivos de integração instalados (CLAUDE.md, quando presente, e skills). hooks.md contém instruções textuais; Maestro não pressupõe hooks executáveis nem aprova confiança.");
   }
   return findings;
 }
