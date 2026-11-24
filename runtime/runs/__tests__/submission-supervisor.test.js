@@ -183,3 +183,38 @@ test("revoked approval during preparation cancels without provider dispatch", as
   assert.equal((await store.getStep("step-supervisor-001")).status, "cancelled");
   assert.deepEqual(count, { prepare: 1, dispatch: 0 });
 });
+
+test("manifest read failure after claim stops lease renewal and releases handles", async (t) => {
+  const { store, submission } = await fixture(t);
+  const claim = store.claimRunSubmission.bind(store);
+  store.claimRunSubmission = async (...args) => ({
+    ...await claim(...args), manifestId: "manifest-missing-001"
+  });
+  store.getExecutableManifest = async () => { throw new Error("manifest unavailable"); };
+  let renewals = 0;
+  let released = 0;
+  const renew = store.renewRunSubmissionLease.bind(store);
+  store.renewRunSubmissionLease = async (...args) => {
+    renewals++;
+    return renew(...args);
+  };
+  const count = { prepare: 0, dispatch: 0 };
+  const timers = [];
+  const original = global.setInterval;
+  t.mock.method(global, "setInterval", (...args) => {
+    const timer = original(...args);
+    timers.push(timer);
+    return timer;
+  });
+  t.after(() => timers.forEach(clearInterval));
+  await assert.rejects(superviseSubmissionOnce({
+    store, submissionId: submission.id, workerId: "worker-manifest-error",
+    ...callbacks(store, count), leaseMs: 1000, heartbeatMs: 200,
+    releasePreparedRun: async () => { released++; }
+  }), /manifest unavailable/);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(renewals, 0);
+  assert.equal(released, 1);
+  assert.deepEqual(count, { prepare: 0, dispatch: 0 });
+  assert.equal((await store.getRunSubmission(submission.id)).status, "CLAIMED");
+});
