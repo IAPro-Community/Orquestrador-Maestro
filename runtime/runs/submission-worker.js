@@ -126,6 +126,7 @@ function createSubmissionWorker({
       .slice(0, Math.min(slots, pendingBatchLimit));
     pendingCursor = offset + batch.length;
     if (batch.length === 0) return { claimed: 0, outcomes: [] };
+    let claimed = 0;
     const executions = batch.map((row) => {
       const execution = superviseSubmissionOnce({
         store, submissionId: row.id, workerId,
@@ -133,6 +134,7 @@ function createSubmissionWorker({
         prepareRun: ports.prepareRun,
         dispatchRun: ports.dispatchRun,
         releasePreparedRun: ports.releasePreparedRun,
+        onClaim: () => { claimed++; },
         leaseMs, heartbeatMs
       }).finally(() => inFlight.delete(execution));
       inFlight.add(execution);
@@ -140,14 +142,12 @@ function createSubmissionWorker({
     });
     const settled = await Promise.allSettled(executions);
     const outcomes = [];
-    let claimed = 0;
     for (const [index, entry] of settled.entries()) {
       if (entry.status !== "fulfilled") {
         reportOperationalError("supervision", entry.reason, batch[index].id);
         outcomes.push({ status: "SUPERVISION_ERROR", code: diagnosticCode(entry.reason, "SUBMISSION_WORKER_ERROR") });
         continue;
       }
-      claimed++;
       const value = entry.value || {};
       const outcome = {
         status: "COMPLETED_SUPERVISION",
