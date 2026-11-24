@@ -299,15 +299,12 @@ function getNpmChannel(version) {
   return "next";
 }
 
-function getPublishedNpmVersion() {
-  const channel = getNpmChannel(packageJson.version);
-  const result = runNpm(["view", `${packageJson.name}@${channel}`, "version", "--json", "--prefer-online"], {
+function queryNpmPublishedVersion(spec) {
+  const result = runNpm(["view", spec, "version", "--json", "--prefer-online"], {
     encoding: "utf8"
   });
 
-  if (result.error || result.status !== 0) {
-    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
-  }
+  if (result.error || result.status !== 0) return null;
 
   let version;
   try {
@@ -317,10 +314,30 @@ function getPublishedNpmVersion() {
   }
 
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
-    throw new Error("O npm retornou uma versão inválida.");
+    return null;
   }
 
-  return { channel, version };
+  return version;
+}
+
+function getPublishedNpmVersion() {
+  const channel = getNpmChannel(packageJson.version);
+  const published = queryNpmPublishedVersion(`${packageJson.name}@${channel}`);
+  if (published) return { channel, version: published };
+  if (channel === "latest") {
+    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
+  }
+
+  // Canal de pré-release ainda sem dist-tag (primeiro RC da linha): tenta a
+  // versão exata e, depois, o canal estável, sem falhar o diagnóstico.
+  const exact = queryNpmPublishedVersion(`${packageJson.name}@${packageJson.version}`);
+  if (exact) return { channel, version: exact };
+
+  const latest = queryNpmPublishedVersion(`${packageJson.name}@latest`);
+  if (!latest) {
+    throw new Error(`Não foi possível consultar a versão ${channel} no npm.`);
+  }
+  return { channel: "latest", version: latest, unavailableChannel: channel };
 }
 
 function compareVersions(left, right) {
@@ -2077,6 +2094,9 @@ function handleVersionCommand(args) {
 
   console.log(`Versão instalada: ${packageJson.version}`);
   console.log(`Versão publicada no canal ${published.channel}: ${published.version}`);
+  if (published.unavailableChannel) {
+    console.log(`Canal ${published.unavailableChannel} ainda não publicado no npm; exibindo o canal ${published.channel}.`);
+  }
   const comparison = compareVersions(packageJson.version, published.version);
   const channel = getNpmChannel(packageJson.version);
   if (comparison < 0) {
