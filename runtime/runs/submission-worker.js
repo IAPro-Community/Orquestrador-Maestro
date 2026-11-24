@@ -5,6 +5,7 @@ const { superviseSubmissionOnce } = require("./submission-supervisor");
 const { createApplicationSubmissionPorts } = require("./application-submission-ports");
 const { createTrustedApprovalVerifier, createApprovedTaskResolver } = require("./executable-submission");
 const { assessSubmissionGoal } = require("./goal-loop-driver");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 
 /**
  * Persistent, Maestro-owned bounded polling worker. It claims admitted
@@ -18,7 +19,7 @@ const { assessSubmissionGoal } = require("./goal-loop-driver");
 function createSubmissionWorker({
   application, store, projectRoot, workerId,
   concurrency = 1, pollIntervalMs = 1000, leaseMs = 30000, heartbeatMs = 5000,
-  pendingBatchLimit = 10, goalLoop = true,
+  pendingBatchLimit = 10, goalLoop = true, onError = null,
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
   validateID(workerId, "workerId");
@@ -35,6 +36,9 @@ function createSubmissionWorker({
       !Number.isInteger(pendingBatchLimit) || pendingBatchLimit < 1 || pendingBatchLimit > 32) {
     throw bad("invalid worker polling limits", "INVALID_SUBMISSION_WORKER");
   }
+  if (onError !== null && typeof onError !== "function") {
+    throw bad("onError must be a function", "INVALID_SUBMISSION_WORKER");
+  }
   const ports = createApplicationSubmissionPorts({
     application, store, projectRoot, workspacePath: projectRoot,
     verifyApproval: createTrustedApprovalVerifier({ store }),
@@ -43,6 +47,28 @@ function createSubmissionWorker({
 
   let stopping = false;
   const inFlight = new Set();
+  let lastPollError = null;
+  let consecutivePollErrors = 0;
+  let lastSuccessfulPollAt = null;
+
+  function recordPollError(error) {
+    const rawCode = String(error?.code || "");
+    const code = /^[A-Z][A-Z0-9_]{1,63}$/.test(rawCode) ? rawCode : "WORKER_POLL_ERROR";
+    const previousCode = lastPollError?.code || null;
+    lastPollError = Object.freeze({
+      code,
+      message: sanitizeDiagnostic(error?.message || "Worker polling failed", { maxChars: 512 }),
+      at: new Date().toISOString()
+    });
+    consecutivePollErrors++;
+    if (onError && (consecutivePollErrors === 1 || code !== previousCode ||
+        consecutivePollErrors % 60 === 0)) {
+      try {
+        onError(Object.freeze({ workerId, ...lastPollError, consecutivePollErrors }));
+      } catch { /* Operational logging must never kill the worker. */ }
+    }
+  }
+
 
   async function step() {
     if (stopping) return { claimed: 0, outcomes: [] };
@@ -108,9 +134,11 @@ function createSubmissionWorker({
       try {
         const result = await step();
         claimed = result.claimed;
-      } catch {
-        // Transient store/lock contention must not kill the worker; the next
-        // cycle retries and the reconciler handles any expired lease.
+        consecutivePollErrors = 0;
+        lastSuccessfulPollAt = new Date().toISOString();
+      } catch (error) {
+        // Transient storage failures are recoverable but must be explainable.
+        recordPollError(error);
         claimed = 0;
       }
       if (claimed === 0) await sleep(pollIntervalMs);
@@ -125,6 +153,10 @@ function createSubmissionWorker({
     async stop() {
       stopping = true;
       await Promise.allSettled([...inFlight]);
+    },
+    diagnostics() {
+      return Object.freeze({ workerId, stopping, inFlightCount: inFlight.size,
+        consecutivePollErrors, lastSuccessfulPollAt, lastPollError });
     },
     get inFlightCount() { return inFlight.size; },
     get stopping() { return stopping; }

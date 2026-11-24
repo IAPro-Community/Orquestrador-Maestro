@@ -1340,7 +1340,8 @@ async function handleRunsCommand(args) {
     const worker = createSubmissionWorker({
       application: app, store: app.store, projectRoot,
       workerId: "worker-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16),
-      concurrency, pollIntervalMs: interval
+      concurrency, pollIntervalMs: interval,
+      onError: (event) => console.error(JSON.stringify({ type: "worker.error", ...event }))
     });
     if (options.once === true) {
       console.log(JSON.stringify(await worker.step(), null, 2));
@@ -1636,7 +1637,8 @@ async function handleBridgeCommand(args) {
   const worker = withWorker
     ? require(path.join(rootDir, "runtime", "runs", "submission-worker")).createSubmissionWorker({
         application: app, store: app.store, projectRoot: path.resolve(options.projectPath),
-        workerId: "worker-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16)
+        workerId: "worker-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16),
+        onError: (event) => console.error(JSON.stringify({ type: "worker.error", ...event }))
       })
     : null;
   const bridge = createBridge({ projectRoot: options.projectPath, services: {

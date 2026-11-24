@@ -274,3 +274,45 @@ test("independent tasks reserve distinct worktrees atomically and execute in bot
   assert.equal(f.provider.calls, 2);
   assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "COMPLETED");
 });
+
+
+test("polling errors are sanitized and the worker recovers after a transient store failure", async (ctx) => {
+  const f = await fixture(ctx);
+  const list = f.store.listRunSubmissions.bind(f.store);
+  let failOnce = true;
+  f.store.listRunSubmissions = async (...args) => {
+    if (failOnce) {
+      failOnce = false;
+      const error = new Error("Storage busy; token=ghp_ABCDEF12345678");
+      error.code = "STORE_TEMPORARY_FAILURE";
+      throw error;
+    }
+    return list(...args);
+  };
+  const reported = [];
+  let sleepCalls = 0;
+  let worker;
+  worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-recovery-log-001", pollIntervalMs: 50,
+    onError: (event) => reported.push(event),
+    sleep: async () => { if (++sleepCalls >= 2) await worker.stop(); }
+  });
+  await worker.run();
+  assert.equal(reported.length, 1);
+  assert.equal(reported[0].code, "STORE_TEMPORARY_FAILURE");
+  assert.doesNotMatch(JSON.stringify(reported), /ghp_ABCDEF/);
+  const d = worker.diagnostics();
+  assert.equal(d.consecutivePollErrors, 0);
+  assert.ok(d.lastSuccessfulPollAt);
+  assert.equal(d.lastPollError.code, "STORE_TEMPORARY_FAILURE");
+  assert.equal(d.stopping, true);
+});
+
+test("invalid worker diagnostics callback is rejected before processing", async (ctx) => {
+  const f = await fixture(ctx);
+  assert.throws(() => createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-recovery-log-002", onError: "invalid"
+  }), { code: "INVALID_SUBMISSION_WORKER" });
+});
