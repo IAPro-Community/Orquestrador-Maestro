@@ -103,7 +103,7 @@ node .\bin\orquestrador-maestro.js verify
 
 | Destino | Função |
 |---|---|
-| `%USERPROFILE%\.orquestrador-maestro` | Núcleo do Orquestrador: regras, maestro, hooks, roteadores, scripts, skills canônicas e bibliotecas offload (instalações antigas usam `.orquestrador` como legado) |
+| `%USERPROFILE%\.orquestrador` | Núcleo do Orquestrador: regras, maestro, hooks, roteadores, scripts, skills canônicas e bibliotecas offload (`.orquestrador-maestro` é a raiz legada) |
 | `%USERPROFILE%\AGENTS.md` | Contrato global lido pelas IAs antes de trabalhar em projetos |
 | `%USERPROFILE%\.codex\skills` | Conjunto nativo enxuto do Codex: skills canônicas, workflows OMX essenciais e `.system` |
 | `%USERPROFILE%\.codex\agents` | Agentes nativos do Codex |
@@ -122,7 +122,7 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\.orquestrador-maestro\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
 | `%USERPROFILE%\.ai-standards` | Standards portáteis usados pelo Antigravity |
 | `%USERPROFILE%\.opencode` | Hooks e perfil textual do OpenCode |
-| `%USERPROFILE%\.claude` | Hooks e prompt textual do Claude |
+| `%USERPROFILE%\.claude` | Prompt e orientação textual do Claude; não implica hooks executáveis registrados |
 | `%USERPROFILE%\.cursor` | Hooks do Cursor |
 | `%USERPROFILE%\.gemini` | Hooks do Gemini |
 | `%USERPROFILE%\.windsurf` | Hooks do Windsurf |
@@ -326,3 +326,51 @@ Linux/macOS: $HOME/.orquestrador-public-backups
 ```
 
 Este repo não instala credenciais, tokens, logins ou chaves de API. Configure esses itens diretamente em cada ferramenta.
+
+## Diagnóstico de instalação no Linux e macOS
+
+Se o npm global retornar `EACCES` ou `EPERM`, use um gerenciador Node instalado
+no próprio usuário (por exemplo nvm) ou, para um Node de sistema, um prefixo
+gravável. Não use sudo para instalar ou atualizar o Maestro no home pessoal.
+
+```bash
+npm config get prefix
+mkdir -p "$HOME/.npm-global"
+npm config set prefix "$HOME/.npm-global"
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g @iapro/orquestrador-maestro-cli@latest
+orquestrador-maestro version
+```
+
+Persista o export de PATH no arquivo de inicialização do seu shell. Não
+configure um prefixo fixo se o gerenciador Node já administra os prefixos
+por versão. O Maestro nunca muda o prefixo do npm automaticamente.
+
+`orquestrador-maestro doctor --strict` usa o relatório PowerShell quando
+disponível; no Unix sem PowerShell, usa Node.js e o verificador Unix já
+existente, incluindo as verificações estritas de integridade. O relatório
+portável não reproduz todos os diagnósticos detalhados do doctor.ps1.
+`--home-path PATH` permite diagnosticar outra instalação.
+
+### Targets e Claude Code
+
+Em `targets list --json`, `Enabled` é a seleção do Maestro; `Detection` é
+a evidência observada do cliente; `DetectionReason` explica a classificação;
+`Configuration` diferencia pasta ausente, presente ou gerenciada. Uma pasta
+criada pelo Maestro não prova a presença de um executável; uma integração
+habilitada pode estar com a CLI indisponível.
+
+O arquivo compartilhado `orquestrador-maestro/SKILL.md` é neutro quanto ao
+cliente. Se uma instalação antiga preservou instruções específicas de outro
+cliente ou referências ao home de outro usuário, o CLI sinaliza o arquivo
+relativo e preserva sua personalização. Revise as diferenças, faça backup
+fora da raiz de skills nativas e, somente se quiser substituir o conteúdo
+personalizado, retire a pasta antiga e execute `orquestrador-maestro update`.
+Não apague arquivos pessoais nem substitua settings.json do Claude.
+
+O Maestro instala `.claude/CLAUDE.md` e `.claude/hooks.md` como orientação
+textual quando o perfil Claude é selecionado. Isso não instala hooks
+executáveis por si só. Abra uma **nova sessão** do Claude Code após install,
+update ou targets add; verifique a memória global carregada com os recursos
+de inspeção do próprio cliente (e confirme a disponibilidade da skill).
+A presença dos arquivos no disco não comprova que uma sessão os carregou.
