@@ -366,16 +366,18 @@ function runCliUpdate(args) {
 
   const channel = getNpmChannel(packageJson.version);
   console.log(`Atualizando a CLI npm para ${packageJson.name}@${channel}...`);
+  // Capture npm output to classify permission failures without exposing raw
+  // registry/auth diagnostics. npm still writes its own local debug log.
   const result = runNpm([
     "install", "-g", `${packageJson.name}@${channel}`, "--force", "--prefer-online"
-  ], { stdio: "inherit" });
-
-  if (result.error) {
-    throw result.error;
+  ], { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  const { npmPermissionHint } = require("../orquestrador/lib/install-diagnostics");
+  const hint = npmPermissionHint(result);
+  if (hint) throw new Error(hint);
+  if (result.error || result.status !== 0) {
+    throw new Error(`A atualização da CLI npm falhou (código ${result.status ?? result.error?.code ?? "desconhecido"}). Consulte o log local do npm.`);
   }
-  if (result.status !== 0) {
-    throw new Error(`A atualização da CLI npm falhou (código ${result.status}).`);
-  }
+  if (result.stdout) process.stdout.write(result.stdout);
 
   const cliPath = resolveGlobalCliPath();
   const installedVersion = readGlobalCliVersion(cliPath);
