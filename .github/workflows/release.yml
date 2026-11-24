@@ -245,7 +245,7 @@ jobs:
           elif grep -qE 'E404|No match found for version' "$err_file"; then
             publish_tag="$dist_tag"
             if [[ "$dist_tag" == latest ]]; then publish_tag=staged; fi
-            npm publish "./$TARBALL" --access public --tag "$publish_tag"
+            npm publish "./$TARBALL" --ignore-scripts --access public --tag "$publish_tag"
           else
             echo "Registry lookup failed; refusing to publish."
             exit 1
@@ -268,10 +268,14 @@ jobs:
           done
           registry_dir="$(mktemp -d)"
           trap 'rm -rf "$registry_dir"' EXIT
-          npm pack "$package@$version" --prefer-online --pack-destination "$registry_dir" >/dev/null
+          while ! npm pack "$package@$version" --prefer-online --pack-destination "$registry_dir" >/dev/null 2>&1; do
+            (( SECONDS < deadline )) || { echo "Timed out fetching registry tarball"; exit 1; }
+            sleep 15
+          done
           test "$(sha256sum "$registry_dir/$TARBALL" | awk '{print $1}')" = "$(cat package.sha256)"
-          npm install --global --prefix "$registry_dir/install" "$registry_dir/$TARBALL"
-          test "$("$registry_dir/install/bin/orquestrador-maestro" --version)" = "$version"
+          # Do not run package lifecycle scripts in a job holding publishing credentials.
+          env -u NODE_AUTH_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN npm install --ignore-scripts --global --prefix "$registry_dir/install" "$registry_dir/$TARBALL"
+          test "$(env -u NODE_AUTH_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN "$registry_dir/install/bin/orquestrador-maestro" --version)" = "$version"
 
           # Do not promote an older stable release over a newer stable release.
           if [[ "$dist_tag" == latest ]]; then
