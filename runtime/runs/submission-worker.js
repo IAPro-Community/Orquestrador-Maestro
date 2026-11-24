@@ -6,6 +6,12 @@ const { createApplicationSubmissionPorts } = require("./application-submission-p
 const { createTrustedApprovalVerifier, createApprovedTaskResolver } = require("./executable-submission");
 const { assessSubmissionGoal } = require("./goal-loop-driver");
 const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
+const GOAL_TERMINALS = new Set(["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT"]);
+
+function diagnosticCode(error, fallback) {
+  const code = String(error?.code || "");
+  return /^[A-Z][A-Z0-9_]{1,63}$/.test(code) ? code : fallback;
+}
 
 /**
  * Persistent, Maestro-owned bounded polling worker. It claims admitted
@@ -46,14 +52,17 @@ function createSubmissionWorker({
   });
 
   let stopping = false;
+  let stepPending = null;
+  let pendingCursor = 0;
+  let goalCursor = 0;
+  const lastReported = new Map();
   const inFlight = new Set();
   let lastPollError = null;
   let consecutivePollErrors = 0;
   let lastSuccessfulPollAt = null;
 
   function recordPollError(error) {
-    const rawCode = String(error?.code || "");
-    const code = /^[A-Z][A-Z0-9_]{1,63}$/.test(rawCode) ? rawCode : "WORKER_POLL_ERROR";
+    const code = diagnosticCode(error, "WORKER_POLL_ERROR");
     const previousCode = lastPollError?.code || null;
     lastPollError = Object.freeze({
       code,
@@ -70,12 +79,52 @@ function createSubmissionWorker({
   }
 
 
-  async function step() {
+  function reportOperationalError(stage, error, submissionId) {
+    const code = diagnosticCode(error, "SUBMISSION_WORKER_ERROR");
+    const key = stage + ":" + code;
+    const now = Date.now();
+    if (lastReported.has(key) && now - lastReported.get(key) < 60000) return;
+    if (lastReported.size >= 64) lastReported.clear();
+    lastReported.set(key, now);
+    if (onError) {
+      try { onError(Object.freeze({
+        workerId, stage, submissionId, code,
+        message: sanitizeDiagnostic(error?.message || "Worker operation failed", { maxChars: 512 }),
+        at: new Date(now).toISOString()
+      })); } catch { /* Diagnostics must not change execution. */ }
+    }
+  }
+
+  // Recovery only reads terminal manifests and persists missing decisions.
+  // It never claims a submission or dispatches a provider.
+  async function recoverGoals() {
+    if (!goalLoop || !store.listGoalLoopDecisions) return;
+    const rows = await store.listRunSubmissions({});
+    const decisions = await store.listGoalLoopDecisions({});
+    const existing = new Set(decisions.map((row) => row.submissionId));
+    const missing = rows.filter((row) => row.manifestId &&
+      GOAL_TERMINALS.has(row.status) && !existing.has(row.id));
+    if (!missing.length) return;
+    const offset = goalCursor % missing.length;
+    const batch = missing.slice(offset).concat(missing.slice(0, offset)).slice(0, pendingBatchLimit);
+    goalCursor = offset + batch.length;
+    for (const row of batch) {
+      if (stopping) break;
+      try { await assessSubmissionGoal({ store, submissionId: row.id }); }
+      catch (error) { reportOperationalError("goal-recovery", error, row.id); }
+    }
+  }
+
+  async function performStep() {
     if (stopping) return { claimed: 0, outcomes: [] };
-    const pending = (await store.listRunSubmissions({ status: "PENDING_WORKER" }) || [])
-      .slice(0, pendingBatchLimit);
+    const pending = (await store.listRunSubmissions({ status: "PENDING_WORKER" }) || []);
+    await recoverGoals();
+    if (stopping) return { claimed: 0, outcomes: [] };
     const slots = Math.max(0, concurrency - inFlight.size);
-    const batch = pending.slice(0, slots);
+    const offset = pending.length ? pendingCursor % pending.length : 0;
+    const batch = pending.slice(offset).concat(pending.slice(0, offset))
+      .slice(0, Math.min(slots, pendingBatchLimit));
+    pendingCursor = offset + batch.length;
     if (batch.length === 0) return { claimed: 0, outcomes: [] };
     const executions = batch.map((row) => {
       const execution = superviseSubmissionOnce({
@@ -91,11 +140,14 @@ function createSubmissionWorker({
     });
     const settled = await Promise.allSettled(executions);
     const outcomes = [];
-    for (const entry of settled) {
+    let claimed = 0;
+    for (const [index, entry] of settled.entries()) {
       if (entry.status !== "fulfilled") {
-        outcomes.push({ status: "SUPERVISION_ERROR", code: entry.reason?.code || "SUBMISSION_WORKER_ERROR" });
+        reportOperationalError("supervision", entry.reason, batch[index].id);
+        outcomes.push({ status: "SUPERVISION_ERROR", code: diagnosticCode(entry.reason, "SUBMISSION_WORKER_ERROR") });
         continue;
       }
+      claimed++;
       const value = entry.value || {};
       const outcome = {
         status: "COMPLETED_SUPERVISION",
@@ -109,7 +161,7 @@ function createSubmissionWorker({
       // as well as failed terminals through canonical verification/resolution.
       // Still read-only: no unattended correction is authorized by this step.
       if (goalLoop && outcome.submissionId &&
-          ["COMPLETED", "FAILED", "BLOCKED", "TIMED_OUT"].includes(outcome.submissionStatus)) {
+          GOAL_TERMINALS.has(outcome.submissionStatus)) {
         try {
           const assessment = await assessSubmissionGoal({ store, submissionId: outcome.submissionId });
           outcome.goalLoop = {
@@ -119,12 +171,19 @@ function createSubmissionWorker({
             preservedTaskIds: [...assessment.decision.preservedTaskIds]
           };
         } catch (error) {
-          outcome.goalLoop = { decision: "ASSESSMENT_ERROR", code: error?.code || "GOAL_LOOP_UNAVAILABLE" };
+          reportOperationalError("goal-assessment", error, outcome.submissionId);
+          outcome.goalLoop = { decision: "ASSESSMENT_ERROR", code: diagnosticCode(error, "GOAL_LOOP_UNAVAILABLE") };
         }
       }
       outcomes.push(outcome);
     }
-    return { claimed: batch.length, outcomes };
+    return { claimed, outcomes };
+  }
+
+  function step() {
+    if (stepPending) return stepPending;
+    stepPending = performStep().finally(() => { stepPending = null; });
+    return stepPending;
   }
 
   async function run() {
@@ -133,7 +192,7 @@ function createSubmissionWorker({
       let claimed = 0;
       try {
         const result = await step();
-        claimed = result.claimed;
+        claimed = result.outcomes.some((outcome) => outcome.status === "SUPERVISION_ERROR") ? 0 : result.claimed;
         consecutivePollErrors = 0;
         lastSuccessfulPollAt = new Date().toISOString();
       } catch (error) {
@@ -152,6 +211,7 @@ function createSubmissionWorker({
     run,
     async stop() {
       stopping = true;
+      if (stepPending) await Promise.allSettled([stepPending]);
       await Promise.allSettled([...inFlight]);
     },
     diagnostics() {
