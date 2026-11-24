@@ -894,52 +894,50 @@ function runRollback(args) {
 function parseDoctorArgs(args) {
   const normalized = normalizeArgs(args);
   let homePath = "";
-
-  for (let i = 0; i < normalized.length; i += 1) {
+  let strict = false;
+  for (let i = 0; i < normalized.length; i++) {
     const arg = normalized[i];
+    if (arg === "--strict") { strict = true; continue; }
     if (arg === "--home-path") {
-      const value = normalized[i + 1];
-      if (!value || value.startsWith("--")) {
-        throw new Error("Parametro --home-path exige um valor.");
-      }
+      const value = normalized[++i];
+      if (!value || value.startsWith("--")) throw new Error("Parametro --home-path exige um valor.");
       homePath = value;
-      i += 1;
       continue;
     }
     throw new Error(`Parametro desconhecido: ${arg}`);
   }
-
-  return { homePath };
+  return { homePath, strict };
 }
 
 function runDoctor(args) {
+  const { homePath, strict } = parseDoctorArgs(args);
+  const home = path.resolve(homePath || process.env.HOME || process.env.USERPROFILE || os.homedir());
+  const diagnostics = require("../orquestrador/lib/install-diagnostics");
   const script = path.join(rootDir, "orquestrador", "doctor.ps1");
-  if (!commandExists(script)) {
-    throw new Error(`Diagnostico nao encontrado: ${script}`);
-  }
-
-  const { homePath } = parseDoctorArgs(args);
-  const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script];
-  if (homePath) {
-    psArgs.push("-HomePath", homePath);
-  }
-
+  const psArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-HomePath", home];
+  if (strict) psArgs.push("-Strict");
   if (process.platform === "win32") {
-    return run("powershell", psArgs);
+    const code = run("powershell", psArgs);
+    diagnostics.printClaudeGuidance(home);
+    return code;
   }
-
+  // Preserve the detailed report when pwsh exists. Otherwise reuse the
+  // existing Unix verifier, including its strict managed-file/policy gates.
   for (const command of ["pwsh", "powershell"]) {
     try {
-      return run(command, psArgs);
+      const code = run(command, psArgs);
+      diagnostics.printClaudeGuidance(home);
+      return code;
     } catch (error) {
-      if (error && error.code === "ENOENT") {
-        continue;
-      }
-      throw error;
+      if (error?.code !== "ENOENT") throw error;
     }
   }
-
-  throw new Error("O comando doctor requer PowerShell. Instale pwsh ou use orquestrador-maestro verify.");
+  console.log("Doctor: modo portável (Node.js + verificador Unix; relatório detalhado PowerShell não executado).");
+  const verifyArgs = ["--home-path", home];
+  if (strict) verifyArgs.push("--strict");
+  const code = runVerify(verifyArgs);
+  const findings = diagnostics.printClaudeGuidance(home);
+  return code || (strict && findings.length ? 1 : 0);
 }
 
 function runInitDev(args) {
@@ -2040,7 +2038,7 @@ Fluxo recomendado para quem ja tem o Orquestrador instalado:
   orquestrador-maestro doctor`);
 
   if (process.platform !== "win32") {
-    console.log("Obs.: em Linux/macOS, doctor requer pwsh ou powershell instalado.");
+    console.log("Obs.: em Linux/macOS, doctor usa o verificador Unix quando PowerShell não está disponível.");
   }
 
   return 0;
