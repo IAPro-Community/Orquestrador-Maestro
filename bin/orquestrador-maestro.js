@@ -524,6 +524,10 @@ async function runInstall(args, injectedFlags = []) {
   if (!skipDesktopPlugin && !runOnly) {
     maybeInstallDesktopPlugin(normalizedForOnly, result);
   }
+  if (!runOnly && result === 0) {
+    const home = path.resolve(getArg(scriptArgs, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir());
+    require("../orquestrador/lib/install-diagnostics").printClaudeGuidance(home);
+  }
   return result;
 }
 
@@ -2808,6 +2812,8 @@ function handleTargetsCommand(args) {
         Target: def.displayName,
         ToolId: toolId,
         Detection: detection.state,
+        DetectionReason: detection.reason,
+        Configuration: require("../orquestrador/lib/install-diagnostics").configurationState(toolId, homePath, detection),
         Enabled: enabled ? "yes" : "no"
       });
     }
@@ -2822,12 +2828,12 @@ function handleTargetsCommand(args) {
     if (jsonFlag) {
       console.log(JSON.stringify({ schemaVersion: 1, targets: rows }, null, 2));
     } else {
-      const header = "Target".padEnd(20) + "Detection".padEnd(16) + "Enabled";
-      const sep = "-".repeat(44);
+      const header = "Target".padEnd(20) + "Detection".padEnd(16) + "Enabled".padEnd(10) + "Configuration";
+      const sep = "-".repeat(65);
       console.log(header);
       console.log(sep);
       for (const r of rows) {
-        console.log(r.Target.padEnd(20) + r.Detection.padEnd(16) + r.Enabled);
+        console.log(r.Target.padEnd(20) + r.Detection.padEnd(16) + r.Enabled.padEnd(10) + r.Configuration);
       }
     }
     return 0;
@@ -3030,6 +3036,7 @@ function handleTargetsCommand(args) {
       return 1;
     }
 
+    if (toolId === "claude") require("../orquestrador/lib/install-diagnostics").printClaudeGuidance(homePath);
     console.log(JSON.stringify({
       target: toolId,
       enabled: true,
