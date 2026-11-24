@@ -1,15 +1,21 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       tag:
         description: 'Tag de release a validar (ex.: v1.0.0)'
         required: true
         type: string
+      expected_sha:
+        description: 'SHA completo homologado que a tag deve apontar'
+        required: true
+        type: string
+      confirm:
+        description: 'Autorizo publicar este artefato no npm e GitHub'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -21,7 +27,11 @@ concurrency:
 jobs:
   validate:
     name: Validate release
+    if: inputs.confirm == true && (github.ref_name == 'v1' || github.ref_name == 'main')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       release_sha: ${{ steps.release.outputs.release_sha }}
     steps:
@@ -29,7 +39,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -42,12 +52,14 @@ jobs:
         shell: bash
         env:
           REQUESTED_TAG: ${{ inputs.tag }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            tag="$REQUESTED_TAG"
-          fi
+          tag="$REQUESTED_TAG"
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          node scripts/check-release-ci.js "$EXPECTED_SHA"
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
           version="${tag#v}"
           package_version="$(node -p "require('./package.json').version")"
@@ -80,6 +92,7 @@ jobs:
           if [[ "$version" == 1.* ]]; then
             release_branch="v1"
           fi
+          [[ "$GITHUB_REF_NAME" == "$release_branch" ]]
           git fetch origin "$release_branch"
           RELEASE_SHA="$(git rev-parse HEAD)"
           if ! git merge-base --is-ancestor "$RELEASE_SHA" "origin/$release_branch"; then
