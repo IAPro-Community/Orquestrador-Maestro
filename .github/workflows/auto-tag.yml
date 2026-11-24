@@ -1,17 +1,21 @@
-name: Auto-tag release
+name: Prepare authorized release tag
 
 on:
-  push:
-    branches: [main, v1]
-    paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - 'CHANGELOG.md'
-      - '.github/workflows/auto-tag.yml'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'SHA completo do commit homologado (main ou v1)'
+        required: true
+        type: string
+      confirm:
+        description: 'Autorizo criar a tag deste SHA; não publicar'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
+  actions: read
 
 concurrency:
   group: auto-tag-release
@@ -19,17 +23,31 @@ concurrency:
 
 jobs:
   auto-tag:
-    name: Detect version bump and create tag
+    name: Validate authorized release and create tag
+    if: inputs.confirm == true && (github.ref_name == 'v1' || github.ref_name == 'main')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
+      - name: Verify immutable authorized revision
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          node scripts/check-release-ci.js "$EXPECTED_SHA"
       - name: Fetch remote tags
         shell: bash
-        run: git fetch --force --tags origin
+        run: git fetch --tags origin
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -42,8 +60,10 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
-          npm test
-          npm pack --dry-run >/dev/null
+          VERIFY_BASE_REF="$(git rev-parse HEAD)" npm run verify:pr
+          npm run skills:contract-audit:strict
+          pwsh -NoProfile -File scripts/validate-public.ps1
+          pwsh -NoProfile -File scripts/validate-skills.ps1
 
       - name: Compare package version with npm registry
         id: check
@@ -72,7 +92,7 @@ jobs:
             exit 1
           fi
 
-          if ! grep -qE "^## ${local_version}([ -]|$)" CHANGELOG.md; then
+          if ! LOCAL_VERSION="$local_version" node -e 'const v=process.env.LOCAL_VERSION;process.exit(require("fs").readFileSync("CHANGELOG.md","utf8").split(/\r?\n/).some(l=>l==="## "+v||l.startsWith("## "+v+" "))?0:1)'; then
             echo "CHANGELOG.md has no heading for version $local_version" >&2
             exit 1
           fi
@@ -102,6 +122,8 @@ jobs:
         run: |
           set -euo pipefail
           version="$LOCAL_VERSION"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          if [[ "$version" == 1.* ]]; then [[ "$GITHUB_REF_NAME" == v1 ]]; else [[ "$GITHUB_REF_NAME" == main ]]; fi
           tag="v${version}"
 
           if git rev-parse "$tag" >/dev/null 2>&1; then
@@ -122,13 +144,4 @@ jobs:
           git push origin "$tag"
           echo "Created and pushed $tag"
 
-      # Tags pushed with GITHUB_TOKEN do not trigger another push workflow.
-      # Explicit dispatch connects the validated tag to npm and GitHub releases.
-      - name: Dispatch release publication
-        if: steps.check.outputs.skip == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_BRANCH: ${{ github.ref_name }}
-          LOCAL_VERSION: ${{ steps.check.outputs.local_version }}
-        run: gh workflow run release.yml --ref "$RELEASE_BRANCH" -f "tag=v$LOCAL_VERSION"
+      # Publication is a separate manual authorization in release.yml.
