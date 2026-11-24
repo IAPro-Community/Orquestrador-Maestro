@@ -15,11 +15,11 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 Também é possível validar e criar a tag pelo script local:
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.2.0-rc.1
+   .\scripts\release.ps1 -Version 1.2.0-rc.2
    ```
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.2.0-rc.1 -CreateTag -PushTag
+   .\scripts\release.ps1 -Version 1.2.0-rc.2 -CreateTag -PushTag
    ```
 
 O script exige working tree limpo, verifica a versão dos manifestos, confere o changelog, executa `npm run validate`, gera a prévia do pacote e valida espaços inválidos.
@@ -35,14 +35,17 @@ Releases estáveis usam o dist-tag npm `latest`; `alpha` usa `alpha`, `beta` usa
 - verifica a ancestralidade na branch da linha de release;
 - executa testes, validação pública e auditoria estrita das skills;
 - gera um único tarball com checksum e testa sua instalação e atualização em home isolado;
-- publica exatamente o artefato validado no canal npm correspondente;
+- publica exatamente o artefato validado; uma versão estável entra primeiro no dist-tag temporário `staged`, sem alterar `latest`;
+- aguarda a visibilidade da versão no registry (até 20 minutos), confere SHA-512 e recupera o tarball para comparar seu SHA-256 e executar smoke de versão;
+- promove o canal somente após confirmação, sem regredir `latest`; se `next` ainda apontar para uma RC da mesma versão, gradua esse canal também;
+- reconfirma os dist-tags antes de autorizar a release GitHub;
 - cria a release GitHub com changelog, tarball e checksum; versões estáveis viram `Latest`, pré-releases ficam identificadas como tal.
 
 Configure o secret `NPM_TOKEN` no ambiente `npm-release`, com permissão de publicação e atualização de dist-tags para `@iapro/orquestrador-maestro-cli`. Como alternativa, configure trusted publishing para este repositório e workflow com `id-token: write`; habilite também a permissão `Allow npm dist-tag` do trusted publisher. O job usa npm 12.2.0, compatível com essa operação via OIDC. Dist-tags que já apontam para a versão desejada dispensam escrita. Para alterações, OIDC tem prioridade; se essa operação for recusada e houver um token configurado, o job tenta a autenticação tradicional com esse token.
 
-Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. Execuções da mesma tag são serializadas para evitar publicação concorrente.
+Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. As publicações são serializadas no mesmo grupo de concorrência, para evitar disputa entre canais. Um erro de propagação não autoriza republicar a versão; retome a execução pela tag imutável. Configure required reviewers no environment `npm-release` antes de autorizar uma versão estável; a declaração YAML não configura essa aprovação por si só.
 
-A tag permanece imutável mesmo quando a branch avança. A checagem de ancestralidade exige que o commit da tag esteja no histórico da linha de release; não exige que a tag contenha commits posteriores da branch. Assim, uma retomada preserva o pacote original.
+A tag permanece imutável mesmo quando a branch avança. A checagem de ancestralidade exige que o commit da tag esteja no histórico da linha de release; não exige que a tag contenha commits posteriores da branch. Assim, uma retomada manual preserva o pacote original. O auto-tag não despacha uma tag antiga como se fosse o HEAD atual; retome explicitamente pela tag original.
 
 ## Rollback
 
@@ -64,6 +67,6 @@ Para experimentar a release candidate:
 npm install -g @iapro/orquestrador-maestro-cli@next
 ```
 
-O comando `orquestrador-maestro update` preserva o canal da versão instalada. Na graduação para `1.0.0`, o canal `beta` também aponta para a estável, permitindo que instalações beta migrem pelo comando habitual. Após a migração, o CLI estável consulta `latest`. Futuras betas podem mover `beta` novamente; para escolher a linha estável explicitamente, use `@latest`.
+O comando `orquestrador-maestro update` preserva o canal da versão instalada. Na graduação para `1.0.0`, o canal `beta` também aponta para a estável, permitindo que instalações beta migrem pelo comando habitual. Após a migração, o CLI estável consulta `latest`. Na graduação de uma RC estável, `next` é movido para a estável somente se ainda apontar para uma RC da mesma versão. Futuras pré-releases podem mover seus canais novamente; para escolher a linha estável explicitamente, use `@latest`.
 
 Ao atualizar, `orquestrador-maestro update` faz backup e reaplica o núcleo. A versão 1.0.1 também consolida a instalação na raiz `.orquestrador`, migrando memória e configuração de `.orquestrador-maestro` antes de remover a raiz antiga.
