@@ -344,3 +344,35 @@ test("failed project verification prevents dependent DAG dispatch even after pro
   assert.equal(verification.status, "failed");
   assert.notEqual(result.outcomes[0].goalLoop?.decision, "PASS");
 });
+
+test("failed claim is observable and polling backs off without redispatch", async (t) => {
+  const f = await fixture(t);
+  const params = submitParams("submit-worker-unclaimable");
+  params.artifact.sha256 = sha(params.artifact.content);
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: new ProviderRegistry([f.provider]),
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  f.store.claimRunSubmission = async () => {
+    const error = new Error("claim denied token=opaque-test-value");
+    error.code = "STORE_TEMPORARY_FAILURE";
+    throw error;
+  };
+  let sleeps = 0;
+  const events = [];
+  let worker;
+  worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-claim-error-001", pollIntervalMs: 50,
+    onError: (event) => events.push(event),
+    sleep: async () => { sleeps++; await worker.stop(); }
+  });
+  await worker.run();
+  assert.equal(sleeps, 1);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].stage, "supervision");
+  assert.equal(events[0].submissionId, ack.submissionId);
+  assert.doesNotMatch(JSON.stringify(events), /opaque-test-value/);
+  assert.equal(f.provider.calls, 0);
+  assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "PENDING_WORKER");
+});
