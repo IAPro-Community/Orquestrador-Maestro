@@ -1,6 +1,6 @@
 # Maestro Integration API
 
-> Status: ativo na linha V1 (1.1.x). O contrato suportado é o protocolo v1 via
+> Status: ativo na linha V1 (1.1.x estável; 1.2.x em release candidate). O contrato suportado é o protocolo v1 via
 > `orquestrador-maestro bridge --stdio`. O daemon/socket e o protocolo v2 da
 > antiga linha `cli-novo` foram removidos. A execução durável descrita abaixo é
 > experimental e depende de um worker Maestro-owned.

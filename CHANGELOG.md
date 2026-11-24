@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.0-rc.1 - 2026-11-23
+
+> Release candidate. Publicada no canal npm `next`; a linha estável permanece em `1.1.1` no canal `latest`.
+
+### Execução durável de Runs (experimental)
+
+- `runs.submit` passa a executar admissão durável real: valida plano/DAG, persiste manifesto imutável, recibo de aprovação autoverificável e ACK idempotente com `submissionId` e `requestDigest`. O ACK não inicia provider.
+- Novo worker Maestro-owned (`orquestrador-maestro runs worker` e `bridge --stdio --with-worker`) com lease/fencing, `--once`, intervalo de polling e concorrência de 1 a 8.
+- Dispatch multi-tarefa em ordem topológica, com um Run por tarefa, bloqueio de descendentes de tarefas falhadas, agregação terminal sobre todos os Runs e reserva atômica de até cinco worktrees.
+- Goal Loop integrado ao worker: avalia `COMPLETED`, `FAILED`, `BLOCKED` e `TIMED_OUT`; `PASS` exige Resolution validada e evidência vinculada. Correções permanecem bloqueadas sem custo real medido e nunca são re-despachadas automaticamente.
+- Projeções `runs.submissions.list/get/poll/cancel` com escopo de projeto, redaction, cancelamento seguro e campo opcional `usage` quando houver telemetria medida (`provider-reported` ou `derived`).
+- Reconciliação de leases expirados permanece conservadora: `runs reconcile --apply` marca `RECONCILIATION_REQUIRED`, mantém a reserva e nunca redespacha.
+- Documentação: novo contrato em [execução durável de Runs](docs/architecture/DURABLE_RUN_ADMISSION.md), atualização da [reconciliação](docs/architecture/RUN_RECONCILIATION.md) e da [Integration API](docs/architecture/MAESTRO_INTEGRATION_API.md).
+- `version --check` não falha mais quando o canal de pré-release ainda não tem dist-tag no npm: consulta a versão exata e, na falta dela, o canal estável, informando a troca.
+- Limites: CLIs reais de provider, macOS arm64, restart durante execução, dois clientes em hosts distintos, cursor replayável e paralelismo por lane continuam pendentes. A suíte completa passou na CI pública para Linux, Windows e macOS. A capability é experimental e não deve ser habilitada por padrão.
+
 ## 1.1.1 - 2026-10-18
 
 ### Correções de atualização

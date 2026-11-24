@@ -1,10 +1,10 @@
 # Plano V1 — Context & Skill Intelligence
 
-> **Status:** Plano entregue na `1.1.0`; a linha estável recebeu a correção `1.1.1`
-> **Branch:** `v1` (linha de release)
+> **Status:** Plano entregue na `1.1.0`; a linha estável recebeu a correção `1.1.1`; a `1.2.0-rc.1` acrescenta a execução durável de Runs como superfície experimental
+> **Branch:** `v1` (linha de release); release candidate em `release/1.2.0`
 > **Base:** `IAPro-Community/Orquestrador-Maestro:main` após PR #23 / release `0.5.0` (`09e7bf70306bac7dd9238089a0d845d05427bc64`)
-> **Target:** `1.1.0` (concluído)
-> **Última atualização:** 2026-10-18
+> **Target:** `1.1.0` (concluído); linha `1.2.x` em release candidate
+> **Última atualização:** 2026-11-23
 
 ## 1. Objetivo da V1
 

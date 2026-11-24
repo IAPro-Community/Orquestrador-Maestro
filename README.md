@@ -64,7 +64,7 @@ orquestrador-maestro verify
 
 Prefere instalar pelo repositório? Use o [guia de instalação](docs/installation.md), que inclui Windows, Linux, macOS, bootstrap, dry-run e rollback.
 
-A **V1 estável (1.1.1)** é a versão padrão: branch `v1`, release `v1.1.1` e canal npm `latest`. Para atualizar uma instalação existente, rode `orquestrador-maestro update`, seguido de `orquestrador-maestro verify` e `orquestrador-maestro version --check`. O update faz backup e consolida o núcleo em `.orquestrador`, preservando memória/configuração ao migrar de `.orquestrador-maestro`. Veja a [migração para V1](docs/migration-v1.md).
+A **V1 estável (1.1.1)** é a versão padrão: branch `v1`, release `v1.1.1` e canal npm `latest`. A release candidate **1.2.0-rc.1** fica no canal npm `next` e na branch `release/1.2.0`; ela adiciona a execução durável experimental e ainda não substitui a estável. Para atualizar uma instalação existente, rode `orquestrador-maestro update`, seguido de `orquestrador-maestro verify` e `orquestrador-maestro version --check`. O update faz backup e consolida o núcleo em `.orquestrador`, preservando memória/configuração ao migrar de `.orquestrador-maestro`. Veja a [migração para V1](docs/migration-v1.md).
 
 **Próximo passo:** [verifique a instalação](docs/installation.md#verificação) e [configure o primeiro projeto](docs/project-dev-hierarchy.md).
 

@@ -10,14 +10,16 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 2. Rode `npm ci`, `npm run verify:pr`, `npm run validate` e `npm run skills:contract-audit:strict`. Para a linha V1, use `VERIFY_BASE_REF=origin/v1` no gate de ancestralidade.
 3. Para versões `1.x`, faça commit e envie essas alterações à branch `v1`. O workflow de auto-tag testa o código, confere a versão no npm, cria a tag anotada e dispara explicitamente o workflow de publicação. A linha histórica `0.x` continua usando `main`.
 
+> **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). O gate de ancestralidade exige que o commit da tag já esteja em `origin/v1`; por isso a branch de RC precisa ser integrada em `v1` antes da tag. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.2`.
+
 Também é possível validar e criar a tag pelo script local:
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.1.1
+   .\scripts\release.ps1 -Version 1.2.0-rc.1
    ```
 
    ```powershell
-   .\scripts\release.ps1 -Version 1.1.1 -CreateTag -PushTag
+   .\scripts\release.ps1 -Version 1.2.0-rc.1 -CreateTag -PushTag
    ```
 
 O script exige working tree limpo, verifica a versão dos manifestos, confere o changelog, executa `npm run validate`, gera a prévia do pacote e valida espaços inválidos.
@@ -54,6 +56,12 @@ Instale a V1 estável pelo canal padrão:
 npm install -g @iapro/orquestrador-maestro-cli@latest
 orquestrador-maestro update
 orquestrador-maestro verify
+```
+
+Para experimentar a release candidate:
+
+```bash
+npm install -g @iapro/orquestrador-maestro-cli@next
 ```
 
 O comando `orquestrador-maestro update` preserva o canal da versão instalada. Na graduação para `1.0.0`, o canal `beta` também aponta para a estável, permitindo que instalações beta migrem pelo comando habitual. Após a migração, o CLI estável consulta `latest`. Futuras betas podem mover `beta` novamente; para escolher a linha estável explicitamente, use `@latest`.
