@@ -65,7 +65,7 @@ function topoOrder(tasks) {
  */
 async function superviseSubmissionOnce({
   store, submissionId, workerId, verifyApproval, prepareRun, dispatchRun,
-  releasePreparedRun, leaseMs = 30000, heartbeatMs = 5000
+  releasePreparedRun, onClaim, leaseMs = 30000, heartbeatMs = 5000
 } = {}) {
   validateID(submissionId, "submissionId");
   validateID(workerId, "workerId");
@@ -128,6 +128,7 @@ async function superviseSubmissionOnce({
   }
 
   try {
+    if (typeof onClaim === "function") onClaim(claimed.id);
     const manifest = claimed.manifestId
       ? validateStoredExecutableManifest(await store.getExecutableManifest(claimed.manifestId))
       : null;
