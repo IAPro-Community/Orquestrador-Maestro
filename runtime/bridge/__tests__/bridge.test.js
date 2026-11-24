@@ -175,3 +175,21 @@ test("project.context rejects invalid project scope and unsafe context parameter
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("stdio server drains an accepted request after input EOF", async () => {
+  const { PassThrough } = require("node:stream");
+  const { createStdioServer } = require("../stdio-server");
+  const input = new PassThrough();
+  const output = new PassThrough();
+  let data = "";
+  output.on("data", (chunk) => { data += chunk; });
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const server = createStdioServer({
+    async handle(request) { await gate; return { id: request.id, result: "ok" }; }
+  }, { input, output });
+  input.end(JSON.stringify({ id: 1 }) + "\n");
+  release();
+  await server.done;
+  assert.deepEqual(JSON.parse(data), { id: 1, result: "ok" });
+});
