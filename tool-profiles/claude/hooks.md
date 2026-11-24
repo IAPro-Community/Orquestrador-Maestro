@@ -1,6 +1,6 @@
 # Claude Hooks
 
-This file must stay small. It is a hook router, not a skill catalog.
+This file is textual routing guidance, not a registered Claude Code executable hook or a skill catalog. Follow it through the global CLAUDE.md; actual hooks require separate explicit configuration and trust.
 
 1. Read project `AGENTS.md`.
 2. If `DEV/` exists, read `DEV/README.md` or `DEV/INDEX.md`, then only the task-relevant `DEV/` files.
@@ -12,4 +12,4 @@ This file must stay small. It is a hook router, not a skill catalog.
 8. Do not use this file, `SKILLS_INDEX.md`, or `community-skills/` as a full discovery catalog.
 9. In `fast`, load one skill body. In `standard`, load at most three. Go wider only if the execution profile and the skill chain allow it.
 10. Verify before claiming completion.
-11. For broad global changes, run `powershell -NoProfile -ExecutionPolicy Bypass -File {{USER_HOME}}/.orquestrador/doctor.ps1` when PowerShell is available.
+11. For broad global changes, run `orquestrador-maestro doctor --strict`. Linux/macOS can use the portable verifier without PowerShell.
