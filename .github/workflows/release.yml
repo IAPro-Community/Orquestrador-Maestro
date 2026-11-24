@@ -62,25 +62,7 @@ jobs:
           node scripts/check-release-ci.js "$EXPECTED_SHA"
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
           version="${tag#v}"
-          package_version="$(node -p "require('./package.json').version")"
-          lock_version="$(node -p "require('./package-lock.json').version")"
-          [[ "$package_version" == "$version" ]]
-          [[ "$lock_version" == "$version" ]]
-          EXPECTED_VERSION="$version" node <<'NODE'
-          const fs = require('node:fs');
-          const version = process.env.EXPECTED_VERSION;
-          const read = p => JSON.parse(fs.readFileSync(p, 'utf8'));
-          const values = [
-            read('package-lock.json').packages[''].version,
-            read('plugins/maestro-openai/plugin.json').version,
-            read('plugins/maestro-openai/.codex-plugin/plugin.json').version,
-            read('docs/product/CAPABILITY_MATRIX.json').product.packageVersion,
-            /^PACKAGE_VERSION="([^"]+)"/m.exec(fs.readFileSync('scripts/bootstrap-install.sh', 'utf8'))?.[1],
-            /^\$packageVersion = "([^"]+)"/m.exec(fs.readFileSync('scripts/bootstrap-install.ps1', 'utf8'))?.[1]
-          ];
-          if (values.some(value => value !== version)) throw new Error('Release manifest version mismatch');
-          if (!fs.readFileSync('CHANGELOG.md', 'utf8').split(/\r?\n/).some(line => line === '## '+version || line.startsWith('## '+version+' '))) throw new Error('Missing changelog heading');
-          NODE
+          node scripts/check-release-version.js "$version"
 
       - name: Verify release is ancestor of its release line
         id: release
@@ -191,6 +173,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      actions: read
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -214,6 +197,23 @@ jobs:
 
       - name: Set up npm with trusted dist-tag support
         run: npm install --global npm@12.2.0
+
+      - name: Checkout immutable CI gate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.release_sha }}
+          path: release-gate-source
+          persist-credentials: false
+
+      - name: Recheck CI evidence before publication
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ needs.validate.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git -C release-gate-source rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          node release-gate-source/scripts/check-release-ci.js "$EXPECTED_SHA"
 
       - name: Publish package with safe dist-tag
         shell: bash
