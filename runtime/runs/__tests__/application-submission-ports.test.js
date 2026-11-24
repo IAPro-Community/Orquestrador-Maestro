@@ -266,3 +266,72 @@ test("agent cannot replace the approved npm test script with a vacuous passing c
     finding.code === "VERIFICATION_CONFIG_DRIFT" && finding.blocking === true));
   assert.notEqual(run.metadata.resolution?.outcome?.state, "validated");
 });
+
+
+test("agent cannot replace an indirect local test script while leaving package.json unchanged", async (t) => {
+  const f = await fixture(t, { testScript: "node scripts/check.cjs" });
+  const localVerifier = path.join(f.projectRoot, "scripts", "check.cjs");
+  fs.mkdirSync(path.dirname(localVerifier), { recursive: true });
+  fs.writeFileSync(localVerifier, "process.exit(1);\n");
+  f.provider.execute = async () => {
+    f.provider.calls++;
+    fs.writeFileSync(localVerifier, "process.exit(0);\n");
+    return {
+      pid: 10, cancel() {},
+      result: Promise.resolve({
+        providerId: "opencode", pid: 10, exitCode: 0, stdout: "done",
+        stderr: "", durationMs: 1, cancelled: false, timedOut: false
+      })
+    };
+  };
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const result = await superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-indirect-verifier-001", ...ports
+  });
+  const run = await f.store.getRun(result.runId);
+  const verification = await f.app.getVerification(result.runId);
+  assert.equal(f.provider.calls, 1);
+  assert.equal(verification.status, "passed", "the substituted script exits zero");
+  assert.equal(run.status, "failed", "changing verifier inputs must block acceptance");
+  assert.equal(result.submission.status, "FAILED");
+  assert.ok(run.metadata.qualityFindings.some((finding) =>
+    finding.code === "VERIFICATION_CONFIG_DRIFT" && finding.blocking));
+  assert.notEqual(run.metadata.resolution?.outcome?.state, "validated");
+});
+
+test("agent cannot introduce a new verifier config during durable execution", async (t) => {
+  const f = await fixture(t, { testScript: 'node -e "process.exit(0)"' });
+  f.provider.execute = async () => {
+    f.provider.calls++;
+    fs.writeFileSync(path.join(f.projectRoot, "vitest.config.ts"), "export default {};\n");
+    return {
+      pid: 10, cancel() {},
+      result: Promise.resolve({
+        providerId: "opencode", pid: 10, exitCode: 0, stdout: "done",
+        stderr: "", durationMs: 1, cancelled: false, timedOut: false
+      })
+    };
+  };
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: f.approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const result = await superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-new-verifier-001", ...ports
+  });
+  const run = await f.store.getRun(result.runId);
+  assert.equal(result.submission.status, "FAILED");
+  assert.ok(run.metadata.qualityFindings.some((finding) =>
+    finding.code === "VERIFICATION_CONFIG_DRIFT" && finding.blocking));
+});
