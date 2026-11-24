@@ -171,6 +171,7 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
         id, taskId, status: "completed",
         metadata: {
           semanticTaskId: taskId,
+          evidencePolicyVersion: 1,
           semanticTask: { id: taskId, acceptanceCriteria: ["note range checked"] },
           resolution: { outcome: { state: "validated" } }
         }
@@ -209,13 +210,24 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
   // the namespaced approved-plan ID is only for immutable spec lookup.
   store.listEvidence = async () => [{
     runId, taskId, verificationId: "check-verified-01",
-    acceptanceCriterion: "note range checked", content: "independent proof"
+    acceptanceCriterion: "note range checked", content: "independent proof",
+    producer: "DETERMINISTIC_VERIFIED", metadata: { provenance: "DETERMINISTIC_VERIFIED" }
   }];
   const correct = await collectTaskResults({
     store, manifest, submission: { taskRuns: { [taskId]: runId } },
     taskOutcomes: { [taskId]: "completed" }
   });
   assert.equal(correct.results.get(taskId).evidence.length, 1);
+  store.listEvidence = async () => [{
+    runId, taskId, verificationId: "check-verified-01",
+    acceptanceCriterion: "note range checked", content: "agent says it is done",
+    producer: "AGENT_REPORTED", metadata: { provenance: "AGENT_REPORTED" }
+  }];
+  const untrusted = await collectTaskResults({
+    store, manifest, submission: { taskRuns: { [taskId]: runId } },
+    taskOutcomes: { [taskId]: "completed" }
+  });
+  assert.deepEqual(untrusted.results.get(taskId).evidence, []);
   store.listVerifications = async () => [
     { id: "check-verified-01", runId, status: "passed" },
     { id: "check-duplicate-02", runId, status: "failed" }

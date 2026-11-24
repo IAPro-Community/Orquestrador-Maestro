@@ -133,9 +133,15 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
       const boundTask = run.taskId === task.taskId &&
         run.metadata?.semanticTaskId === task.taskId &&
         run.metadata?.semanticTask?.id === task.taskId;
-      const evidence = verification?.runId === runId && boundTask
+      // Old, unclassified evidence or agent-reported claims are not proof.
+      // No current adapter is authorized to mint DETERMINISTIC_VERIFIED
+      // criterion receipts; the future trusted verifier must issue those.
+      const evidence = verification?.runId === runId && boundTask &&
+        run.metadata?.evidencePolicyVersion === 1
         ? rawEvidence.filter((item) => item?.runId === runId &&
-            item.taskId === task.taskId && item.verificationId === verification.id)
+            item.taskId === task.taskId && item.verificationId === verification.id &&
+            item.producer === "DETERMINISTIC_VERIFIED" &&
+            item.metadata?.provenance === "DETERMINISTIC_VERIFIED")
           .slice(0, MAX_EVIDENCE_ITEMS)
         : [];
       results.set(task.taskId, {

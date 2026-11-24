@@ -390,21 +390,53 @@ class JsonFileRunStore extends RunStore {
       // provider cancellation.
       const cancelledBeforeDispatch = status === "CANCELLED" &&
         row.status === "CANCEL_REQUESTED" && row.runId === null;
-      if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
-        // Multi-task aggregates prove themselves across every bound task Run:
-        // COMPLETED needs all completed; other terminals need all terminal
-        // with at least one matching the aggregate.
-        const taskRuns = row.taskRuns && typeof row.taskRuns === "object"
-          ? Object.values(row.taskRuns) : [];
-        const runs = taskRuns.map((id) => this._state.runs.find((run) => run.id === id));
-        const TERMINAL = new Set(["completed", "failed", "blocked", "timed_out", "cancelled"]);
-        const allTerminal = runs.length > 0 && runs.every((run) => run && TERMINAL.has(run.status));
-        const proven = status === "COMPLETED"
-          ? allTerminal && runs.every((run) => run.status === "completed")
-          : allTerminal && runs.some((run) => run.status === runStatus);
-        if (!proven) {
-          throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
-        }
+      if (!cancelledBeforeDispatch && row.manifestId) {
+        // A manifest-bound terminal is a statement about the entire approved
+        // DAG, not merely the first Run. Validate all bindings under the lock.
+        const manifest = validateStoredExecutableManifest(
+          this._state.executableManifests.find((item) => item.id === row.manifestId));
+        const invalid = () => bad("terminal submission does not match the complete manifest DAG", "RUN_PROVENANCE_MISMATCH");
+        if (manifest.projectId !== row.projectId || manifest.planDigest !== row.planDigest ||
+            manifest.artifactDigest !== row.artifactDigest || manifest.tasks.length !== row.taskCount) throw invalid();
+        const bindings = new Map(Object.entries(row.taskRuns || {}));
+        const tasks = new Map(manifest.tasks.map((task) => [task.taskId, task]));
+        if (!bindings.size || ![...bindings.values()].includes(row.runId) ||
+            new Set(bindings.values()).size !== bindings.size ||
+            [...bindings.keys()].some((taskId) => !tasks.has(taskId))) throw invalid();
+        const outcomes = new Map();
+        const terminal = new Set(["completed", "failed", "blocked", "timed_out", "cancelled"]);
+        const resolve = (taskId) => {
+          if (outcomes.has(taskId)) return outcomes.get(taskId);
+          const task = tasks.get(taskId);
+          // The manifest validator rejects cycles and missing dependencies.
+          const dependencies = task.dependsOn.map(resolve);
+          const dependencyFailed = dependencies.some((value) => value !== "completed");
+          const bound = bindings.get(taskId);
+          let value;
+          if (!bound) {
+            // Only a genuinely blocked descendant may lack a Run.
+            if (!dependencyFailed) throw invalid();
+            value = "blocked";
+          } else {
+            const run = this._state.runs.find((item) => item.id === bound);
+            const persistedTask = this._state.tasks.find((item) => item.id === taskId);
+            if (dependencyFailed || !run || run.taskId !== taskId ||
+                run.providerId !== task.providerId || persistedTask?.projectId !== row.projectId ||
+                !terminal.has(run.status)) throw invalid();
+            value = run.status;
+          }
+          outcomes.set(taskId, value);
+          return value;
+        };
+        for (const task of manifest.tasks) resolve(task.taskId);
+        const states = [...outcomes.values()];
+        const expected = states.includes("failed") ? "FAILED"
+          : states.includes("timed_out") ? "TIMED_OUT"
+          : states.includes("blocked") ? "BLOCKED"
+          : states.includes("cancelled") ? "CANCELLED" : "COMPLETED";
+        if (status !== expected) throw invalid();
+      } else if (!cancelledBeforeDispatch && (!persistedRun || persistedRun.status !== runStatus)) {
+        throw bad("terminal submission status requires a matching persisted Maestro Run", "RUN_PROVENANCE_MISMATCH");
       }
       // When preparation persisted a Run but provider dispatch never began,
       // atomically cancel that Run and its pending Steps with the submission.

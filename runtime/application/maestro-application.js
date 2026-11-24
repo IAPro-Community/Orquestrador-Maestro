@@ -1143,17 +1143,24 @@ class MaestroApplication {
     if (!verifierConfigDrift && this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
       review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: producedEvidence });
     }
-    const persistedEvidence = await this._persistProducedEvidence({
-      evidence: producedEvidence,
-      taskId: task.id,
-      runId: run.id,
-      verificationId: verification.id
-    });
+    // Input/provider receipts are observations, not independently verified
+    // acceptance evidence. Set provenance at the trusted ingestion boundary,
+    // never from a claim in the provider payload.
+    const evidenceBinding = { taskId: task.id, runId: run.id, verificationId: verification.id };
+    const persistedEvidence = verifierBaseline
+      ? Object.freeze([
+          ...await this._persistProducedEvidence({ ...evidenceBinding, evidence: evidenceEntries(request.evidence), provenance: "REQUEST_REPORTED" }),
+          ...await this._persistProducedEvidence({ ...evidenceBinding, evidence: evidenceEntries(result.evidence), provenance: "AGENT_REPORTED" })
+        ])
+      : await this._persistProducedEvidence({ ...evidenceBinding, evidence: producedEvidence });
+    // Until the verifier can bind a specific criterion to a trusted check,
+    // no self-reported receipt may satisfy that criterion in a durable Run.
+    const acceptanceEvidence = verifierBaseline ? [] : persistedEvidence;
     const completionTask = request.semanticTask
       ? { ...request.semanticTask, id: task.id }
       : { id: task.id, acceptanceCriteria: [] };
-    const completion = isTaskCompletionEligible(completionTask, { evidence: persistedEvidence, verification, qualityFindings, deterministic: true });
-    const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: persistedEvidence, sessionWarnings: this.governanceWarnings });
+    const completion = isTaskCompletionEligible(completionTask, { evidence: acceptanceEvidence, verification, qualityFindings, deterministic: true });
+    const governance = buildGovernance({ config: this.governance, task: completionTask, verification, evidence: acceptanceEvidence, sessionWarnings: this.governanceWarnings });
     this.governanceNotices = [...governance.warnings, ...governance.recommendations];
     const strictGate = governance.mode === "strict";
     const hasCriticalFinding = qualityFindings.some((finding) => finding?.blocking || ["BLOCKER", "HIGH"].includes(String(finding?.severity || "").toUpperCase()));
@@ -1184,6 +1191,7 @@ class MaestroApplication {
       metadata: {
         ...run.metadata,
         ...(verifierConfigDrift ? { qualityFindings } : {}),
+        ...(verifierBaseline ? { evidencePolicyVersion: 1 } : {}),
         resolution: finalizedResolution
       }
     });
@@ -1311,7 +1319,7 @@ class MaestroApplication {
     return type;
   }
 
-  async _persistProducedEvidence({ evidence, taskId, runId, verificationId }) {
+  async _persistProducedEvidence({ evidence, taskId, runId, verificationId, provenance }) {
     const entries = Array.isArray(evidence) ? evidence : evidence ? [evidence] : [];
     const persisted = [];
     for (const entry of entries) {
@@ -1333,11 +1341,14 @@ class MaestroApplication {
         content: evidenceText(entry.content ?? entry.value ?? entry.summary ?? entry.type),
         acceptanceCriterion,
         acceptanceCriterionId: criterionText(entry.acceptanceCriterionId),
-        producer: evidenceLabel(entry.producer, "runtime"),
+        producer: provenance || evidenceLabel(entry.producer, "runtime"),
         verificationId,
         createdAt: new Date().toISOString(),
-        metadata: entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
-          ? sanitizeEvidenceMetadata(entry.metadata) : undefined,
+        metadata: provenance
+          ? { ...(entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
+              ? sanitizeEvidenceMetadata(entry.metadata) : {}), provenance }
+          : entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata)
+            ? sanitizeEvidenceMetadata(entry.metadata) : undefined,
         confidence
       });
       await this.store.saveEvidence(record);
