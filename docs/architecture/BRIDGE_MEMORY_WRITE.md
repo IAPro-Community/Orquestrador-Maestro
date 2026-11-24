@@ -32,7 +32,7 @@ Retorno de sucesso: `{schemaVersion:1,authority:"maestro",status:"RECORDED",id:"
 
 - Rejeita campos não previstos, escopos e IDs arbitrários, `verified`, `verifier`, `source` e `timestamp` do cliente. Qualquer observação registrada por esse método é explicitamente `verified:false`.
 - Aceita somente `scopeLevel` igual a `repository`, `branch`, `workspace` ou `task`. O Maestro calcula os identificadores de repositório/branch/worktree Git; `task` exige `taskId`. Não permite caller-forged `scope`.
-- `summary` até 500, `details` até 4000, `files/tags` no máximo 16 itens tipados e limitados. Política de captura, detecção de prompt injection, redaction e validação final continuam no `Memory.record` original.
+- `summary` até 500, `details` até 4000, `files/tags` no máximo 16 itens tipados e limitados; `files` aceita somente referências relativas sem traversal, não caminhos absolutos. Política de captura, detecção de prompt injection, redaction e validação final continuam no `Memory.record` original.
 - O adaptador usa um lock por hash de idempotency key, situado **na mesma pasta da memória canônica**, e somente então chama `Memory.record` (que conserva o lock de escrita por repositório). Isso torna a deduplicação serializável entre solicitações do Bridge no mesmo storage.
 - Registra `source.tool=maestro-bridge`, `source.bridgeIdempotencyKey`, `source.bridgeRequestHash` e `source.operatorConfirmed=true`; o texto de consentimento não é armazenado como memória. Hash inclui conteúdo, `taskId` e escopo canônico.
 - O `Bridge` em modo padrão continua somente leitura e compatível com clientes existentes.
@@ -49,4 +49,4 @@ node --test runtime/bridge/__tests__/bridge.test.js
 
 Requer provas em Node real (Windows/Linux), dois processos independentes tentando escrever a mesma chave, recuperação de lock expirado, `DEV/memory-policy.json` opt-out, duas branches/worktrees e preservação de evidências de aprovação. Antes de habilitar em Nexus Web/mobile, **é obrigatório criar um controle de acesso com confirmação do operador dentro do Nexus**, que não permita a UI passar `confirmed=true` sem uma ação genuína.
 
-**Estado:** implementação candidata, PR draft, sem alegação de homologação. Sem merge automático.
+**Estado:** leitura e escrita opt-in implementadas na linha 1.2.0. Homologação de múltiplos processos/hosts e integração Nexus permanecem pendentes; não ativar escrita remota apenas com este contrato.
