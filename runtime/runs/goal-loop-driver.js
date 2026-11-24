@@ -87,7 +87,7 @@ function failureFingerprint({ taskId, runStatus, verificationStatus }) {
 }
 
 async function collectTaskResults({ store, manifest, submission, taskOutcomes }) {
-  if (!store?.getRun || !store?.getVerification || !store?.listEvidence || !store?.getTask) {
+  if (!store?.getRun || !store?.listVerifications || !store?.listEvidence || !store?.getTask) {
     throw bad("canonical RunStore readers are required for goal assessment",
       "GOAL_LOOP_UNAVAILABLE");
   }
@@ -118,8 +118,12 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
     }
     const run = await store.getRun(runId);
     if (!run) throw bad("bound task Run is missing from the RunStore", "RUN_STORE_CORRUPTED");
+    // Verification IDs are not Run IDs. Resolve the canonical Run association
+    // and refuse ambiguous records rather than choosing a potentially stale check.
+    const checks = await store.listVerifications({ runId });
+    const verification = Array.isArray(checks) && checks.length === 1 &&
+      checks[0]?.runId === runId ? checks[0] : null;
     if (run.status === "completed") {
-      const verification = await store.getVerification(runId);
       // The approved plan's namespace is used for the *stored plan Task*,
       // but createRun deliberately persists a Run under the semantic taskId
       // (runtime/core/task-identity.js). Never confuse those two identities.
@@ -142,7 +146,6 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
         qualityFindings: run.metadata?.qualityFindings || []
       });
     } else {
-      const verification = await store.getVerification(runId);
       results.set(task.taskId, {
         status: "failed",
         error: `task run ended ${run.status}`,

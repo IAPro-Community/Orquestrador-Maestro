@@ -182,8 +182,9 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
         id: taskId, dependsOn: [], acceptanceCriteria: ["note range checked"]
       } } };
     },
-    async getVerification() {
-      return { id: "check-verified-01", runId, status: "passed", checks: [{ exitCode: 0 }] };
+    async listVerifications(filters) {
+      assert.deepEqual(filters, { runId });
+      return [{ id: "check-verified-01", runId, status: "passed", checks: [{ exitCode: 0 }] }];
     },
     async listEvidence() {
       return [
@@ -215,4 +216,14 @@ test("stale and foreign evidence never covers an approved Goal criterion", async
     taskOutcomes: { [taskId]: "completed" }
   });
   assert.equal(correct.results.get(taskId).evidence.length, 1);
+  store.listVerifications = async () => [
+    { id: "check-verified-01", runId, status: "passed" },
+    { id: "check-duplicate-02", runId, status: "failed" }
+  ];
+  const ambiguous = await collectTaskResults({
+    store, manifest, submission: { taskRuns: { [taskId]: runId } },
+    taskOutcomes: { [taskId]: "completed" }
+  });
+  assert.equal(ambiguous.results.get(taskId).verification, null);
+  assert.deepEqual(ambiguous.results.get(taskId).evidence, []);
 });

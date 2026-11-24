@@ -1082,10 +1082,11 @@ class MaestroApplication {
     const verification = await this.verification.verify({
       id: id("verification"),
       runId: run.id,
-      commands,
+      // Never execute a verifier whose inputs were changed by the provider.
+      commands: verifierConfigDrift ? [] : commands,
       cwd: workspacePath,
       timeoutMs: policy.timeoutMs,
-      notApplicable: verificationApplicability,
+      notApplicable: !verifierConfigDrift && verificationApplicability,
       notApplicableReason: verificationReason
     });
     await this.store.saveVerification(verification);
@@ -1124,7 +1125,7 @@ class MaestroApplication {
     const evidenceEntries = (value) => Array.isArray(value) ? value : value ? [value] : [];
     const producedEvidence = [...evidenceEntries(request.evidence), ...evidenceEntries(result.evidence)];
     let review = Object.freeze({ status: "disabled", verdict: "not-requested", calls: 0 });
-    if (this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
+    if (!verifierConfigDrift && this.governance.features.independentReview && reviewRequired(cognitiveBudget) && executionStatus === "completed" && verification.status !== "failed") {
       review = await this._runIndependentReview({ request, task, run, step, provider, workspacePath, cognitiveBudget, changes, verification, evidence: producedEvidence });
     }
     const persistedEvidence = await this._persistProducedEvidence({
@@ -1142,7 +1143,10 @@ class MaestroApplication {
     const strictGate = governance.mode === "strict";
     const hasCriticalFinding = qualityFindings.some((finding) => finding?.blocking || ["BLOCKER", "HIGH"].includes(String(finding?.severity || "").toUpperCase()));
     const reviewBlocking = review.status === "rejected" || review.status === "inconclusive" || review.status === "unavailable";
-    const status = executionStatus === "completed" && !reviewBlocking && !hasCriticalFinding && governance.blocking.length === 0 && (!strictGate || (verification.status === "passed" && completion.eligible)) ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
+    // A failed deterministic check must stop a durable DAG even under the
+    // legacy compatibility policy; otherwise dependent tasks can run on bad code.
+    const durableVerificationFailed = Boolean(verifierBaseline && verification.status === "failed");
+    const status = executionStatus === "completed" && !durableVerificationFailed && !reviewBlocking && !hasCriticalFinding && governance.blocking.length === 0 && (!strictGate || (verification.status === "passed" && completion.eligible)) ? "completed" : executionStatus === "cancelled" ? "cancelled" : executionStatus === "timed_out" ? "timed_out" : "failed";
     const completedAt = new Date().toISOString();
     const finalizedResolution = finalizeResolution({
       contract: run.metadata.resolution,

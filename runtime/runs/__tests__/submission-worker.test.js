@@ -316,3 +316,31 @@ test("invalid worker diagnostics callback is rejected before processing", async 
     workerId: "worker-recovery-log-002", onError: "invalid"
   }), { code: "INVALID_SUBMISSION_WORKER" });
 });
+
+
+test("failed project verification prevents dependent DAG dispatch even after provider exit zero", async (t) => {
+  const f = await fixture(t);
+  fs.writeFileSync(path.join(f.projectRoot, "package.json"),
+    JSON.stringify({ private: true, scripts: { test: "node -e \"process.exit(1)\"" } }));
+  git(f.projectRoot, "add", "package.json");
+  git(f.projectRoot, "commit", "-qm", "install deterministic failing verification");
+  const params = dagParams("submit-dag-verification-fail");
+  params.artifact.sha256 = sha(params.artifact.content);
+  const ack = await submitExecutablePlan({
+    store: f.store, providers: new ProviderRegistry([f.provider]),
+    projectRoot: f.projectRoot, workspacePath: f.projectRoot, params
+  });
+  const worker = createSubmissionWorker({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workerId: "worker-dag-verification-fail", pollIntervalMs: 50
+  });
+  const result = await worker.step();
+  assert.equal(result.outcomes[0].submissionStatus, "FAILED");
+  assert.equal(result.outcomes[0].taskOutcomes["task-dag-front-001"], "failed");
+  assert.equal(result.outcomes[0].taskOutcomes["task-dag-integ-001"], "blocked");
+  assert.equal(f.provider.calls, 1);
+  const submission = await f.store.getRunSubmission(ack.submissionId);
+  const verification = await f.app.getVerification(submission.taskRuns["task-dag-front-001"]);
+  assert.equal(verification.status, "failed");
+  assert.notEqual(result.outcomes[0].goalLoop?.decision, "PASS");
+});

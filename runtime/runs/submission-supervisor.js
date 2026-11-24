@@ -235,6 +235,15 @@ async function superviseSubmissionOnce({
         break;
       }
 
+      // Preparation can be asynchronous: recheck the authorization at the
+      // last possible boundary, as in the legacy single-Run path.
+      if (await verifyApproval(approvalSubject(claimed)) !== true) {
+        ranToCompletion = false;
+        await store.requestRunSubmissionCancellation(submissionId);
+        if (!dispatchedAny) return await cancelBeforeDispatch(prepared.runId);
+        break;
+      }
+      if (leaseFailure) throw leaseFailure;
       const dispatched = await store.markRunSubmissionDispatched(submissionId, {
         workerId, fence: claimed.fence, runId: prepared.runId, taskId: task.taskId
       });

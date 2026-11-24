@@ -222,7 +222,8 @@ test("provider exit code zero still runs an inferred failing test command", asyn
   const run = await f.store.getRun(result.runId);
   const verification = await f.app.getVerification(result.runId);
   assert.equal(f.provider.calls, 1);
-  assert.ok(["completed", "failed"].includes(run.status));
+  assert.equal(run.status, "failed");
+  assert.equal(result.submission.status, "FAILED");
   assert.equal(verification.status, "failed");
   assert.ok(verification.checks.some((check) => check.exitCode !== 0));
   // Submission status is execution bookkeeping; this failed verification
@@ -259,7 +260,8 @@ test("agent cannot replace the approved npm test script with a vacuous passing c
   const run = await f.store.getRun(result.runId);
   const verification = await f.app.getVerification(result.runId);
   assert.equal(f.provider.calls, 1);
-  assert.equal(verification.status, "passed", "tampered test can exit zero");
+  assert.equal(verification.status, "skipped", "tampered verifier must never execute");
+  assert.equal(verification.checks.length, 0);
   assert.equal(run.status, "failed", "a tampered verifier must block acceptance");
   assert.equal(result.submission.status, "FAILED");
   assert.ok(run.metadata.qualityFindings.some((finding) =>
@@ -298,7 +300,8 @@ test("agent cannot replace an indirect local test script while leaving package.j
   const run = await f.store.getRun(result.runId);
   const verification = await f.app.getVerification(result.runId);
   assert.equal(f.provider.calls, 1);
-  assert.equal(verification.status, "passed", "the substituted script exits zero");
+  assert.equal(verification.status, "skipped", "substituted verifier must never execute");
+  assert.equal(verification.checks.length, 0);
   assert.equal(run.status, "failed", "changing verifier inputs must block acceptance");
   assert.equal(result.submission.status, "FAILED");
   assert.ok(run.metadata.qualityFindings.some((finding) =>
@@ -334,4 +337,29 @@ test("agent cannot introduce a new verifier config during durable execution", as
   assert.equal(result.submission.status, "FAILED");
   assert.ok(run.metadata.qualityFindings.some((finding) =>
     finding.code === "VERIFICATION_CONFIG_DRIFT" && finding.blocking));
+});
+
+
+test("manifest approval revoked during preparation cannot dispatch provider", async (t) => {
+  const f = await fixture(t);
+  let approved = true;
+  const ports = createApplicationSubmissionPorts({
+    application: f.app, store: f.store, projectRoot: f.projectRoot,
+    workspacePath: f.projectRoot, verifyApproval: async () => approved,
+    resolveApprovedTask: async () => ({
+      description: f.description, acceptanceText: f.acceptanceText
+    })
+  });
+  const result = await superviseSubmissionOnce({
+    store: f.store, submissionId: f.submission.id,
+    workerId: "worker-revoked-manifest-001", ...ports,
+    prepareRun: async (args) => {
+      const prepared = await ports.prepareRun(args);
+      approved = false;
+      return prepared;
+    }
+  });
+  assert.equal(result.submission.status, "CANCELLED");
+  assert.equal(result.dispatched, false);
+  assert.equal(f.provider.calls, 0);
 });
