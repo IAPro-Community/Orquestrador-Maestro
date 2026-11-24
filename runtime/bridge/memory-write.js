@@ -8,6 +8,14 @@ const { resolveObservationScope } = require("../../orquestrador/lib/visibility")
 const { withLock, getLockPath } = require("../../orquestrador/lib/lock");
 
 const IDENTIFIER = /^[A-Za-z0-9._:-]{1,128}$/;
+function safeIdentifier(value) {
+  return typeof value === "string" && IDENTIFIER.test(value) && value !== "." && value !== "..";
+}
+function safeRelativeFile(value) {
+  const portable = value.replace(/\\/g, "/");
+  return !portable.startsWith("/") && !/^[A-Za-z]:/.test(portable) &&
+    !portable.includes("\0") && !portable.split("/").some(part => !part || part === "." || part === "..");
+}
 const TYPES = new Set(require("../../orquestrador/schemas/MEMORY_SCHEMA.json").properties.type.enum);
 const LEVELS = new Set(["repository", "branch", "workspace", "task"]);
 
@@ -46,7 +54,7 @@ function createGuardedMemoryWriter({ projectRoot, memory = new Memory(), enabled
       (typeof params.projectPath !== "string" || path.resolve(params.projectPath) !== root)) {
       throw invalid("projectPath must match Bridge project root");
     }
-    if (typeof params.idempotencyKey !== "string" || !IDENTIFIER.test(params.idempotencyKey)) {
+    if (!safeIdentifier(params.idempotencyKey)) {
       throw invalid("idempotencyKey must be a stable 1-128 character identifier");
     }
     if (!TYPES.has(params.type)) throw invalid("unknown observation type");
@@ -58,7 +66,7 @@ function createGuardedMemoryWriter({ projectRoot, memory = new Memory(), enabled
     }
     if (!LEVELS.has(params.scopeLevel)) throw invalid("explicit scopeLevel is required");
     if (params.taskId !== undefined &&
-      (typeof params.taskId !== "string" || !IDENTIFIER.test(params.taskId))) {
+      !safeIdentifier(params.taskId)) {
       throw invalid("invalid taskId");
     }
     if (params.scopeLevel === "task" && !params.taskId) {
@@ -72,6 +80,8 @@ function createGuardedMemoryWriter({ projectRoot, memory = new Memory(), enabled
         throw invalid(`invalid or unbounded ${name}`);
       }
     }
+
+    if ((params.files || []).some(file => !safeRelativeFile(file))) throw invalid("files must be relative project references without traversal");
 
     const context = resolveGitContext(root);
     if (context.vcs !== "git" || !context.repositoryId) {
