@@ -36,7 +36,7 @@ function createScopedMemoryAPI(options = {}) {
         throw invalidParams(`${forbidden} is derived by Maestro and cannot be overridden`);
       }
     }
-    if (params.taskId !== undefined && (typeof params.taskId !== "string" || !SAFE_TASK_ID.test(params.taskId))) {
+    if (params.taskId !== undefined && (typeof params.taskId !== "string" || !SAFE_TASK_ID.test(params.taskId) || params.taskId === "." || params.taskId === "..")) {
       throw invalidParams("taskId must be a safe project-scoped identifier");
     }
     if (params.search !== undefined &&
