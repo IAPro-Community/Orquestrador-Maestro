@@ -3,6 +3,8 @@
 const path = require("node:path");
 const { Memory, isTrulyVerified } = require("../../orquestrador/bin/memory");
 const { resolveGitContext } = require("../../orquestrador/lib/git-context");
+const { isObservationVisible } = require("../../orquestrador/lib/visibility");
+const { sanitizeDiagnostic } = require("../telemetry/diagnostic-sanitizer");
 
 const MEMORY_READ_VERSION = 1;
 const DEFAULT_LIMIT = 20;
@@ -75,7 +77,9 @@ function createScopedMemoryAPI(options = {}) {
       if (!row || typeof row !== "object" || row.project !== context.repositoryId ||
           !SAFE_OBSERVATION_ID.test(row.id || "") ||
           !TYPES.has(row.type) || typeof row.summary !== "string" ||
-          row.summary.length > 500 || typeof row.timestamp !== "string") return false;
+          row.summary.length > 500 || typeof row.timestamp !== "string" ||
+          !isObservationVisible(row, context, { taskId: params.taskId, allowAncestry: false })) return false;
+      if (row.capturePolicy === "DROP") return false;
       // Historical raw rows might predate persistence redaction. Never expose
       // explicitly private-tagged content through a new Bridge endpoint.
       return !memory.containsPrivateDeep({
@@ -83,7 +87,8 @@ function createScopedMemoryAPI(options = {}) {
         details: row.details,
         files: row.files,
         tags: row.tags,
-        source: row.source
+        source: row.source,
+        verifier: row.verifier
       });
     });
     return { context, rows: filtered };
@@ -120,8 +125,8 @@ function createScopedMemoryAPI(options = {}) {
           if (typeof value === "string") result.source[key] = value.slice(0, 128);
         }
       }
-      result.taskId = row.taskId || null;
-      result.verifier = isTrulyVerified(row) ? row.verifier : null;
+      result.taskId = typeof row.taskId === "string" && SAFE_TASK_ID.test(row.taskId) ? row.taskId : null;
+      result.verifier = isTrulyVerified(row) ? sanitizeDiagnostic(row.verifier, { maxChars: 128 }) : null;
       result.verifiedAt = isTrulyVerified(row) ? row.verifiedAt : null;
     }
     return memory.redactValue(result);
