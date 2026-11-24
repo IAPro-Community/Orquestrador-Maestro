@@ -85,12 +85,27 @@ const VERIFIER_CONFIG_FILES = Object.freeze([
 ]);
 const MAX_VERIFIER_INPUT_BYTES = 8 * 1024 * 1024;
 
+// Check every path segment inside the workspace; lstat on the leaf alone
+// follows symbolic parent directories. This is a drift guard, not a sandbox.
+function verifierInputStat(workspacePath, relative) {
+  let current = workspacePath;
+  const parts = relative.split("/");
+  for (const [index, part] of parts.entries()) {
+    current = path.join(current, part);
+    const info = fs.lstatSync(current);
+    if (info.isSymbolicLink() || (index < parts.length - 1 && !info.isDirectory())) {
+      throw new Error("Unsafe verifier input path");
+    }
+    if (index === parts.length - 1) return info;
+  }
+}
+
 function verifierConfigSnapshot(workspacePath) {
   const paths = new Set(VERIFIER_CONFIG_FILES);
   let unsafe = false;
   const packageFile = path.join(workspacePath, "package.json");
   try {
-    const info = fs.lstatSync(packageFile);
+    const info = verifierInputStat(workspacePath, "package.json");
     if (!info.isFile() || info.size > MAX_VERIFIER_INPUT_BYTES) {
       unsafe = true;
     } else {
@@ -111,7 +126,7 @@ function verifierConfigSnapshot(workspacePath) {
   for (const relative of [...paths].sort()) {
     const file = path.join(workspacePath, relative);
     try {
-      const info = fs.lstatSync(file);
+      const info = verifierInputStat(workspacePath, relative);
       if (!info.isFile() || info.size > MAX_VERIFIER_INPUT_BYTES) {
         unsafe = true;
         snapshot.push([relative, "UNSAFE"]);
