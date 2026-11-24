@@ -155,6 +155,8 @@ sem autorizar dispatch.
 
 ## Memória semântica canônica — leitura com isolamento (Bridge v1)
 
+A autoridade continua sendo a Memory existente: observações de workspace não atravessam worktrees, tarefas vinculadas a branch não são visíveis em HEAD destacado, e escopo de repositório é deliberadamente compartilhado. A API reaplica o filtro canônico antes da projeção; registros DROP/privados não são retornados. A escrita aceita referências relativas de arquivos, sem traversal. O transporte local não substitui autenticação remota.
+
 `initialize.capabilities.memory = {version:1, read:true, write:false, scoped:true}`.
 As operações read-only `memory.search`, `memory.get` e `memory.timeline`
 reutilizam a mesma `Memory` canônica e a identidade Git derivada pelo próprio
