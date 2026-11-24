@@ -64,7 +64,7 @@ if (testResult.status !== 0) {
 
 console.log("\n2. npm pack --dry-run");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const packResult = spawnSync(npmCommand, ["pack", "--dry-run"], {
+const packResult = spawnSync(npmCommand, ["pack", "--dry-run", "--json"], {
   cwd: rootDir,
   stdio: "pipe",
   shell: process.platform === "win32"
@@ -74,7 +74,14 @@ if (packResult.status !== 0) {
   console.error(`  ✗ npm pack --dry-run failed${detail ? `: ${detail}` : ""}`);
   exitCode = 1;
 } else {
-  console.log("  ✓ npm pack --dry-run passed");
+  runCheck("npm pack excludes private runtime roots and old tarballs", () => {
+    const report = JSON.parse(packResult.stdout.toString());
+    assert(Array.isArray(report) && report.length === 1 && Array.isArray(report[0].files), "Invalid npm pack report");
+    const forbidden = report[0].files.map(file => file.path).filter(p =>
+      /(?:^|\/)(?:DEV|\.omx|\.local|node_modules|\.evidence)(?:\/|$)/i.test(p) || /\.tgz$/i.test(p));
+    assert(forbidden.length === 0, "Forbidden package entries: " + forbidden.join(", "));
+    console.log("  ✓ npm pack --dry-run passed");
+  });
 }
 
 console.log("\n3. JSON validity in orquestrador/");
@@ -189,6 +196,7 @@ runCheck("No .omx, .local, or DEV in git tracked files", () => {
     encoding: "utf8",
     shell: false
   });
+  assert(result.status === 0, "git ls-files failed for private roots");
   const tracked = result.stdout.trim();
   if (tracked) {
     throw new Error(`Private roots tracked: ${tracked}`);
@@ -206,13 +214,7 @@ runCheck("No Windows-incompatible paths in tracked files", () => {
     throw new Error("git ls-tree failed");
   }
   const allPaths = lsResult.stdout.split("\0").filter(Boolean);
-  const invalid = allPaths.filter(p => {
-    if (/[\n\r\x00]/.test(p)) return true;
-    if (/[<>:"|?*]/.test(p)) return true;
-    if (/\.$|\s$/.test(p)) return true;
-    const reserved = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
-    return p.split("/").some(seg => reserved.test(seg));
-  });
+  const invalid = require("./validate-git-paths").validatePaths(allPaths).map(item => item.path + ": " + item.reason);
   if (invalid.length > 0) {
     throw new Error(`Invalid paths found:\n${invalid.join("\n")}`);
   }
