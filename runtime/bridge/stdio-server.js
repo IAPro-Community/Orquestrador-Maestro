@@ -13,15 +13,31 @@ function createStdioServer(bridge, options = {}) {
   const output = options.output || process.stdout;
   const reader = readline.createInterface({ input, crlfDelay: Infinity });
   let closed = false;
-
+  let inputEnded = false;
+  let pending = 0;
+  let finish;
+  const done = new Promise((resolve) => { finish = resolve; });
+  function settle() {
+    if (inputEnded && pending === 0) finish();
+  }
+  reader.on("close", () => {
+    inputEnded = true;
+    settle();
+  });
   reader.on("line", async (line) => {
-    const response = await parseAndHandle(line, bridge);
-    if (response !== null && !closed) {
-      output.write(`${JSON.stringify(response)}\n`);
+    if (closed) return;
+    pending++;
+    try {
+      const response = await parseAndHandle(line, bridge);
+      if (response !== null && !closed) output.write(JSON.stringify(response) + "\n");
+    } finally {
+      pending--;
+      settle();
     }
   });
 
   return Object.freeze({
+    done,
     close() {
       if (!closed) {
         closed = true;
@@ -42,7 +58,7 @@ async function parseAndHandle(line, bridge) {
   try {
     return await bridge.handle(request);
   } catch {
-    return errorResponse(request.id, ERROR_CODES.internal, "Internal error");
+    return errorResponse(request?.id ?? null, ERROR_CODES.internal, "Internal error");
   }
 }
 
