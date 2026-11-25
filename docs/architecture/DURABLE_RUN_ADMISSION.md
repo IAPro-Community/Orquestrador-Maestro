@@ -265,3 +265,12 @@ Suítes principais:
 O E2E usa um shim de provider. Ele prova o caminho de admissão, claim, dispatch, observação e reconciliação, não a homologação de um provider real.
 
 Ref: [Maestro #48](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/48), [Maestro #67](https://github.com/IAPro-Community/Orquestrador-Maestro/issues/67), [Nexus #185](https://github.com/IAPro-Community/nexus/issues/185).
+
+
+## Diagnóstico e integridade operacional (hardening 1.2.0)
+
+- `maestro runs worker --once` emite diagnóstico JSON e retorna código não zero quando a supervisão ou recuperação operacional falha. `lastCompletedPollAt` registra o fim da sondagem; `lastSuccessfulPollAt` somente ciclos saudáveis. Erros de supervisão, recuperação e avaliação não são escondidos por uma consulta ao store bem-sucedida. A saúde é local ao processo, não uma sonda de liveness remota. Um Run funcionalmente falho pode ser processado por um worker saudável.
+- `maestro run report RUN_ID --project-path PATH` consolida o estado da execução, verificação vinculada, evidências por proveniência, submissões e impedimentos no projeto ativo; não despacha, não reabre o Goal e não expõe comandos, prompts ou saídas brutas. `RECORDED_VALIDATION` não é certificação de provider real.
+- O guard durável passa a hashear inputs conhecidos, scripts de verificação em diretórios convencionais e testes rastreados, com limites de arquivos/bytes e rejeição de paths inseguros. Compara HEAD/repositório/worktree e snapshots antes/depois da execução e após os checks. Mudanças nos inputs protegidos exigem revisão e nova aprovação; isso inclui alterações legítimas em testes existentes ou adicionados aos diretórios protegidos.
+- `Verification.metadata.inputIntegrity` registra digest inicial, antes/depois dos checks, digest dos comandos e vínculo Run/task/worktree/commit. `BOUNDED_INPUTS_MATCH` **não** é prova transitiva de toda a árvore, nem prova por critério. O runtime não emite `DETERMINISTIC_VERIFIED` apenas com exit code zero; o mecanismo de prova determinística por critério continua pendente na #82. Proteção TOCTOU completa requer ambiente isolado/imutável e autoridade do verificador.
+- A recuperação continua conservadora: uma lease expirada é reconciliada/quarentenada, nunca redespachada automaticamente; decisões Goal terminais permanecem imutáveis.
