@@ -775,7 +775,7 @@ class JsonFileRunStore extends RunStore {
       let row;
       try { row = JSON.parse(await fs.readFile(this.lockPath, "utf8")); }
       catch (error) {
-        if (error.code === "ENOENT" || error instanceof SyntaxError) return false;
+        if (["ENOENT", "EPERM", "EBUSY", "EACCES"].includes(error.code) || error instanceof SyntaxError) return false;
         throw error;
       }
       if (typeof row?.token !== "string" || !Number.isSafeInteger(row.pid) || row.pid <= 0) return false;
@@ -785,7 +785,10 @@ class JsonFileRunStore extends RunStore {
       // remove it. Re-read identity as a defensive check.
       let current;
       try { current = JSON.parse(await fs.readFile(this.lockPath, "utf8")); }
-      catch (error) { if (error.code === "ENOENT" || error instanceof SyntaxError) return false; throw error; }
+      catch (error) {
+        if (["ENOENT", "EPERM", "EBUSY", "EACCES"].includes(error.code) || error instanceof SyntaxError) return false;
+        throw error;
+      }
       if (current.token !== row.token || current.pid !== row.pid) return false;
       try { await fs.unlink(this.lockPath); return true; }
       catch (error) { if (error.code === "ENOENT") return false; throw error; }
@@ -811,7 +814,7 @@ class JsonFileRunStore extends RunStore {
     try {
       await fs.unlink(this.lockPath);
     } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
+      if (!["ENOENT", "EPERM", "EBUSY", "EACCES"].includes(error?.code)) throw error;
     }
   }
 
