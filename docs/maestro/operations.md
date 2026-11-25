@@ -8,7 +8,7 @@ orquestrador-maestro verify
 orquestrador-maestro doctor
 ```
 
-Na TUI clássica, `g` mostra o estado e `g compatibility` ou `g strict` troca o modo do projeto atual.
+Para inspecionar ou trocar o modo de governança do projeto atual pela CLI, use `orquestrador-maestro governance status --project-path .` ou `orquestrador-maestro governance set --project-path . --mode compatibility|strict`.
 
 ## Avisos
 
@@ -54,7 +54,7 @@ Rode `orquestrador-maestro update`. O comando faz backup e reinstala automaticam
 
 ### `validate` não funciona
 
-O script chama PowerShell. Instale `pwsh` ou execute a validação Node equivalente e rode os scripts `.ps1` em Windows/CI.
+O script `npm run validate` chama PowerShell (`scripts/validate-public.ps1` e `scripts/validate-skills.ps1`). Instale `pwsh` ou execute as validações nativas em Node (`orquestrador-maestro verify`, `orquestrador-maestro skill-catalog validate`, `npm test`) e rode os scripts `.ps1` em Windows/CI.
 
 ## Rollback operacional
 

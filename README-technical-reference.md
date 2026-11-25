@@ -164,10 +164,10 @@ npm run benchmark -- pair --runs 10
 
 ### Instalação recomendada por npm
 
-Requer Node.js 20 ou superior.
+Requer Node.js 20.19 ou superior (`>=20.19.0`).
 
 ~~~bash
-npm install -g @iapro/orquestrador-maestro-cli@beta
+npm install -g @iapro/orquestrador-maestro-cli
 orquestrador-maestro install
 orquestrador-maestro verify
 ~~~
@@ -556,7 +556,7 @@ orquestrador-maestro verify
 orquestrador-maestro doctor
 ~~~
 
-O comando `update` preserva o canal da CLI instalada antes de reaplicar os arquivos. Para a linha V1 beta, atualize somente o pacote npm com `npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online`.
+O comando `update` preserva o canal da CLI instalada antes de reaplicar os arquivos. Para atualizar somente o pacote npm manualmente, use `npm install -g @iapro/orquestrador-maestro-cli --force --prefer-online`.
 
 Para conferir sem alterar arquivos se a CLI instalada está atrás do npm, use `orquestrador-maestro version --check`. O comando informa a versão local, o `latest` publicado e o comando de atualização quando houver diferença.
 

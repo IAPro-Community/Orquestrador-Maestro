@@ -52,7 +52,7 @@ rm -rf -- "$HOME/.orquestrador-public-backups"
 df -h "$HOME"
 
 # 3. Instale a CLI corrigida, use o desinstalador seguro e remova a CLI.
-npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli --force --prefer-online
 orquestrador-maestro uninstall
 npm uninstall -g @iapro/orquestrador-maestro-cli
 
@@ -141,14 +141,14 @@ orquestrador-maestro list-targets
 orquestrador-maestro doctor
 ```
 
-No macOS e Linux, `doctor` requer `pwsh` ou `powershell`; `verify` não possui essa dependência.
+No macOS, Linux e Windows, tanto `doctor` quanto `verify` rodam nativamente em Node.js (`pwsh`/`powershell` é opcional para diagnósticos extras em PowerShell).
 
 ## `check-dev-gates --project-path .` procura `DEV/` no lugar errado
 
 Em versões anteriores, a CLI podia resolver `.` contra o diretório onde o pacote npm estava instalado, em vez do diretório atual do projeto. A correção mantém o diretório de invocação ao executar os helpers DEV. Atualize a CLI e rode novamente:
 
 ```text
-npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli --force --prefer-online
 orquestrador-maestro check-dev-gates --project-path . --strict
 ```
 

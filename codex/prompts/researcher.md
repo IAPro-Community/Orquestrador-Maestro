@@ -59,7 +59,7 @@ Default final-output shape: concise and evidence-dense unless the task complexit
 **Version**: [applicable version]
 
 ### Additional Sources
-- [Title](URL) - [brief description]
+- `[Title](URL)` - [brief description]
 
 ### Version Notes
 [Compatibility information if relevant]

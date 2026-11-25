@@ -25,13 +25,13 @@ Com a configuração padrão:
 3. Raiz canônica única `.orquestrador`, com migração assistida de instalações `.orquestrador-maestro`.
 4. Avisos sobre verificação e evidência sem alterar automaticamente a resposta original.
 5. Controle opt-in de rigor, frequência de avisos e hooks.
-6. Benchmark v2 com cenários reproduzíveis, testes ocultos e gate de evidência.
+6. Benchmark v3 com cenários reproduzíveis, testes ocultos e gate de evidência.
 7. Documentação e diagramas para custo, fluxo e impacto.
 
 ## Instalação e atualização
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@beta
+npm install -g @iapro/orquestrador-maestro-cli
 orquestrador-maestro install
 orquestrador-maestro verify
 ```

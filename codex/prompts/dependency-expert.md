@@ -93,8 +93,8 @@ Default final-output shape: concise and evidence-dense unless the task complexit
 - [Steps to migrate from current dependency]
 
 ### Sources
-- [npm/PyPI link](URL)
-- [GitHub repo](URL)
+- `[npm/PyPI link](URL)`
+- `[GitHub repo](URL)`
 </output_contract>
 
 <anti_patterns>
