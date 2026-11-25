@@ -920,7 +920,7 @@ class MaestroApplication {
       await this.store.saveArtifact(failedArtifact);
       await this.record(run.id, "artifact.created", { artifactId: failedArtifact.id, type: failedArtifact.type });
       await this.store.saveExecution({ ...execution, status: "failed", completedAt, metadata: { error: cleanReason, engineeringContract: executionPackage.engineeringContract } });
-      await this.store.saveStep({ ...step, status: "failed", completedAt });
+      const failedStepRecord = { ...step, status: "failed", completedAt };
       // Failed-run telemetry: minimal but coherent. The provider call was
       // attempted (execute and/or result rejected), so primaryCalls is 1;
       // tokens are null (never invented), source unavailable, scope unknown.
@@ -985,12 +985,9 @@ class MaestroApplication {
           status: "failed"
         })
       };
-      await this.store.saveRun({
-        ...run,
-        status: "failed",
-        completedAt,
-        metadata: { ...run.metadata, resolution: failedResolution, cognitiveTelemetry: failedCognitiveTelemetry }
-      });
+      const failedRunRecord = { ...run, status:"failed", completedAt, metadata:{...run.metadata,resolution:failedResolution,cognitiveTelemetry:failedCognitiveTelemetry} };
+      if (typeof this.store.saveRunBundle === "function") await this.store.saveRunBundle({run:failedRunRecord,step:failedStepRecord});
+      else { await this.store.saveStep(failedStepRecord); await this.store.saveRun(failedRunRecord); }
       await this._recordTaskOutcomeTransition(task.id, run.id, failedResolution.outcome);
       await this.record(run.id, "budget.committed", { reservationId: committedReservation.id, actual: committedReservation.actual });
       await this.record(run.id, "run.failed", { reason: cleanReason });
@@ -1146,8 +1143,8 @@ class MaestroApplication {
       needsAttention: unexpectedSubagents,
       now: completedAt
     });
-    await this.store.saveStep({ ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt });
-    await this.store.saveRun({
+    const terminalStepRecord = { ...step, status: status === "completed" ? "completed" : status === "cancelled" ? "cancelled" : "failed", completedAt };
+    const terminalRunRecord = {
       ...run,
       status,
       startedAt: execution.startedAt,
@@ -1158,7 +1155,9 @@ class MaestroApplication {
         ...(verifierBaseline ? { evidencePolicyVersion: 1 } : {}),
         resolution: finalizedResolution
       }
-    });
+    };
+    if (typeof this.store.saveRunBundle === "function") await this.store.saveRunBundle({run:terminalRunRecord,step:terminalStepRecord});
+    else { await this.store.saveStep(terminalStepRecord); await this.store.saveRun(terminalRunRecord); }
     await this.record(run.id, status === "completed" ? "run.completed" : "run.failed", { status, resolutionState: finalizedResolution.outcome.state });
     if (unexpectedSubagents) {
       await this.record(run.id, "delegation.violation", {
