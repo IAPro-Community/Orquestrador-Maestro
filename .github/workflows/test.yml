@@ -113,7 +113,7 @@ jobs:
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
   homologation:
-    name: Issue #44 homologation — ${{ matrix.os }}
+    name: "Issue #44 homologation — ${{ matrix.os }}"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -131,14 +131,14 @@ jobs:
       # The runner has no Claude Code CLI. MAESTRO_HOMOLOGATION_FAKE_CLAUDE=1
       # installs a stub executable so the install/detection path is exercised
       # for real, and the evidence states plainly that a stub was used.
-      - name: Run #44 homologation
+      - name: "Run #44 homologation"
         env:
           MAESTRO_HOMOLOGATION_FAKE_CLAUDE: "1"
         shell: bash
         run: |
           set -euo pipefail
           if [ "$RUNNER_OS" = "Windows" ]; then
-            pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/homologate-windows-claude.ps1 -OutputDir "$RUNNER_TEMP/homologation"
+            ORQUESTRADOR_ALLOW_ROOT_INSTALL=1 pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/homologate-windows-claude.ps1 -OutputDir "$RUNNER_TEMP/homologation"
             pwsh -NoProfile -Command "Get-Content -LiteralPath (Join-Path \$env:RUNNER_TEMP 'homologation/EVIDENCE.json') -Raw"
           else
             bash scripts/homologate-linux-claude.sh --output "$RUNNER_TEMP/homologation"
