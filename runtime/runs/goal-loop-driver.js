@@ -1,5 +1,6 @@
 "use strict";
 
+const { matchesDurableTask } = require("../core/task-identity");
 const crypto = require("node:crypto");
 const { bad, validateID } = require("./submission-admission");
 const { validateStoredExecutableManifest } = require("./executable-manifest");
@@ -130,7 +131,8 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
       // Require the Run/task/verification/evidence linkage to agree, without
       // trusting arbitrary provider text or cross-run receipts.
       const rawEvidence = await store.listEvidence({ runId }) || [];
-      const boundTask = run.taskId === task.taskId &&
+      const runtimeTask = await store.getTask(run.taskId);
+      const boundTask = matchesDurableTask(run, runtimeTask, submission, task.taskId) &&
         run.metadata?.semanticTaskId === task.taskId &&
         run.metadata?.semanticTask?.id === task.taskId;
       // Old, unclassified evidence or agent-reported claims are not proof.
@@ -139,7 +141,7 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
       const evidence = verification?.runId === runId && boundTask &&
         run.metadata?.evidencePolicyVersion === 1
         ? rawEvidence.filter((item) => item?.runId === runId &&
-            item.taskId === task.taskId && item.verificationId === verification.id &&
+            item.taskId === run.taskId && item.verificationId === verification.id &&
             item.producer === "DETERMINISTIC_VERIFIED" &&
             item.metadata?.provenance === "DETERMINISTIC_VERIFIED")
           .slice(0, MAX_EVIDENCE_ITEMS)
