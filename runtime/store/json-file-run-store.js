@@ -74,7 +74,8 @@ class JsonFileRunStore extends RunStore {
   async _readFresh() {
     await this.initialize();
     await this._mutation;
-    await this._reloadIfChanged();
+    // Readers use their own immutable generation, not the writer state.
+    return this._loadStateFromDisk();
   }
 
   async createProject(project) { return this._save("projects", project); }
@@ -538,9 +539,9 @@ class JsonFileRunStore extends RunStore {
   async getTerminal(id) { return this._get("terminals", id); }
 
   async getLatestProjectSnapshot(projectId) {
-    await this._readFresh();
+    const state = await this._readFresh();
     if (typeof projectId !== "string" || projectId.trim() === "") throw new TypeError("projectId must be a non-empty string");
-    const snapshots = this._state.projectSnapshots.filter(s => s.projectId === projectId);
+    const snapshots = state.projectSnapshots.filter(s => s.projectId === projectId);
     if (snapshots.length === 0) throw new Error(`Project snapshot not found for project: ${projectId}`);
     return clone(snapshots[snapshots.length - 1]);
   }
@@ -554,10 +555,10 @@ class JsonFileRunStore extends RunStore {
   async listMissions(filters) { return this._list("missions", filters, ["projectId", "status", "mode"]); }
   async listTasks(filters) { return this._list("tasks", filters); }
   async listRuns(filters = {}) {
-    await this._readFresh();
-    let runs = this._state.runs;
+    const state = await this._readFresh();
+    let runs = state.runs;
     if (filters.projectId) {
-      const taskIds = new Set(this._state.tasks.filter((task) => task.projectId === filters.projectId).map((task) => task.id));
+      const taskIds = new Set(state.tasks.filter((task) => task.projectId === filters.projectId).map((task) => task.id));
       runs = runs.filter((run) => taskIds.has(run.taskId));
     }
     return this._filter(runs, filters, ["taskId", "status", "providerId"]);
@@ -586,16 +587,16 @@ class JsonFileRunStore extends RunStore {
   }
 
   async _get(collection, id) {
-    await this._readFresh();
+    const state = await this._readFresh();
     if (typeof id !== "string" || id.trim() === "") throw new TypeError("id must be a non-empty string");
-    const record = this._state[collection].find((entry) => entry.id === id);
+    const record = state[collection].find((entry) => entry.id === id);
     return record ? clone(record) : undefined;
   }
 
   async _list(collection, filters = {}, allowed) {
     assertKnownCollection(collection);
-    await this._readFresh();
-    return this._filter(this._state[collection], filters, allowed);
+    const state = await this._readFresh();
+    return this._filter(state[collection], filters, allowed);
   }
 
   _filter(records, filters, allowed = ["projectId", "runId", "stepId", "taskId", "status", "providerId", "type"]) {
@@ -647,7 +648,7 @@ class JsonFileRunStore extends RunStore {
     }
   }
 
-  async _reloadIfChanged() {
+  async _loadStateFromDisk() {
     // Read on every operation: mtimeMs can be equal for two cross-process
     // renames on low-resolution Windows/network filesystems.
     // An absent/corrupted store is a hard error, not permission to overwrite
@@ -655,8 +656,12 @@ class JsonFileRunStore extends RunStore {
     let contents;
     try { contents = await fs.readFile(this.filePath, "utf8"); }
     catch (error) { throw new Error(`RunStore is unavailable: ${this.filePath}: ${error.message}`); }
-    try { this._state = this._validateState(JSON.parse(contents)); }
+    try { return this._validateState(JSON.parse(contents)); }
     catch (error) { throw new Error(`RunStore reload failed: ${this.filePath}: ${error.message}`); }
+  }
+
+  async _reloadIfChanged() {
+    this._state = await this._loadStateFromDisk();
     try { this._lastWriteMtime = (await fs.stat(this.filePath)).mtimeMs; } catch {}
   }
 
