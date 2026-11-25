@@ -17,10 +17,10 @@ Se travar em um termo: procure em `docs/product/GLOSSARY.md` antes de abrir qual
 
 ## Passo 2 — Instale (3 min)
 
-Pré-requisito: Node.js 20 ou superior.
+Pré-requisito: Node.js 20.19+ (recomendado Node 20.19 ou superior).
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@beta
+npm install -g @iapro/orquestrador-maestro-cli
 orquestrador-maestro install
 orquestrador-maestro verify
 ```
@@ -57,7 +57,7 @@ Toda entrega termina com:
 2. `git diff --check` sem erro.
 3. Atualização curta de `DEV/WORKLOG.md` (o que mudou, por quê, como foi verificado) e `DEV/HANDOFF.md` (próximo passo).
 
-Comandos de verificação do próprio Maestro: `QUICKTEST.md` (seção 5) e `node scripts/skill-catalog.js validate` (confere a contagem canônica atual).
+Comandos de verificação do próprio Maestro: `docs/QUICKTEST.md` (seção 5) e `node scripts/skill-catalog.js validate` (confere a contagem canônica atual).
 
 ## Mapa — onde encontrar cada informação
 

@@ -24,6 +24,12 @@
 - Matriz opt-in de providers reais (`MAESTRO_REAL_PROVIDER_E2E=1`) com versão, OS/arch, prova de ausência de fallback silencioso, cancelamento e recuperação de claim.
 - Documentação nova: `docs/product/REAL_PROVIDER_CERTIFICATION.md`, `docs/product/QUALITY_PROFILES.md`, `docs/product/PROVIDER_PRICING.json` e `docs/architecture/HARNESS_TRANCHE_2026-11-24.md`.
 
+### Qualidade, CLI e organização do repositório
+
+- Correções de runtime e CLI: tratamento de `budget-conflict` em `executePreparedRun` (`task.projectId`), leitura de última seção em `extractSection` (`(?![\s\S])`), rollback seguro de skills nativas (`operationPlans`), roteamento correto de `--help` por subcomando (`memory`, `benchmark`, `adapters`, `workflow-lock`, `workflow-state`), despacho de `check-recurrence`, opções `memory forget|export|import` + `--verifier`/`--verify-note` e `handleGoCommand` (`--plan`/`--auto`).
+- Preservação de proveniência (`verifier`, `verifiedAt`, `verifyNote`) em `METADATA_ONLY` e aplicação de `isTrulyVerified` no ranking de visibilidade de memória; fallback `SIGKILL` e proteção JSON-RPC no servidor MCP.
+- Limpeza de código morto e organização documental: remoção de arquivos e símbolos não utilizados, alinhamento da matriz de capacidades (`58` canônicas / `81` públicas) e consolidação de guias legados da raiz (`QUICKTEST.md`, `PRODUCT.md`, `DESIGN.md`, `COMPARISON.md`, `INSPIRATION_MATRIX.md`, `PROOF_PLAN.md`) em `docs/`.
+
 ### Limites
 
 - Nenhum provider real é certificado por esta versão. macOS arm64, Windows amd64 e um segundo host continuam `NOT_TESTED` até execução real.

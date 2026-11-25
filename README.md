@@ -173,7 +173,7 @@ Isso transforma Skills de uma coleção de prompts em um **sistema de decisão i
 | **Library / External** | catálogo reutilizável mantido fora do núcleo | normalizado na fronteira; sem routing confiável permanece `explicit-only` |
 | **User / Project** | conhecimento local criado pelo usuário ou pelo repositório | permanece local e não precisa adotar o manifesto interno do Maestro |
 
-O catálogo atual possui **56 Skills canônicas Maestro** e **79 Skills públicas únicas**, mas o objetivo da arquitetura é justamente evitar que esse catálogo inteiro seja colocado no prompt ou apresentado ao usuário como uma lista que precisa ser aprendida.
+O catálogo atual possui **58 Skills canônicas Maestro** e **81 Skills públicas únicas**, mas o objetivo da arquitetura é justamente evitar que esse catálogo inteiro seja colocado no prompt ou apresentado ao usuário como uma lista que precisa ser aprendida.
 
 ### As Skills de design não fazem a mesma coisa
 
@@ -196,7 +196,7 @@ O Router usa `useWhen`, `doNotUseWhen`, capabilities e sinais do projeto para ev
 - **[Escolher por objetivo](docs/skills/choose.md)** — melhor ponto de entrada para humanos.
 - **[Portal de Skills](docs/skills/README.md)** — entenda o modelo, routing, disponibilidade e contrato.
 - **[Receitas operacionais](docs/skills/recipes.md)** — veja quando várias capacidades realmente precisam trabalhar em sequência.
-- **[Referência completa](docs/skills/reference/README.md)** — consulte as 56 Skills canônicas e seus metadados.
+- **[Referência completa](docs/skills/reference/README.md)** — consulte as 58 Skills canônicas e seus metadados.
 - **[Catálogo público](skill-library/PUBLIC_SKILLS_MANIFEST.json)** — fonte estruturada das Skills públicas deduplicadas.
 
 

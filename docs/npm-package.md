@@ -63,13 +63,13 @@ orquestrador-maestro verify
 orquestrador-maestro doctor
 ```
 
-O comando `update` primeiro atualiza a própria CLI no canal correspondente à versão instalada e, em seguida, reaplica os arquivos dessa versão no home. Para atualizar somente o pacote npm da linha V1 beta sem reaplicar os arquivos, use:
+O comando `update` primeiro atualiza a própria CLI no canal correspondente à versão instalada e, em seguida, reaplica os arquivos dessa versão no home. Para atualizar somente o pacote npm sem reaplicar os arquivos, use:
 
 ```bash
-npm install -g @iapro/orquestrador-maestro-cli@beta --force --prefer-online
+npm install -g @iapro/orquestrador-maestro-cli --force --prefer-online
 ```
 
-No Linux e no macOS, o comando `doctor` exige `pwsh` ou `powershell` disponível no `PATH`.
+No Linux e no macOS, o comando `doctor` roda nativamente em Node.js (`pwsh` não é obrigatório; quando disponível, verificações adicionais em PowerShell também podem ser executadas).
 
 Para preparar um projeto com a hierarquia DEV nova:
 
@@ -109,11 +109,18 @@ Enquanto isso não existir, a regra é simples: publicar versões estáveis no `
 orquestrador-maestro install
 orquestrador-maestro update
 orquestrador-maestro verify
+orquestrador-maestro rollback
 orquestrador-maestro doctor
 orquestrador-maestro changelog
 orquestrador-maestro init-dev
 orquestrador-maestro compact-worklog
 orquestrador-maestro check-dev-gates
+orquestrador-maestro check-recurrence
+orquestrador-maestro context brief
+orquestrador-maestro memory status
+orquestrador-maestro benchmark list
+orquestrador-maestro run "tarefa"
+orquestrador-maestro go --auto "objetivo"
 orquestrador-maestro uninstall
 orquestrador-maestro list-targets
 orquestrador-maestro dry-run
@@ -122,20 +129,11 @@ orquestrador-maestro version
 orquestrador-maestro version --check
 ```
 
-`install` e `update` chamam os instaladores oficiais do repositório:
+`install` e `update` sincronizam os arquivos gerenciados diretamente pela CLI Node (`bin/orquestrador-maestro.js`) e pelos scripts de instalação (`install.ps1` / `install.sh`).
 
-- Windows: `install.ps1`;
-- Linux/macOS: `install.sh`.
+`verify` valida arquivos gerenciados, hashes, manifestos e políticas diretamente pela CLI (e via `scripts/verify-install.ps1` / `scripts/verify-install.sh` nos fluxos de script).
 
-`verify` chama:
-
-- Windows: `scripts/verify-install.ps1`;
-- Linux/macOS: `scripts/verify-install.sh`.
-
-`doctor` chama o diagnóstico operacional empacotado:
-
-- Windows: `orquestrador/doctor.ps1`;
-- Linux/macOS: `pwsh` ou `powershell` executando `orquestrador/doctor.ps1`.
+`doctor` executa o diagnóstico operacional integrado em Node.js (e verificações adicionais com `orquestrador/doctor.ps1` quando `pwsh`/`powershell` está disponível):
 
 `init-dev` cria a estrutura padrao `DEV/` com `HANDOFF.md`, `SPECS/ACTIVE.md`, `VERIFY.md` e `WORKLOG.md`.
 

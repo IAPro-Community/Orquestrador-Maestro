@@ -116,10 +116,10 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\.gemini\skills` | Raiz nativa mínima para Gemini |
 | `%USERPROFILE%\.windsurf\skills` | Raiz nativa mínima para Windsurf |
 | `%USERPROFILE%\.antigravity-skills\skills` | Raiz nativa mínima para compatibilidade adicional |
-| `%USERPROFILE%\.orquestrador-maestro\skill-library\community-skills` | Fonte comunitária distribuída; o registro público deduplica seus IDs |
-| `%USERPROFILE%\.orquestrador-maestro\skill-library\codex-skills` | Fonte OMX/Codex distribuída; o registro público deduplica seus IDs |
-| `%USERPROFILE%\.orquestrador-maestro\skill-library\disabled-native` | Quarentena de skills movidas das raízes nativas somente com `--prune` explícito (1.1.0+: `sync --apply` preserva por padrão) |
-| `%USERPROFILE%\.orquestrador-maestro\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
+| `%USERPROFILE%\.orquestrador\skill-library\community-skills` | Fonte comunitária distribuída; o registro público deduplica seus IDs |
+| `%USERPROFILE%\.orquestrador\skill-library\codex-skills` | Fonte OMX/Codex distribuída; o registro público deduplica seus IDs |
+| `%USERPROFILE%\.orquestrador\skill-library\disabled-native` | Quarentena de skills movidas das raízes nativas somente com `--prune` explícito (1.1.0+: `sync --apply` preserva por padrão) |
+| `%USERPROFILE%\.orquestrador\SKILLS_DISCOVERY.json` | Inventário atualizado do catálogo público instalado, deduplicado por ID |
 | `%USERPROFILE%\.ai-standards` | Standards portáteis usados pelo Antigravity |
 | `%USERPROFILE%\.opencode` | Hooks e perfil textual do OpenCode |
 | `%USERPROFILE%\.claude` | Prompt e orientação textual do Claude; não implica hooks executáveis registrados |
@@ -136,7 +136,7 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\.antigravity\antigravity.json` | Configuração de integração Antigravity + Orquestrador |
 | `%USERPROFILE%\.antigravity\settings.json` | Configuração portável do Antigravity |
 
-No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador-maestro`, `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
+No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador` (ou legado `$HOME/.orquestrador-maestro`), `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
 
 O pacote publicado inclui o catálogo público versionado em `skill-library/PUBLIC_SKILLS_MANIFEST.json`. A instalação também atualiza `SKILLS_DISCOVERY.json` a partir das árvores distribuídas pelo pacote. A contagem `invokableSkills` é deduplicada por ID; caches de plugins, `.tmp` e versões instaladas em outras ferramentas não entram no catálogo público.
 

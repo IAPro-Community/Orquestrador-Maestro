@@ -100,7 +100,7 @@ orquestrador-maestro route explain "investigate why this test started failing"
 orquestrador-maestro route explain --json "prepare this application for release"
 ```
 
-The canonical V1 catalog currently contains **56 Maestro Skills** (15 Core + 41 Domain) and **79 unique public Skills**. The architecture is designed so this catalog does not need to be eagerly loaded into the prompt.
+The canonical V1 catalog currently contains **58 Maestro Skills** and **81 unique public Skills**. The architecture is designed so this catalog does not need to be eagerly loaded into the prompt.
 
 The detailed Skills documentation is currently in Portuguese:
 
