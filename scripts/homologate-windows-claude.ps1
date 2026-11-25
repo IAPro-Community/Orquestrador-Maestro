@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Homologation for issue #44 on Windows with Claude Code.
 
@@ -61,7 +61,7 @@ function Invoke-Maestro {
 function Get-LogText {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path)) { return "" }
-  return (Get-Content -LiteralPath $Path -Raw -ErrorAction SilentlyContinue)
+  return (Get-Content -LiteralPath $Path -Raw -Encoding utf8 -ErrorAction SilentlyContinue)
 }
 
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("maestro-homologation-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
