@@ -54,7 +54,7 @@ const TOOL_DEFINITIONS = {
   },
   antigravity: {
     displayName: "Antigravity",
-    commands: [],
+    commands: ["agy"],
     configPaths: [".antigravity", ".antigravity-skills"],
     skillTargets: [".antigravity-skills/skills"],
     managedSubPaths: ["skills"],

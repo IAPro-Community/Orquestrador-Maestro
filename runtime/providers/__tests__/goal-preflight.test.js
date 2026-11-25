@@ -66,3 +66,10 @@ test("native Goal prompt observation is not a lifecycle capability", () => {
     assert.equal(observesNativeGoalCommand(prompt), false);
   }
 });
+
+test("cli surface is accepted while staying fail-closed for headless Goal dispatch", async () => {
+  const preflight = await inspectProviderGoal(adapter({ id: "codex", version: "0.172.0" }), { surface: "cli" });
+  assert.equal(preflight.surface, "cli");
+  assert.equal(preflight.nativeGoalController, "unsupported");
+  assert.equal(preflight.nativeOvernightReady, false);
+});

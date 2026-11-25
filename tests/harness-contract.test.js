@@ -4,7 +4,10 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
-const { observeHarnessEvent, hookResponse, createOpenCodeHooks } = require("../runtime/integrations/harness/contract");
+const fs = require("node:fs");
+const os = require("node:os");
+const { observeHarnessEvent, evaluateContinuationAuthority, hookResponse, createOpenCodeHooks } = require("../runtime/integrations/harness/contract");
+const { PRIORITIZED_HARNESSES, inspectHarness, inspectAllHarnesses } = require("../runtime/integrations/harness/registry");
 const { renderHookConfig, editHookConfig } = require("../scripts/harness-hook");
 const script = path.join(__dirname, "..", "scripts", "harness-hook.js");
 
@@ -102,4 +105,54 @@ test("config CLI rejects malformed settings rather than replacing them", () => {
   const valid = spawnSync(process.execPath, [script, "--merge", "gemini"], { input: JSON.stringify({ theme: "user" }), encoding: "utf8" });
   assert.equal(valid.status, 0);
   assert.equal(JSON.parse(valid.stdout).theme, "user");
+});
+
+test("enriched contract tracks surfaces, sessions, idle boundaries, and single continuation authority", () => {
+  const start = observeHarnessEvent("codex", { hook_event_name: "SessionStart", session_id: "s-1", turn_id: "t-1" }, { surface: "desktop", hostVersion: "0.172.0" });
+  assert.equal(start.kind, "session-start");
+  assert.equal(start.surface, "desktop");
+  assert.equal(start.hostVersion, "0.172.0");
+  assert.equal(start.sessionId, "s-1");
+  assert.equal(start.goalState, "unknown");
+  assert.equal(start.dispatchAllowed, false);
+
+  const ocHooks = createOpenCodeHooks();
+  ocHooks.prompt({ sessionID: "oc-1", messageID: "m-1", prompt: { text: "/goal validate" } });
+  ocHooks.idle({ sessionID: "oc-1", background: [] });
+  assert.equal(ocHooks.getObservedState("oc-1").goalState, "unknown");
+  assert.ok(ocHooks.getObservedState("oc-1").lastIdleAt);
+
+  const activeNative = evaluateContinuationAuthority({ host: "codex", surface: "tui", installed: true, version: "0.172.0", nativeGoalActive: true, requestedOwner: "maestro-managed", managedAuthorized: true, managedCertified: true });
+  assert.equal(activeNative.owner, "native-provider");
+  assert.equal(activeNative.competingLoopBlocked, true);
+  assert.equal(activeNative.dispatchAllowed, false);
+
+  const uncertifiedManaged = evaluateContinuationAuthority({ host: "claude", surface: "cli", installed: true, version: "2.1.0", requestedOwner: "maestro-managed", managedAuthorized: true, managedCertified: false });
+  assert.equal(uncertifiedManaged.owner, null);
+  assert.equal(uncertifiedManaged.reason, "MANAGED_GOAL_LOOP_NOT_CERTIFIED");
+});
+
+test("harness registry covers all prioritized harnesses and classifies levels honestly", t => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-harness-reg-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const matrix = inspectAllHarnesses({
+    home,
+    probeCommand: (cmd) => ({ installed: cmd === "claude" || cmd === "codex", version: cmd === "claude" ? "2.1.325" : "0.172.0" })
+  });
+  for (const id of PRIORITIZED_HARNESSES) {
+    assert.ok(matrix.harnesses[id], `missing prioritized harness ${id}`);
+  }
+  // Installing binary alone does not claim governed or goal-integrated.
+  assert.equal(matrix.harnesses.claude.installed, true);
+  assert.equal(matrix.harnesses.claude.compatibilityLevel, "portable");
+  assert.equal(matrix.summary.goalIntegrated, 0);
+
+  // Configuring valid Claude hooks upgrades active compatibilityLevel to governed, still never goal-integrated.
+  fs.mkdirSync(path.join(home, ".claude"), { recursive: true });
+  const merged = editHookConfig("claude", { model: "sonnet" }, { script: path.resolve(__dirname, "..", "scripts", "harness-hook.js") });
+  fs.writeFileSync(path.join(home, ".claude", "settings.json"), JSON.stringify(merged));
+  const claude = inspectHarness("claude", { home, probeCommand: () => ({ installed: true, version: "2.1.325" }) });
+  assert.equal(claude.compatibilityLevel, "governed");
+  assert.equal(claude.continuationAuthority, "external-host");
+  assert.ok(claude.unavailabilityReasons.includes("NATIVE_GOAL_LIFECYCLE_NOT_CERTIFIED"));
 });

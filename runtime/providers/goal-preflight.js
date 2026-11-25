@@ -26,7 +26,7 @@ async function inspectProviderGoal(adapter, { surface = "headless" } = {}) {
       typeof adapter.capabilities !== "function") {
     throw new TypeError("a concrete Maestro provider adapter is required");
   }
-  if (!["headless", "tui", "ide", "desktop", "api"].includes(surface)) {
+  if (!["headless", "cli", "tui", "ide", "desktop", "api"].includes(surface)) {
     throw new TypeError("unsupported provider surface");
   }
   let detection;
