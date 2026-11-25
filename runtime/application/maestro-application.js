@@ -72,81 +72,7 @@ function projectIdForPath(workspacePath) { return `project-${crypto.createHash("
 // project tests cannot be changed. Capturing config and directly referenced
 // local test scripts before dispatch prevents an agent from making the
 // verifier vacuous while preserving the package.json text.
-const VERIFIER_CONFIG_FILES = Object.freeze([
-  "package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml",
-  "yarn.lock", "bun.lock", "bun.lockb",
-  "vitest.config.js", "vitest.config.ts", "vitest.config.mjs",
-  "jest.config.js", "jest.config.ts", "jest.config.cjs", "jest.config.mjs",
-  "playwright.config.ts", "playwright.config.js",
-  "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs",
-  "tsconfig.json", "pytest.ini", "pyproject.toml", "tox.ini",
-  "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
-  "settings.gradle.kts", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock"
-]);
-const MAX_VERIFIER_INPUT_BYTES = 8 * 1024 * 1024;
-
-// Check every path segment inside the workspace; lstat on the leaf alone
-// follows symbolic parent directories. This is a drift guard, not a sandbox.
-function verifierInputStat(workspacePath, relative) {
-  let current = workspacePath;
-  const parts = relative.split("/");
-  for (const [index, part] of parts.entries()) {
-    current = path.join(current, part);
-    const info = fs.lstatSync(current);
-    if (info.isSymbolicLink() || (index < parts.length - 1 && !info.isDirectory())) {
-      throw new Error("Unsafe verifier input path");
-    }
-    if (index === parts.length - 1) return info;
-  }
-}
-
-function verifierConfigSnapshot(workspacePath) {
-  const paths = new Set(VERIFIER_CONFIG_FILES);
-  let unsafe = false;
-  const packageFile = path.join(workspacePath, "package.json");
-  try {
-    const info = verifierInputStat(workspacePath, "package.json");
-    if (!info.isFile() || info.size > MAX_VERIFIER_INPUT_BYTES) {
-      unsafe = true;
-    } else {
-      const pkg = JSON.parse(fs.readFileSync(packageFile, "utf8"));
-      for (const script of Object.values(pkg?.scripts || {})) {
-        if (typeof script !== "string") continue;
-        // Only local paths inside fixed script directories. This is deliberately
-        // not a shell parser; ambiguous/unrecognized indirection must not be
-        // advertised as fully protected by this guard.
-        const matcher = /\b((?:scripts|tools|test|tests)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(?:[cm]?js|ts|sh|py))\b/g;
-        for (const hit of script.matchAll(matcher)) paths.add(hit[1]);
-      }
-    }
-  } catch (error) {
-    if (error?.code !== "ENOENT") unsafe = true;
-  }
-  const snapshot = [];
-  for (const relative of [...paths].sort()) {
-    const file = path.join(workspacePath, relative);
-    try {
-      const info = verifierInputStat(workspacePath, relative);
-      if (!info.isFile() || info.size > MAX_VERIFIER_INPUT_BYTES) {
-        unsafe = true;
-        snapshot.push([relative, "UNSAFE"]);
-      } else {
-        snapshot.push([relative,
-          crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")]);
-      }
-    } catch (error) {
-      if (error?.code === "ENOENT") snapshot.push([relative, "ABSENT"]);
-      else {
-        unsafe = true;
-        snapshot.push([relative, "UNREADABLE"]);
-      }
-    }
-  }
-  const digest = crypto.createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
-  return Object.freeze({ digest, unsafe });
-}
-
-
+const { verifierConfigSnapshot } = require("../verification/input-integrity");
 
 // Ephemeral provider stream vs durable telemetry contract:
 // - provider.started / provider.output / provider.completed carry raw chunks
@@ -1085,7 +1011,7 @@ class MaestroApplication {
     const artifact = core.createArtifact({ id: id("artifact"), runId: run.id, stepId: step.id, type: "DIFF", name: "git-diff", createdAt: new Date().toISOString(), metadata: durableChangeArtifactMetadata(before, changes) });
     await this.store.saveArtifact(artifact); await this.record(run.id, "artifact.created", { artifactId: artifact.id, type: artifact.type });
     const verifierAfter = verifierBaseline ? verifierConfigSnapshot(workspacePath) : null;
-    const verifierConfigDrift = Boolean(verifierBaseline &&
+    let verifierConfigDrift = Boolean(verifierBaseline &&
       (verifierBaseline.unsafe || verifierAfter.unsafe ||
         verifierBaseline.digest !== verifierAfter.digest));
     const commands = preDispatchCommands || request.verificationCommands || this.inferProjectVerification(workspacePath);
@@ -1094,7 +1020,7 @@ class MaestroApplication {
     const verificationReason = request.verificationNotApplicableReason
       || request.semanticTask?.verification?.reason
       || null;
-    const verification = await this.verification.verify({
+    let verification = await this.verification.verify({
       id: id("verification"),
       runId: run.id,
       // Never execute a verifier whose inputs were changed by the provider.
@@ -1104,6 +1030,25 @@ class MaestroApplication {
       notApplicable: !verifierConfigDrift && verificationApplicability,
       notApplicableReason: verificationReason
     });
+    if (verifierBaseline) {
+      const finalInputs = verifierConfigSnapshot(workspacePath);
+      verifierConfigDrift = verifierConfigDrift || finalInputs.unsafe || finalInputs.digest !== verifierBaseline.digest;
+      const provenance = Object.freeze({
+        schemaVersion: 1, taskId: task.id, runId: run.id,
+        ...verifierBaseline.binding,
+        inputCount: verifierBaseline.inputCount,
+        baselineDigest: verifierBaseline.digest,
+        beforeVerificationDigest: verifierAfter.digest,
+        afterVerificationDigest: finalInputs.digest,
+        commandsDigest: crypto.createHash("sha256").update(JSON.stringify(commands || [])).digest("hex"),
+        status: verifierConfigDrift ? "DRIFT_DETECTED" : "BOUNDED_INPUTS_MATCH",
+        criterionProof: false
+      });
+      verification = Object.freeze({ ...verification,
+        status: verifierConfigDrift ? "failed" : verification.status,
+        metadata: { ...verification.metadata, inputIntegrity: provenance }
+      });
+    }
     await this.store.saveVerification(verification);
     const verificationEventType = verification.status === "passed"
       ? "verification.completed"
