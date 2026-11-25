@@ -3,8 +3,8 @@ const fs = require("node:fs"), path = require("node:path"), crypto = require("no
 const { checkReleaseVersion } = require("./check-release-version");
 const REQUIRED_CHECKS = [
   "check-release-version", "verify:pr", "skills:contract-audit:strict", "validate:paths",
-  "validate-public.ps1", "validate-skills.ps1", "npm audit", "site npm ci/audit",
-  "tarball install/verify/update/verify", "benchmark typecheck/tests"
+  "validate", "validate-public.ps1", "validate-skills.ps1", "npm audit", "site npm ci/audit",
+  "tarball install/verify/update/verify/doctor", "benchmark typecheck/tests"
 ];
 function checkEvidence({dir, sha, checksum, version}) {
   if (!/^[0-9a-f]{40}$/.test(sha || "") || !/^[0-9a-f]{64}$/.test(checksum || "")) throw Error("Full SHA and artifact SHA-256 required");
