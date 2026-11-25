@@ -726,6 +726,7 @@ class MaestroApplication {
           });
         }
       } catch (error) {
+        if (error?.code === "PROCESS_TERMINATION_UNCERTAIN") throw error;
         lastError = error;
         const failureClass = classifyResolutionFailure({
           code: error?.code,
@@ -993,6 +994,12 @@ class MaestroApplication {
       return { run: await this.store.getRun(run.id), execution: { exitCode: 1, error: cleanReason }, changes: failedChanges, verification: null, review: { status: "disabled", verdict: "not-requested", calls: 0 }, failureClass: "provider-failure", failureKind: "provider", failureCode: "PROVIDER_EXECUTION_FAILED", governanceWarnings: [], governanceBlocking: [], recommendations: [] };
     }
     this.activeRuns.delete(run.id);
+    if (result?.terminationUncertain) {
+      await this.record(run.id, "run.reconciliation_required", { code:"PROCESS_TERMINATION_UNCERTAIN" });
+      const error = new Error("Process termination could not be confirmed; reconcile before executing again.");
+      error.code = "PROCESS_TERMINATION_UNCERTAIN";
+      throw error;
+    }
     const executionStatus = result.cancelled ? "cancelled" : result.timedOut ? "timed_out" : result.exitCode === 0 ? "completed" : "failed";
     let primaryChildAgents = [];
     try {
