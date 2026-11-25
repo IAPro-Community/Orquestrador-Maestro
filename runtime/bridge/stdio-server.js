@@ -11,40 +11,58 @@ function createStdioServer(bridge, options = {}) {
 
   const input = options.input || process.stdin;
   const output = options.output || process.stdout;
-  const reader = readline.createInterface({ input, crlfDelay: Infinity });
-  let closed = false;
-  let inputEnded = false;
-  let pending = 0;
+  const maxChars = options.maxFrameChars ?? 1024 * 1024;
+  const maxPending = options.maxPending ?? 32;
+  if (!Number.isSafeInteger(maxChars) || maxChars < 1 || !Number.isSafeInteger(maxPending) || maxPending < 1) throw new TypeError("Invalid RPC limits");
+  input.setEncoding("utf8");
+  let closed = false, inputEnded = false, pending = 0, frame = "", oversized = false;
   let finish;
-  const done = new Promise((resolve) => { finish = resolve; });
-  function settle() {
-    if (inputEnded && pending === 0) finish();
-  }
-  reader.on("close", () => {
-    inputEnded = true;
-    settle();
-  });
-  reader.on("line", async (line) => {
-    if (closed) return;
+  const done = new Promise(resolve => { finish = resolve; });
+  function settle() { if (inputEnded && pending === 0) finish(); }
+  function write(response) { if (response !== null && !closed) output.write(JSON.stringify(response) + "\n"); }
+  function submit(line) {
+    if (pending >= maxPending) {
+      // Preserve bounded resources. This is a transport-level failure;
+      // the caller must reconnect rather than assume a request executed.
+      close();
+      return;
+    }
     pending++;
-    try {
-      const response = await parseAndHandle(line, bridge);
-      if (response !== null && !closed) output.write(JSON.stringify(response) + "\n");
-    } finally {
-      pending--;
-      settle();
+    Promise.resolve().then(() => parseAndHandle(line, bridge)).then(write)
+      .catch(() => close()).finally(() => { pending--; settle(); });
+  }
+  function onData(chunk) {
+    let offset = 0;
+    while (!closed && offset < chunk.length) {
+      const end = chunk.indexOf("\n", offset);
+      const stop = end < 0 ? chunk.length : end;
+      const part = chunk.slice(offset, stop);
+      if (!oversized && frame.length + part.length <= maxChars) frame += part;
+      else { oversized = true; frame = ""; }
+      if (end < 0) break;
+      if (oversized) { close(); break; }
+      submit(frame.replace(/\r$/, ""));
+      frame = ""; oversized = false; offset = end + 1;
     }
-  });
-
-  return Object.freeze({
-    done,
-    close() {
-      if (!closed) {
-        closed = true;
-        reader.close();
-      }
-    }
-  });
+  }
+  function onEnd() {
+    if (inputEnded) return;
+    if (oversized) { close(); return; }
+    if (frame && !closed) submit(frame.replace(/\r$/, ""));
+    frame = ""; inputEnded = true; settle();
+  }
+  function close() {
+    if (closed) return;
+    closed = true; inputEnded = true; frame = "";
+    input.removeListener("data",onData);
+    input.removeListener("end",onEnd);
+    input.pause(); settle();
+  }
+  input.on("data",onData);
+  input.once("end",onEnd);
+  input.once("error",close);
+  output.once("error",close);
+  return Object.freeze({done,close});
 }
 
 async function parseAndHandle(line, bridge) {
