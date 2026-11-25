@@ -85,6 +85,26 @@ class JsonFileRunStore extends RunStore {
   async saveStep(step) { return this._save("steps", step); }
   async saveExecution(execution) { return this._save("executions", execution); }
   async saveArtifact(artifact) { return this._save("artifacts", artifact); }
+
+  async saveRunBundle({task,run,step,execution} = {}) {
+    assertRecord(run,"run"); assertRecord(step,"step");
+    if (step.runId !== run.id || (task && task.id !== run.taskId) ||
+        (execution && (execution.runId !== run.id || execution.stepId !== step.id))) throw new TypeError("Run bundle identity mismatch");
+    return this._mutate(async () => {
+      const taskRecord = task || this._state.tasks.find(row => row.id === run.taskId);
+      assertRecord(taskRecord,"task");
+      if (!this._state.projects.some(row=>row.id===taskRecord.projectId)) throw new Error("Run bundle project not found");
+      const records = [["tasks",task],["runs",run],["steps",step],["executions",execution]];
+      for (const [collection,record] of records) {
+        if (!record) continue;
+        assertRecord(record,collection);
+        const index=this._state[collection].findIndex(row=>row.id===record.id);
+        if(index<0)this._state[collection].push(clone(record));else this._state[collection][index]=clone(record);
+      }
+      await this._flush();
+      return clone(run);
+    });
+  }
   async saveEvidence(evidence) { return this._save("evidence", evidence); }
   async saveVerification(verification) { return this._save("verifications", verification); }
   async saveTerminal(terminal) { return this._save("terminals", terminal); }
