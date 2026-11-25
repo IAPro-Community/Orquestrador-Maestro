@@ -324,8 +324,11 @@ async function resolveProjectIdForRoot({ store, projectRoot }) {
  * plan digest, so the same plan replays idempotently and different plans can
  * never alias each other's executable content.
  */
+function approvedPlanTaskId(projectId, planDigest, taskId) {
+  return 'exec-' + hash(JSON.stringify([projectId, planDigest, taskId]));
+}
 async function persistExecutableTasks({ store, projectId, planDigest, semanticTasks }) {
-  const persistedId = (taskId) => `exec-${planDigest.slice(0, 16)}-${taskId}`.slice(0, 200);
+  const persistedId = (taskId) => approvedPlanTaskId(projectId, planDigest, taskId);
   for (const task of semanticTasks) {
     const content = approvedTaskContent(task);
     await store.saveTask({
@@ -362,14 +365,14 @@ function createApprovedTaskResolver({ store }) {
     if (manifest.id !== subject.manifestId || manifest.digest !== subject.manifestDigest) {
       throw bad("manifest identity mismatch", "EXECUTABLE_MANIFEST_MISMATCH");
     }
-    const persistedId = `exec-${manifest.planDigest.slice(0, 16)}-${subject.taskId}`.slice(0, 200);
+    const persistedId = approvedPlanTaskId(manifest.projectId, manifest.planDigest, subject.taskId);
     const direct = await store.getTask?.(persistedId);
     const candidates = direct
       ? [direct]
       : ((await store.listTasks({ projectId: manifest.projectId })) || [])
           .filter((task) => task?.metadata?.executablePlanDigest === manifest.planDigest &&
             task?.metadata?.semanticTaskId === subject.taskId);
-    if (candidates.length !== 1 || candidates[0]?.metadata?.semantic?.id !== subject.taskId) {
+    if (candidates.length !== 1 || candidates[0]?.projectId !== manifest.projectId || candidates[0]?.metadata?.executablePlanDigest !== manifest.planDigest || candidates[0]?.metadata?.semantic?.id !== subject.taskId) {
       throw bad("approved task content is not uniquely resolvable",
         "EXECUTABLE_ARTIFACT_MISMATCH");
     }
@@ -532,6 +535,7 @@ async function submitExecutablePlan({
 module.exports = {
   SCHEMA_VERSION,
   canonicalPlanDigest,
+  approvedPlanTaskId,
   approvedTaskContent,
   buildApprovalReceipt,
   validateApprovalReceipt,
