@@ -60,6 +60,10 @@ function createSubmissionWorker({
   let lastPollError = null;
   let consecutivePollErrors = 0;
   let lastSuccessfulPollAt = null;
+  let lastCompletedPollAt = null;
+  let lastOperationalError = null;
+  let operationalErrors = 0;
+  let consecutiveUnhealthyPolls = 0;
 
   function recordPollError(error) {
     const code = diagnosticCode(error, "WORKER_POLL_ERROR");
@@ -81,6 +85,10 @@ function createSubmissionWorker({
 
   function reportOperationalError(stage, error, submissionId) {
     const code = diagnosticCode(error, "SUBMISSION_WORKER_ERROR");
+    operationalErrors++;
+    lastOperationalError = Object.freeze({ stage, submissionId, code,
+      message: sanitizeDiagnostic(error?.message || "Worker operation failed", { maxChars: 512 }),
+      at: new Date().toISOString() });
     const key = stage + ":" + code;
     const now = Date.now();
     if (lastReported.has(key) && now - lastReported.get(key) < 60000) return;
@@ -145,7 +153,7 @@ function createSubmissionWorker({
     for (const [index, entry] of settled.entries()) {
       if (entry.status !== "fulfilled") {
         reportOperationalError("supervision", entry.reason, batch[index].id);
-        outcomes.push({ status: "SUPERVISION_ERROR", code: diagnosticCode(entry.reason, "SUBMISSION_WORKER_ERROR") });
+        outcomes.push({ status: "SUPERVISION_ERROR", submissionId: batch[index].id, code: diagnosticCode(entry.reason, "SUBMISSION_WORKER_ERROR") });
         continue;
       }
       const value = entry.value || {};
@@ -182,7 +190,23 @@ function createSubmissionWorker({
 
   function step() {
     if (stepPending) return stepPending;
-    stepPending = performStep().finally(() => { stepPending = null; });
+    const errorsBefore = operationalErrors;
+    stepPending = performStep().then(result => {
+      const healthy = operationalErrors === errorsBefore;
+      lastCompletedPollAt = new Date().toISOString();
+      consecutivePollErrors = 0;
+      if (healthy) {
+        consecutiveUnhealthyPolls = 0;
+        lastSuccessfulPollAt = lastCompletedPollAt;
+      } else {
+        consecutiveUnhealthyPolls++;
+      }
+      return { ...result, healthy };
+    }, error => {
+      consecutiveUnhealthyPolls++;
+      recordPollError(error);
+      throw error;
+    }).finally(() => { stepPending = null; });
     return stepPending;
   }
 
@@ -192,12 +216,10 @@ function createSubmissionWorker({
       let claimed = 0;
       try {
         const result = await step();
-        claimed = result.outcomes.some((outcome) => outcome.status === "SUPERVISION_ERROR") ? 0 : result.claimed;
-        consecutivePollErrors = 0;
-        lastSuccessfulPollAt = new Date().toISOString();
+        claimed = result.healthy ? result.claimed : 0;
       } catch (error) {
         // Transient storage failures are recoverable but must be explainable.
-        recordPollError(error);
+        // step() recorded the failure; do not double-count it.
         claimed = 0;
       }
       if (claimed === 0) await sleep(pollIntervalMs);
@@ -216,7 +238,9 @@ function createSubmissionWorker({
     },
     diagnostics() {
       return Object.freeze({ workerId, stopping, inFlightCount: inFlight.size,
-        consecutivePollErrors, lastSuccessfulPollAt, lastPollError });
+        health: consecutiveUnhealthyPolls > 0 ? "DEGRADED" : lastSuccessfulPollAt ? "HEALTHY" : "UNKNOWN",
+        consecutivePollErrors, consecutiveUnhealthyPolls, operationalErrors,
+        lastCompletedPollAt, lastSuccessfulPollAt, lastPollError, lastOperationalError });
     },
     get inFlightCount() { return inFlight.size; },
     get stopping() { return stopping; }
