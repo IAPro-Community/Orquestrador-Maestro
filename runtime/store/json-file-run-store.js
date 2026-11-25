@@ -5,6 +5,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { normalizeAdmission, validateID, validateWorker, isWorkspaceOccupied, validateAdmissionLedger, bad } = require("../runs/submission-admission");
 const { RunStore } = require("./run-store");
+const { matchesDurableTask } = require("../core/task-identity");
 const { normalizeExecutableManifest, validateStoredExecutableManifest } = require("../runs/executable-manifest");
 const { validateApprovalReceipt } = require("../runs/executable-submission");
 const { validateGoalLoopDecision } = require("../runs/goal-loop-driver");
@@ -304,14 +305,14 @@ class JsonFileRunStore extends RunStore {
           steps.length === 0 || steps.some((step) => step.status !== "pending") ||
           this._state.executions.some((execution) => execution.runId === runId) ||
           this._state.runSubmissions.some((other) =>
-            other.id !== row.id && (other.runId === runId || other.preparedRunId === runId))) {
+            other.id !== row.id && (other.runId === runId || other.preparedRunId === runId || Object.values(other.taskRuns || {}).includes(runId)))) {
         throw bad("only an unexecuted Run of this submission may be bound", "RUN_PROVENANCE_MISMATCH");
       }
       if (taskId === undefined) {
         row.preparedRunId = runId;
       } else {
         // Provenance: the bound Run must belong to the manifest task itself.
-        if (task.id !== taskId) {
+        if (!matchesDurableTask(preparedRun, task, row, taskId)) {
           throw bad("task Run binding does not match the manifest task", "RUN_PROVENANCE_MISMATCH");
         }
         row.taskRuns = row.taskRuns || {};
@@ -356,7 +357,7 @@ class JsonFileRunStore extends RunStore {
         throw bad("dispatch requires a persisted matching pending Maestro Run", "RUN_PROVENANCE_MISMATCH");
       }
       if (taskId !== undefined) {
-        if (row.taskRuns?.[taskId] !== runId || persistedTask.id !== taskId) {
+        if (row.taskRuns?.[taskId] !== runId || !matchesDurableTask(persistedRun, persistedTask, row, taskId)) {
           throw bad("dispatched Run does not match the bound manifest task", "RUN_PROVENANCE_MISMATCH");
         }
       }
@@ -419,8 +420,8 @@ class JsonFileRunStore extends RunStore {
             value = "blocked";
           } else {
             const run = this._state.runs.find((item) => item.id === bound);
-            const persistedTask = this._state.tasks.find((item) => item.id === taskId);
-            if (dependencyFailed || !run || run.taskId !== taskId ||
+            const persistedTask = this._state.tasks.find((item) => item.id === run?.taskId);
+            if (dependencyFailed || !matchesDurableTask(run, persistedTask, row, taskId) ||
                 run.providerId !== task.providerId || persistedTask?.projectId !== row.projectId ||
                 !terminal.has(run.status)) throw invalid();
             value = run.status;
