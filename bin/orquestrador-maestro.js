@@ -1303,8 +1303,9 @@ async function handleRunsCommand(args) {
       onError: (event) => console.error(JSON.stringify({ type: "worker.error", ...event }))
     });
     if (options.once === true) {
-      console.log(JSON.stringify(await worker.step(), null, 2));
-      return 0;
+      const result = await worker.step();
+      console.log(JSON.stringify({ ...result, diagnostics: worker.diagnostics() }, null, 2));
+      return result.healthy ? 0 : 1;
     }
     let stopping = false;
     const shutdown = () => { if (!stopping) { stopping = true; void worker.stop(); } };
