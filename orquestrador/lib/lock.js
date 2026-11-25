@@ -45,8 +45,8 @@ function acquireLock(lockPath) {
             try {
               process.kill(lock.pid, 0);
               pidAlive = true;
-            } catch {
-              pidAlive = false;
+            } catch (error) {
+              pidAlive = error?.code !== "ESRCH";
             }
 
             if (!pidAlive) {
@@ -105,8 +105,8 @@ function tryRecoverStaleLock(lockPath, originalLock) {
     try {
       process.kill(currentLock.pid, 0);
       pidAlive = true;
-    } catch {
-      pidAlive = false;
+    } catch (error) {
+      pidAlive = error?.code !== "ESRCH";
     }
 
     if (pidAlive) {
