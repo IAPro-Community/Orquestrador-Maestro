@@ -577,7 +577,8 @@ class MaestroApplication {
     if (!existingProject) {
       await this.store.createProject({ id: projectId, path: workspacePath, name: path.basename(workspacePath), createdAt: new Date().toISOString() });
     }
-    await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step);
+    if (typeof this.store.saveRunBundle === "function") await this.store.saveRunBundle({task,run,step});
+    else { await this.store.saveTask(task); await this.store.saveRun(run); await this.store.saveStep(step); }
     await this.record(run.id, "run.created", { taskId: task.id, providerId: provider.id });
     await this.record(run.id, "resolution.planned", {
       mode: resolution.mode,
@@ -614,7 +615,8 @@ class MaestroApplication {
         metadata: { ...run.metadata, preflightBlock, resolution: blockedResolution, cognitiveTelemetry: blockedCognitiveTelemetry }
       };
       const blockedStep = { ...step, status: "failed", completedAt: blockedRun.completedAt };
-      await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep);
+      if (typeof this.store.saveRunBundle === "function") await this.store.saveRunBundle({run:blockedRun,step:blockedStep});
+      else { await this.store.saveRun(blockedRun); await this.store.saveStep(blockedStep); }
       await this._recordTaskOutcomeTransition(task.id, run.id, blockedResolution.outcome);
       await this.record(run.id, "budget.released", { reservationId: releasedReservation.id, reason: releasedReservation.reason });
       await this.record(run.id, "run.blocked", { reason: preflightBlock });
@@ -805,9 +807,10 @@ class MaestroApplication {
     if (!Number.isSafeInteger(executionTimeoutMs) || executionTimeoutMs < 1) throw new TypeError("Invalid execution timeout");
     const cognitiveBudget = run.metadata?.cognitiveBudget || evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget);
     const execution = core.createExecution({ id: id("execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString() });
-    await this.store.saveRun({ ...run, status: "running", startedAt: execution.startedAt });
-    await this.store.saveStep({ ...step, status: "running", startedAt: execution.startedAt });
-    await this.store.saveExecution(execution);
+    const runningRun = { ...run, status: "running", startedAt: execution.startedAt };
+    const runningStep = { ...step, status: "running", startedAt: execution.startedAt };
+    if (typeof this.store.saveRunBundle === "function") await this.store.saveRunBundle({run:runningRun,step:runningStep,execution});
+    else { await this.store.saveRun(runningRun); await this.store.saveStep(runningStep); await this.store.saveExecution(execution); }
     await this.record(run.id, "run.started", { executionId: execution.id });
     const before = snapshot(workspacePath);
     // Freeze verifier configuration BEFORE the provider can mutate it.
@@ -1062,6 +1065,10 @@ class MaestroApplication {
       });
     }
     await this.store.saveVerification(verification);
+    if (verification.checks?.some(check=>check.failureCode==="PROCESS_TERMINATION_UNCERTAIN")) {
+      await this.record(run.id,"run.reconciliation_required",{code:"PROCESS_TERMINATION_UNCERTAIN"});
+      const error=new Error("Verification termination could not be confirmed"); error.code="PROCESS_TERMINATION_UNCERTAIN"; throw error;
+    }
     const verificationEventType = verification.status === "passed"
       ? "verification.completed"
       : verification.status === "skipped"
