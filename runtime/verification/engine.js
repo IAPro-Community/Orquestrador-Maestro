@@ -1,6 +1,7 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { safeEnvironment } = require("../providers/process-execution");
 const path = require("node:path");
 const { createVerification, createVerificationCheck } = require("../core");
 const { isDeniedCommand } = require("../governance/policy-enforcer");
@@ -79,7 +80,7 @@ function runCommand(command, options = {}) {
     }
     let child;
     try {
-      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: false, windowsHide: true });
+      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: false, windowsHide: true, env: safeEnvironment() });
     } catch (error) {
       resolve({ exitCode: 1, stdout: "", stderr: String((error && error.message) || error), durationMs: Date.now() - startedAt, timedOut: false, error: String((error && error.message) || error) });
       return;
@@ -121,11 +122,14 @@ class VerificationEngine {
   async verify({ id, runId, commands, cwd, timeoutMs, notApplicable = false, notApplicableReason = null }) {
     const checks = [];
     for (const entry of commands || []) {
-      const result = await runCommand(entry.command, { cwd, timeoutMs: entry.timeoutMs || timeoutMs });
+      const result = await runCommand(entry.command, { cwd, timeoutMs: Math.min(entry.timeoutMs || timeoutMs || 900000, timeoutMs || 900000) });
       checks.push(createVerificationCheck({
         name: entry.name,
         command: sanitizeDiagnostic(entry.command, { maxChars: 2000 }),
-        exitCode: result.exitCode,
+        exitCode: result.timedOut || result.error || result.denied ? 1 : result.exitCode,
+        timedOut: result.timedOut,
+        truncated: result.truncated,
+        failureCode: result.timedOut ? "VERIFICATION_TIMEOUT" : result.denied ? "VERIFICATION_DENIED" : result.error ? "VERIFICATION_PROCESS_ERROR" : undefined,
         stdout: sanitizeDiagnostic(result.stdout || "", { maxChars: 8000 }),
         stderr: sanitizeDiagnostic(result.stderr || "", { maxChars: 8000 }),
         durationMs: result.durationMs
