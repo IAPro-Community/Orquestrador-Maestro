@@ -130,7 +130,7 @@ async function handleRequest(request, methods) {
   }
 
   const isNotification = request.id === undefined;
-  const method = methods[request.method];
+  const method = Object.hasOwn(methods, request.method) ? methods[request.method] : null;
   if (!method) {
     return isNotification ? null : errorResponse(request.id, ERROR_CODES.methodNotFound, "Method not found");
   }
