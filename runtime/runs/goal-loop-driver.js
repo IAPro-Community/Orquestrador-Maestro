@@ -131,8 +131,8 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
       // Require the Run/task/verification/evidence linkage to agree, without
       // trusting arbitrary provider text or cross-run receipts.
       const rawEvidence = await store.listEvidence({ runId }) || [];
-      const runtimeTask = await store.getTask(run.taskId);
-      const boundTask = matchesDurableTask(run, runtimeTask, submission, task.taskId) &&
+      const modern = run.metadata?.durableSubmissionId || run.metadata?.durableManifestId;
+      const boundTask = (modern ? matchesDurableTask(run, await store.getTask(run.taskId), submission, task.taskId) : run.taskId === task.taskId) &&
         run.metadata?.semanticTaskId === task.taskId &&
         run.metadata?.semanticTask?.id === task.taskId;
       // Old, unclassified evidence or agent-reported claims are not proof.
