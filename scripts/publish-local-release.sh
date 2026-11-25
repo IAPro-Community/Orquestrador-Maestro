@@ -11,8 +11,7 @@ cd "$(git rev-parse --show-toplevel)"
 [[ "$(git rev-parse HEAD)" == "$sha" && -z "$(git status --porcelain)" ]] || { echo "Clean authorized SHA required"; exit 1; }
 version="$(node scripts/check-release-version.js)"
 [[ "$version" == 1.* ]] || { echo "Local publication supports only the current 1.x line"; exit 1; }
-branch=v1
-[[ "$(git branch --show-current)" == "$branch" ]] || { echo "Checkout official release branch first"; exit 1; }
+branch="$(node scripts/release-branch-policy.js "$version" "$(git branch --show-current)")"
 git fetch origin "$branch"
 [[ "$(git rev-parse "origin/$branch")" == "$sha" ]] || { echo "Official release branch is not the authorized SHA"; exit 1; }
 artifact="$(node scripts/check-local-release-evidence.js "$evidence" "$sha" "$checksum")"

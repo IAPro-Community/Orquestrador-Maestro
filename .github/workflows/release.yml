@@ -27,7 +27,7 @@ concurrency:
 jobs:
   validate:
     name: Validate release
-    if: inputs.confirm == true && (github.ref_name == 'v1' || github.ref_name == 'main')
+    if: inputs.confirm == true && (github.ref_name == 'release/1.2.0' || github.ref_name == 'main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,10 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
-          release_branch="main"
-          if [[ "$version" == 1.* ]]; then
-            release_branch="v1"
-          fi
+          release_branch="$(node scripts/release-branch-policy.js "$version" "$GITHUB_REF_NAME")"
           [[ "$GITHUB_REF_NAME" == "$release_branch" ]]
           git fetch origin "$release_branch"
           RELEASE_SHA="$(git rev-parse HEAD)"
@@ -222,6 +219,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p "require('./release-gate-source/package.json').version")"
+          node release-gate-source/scripts/release-branch-policy.js "$version" "$GITHUB_REF_NAME"
           bash release-gate-source/scripts/publish-validated-npm.sh "$TARBALL" "$(cat package.sha256)" "$version"
 
   github-release:
@@ -262,7 +260,7 @@ jobs:
           if (start < 0) throw new Error(`Missing changelog for ${version}`);
           const end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
           console.log(lines.slice(start + 1, end < 0 ? undefined : end).join('\n').trim());
-          console.log('\nInstalação e atualização: [guia](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/docs/installation.md) · [migração V1](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/v1/docs/migration-v1.md).');
+          console.log('\nInstalação e atualização: [guia](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/docs/installation.md) · [migração V1](https://github.com/IAPro-Community/Orquestrador-Maestro/blob/main/docs/migration-v1.md).');
           NODE
           release_flags=(--latest)
           if [[ "$version" == *-* ]]; then

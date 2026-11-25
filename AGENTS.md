@@ -34,12 +34,12 @@ git diff -- .
 
 ## Política de integração e release
 
-A transição proposta para uma única branch `main` está em [BRANCH_RELEASE_TRANSITION.md](docs/architecture/BRANCH_RELEASE_TRANSITION.md). Enquanto não houver cutover autorizado, as regras vigentes abaixo permanecem válidas.
+A estabilização da 1.2.0 ocorre exclusivamente na `release/1.2.0`; ver [BRANCH_RELEASE_TRANSITION.md](docs/architecture/BRANCH_RELEASE_TRANSITION.md). O cutover administrativo só ocorre após homologação e aprovação.
 
-- A branch `v1` é a linha canônica do desenvolvimento e release 1.x. `main` permanece histórica; não mover trabalho de runtime entre ambas sem decisão explícita.
-- Mantenedores ou agentes explicitamente autorizados podem integrar diretamente em `v1`, com commits pequenos, testes relevantes e evidência no SHA. Não criar branches internas nem PRs sucessivos apenas para continuar a mesma tarefa.
-- Contribuições externas chegam por fork e pull request para `v1`, conforme [CONTRIBUTING.md](CONTRIBUTING.md).
+- Durante o freeze, `release/1.2.0` é a linha de integração. A `v1` permanece preservada. O PR final deve sair diretamente de `release/1.2.0` para `main`, sem passagem pela `v1`. Após o cutover, `main` é o trunk.
+- Mantenedores ou agentes explicitamente autorizados podem integrar diretamente em `release/1.2.0` durante o freeze, com commits pequenos, testes relevantes e evidência no SHA. Não criar branches internas nem PRs sucessivos apenas para continuar a mesma tarefa.
+- Contribuições externas chegam por fork e pull request para `release/1.2.0` durante o freeze e `main` após o cutover, conforme [CONTRIBUTING.md](CONTRIBUTING.md).
 - Antes de integrar, sincronize com o estado atual da branch; não faça force push nem sobrescreva mudanças de terceiros.
 - Estar na branch não prova homologação: a admissão durável está implementada e coberta por E2E com provider shim, mas não homologada para providers reais. Não habilite autonomia por padrão nem trate o ACK como prova de execução.
-- A publicação npm depende de versionamento e gates próprios, não apenas de commits em `v1`.
+- A publicação npm depende de versionamento e gates próprios, não apenas de commits ou merge. RC 1.2.0 pode ser publicada pela release; versão estável apenas pela main após aprovação e CI exato.
 - Em `.github/workflows/`, use SHA completo de 40 caracteres em toda referência `uses:` e anote a versão correspondente. O GitHub rejeita refs de Actions por tag neste repositório; confirme SHA e versão no repositório oficial antes de editar.

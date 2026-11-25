@@ -1057,7 +1057,9 @@ class MaestroApplication {
         criterionProof: false
       });
       verification = Object.freeze({ ...verification,
-        status: verifierConfigDrift ? "failed" : verification.status,
+        // A pre-execution drift skips all checks; drift after execution invalidates their results.
+        // Both cases remain blocking via VERIFICATION_CONFIG_DRIFT below.
+        status: verifierConfigDrift && verification.checks.length > 0 ? "failed" : verification.status,
         metadata: { ...verification.metadata, inputIntegrity: provenance }
       });
     }

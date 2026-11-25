@@ -8,8 +8,9 @@ expected="${1:-}"
 [[ -z "$(git status --porcelain)" ]] || { echo "Clean checkout required" >&2; exit 1; }
 command -v pwsh >/dev/null || { echo "PowerShell is required for full public and skill validation; no degraded release evidence" >&2; exit 1; }
 version="$(node scripts/check-release-version.js)"
-branch=main
-[[ "$version" != 1.* ]] || branch=v1
+branch="$(git branch --show-current)"
+if [[ "$branch" != release/1.2.0 && "$branch" != main ]]; then echo "Checkout candidate or main first" >&2; exit 1; fi
+# Local validation is allowed on the candidate even before a final merge.
 git fetch origin "$branch"
 git merge-base --is-ancestor "origin/$branch" "$expected" || { echo "Candidate must descend from release line" >&2; exit 1; }
 artifact="$(mktemp -d "${TMPDIR:-/tmp}/maestro-release.XXXXXXXX")"

@@ -1,7 +1,7 @@
 # Transição de branches e política de release — plano de execução
 
-**Estado:** PREPARAÇÃO, sem ativação. **Decisão de cutover:** pendente de homologação e autorização específica.
-**Baseline auditada:** `v1@13bac05451b5f52cb8caf700287089e3fdaee09e`, 24/11/2026. A política vigente continua em [AGENTS.md](../../AGENTS.md) e [release.md](../release.md). Este documento não autoriza merge, alteração de settings, criação de tag ou publicação.
+**Estado:** estabilização na `release/1.2.0` autorizada; cutover final ainda pendente de homologação.
+**Baseline auditada:** `v1@13bac05451b5f52cb8caf700287089e3fdaee09e`, 24/11/2026. A política vigente continua em [AGENTS.md](../../AGENTS.md) e [release.md](../release.md). Este documento não autoriza antecipar merge, alteração de settings, criação de tag ou publicação. A release é a origem do PR final para main.
 
 ## 1. Objetivo e política alvo
 
@@ -40,7 +40,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 | .github/workflows/benchmark-ci.yml e benchmark-official.yml | execução manual/agenda, referência ao contrato JSONL v1 | não substituir versão de contrato; revisar default branch e agenda |
 | AGENTS.md e CONTRIBUTING.md | v1 canônica, manutenção direta autorizada, fork PR v1 | política main+PR; remover exceção geral de push direto |
 | README.md, docs/installation.md, SECURITY.md | referências à v1 e clone --branch v1 | preferir npm para estável; checkout por tag para versão reproduzível; instruções de contribuição main; manter links antigos válidos |
-| scripts/bootstrap-install.{sh,ps1}, scripts/install.{sh,ps1}, bin/orquestrador-maestro.js | busca inicial não mostrou referência literal à branch v1 | testar URLs resolvidas em execução e contratos de atualização; não substituir v1 indiscriminadamente |
+| `scripts/bootstrap-install.{sh,ps1}`, `scripts/install.{sh,ps1}`, `bin/orquestrador-maestro.js` | busca inicial não mostrou referência literal à branch v1 | testar URLs resolvidas em execução e contratos de atualização; não substituir v1 indiscriminadamente |
 | Site, catálogos, links públicos, exemplos, docs históricas e consumidores externos | inventário parcial; ainda não inspeção textual de todos os arquivos | busca completa em checkout e revisão de referências semânticas; conservar APIs, tags e schemas |
 
 ## 4. Sequência segura de transição

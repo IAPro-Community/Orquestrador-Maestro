@@ -35,7 +35,7 @@ function requireSuccessfulJobs(workflow, jobs, sha, attempt) {
 }
 
 function requireSuccessfulRun(workflow, runs, sha, branch) {
-  if (!['v1', 'main'].includes(branch)) throw new Error('Expected official release branch');
+  if (!['main', 'release/1.2.0'].includes(branch)) throw new Error('Expected official release branch');
   if (!SHA.test(sha)) throw new Error("Expected a complete lowercase Git commit SHA");
   if (!Array.isArray(runs)) throw new Error(workflow + ": invalid Actions response");
   // PR runs use a synthesized merge checkout and do not attest this tag SHA.

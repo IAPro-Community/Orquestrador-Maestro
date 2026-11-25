@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - v1
+      - "release/*"
       - "feat/*"
       - "feature/*"
     paths:

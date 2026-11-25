@@ -17,18 +17,18 @@ Antes de investir numa alteração extensa, vale discutir o escopo em uma issue 
 
 Você vai precisar de Git, Node.js **20.19 ou superior** e npm. PowerShell é necessário para executar o conjunto completo de validações públicas; em Linux e macOS ele pode ser instalado como `pwsh`.
 
-Para colaborar externamente, faça um fork, clone **seu fork** e crie uma branch curta baseada em `v1`:
+Para colaborar externamente, faça um fork, clone **seu fork** e crie uma branch curta baseada em `release/1.2.0` durante o freeze (`main` após o cutover):
 
 ```bash
-git clone --branch v1 https://github.com/SEU_USUARIO/Orquestrador-Maestro.git
+git clone --branch release/1.2.0 https://github.com/SEU_USUARIO/Orquestrador-Maestro.git
 cd Orquestrador-Maestro
 npm ci
 git switch -c docs/minha-melhoria
 ```
 
-Abra um PR do fork para `IAPro-Community/Orquestrador-Maestro`, com destino à `v1`.
+Abra um PR do fork para `IAPro-Community/Orquestrador-Maestro`, com destino à `release/1.2.0` durante o freeze; depois do cutover, à `main`.
 
-**Manutenção autorizada:** pessoas com permissão de escrita e agentes explicitamente autorizados podem integrar diretamente na `v1`, seguindo a [política do repositório](AGENTS.md), verificações e evidências equivalentes. Não precisam criar branches internas para cada etapa.
+**Manutenção autorizada:** pessoas com permissão de escrita e agentes explicitamente autorizados podem integrar diretamente na `release/1.2.0` durante o freeze, seguindo a [política do repositório](AGENTS.md), verificações e evidências equivalentes. Não precisam criar branches internas para cada etapa.
 
 O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro; contribuir com o código não exige executar uma instalação global na sua máquina.
 
@@ -39,7 +39,7 @@ O [guia de instalação](docs/installation.md) é voltado a usuários do Maestro
 3. Faça alterações pequenas e coesas, preservando contratos existentes. Inclua testes quando modificar comportamento.
 4. Atualize documentação, exemplos e changelog quando a mudança alterar a experiência ou o contrato público.
 5. Execute as verificações relevantes e descreva quaisquer limitações de ambiente.
-6. **Contribuição externa:** abra PR para `v1` com motivo, solução, testes, riscos e migração. **Manutenção autorizada:** registre essas evidências no commit ou na issue da mudança direta em `v1`.
+6. **Contribuição externa:** abra PR para `release/1.2.0` durante o freeze ou `main` após o cutover com motivo, solução, testes, riscos e migração. **Manutenção autorizada:** registre essas evidências no commit ou na issue da mudança direta na branch de estabilização.
 
 Ao adicionar ou atualizar um workflow em `.github/workflows/`, fixe cada Action em um SHA completo de 40 caracteres e mantenha um comentário com a versão legível (por exemplo, `uses: actions/checkout@<40-character-SHA> # vX`). O GitHub rejeita referências por tag neste repositório. Para atualizar uma Action, confira o SHA no repositório oficial do fornecedor; não copie um SHA sem confirmar que ele corresponde à versão comentada.
 

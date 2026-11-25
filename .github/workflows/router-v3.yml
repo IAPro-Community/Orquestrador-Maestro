@@ -2,7 +2,7 @@ name: Router v3 Gate
 
 on:
   pull_request:
-    branches: [main, v1, "feature/*", "feat/*"]
+    branches: [main, v1, "release/*", "feature/*", "feat/*"]
     paths:
       - "runtime/planner/**"
       - "runtime/skills/**"

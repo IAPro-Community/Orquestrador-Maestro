@@ -6,13 +6,13 @@ O release segue um único contrato: a versão do `package.json`, do `package-loc
 
 ## Fluxo do mantenedor
 
-A migração planejada para publicação exclusiva pela `main` está documentada em [BRANCH_RELEASE_TRANSITION.md](architecture/BRANCH_RELEASE_TRANSITION.md). Ela ainda não está ativa: siga as regras vigentes abaixo até autorização e validação do cutover.
+A `release/1.2.0` é a branch de estabilização, com PR final direto para `main`. A `v1` permanece preservada. O cutover administrativo ainda depende de autorização e validação; ver [BRANCH_RELEASE_TRANSITION.md](architecture/BRANCH_RELEASE_TRANSITION.md).
 
 1. Atualize `package.json`, `package-lock.json`, os dois manifestos em `plugins/maestro-openai/`, os bootstraps e `docs/product/CAPABILITY_MATRIX.json`. Crie a seção correspondente no `CHANGELOG.md`.
-2. Rode `npm ci`, `npm run verify:pr`, `npm run validate` e `npm run skills:contract-audit:strict`. Para a linha V1, use `VERIFY_BASE_REF=origin/v1` no gate de ancestralidade.
-3. Para versões `1.x`, integre o candidato homologado em `v1`; a linha histórica `0.x` usa `main`. Alterar a versão ou fazer push não autoriza criar tags nem publicar. Verifique se os workflows manuais desta revisão já estão presentes na branch de publicação antes de alterar a versão.
+2. Rode `npm ci`, `npm run verify:pr`, `npm run validate` e `npm run skills:contract-audit:strict`. Use `VERIFY_BASE_REF=origin/release/1.2.0` durante o freeze e `origin/main` depois do merge.
+3. Integre correções na `release/1.2.0` e, após homologação, abra o PR final para `main`. A versão estável só pode ser publicada a partir de `main`. Alterar a versão ou fazer push não autoriza criar tags nem publicar. Verifique se os workflows manuais desta revisão já estão presentes na branch de publicação antes de alterar a versão.
 
-> **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). O gate de ancestralidade exige que o commit da tag já esteja em `origin/v1`; por isso a branch de RC precisa ser integrada em `v1` antes da tag. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.2`.
+> **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). Para RCs 1.2.0, a branch de publicação é `release/1.2.0`; para versões estáveis e futuras releases, `main`. A publicação exige ambiente autorizado e CI da branch exata. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.2`.
 
 O script PowerShell local é exclusivamente validatório (inclusive RC):
 
@@ -27,7 +27,7 @@ Os parâmetros legados `-CreateTag` e `-PushTag` são rejeitados. O script usa o
 A criação de tags e a publicação são duas operações independentes e manuais. Nenhum push ou tag aciona a publicação nesta revisão.
 
 1. Execute Tests e Security checks na branch de release oficial, para o SHA final exato. Runs de PR não certificam o commit da tag, porque podem testar um merge sintético. O gate exige branch, SHA e tentativa exatos, os dez jobs da matriz Tests e os dois de Security, além de suas etapas obrigatórias. Rejeita runs ausentes, pendentes, cancelados, falhos ou com etapas essenciais ignoradas.
-2. Dispare `Prepare authorized release tag` na branch `v1` (ou `main` na linha 0.x), informe `expected_sha` completo e confirme `confirm`. O workflow cria a tag anotada, mas não publica.
+2. Dispare `Prepare authorized release tag` na branch `release/1.2.0` para RC 1.2.0 ou `main` para a estável, informe `expected_sha` completo e confirme `confirm`. O workflow cria a tag anotada, mas não publica.
 3. Dispare [Release](../.github/workflows/release.yml) nessa mesma branch, com `tag`, `expected_sha` e `confirm`. O checkout da tag precisa corresponder ao SHA aprovado e estar na ancestralidade da linha oficial. O environment `npm-release` continua necessário.
 
 Um rerun exige a mesma tag imutável e o mesmo SHA. Nenhum resultado de validação local é interpretado automaticamente como aprovação de CI hospedada.
@@ -47,7 +47,7 @@ Releases estáveis usam o dist-tag npm `latest`; `alpha` usa `alpha`, `beta` usa
 
 Configure o secret `NPM_TOKEN` no ambiente `npm-release`, com permissão de publicação e atualização de dist-tags para `@iapro/orquestrador-maestro-cli`. Como alternativa, configure trusted publishing para este repositório e workflow com `id-token: write`; habilite também a permissão `Allow npm dist-tag` do trusted publisher. O job usa npm 12.2.0, compatível com essa operação via OIDC. Dist-tags que já apontam para a versão desejada dispensam escrita. Para alterações, OIDC tem prioridade; se essa operação for recusada e houver um token configurado, o job tenta a autenticação tradicional com esse token.
 
-Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. As publicações são serializadas no mesmo grupo de concorrência, para evitar disputa entre canais. Um erro de propagação não autoriza republicar a versão; retome a execução pela tag imutável. Configure required reviewers no environment `npm-release` antes de autorizar uma versão estável; a declaração YAML não configura essa aprovação por si só.
+Se a versão já existir, o workflow compara sua integridade SHA-512 com a do artefato validado antes de retomar os dist-tags e a release GitHub. Um pacote diferente com o mesmo número de versão reprova o fluxo. As publicações são serializadas no mesmo grupo de concorrência, para evitar disputa entre canais. Um erro de propagação não autoriza republicar a versão; retome a execução pela tag imutável. Configure required reviewers e deployment branches no environment `npm-release` (main e, temporariamente, release/1.2.0; exclua v1 e tags/branches arbitrárias) antes de autorizar qualquer publicação; a declaração YAML não configura essa aprovação por si só.
 
 A tag permanece imutável mesmo quando a branch avança. A checagem de ancestralidade exige que o commit da tag esteja no histórico da linha de release; não exige que a tag contenha commits posteriores da branch. Assim, uma retomada manual preserva o pacote original. A preparação da tag não permite movê-la; retome explicitamente pela tag original.
 
@@ -90,7 +90,7 @@ restrições de tags e credenciais npm/GitHub escopadas, sem exportá-las
 para o ambiente de testes. Não desative as proteções hospedadas.
 
 1. Prepare uma versão npm inédita (por exemplo RC.2), confirme que a branch
-   oficial `v1` contém o SHA final e rode a homologação novamente nesse SHA.
+   autorizada pela política contém o SHA final e rode a homologação novamente nesse SHA.
    O diretório de evidências é exibido pelo script. Não reutilize RC.1.
 2. Com autorização separada para criar tag, confira `git rev-parse HEAD`,
    a versão e o SHA no GitHub; crie uma tag anotada imutável no SHA aprovado
@@ -98,7 +98,7 @@ para o ambiente de testes. Não desative as proteções hospedadas.
    e `git push origin refs/tags/v1.2.0-rc.2`). Não force ou mova tags.
    Esse passo exige autorização do owner e deve respeitar o ruleset.
 3. Abra um ambiente de publicação separado, com acesso npm e `gh`
-   configurados. No checkout limpo da `v1` autorizada, execute:
+   configurados. No checkout limpo da branch autorizada, execute:
 
    ```bash
    bash scripts/publish-local-release.sh DIRETORIO_EVIDENCIA SHA_COMPLETO SHA256_APROVADO --confirm
