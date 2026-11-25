@@ -20,7 +20,7 @@ const { approximateTokens, injectionBudget, trimToBudget } = require("./context-
 const { contextResponse, denyTool, preToolContext, rewriteTool } = require("./hook-response");
 const { endSession, getSession, updateSession } = require("./session-state");
 const { governToolUse } = require("./tool-governor");
-const { NATIVE_GOAL_GUIDANCE, observesNativeGoalCommand } = require("../../providers/goal-preflight");
+const { observeHarnessEvent } = require("../harness/contract");
 const { updateLedger } = require("./context-ledger");
 
 const MODES = Object.freeze(["off", "observe", "optimize", "strict"]);
@@ -111,7 +111,8 @@ function handleOpenAIHookEvent(event, options = {}) {
   if (eventName === "UserPromptSubmit") {
     const prompt = String(event?.prompt || "").trim();
     if (!prompt) return {};
-    const nativeGoalCommandObserved = observesNativeGoalCommand(prompt);
+    const goalObservation = observeHarnessEvent("codex", { hook_event_name: eventName, prompt });
+    const nativeGoalCommandObserved = goalObservation?.commandObserved === true;
     const routed = routePrompt(prompt, cwd, options);
     const complexity = routed?.complexity || {};
     const selectedSkills = selectedSkillIds(routed);
@@ -130,7 +131,7 @@ function handleOpenAIHookEvent(event, options = {}) {
     });
     const turnContext = buildTurnContext(routed, mode);
     const context = trimToBudget(nativeGoalCommandObserved
-      ? NATIVE_GOAL_GUIDANCE + "\n" + turnContext : turnContext,
+      ? goalObservation.guidance + "\n" + turnContext : turnContext,
       injectionBudget(complexity.level));
     const tokens = approximateTokens(context);
     updateSession(pluginData, sessionId, {

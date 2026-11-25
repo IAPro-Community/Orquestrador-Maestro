@@ -17,17 +17,17 @@
 const FLAG_REGISTRY = Object.freeze({
   "harness.specTraceability": Object.freeze({
     default: false,
-    since: "1.3.0",
+    since: "1.2.0",
     description: "Emit a short, traceable spec: criterion → verifier → source → task."
   }),
   "harness.qualityProfiles": Object.freeze({
     default: false,
-    since: "1.3.0",
+    since: "1.2.0",
     description: "Apply per-stack quality profiles (functional + a11y/responsive where applicable)."
   }),
   "harness.planPreview": Object.freeze({
     default: false,
-    since: "1.3.0",
+    since: "1.2.0",
     description: "Expose read-only plan/evidence preview surfaces."
   })
 });

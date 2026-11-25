@@ -1,0 +1,12 @@
+{
+  "name": "maestro-harness-opencode-v2",
+  "private": true,
+  "version": "1.2.0-rc.2",
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.4.1"
+  }
+}
