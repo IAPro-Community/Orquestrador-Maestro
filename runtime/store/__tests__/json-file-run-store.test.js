@@ -227,3 +227,25 @@ test("JsonFileRunStore readers observe commits made by another instance", async 
   await first.appendEvent({ id: "external-event", runId: "run-1", type: "run.started" });
   assert.equal((await second.listEvents({ runId: "run-1" })).length, 1);
 });
+
+
+test("stale owner recovery preserves concurrent writes", async () => {
+  const filePath=path.join(makeTempDir("maestro-store-dead-lock-"),"runs.json");
+  const store=new JsonFileRunStore({filePath});
+  await store.initialize();
+  const child=spawn(process.execPath,["-e","process.exit(0)"],{stdio:"ignore"});
+  await new Promise((resolve,reject)=>{child.once("error",reject);child.once("exit",resolve)});
+  await fs.writeFile(filePath+".lock",JSON.stringify({pid:child.pid,token:"dead-owner",createdAt:new Date(0).toISOString()}),{mode:0o600});
+  await Promise.all(Array.from({length:4},(_,i)=>runStoreWriter({filePath,prefix:"recover-"+i,count:10})));
+  assert.equal((await store.listEvents({runId:"run-shared"})).length,40);
+});
+test("run bundle is persisted together and mismatched identities fail",async()=>{
+  const store=new JsonFileRunStore({filePath:path.join(makeTempDir("maestro-store-bundle-"),"runs.json")});
+  await store.createProject({id:"p"});
+  const bundle={task:{id:"t",projectId:"p"},run:{id:"r",taskId:"t",status:"pending"},step:{id:"s",runId:"r",status:"pending"}};
+  await store.saveRunBundle(bundle);
+  assert.equal((await store.getRun("r")).taskId,"t");
+  assert.equal((await store.getStep("s")).runId,"r");
+  await assert.rejects(store.saveRunBundle({...bundle,step:{...bundle.step,runId:"other"}}),/identity mismatch/);
+  assert.equal((await store.getStep("s")).runId,"r");
+});
