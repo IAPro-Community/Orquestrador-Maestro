@@ -27,7 +27,7 @@ concurrency:
 jobs:
   validate:
     name: Validate release
-    if: inputs.confirm == true && (github.ref_name == 'release/1.2.0' || github.ref_name == 'main')
+    if: inputs.confirm == true && (github.ref == 'refs/heads/release/1.2.0' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read

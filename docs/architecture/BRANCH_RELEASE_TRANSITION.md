@@ -7,9 +7,16 @@
 
 Uma única linha principal de desenvolvimento (`main`), protegida, com mudanças curtas em `feature/*`, `fix/*`, `docs/*`, `hotfix/*` e PRs. Branch `release/*` somente quando necessário, com correções reintegradas ao trunk e sem autorização de publicação. Não criar `master` nem `develop`. Não confundir versão 1.x, API v1 e schemas v1 com o nome de uma branch.
 
-Após o cutover, toda nova publicação (alpha, beta, RC e estável) deve usar o workflow autorizado disparado em `refs/heads/main`, com tag anotada imutável, SHA homologado pertencente à main, CI Tests/Security do SHA na main, autorização explícita de mantenedor e environment npm-release. Merge não é autorização de publicação. Manter o mesmo artefato validado, verificação de integridade do registry e canais alpha/beta/next/staged/latest existentes. Não alterar tags publicadas.
+Após o cutover, toda nova publicação (alpha, beta, RC e estável) exceto retomada de RC 1.2.0 autorizada pela política de transição deve usar o workflow autorizado disparado em `refs/heads/main`, com tag anotada imutável, SHA homologado pertencente à main, CI Tests/Security do SHA na main, autorização explícita de mantenedor e environment npm-release. Merge não é autorização de publicação. Manter o mesmo artefato validado, verificação de integridade do registry e canais alpha/beta/next/staged/latest existentes. Não alterar tags publicadas.
 
 A `v1` permanece como referência de compatibilidade; nenhum novo desenvolvimento ou publicação a partir dela após o cutover. Não excluir nem renomear antes de comprovar compatibilidade; conservar a referência mesmo após a transição se houver consumidores externos.
+
+## Política de transição aprovada para 1.2.0
+
+- Correções e PRs da versão entram exclusivamente em `release/1.2.0`; a `v1` é congelada operacionalmente. PRs opcionais que não passem os gates ficam fora da release.
+- RC 1.2.0 pode ser publicada somente pela release, mediante CI, autorização e environment; a versão final somente pela `main` depois do PR direto e novo CI. Nunca publicar por merge.
+- Site: build na release; deploy exclusivo da main. Owner deve impedir execução publicadora de workflows históricos em v1 e restringir o environment antes da RC/merge.
+- As tabelas de inventário abaixo descrevem o baseline anterior, não o estado dos workflows já preparados.
 
 ## 2. Evidências e bloqueadores
 
@@ -45,7 +52,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 
 ## 4. Sequência segura de transição
 
-### Fase A — preparação (vigente)
+### Fase A — preparação (baseline histórico)
 
 - [x] Inventário inicial de workflows, scripts, documentação e branches.
 - [x] Definir política alvo, riscos e gates; registrar evidência de CI do baseline.
@@ -62,7 +69,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 
 ### Fase C — troca de branch
 
-- [ ] Autorizar separadamente a integração. Validar commit exato antes de promover e garantir que não há gatilho de publicação por push. Integrar v1 em main preservando histórico. Não reativar workflow histórico.
+- [ ] Autorizar separadamente a integração. Validar commit exato antes de promover e garantir que não há gatilho de publicação por push. Integrar diretamente release/1.2.0 em main preservando histórico; não integrar via v1. Não reativar workflow histórico.
 - [ ] Configurar proteção de main (sem force-push/exclusão, PR obrigatório, revisão independente, status checks obrigatórios, proteção de alterações de workflows e scripts de release). Confirmar CODEOWNERS com mantenedores reais e permissão de revisão, sem inventar equipes.
 - [ ] Executar Tests/Security no SHA exato da main, validar Pages e instalar a partir do pacote candidato sem publicar.
 - [ ] Tornar main default somente após verificação de proteções, CI, Pages, documentação e compatibilidade. Congelar v1 para contribuição/publicação, manter referência de compatibilidade.
@@ -71,7 +78,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 ### Fase D — release (autorização independente)
 
 - [ ] Fechar bloqueadores reais da #86 ou reduzir/documentar escopo experimental de modo verificável; manter Goal desabilitado. RC anterior não certifica novo SHA.
-- [ ] Preparar versão inédita (ex. 1.2.0-rc.2, após confirmar registry), manifestos e changelog. Gates exatos na main. Autorizar tag e publicação separadamente; canal next. Verificar latest continua intacto.
+- [ ] Preparar RC inédita na release/1.2.0, manifestos e changelog. Gates exatos na release; autorizar tag e publicação separadamente, canal next. Verificar latest intacto. Após homologação e preparação da versão estável, integrar por PR direto para main e repetir os gates no SHA final da main.
 - [ ] Homologar RC, corrigir regressões, repetir gates para 1.2.0 final; staged → latest apenas após evidências e aprovação. Não reutilizar versão ou mover tag.
 
 ## 5. Política de issues
