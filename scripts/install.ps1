@@ -137,11 +137,18 @@ function Test-PathUnderRoot {
     [System.IO.Path]::DirectorySeparatorChar,
     [System.IO.Path]::AltDirectorySeparatorChar
   )
-  if ($resolvedPath.Equals($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
-    return $true
-  }
   $rootWithSeparator = $resolvedRoot + [System.IO.Path]::DirectorySeparatorChar
-  return $resolvedPath.StartsWith($rootWithSeparator, [StringComparison]::OrdinalIgnoreCase)
+  if (-not ($resolvedPath.Equals($resolvedRoot, [StringComparison]::OrdinalIgnoreCase) -or $resolvedPath.StartsWith($rootWithSeparator, [StringComparison]::OrdinalIgnoreCase))) { return $false }
+  # GetFullPath is lexical; inspect every existing ancestor below the home.
+  $current = $resolvedPath
+  while (-not $current.Equals($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    $entry = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+    if ($entry -and (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) { return $false }
+    $parent = Split-Path -Parent $current
+    if (-not $parent -or $parent -eq $current) { return $false }
+    $current = $parent
+  }
+  return $true
 }
 
 function Get-RelativePath {
