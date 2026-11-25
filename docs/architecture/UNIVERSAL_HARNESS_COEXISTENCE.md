@@ -64,6 +64,25 @@ node --test tests/harness-contract.test.js
 
 Live tests must record host version, hook/plugin registration, delivered events, and absence of duplicate execution. See the official [Gemini hook reference](https://geminicli.com/docs/hooks/reference/) and [OpenCode V2 plugin migration](https://opencode.ai/docs/build/plugins/migrate-v1).
 
+## Operator-reviewed external delivery checks
+
+The public CLI exposes the existing configuration helper as `orquestrador-maestro harness --render|--merge|--remove claude|gemini`. The host still owns hook trust.
+
+For a delivery produced by any external harness, a trusted local operator can review a **clean committed worktree** and explicitly approve a bounded set of checks. Stop the agent first. Review all code and scripts (including dependencies); do not treat an allowed npm or Maven command as a sandbox. Keep the JSON and its output outside the reviewed worktree:
+
+```json
+{"workspacePath":"/path/to/project","checks":[{"criterionId":"unit-tests","command":"npm run test","timeoutMs":60000}]}
+```
+
+```bash
+orquestrador-maestro harness --preview-review < review.json
+orquestrador-maestro harness --verify-review APPROVAL_DIGEST < review.json
+```
+
+Use the displayed approvalDigest after human review. On Windows use the equivalent PowerShell pipeline with `Get-Content -Raw`. The digest binds the worktree identity, Git HEAD, existing verifier-input snapshot, criterion IDs, commands and timeouts. The same scope is rechecked before and after every check. Drift, errors and failed checks stop the review; a non-green result exits nonzero. Checks use the canonical VerificationEngine command runner, with its policy, diagnostic and timeout handling. No hook or remote client can trigger this operation through an event.
+
+This is a local diagnostic, not an authenticated approval, sandbox, transitive integrity proof or complete acceptance contract. Ignored/generated inputs, concurrent changes restored before observation, Git configuration and external dependencies are outside the bounded drift guard. The operator must use a trusted isolated workspace. A green result remains `CHECKS_PASSED` for the listed checks only, with `acceptanceCertified: false`, `goalState: unknown` and no RunStore write. It cannot mint a Goal PASS, certify native lifecycle or authorize another loop.
+
 ## Release gates and follow-up
 
 - [ ] Run full tests and installer/upgrade/rollback on final release SHA.

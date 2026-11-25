@@ -126,6 +126,8 @@ Uso:
   orquestrador-maestro providers goals [--project-path PATH]
   orquestrador-maestro bridge --stdio [--with-worker] [--project-path PATH]
   orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
+  orquestrador-maestro harness --render|--merge|--remove claude|gemini
+  orquestrador-maestro harness --preview-review|--verify-review [APPROVAL_DIGEST] (JSON via stdin)
   orquestrador-maestro adapters <list|paths|validate> [id]
   orquestrador-maestro adapters render <junie|goose|openhands> --project-path PATH [--dry-run|--apply]
   orquestrador-maestro targets [list|detect|add|remove|sync] [--home-path PATH]
@@ -3385,6 +3387,7 @@ async function dispatch(command, args) {
   if (command === "desktop-plugin") return handleDesktopPluginCommand(args);
   if (command === "desktop-mcp") return handleDesktopMcpCommand(args);
   if (command === "desktop-hook") return handleDesktopHookCommand(args);
+  if (command === "harness") return (await require("../scripts/harness-hook").main(args, process.stdin, process.stdout)) || 0;
   if (command === "run") return handleRunCommand(args);
   if (command === "runs") return handleRunsCommand(args);
   if (command === "usage") return handleUsageCommand(args);

@@ -63,6 +63,18 @@ async function readInput(input) {
 
 async function main(args, input, output) {
   const [action, host] = args;
+  if (action === "--help" || action === "-h" || action === undefined) {
+    output.write("harness --render|--merge|--remove claude|gemini | --inspect HOST | --preview-review | --verify-review APPROVAL_DIGEST\n");
+    return 0;
+  }
+  if (action === "--preview-review" || action === "--verify-review") {
+    if (args.length !== (action === "--preview-review" ? 1 : 2)) throw new Error("INVALID_REVIEW_ARGUMENTS");
+    const { previewReview, executeReview } = require("../runtime/integrations/harness/review");
+    const request = await readInput(input);
+    const report = action === "--preview-review" ? previewReview(request) : await executeReview(request, host);
+    output.write(JSON.stringify(report, null, 2) + "\n");
+    return action === "--verify-review" && report.status !== "CHECKS_PASSED" ? 1 : 0;
+  }
   if (action === "--render") {
     output.write(JSON.stringify(renderHookConfig(host), null, 2) + "\n");
     return;
@@ -86,7 +98,7 @@ async function main(args, input, output) {
 }
 
 if (require.main === module) {
-  main(process.argv.slice(2), process.stdin, process.stdout).catch(() => {
+  main(process.argv.slice(2), process.stdin, process.stdout).then(code => { process.exitCode = code || 0; }).catch(() => {
     process.stderr.write("Maestro harness hook: invalid invocation\n");
     process.exitCode = 1;
   });

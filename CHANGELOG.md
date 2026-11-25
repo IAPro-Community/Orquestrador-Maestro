@@ -10,6 +10,7 @@
 - O plugin OpenAI observa comandos `/goal` quando expostos ao hook de prompt, deduplica orientação e registra `Stop` como fim de turno, nunca como conclusão de Goal. Integração consultiva, sem redespacho ou certificação de lifecycle.
 - Contrato compartilhado de eventos e hooks consultivos opt-in para Claude Code e Gemini CLI; plugin experimental OpenCode V2 com observação sem alteração do prompt. Comandos nativos e continuidade permanecem sob o host; nenhuma verificação externa ou correção automática é certificada.
 - Merge e remoção idempotentes da configuração opt-in por JSON, preservando hooks existentes e rejeitando configurações inválidas; nenhuma escrita automática.
+- CLI `harness` expõe configuração e revisão local opt-in de uma revisão Git limpa, com digest de escopo, verificações delimitadas no executor existente e bloqueio por drift. Resultado não certifica Goal externo nem autoriza continuação.
 - Metadados das feature flags alinhados à versão 1.2.0; permanecem desativadas por padrão.
 - Matriz de níveis e pendências de homologação em `docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md`.
 
