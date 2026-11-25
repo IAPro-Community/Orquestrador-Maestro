@@ -193,3 +193,22 @@ test("stdio server drains an accepted request after input EOF", async () => {
   await server.done;
   assert.deepEqual(JSON.parse(data), { id: 1, result: "ok" });
 });
+
+
+test("RPC rejects inherited methods and unsupported trust boundary",async()=>{
+  const {createBridge}=require("../bridge");
+  const bridge=createBridge();
+  const response=await bridge.handle({jsonrpc:"2.0",id:1,method:"toString"});
+  assert.equal(response.error.code,-32601);
+  assert.throws(()=>createBridge({trustMode:"remote"}),/trusted-local/);
+});
+test("stdio rejects oversized frames before parsing",async()=>{
+  const {PassThrough}=require("node:stream");
+  const {createStdioServer}=require("../stdio-server");
+  const input=new PassThrough(),output=new PassThrough();let calls=0;
+  const server=createStdioServer({handle:async()=>{calls++;return null}},{input,output,maxFrameChars:16});
+  input.write("x".repeat(17));
+  await server.done;
+  assert.equal(calls,0);
+  input.destroy();output.destroy();
+});
