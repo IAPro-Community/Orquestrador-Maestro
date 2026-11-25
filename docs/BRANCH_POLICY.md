@@ -1,22 +1,18 @@
 # Branch Policy — V1 default line
 
-Updated: 2026-09-29
+Updated: 2026-11-25
 
 ## Active branches
 
 Only these branches are part of the current delivery path:
 
-- `v1` — canonical V1 branch and repository default branch. All new V1 work must land here or in a short-lived branch created from its current HEAD.
-- `main` — legacy compatibility line and historical integration baseline. It is not the source of truth for `1.x` releases.
-- `release/1.0.0-beta` — historical V1 staging branch; use `v1` for new work.
+- `v1` — canonical V1 branch for active `1.x` releases. All new `1.x` work lands here (or via short-lived PR branch from its current `HEAD`).
+- `main` — historical integration baseline (updated via fast-forward from `v1` once `1.x` releases stabilize; see [BRANCH_RELEASE_TRANSITION.md](architecture/BRANCH_RELEASE_TRANSITION.md) for the planned post-1.2.0 single-branch cutover).
 
-## Frozen branches
+## Frozen and retired branches
 
-All branches under `archive/` are immutable historical snapshots. They exist only for traceability and recovery.
-
-The `archive/*` branches are historical consolidation checkpoints; they are not a one-to-one snapshot for every former work branch.
-
-The following former work branches are frozen/obsolete and are no longer valid development targets:
+- Historical `archive/*` remote branches are **retired** and eligible for cleanup on `origin`; full history remains preserved via immutable release tags and commits on `v1`/`main`.
+- Do not create new work or merge/rebase onto obsolete `release/1.0.0-beta`, `feat/*`, `feature/*`, `fix/*`, or `cleanup/*` branches:
 
 - `feat/cli-novo`
 - `feat/cli-novo-wip`
