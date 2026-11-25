@@ -14,23 +14,19 @@ A migração planejada para publicação exclusiva pela `main` está documentada
 
 > **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). O gate de ancestralidade exige que o commit da tag já esteja em `origin/v1`; por isso a branch de RC precisa ser integrada em `v1` antes da tag. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.2`.
 
-Também é possível validar e criar a tag pelo script local:
+O script PowerShell local é exclusivamente validatório (inclusive RC):
 
-   ```powershell
-   .\scripts\release.ps1 -Version 1.2.0-rc.2
-   ```
+```powershell
+.\scripts\release.ps1 -Version 1.2.0-rc.2
+```
 
-   ```powershell
-   .\scripts\release.ps1 -Version 1.2.0-rc.2 -CreateTag -PushTag
-   ```
-
-O script exige working tree limpo, verifica a versão dos manifestos, confere o changelog, executa `npm run validate`, gera a prévia do pacote e valida espaços inválidos.
+Os parâmetros legados `-CreateTag` e `-PushTag` são rejeitados. O script usa o gate canônico de manifestos, verifica o checkout limpo e interrompe em qualquer falha dos gates.
 
 ## Publicação com autorização explícita
 
 A criação de tags e a publicação são duas operações independentes e manuais. Nenhum push ou tag aciona a publicação nesta revisão.
 
-1. Execute Tests e Security checks na branch de release oficial, para o SHA final exato. Runs de PR não certificam o commit da tag, porque podem testar um merge sintético. O gate rejeita runs ausentes, pendentes, cancelados ou falhos e a revisão incorreta.
+1. Execute Tests e Security checks na branch de release oficial, para o SHA final exato. Runs de PR não certificam o commit da tag, porque podem testar um merge sintético. O gate exige branch, SHA e tentativa exatos, os dez jobs da matriz Tests e os dois de Security, além de suas etapas obrigatórias. Rejeita runs ausentes, pendentes, cancelados, falhos ou com etapas essenciais ignoradas.
 2. Dispare `Prepare authorized release tag` na branch `v1` (ou `main` na linha 0.x), informe `expected_sha` completo e confirme `confirm`. O workflow cria a tag anotada, mas não publica.
 3. Dispare [Release](../.github/workflows/release.yml) nessa mesma branch, com `tag`, `expected_sha` e `confirm`. O checkout da tag precisa corresponder ao SHA aprovado e estar na ancestralidade da linha oficial. O environment `npm-release` continua necessário.
 
@@ -43,9 +39,9 @@ Releases estáveis usam o dist-tag npm `latest`; `alpha` usa `alpha`, `beta` usa
 - verifica a ancestralidade na branch da linha de release;
 - executa testes, validação pública e auditoria estrita das skills;
 - gera um único tarball com checksum e testa sua instalação e atualização em home isolado;
-- publica exatamente o artefato validado; uma versão estável entra primeiro no dist-tag temporário `staged`, sem alterar `latest`;
-- aguarda a visibilidade da versão no registry (até 20 minutos), confere SHA-512 e recupera o tarball para comparar seu SHA-256 e executar smoke de versão;
-- promove o canal somente após confirmação, sem regredir `latest`; se `next` ainda apontar para uma RC da mesma versão, gradua esse canal também;
+- publica exatamente o artefato validado; toda versão inédita entra primeiro no dist-tag temporário `staged`, sem alterar `latest`, `next`, `alpha` ou `beta`;
+- aguarda a visibilidade da versão no registry (até 20 minutos), confere SHA-512 e recupera o tarball para comparar seu SHA-256 do pacote já testado; não executa código do pacote no processo que mantém credenciais de publicação;
+- promove o canal somente após confirmação, sem regredir nenhum canal promovido; se `next` ainda apontar para uma RC da mesma versão, gradua esse canal também;
 - reconfirma os dist-tags antes de autorizar a release GitHub;
 - cria a release GitHub com changelog, tarball e checksum; versões estáveis viram `Latest`, pré-releases ficam identificadas como tal.
 
@@ -82,16 +78,46 @@ Provider real exige homologação separada. A evidência local substitui
 operacionalmente a execução hospedada apenas mediante decisão registrada
 do mantenedor, não uma aprovação automatizada de CI.
 
-Para publicar por um ambiente local ou runner próprio, primeiro alinhe
-uma versão npm **nova** (não reutilize RC.1), homologue o SHA definitivo,
-integre-o na linha oficial, confirme a ancestralidade da tag e valide
-credenciais escopadas/rotação de credenciais históricas. A autorização
-do mantenedor deve indicar SHA, versão, checksum e exceções de plataforma.
-Use o mesmo tarball homologado, canal intermediário `staged` para estável,
-confirmação SHA-512 e recuperação do artefato do registry antes de mover
-`latest`. Não use a aprovação de uma RC como aprovação da versão final.
-A publicação local não é executada por este script; requer operação
-separada e autorização explícita. Não crie bypass de CI no workflow remoto.
+### Publicação local autorizada (alternativa administrativa à CI hospedada)
+
+O fluxo local é uma operação de mantenedor para a linha 1.x; não transforma
+uma evidência local em aprovação da CI. Use somente se a execução hospedada
+estiver indisponível e o owner tiver autorizado a exceção na #86, indicando
+SHA, versão, SHA-256 e plataformas/gates não homologados. Não execute
+publicação local e hospedada simultaneamente: o grupo de concorrência
+do GitHub não serializa processos externos. Confirme janela exclusiva,
+restrições de tags e credenciais npm/GitHub escopadas, sem exportá-las
+para o ambiente de testes. Não desative as proteções hospedadas.
+
+1. Prepare uma versão npm inédita (por exemplo RC.2), confirme que a branch
+   oficial `v1` contém o SHA final e rode a homologação novamente nesse SHA.
+   O diretório de evidências é exibido pelo script. Não reutilize RC.1.
+2. Com autorização separada para criar tag, confira `git rev-parse HEAD`,
+   a versão e o SHA no GitHub; crie uma tag anotada imutável no SHA aprovado
+   e envie apenas essa tag (por exemplo `git tag -a v1.2.0-rc.2 -m "Release v1.2.0-rc.2"`
+   e `git push origin refs/tags/v1.2.0-rc.2`). Não force ou mova tags.
+   Esse passo exige autorização do owner e deve respeitar o ruleset.
+3. Abra um ambiente de publicação separado, com acesso npm e `gh`
+   configurados. No checkout limpo da `v1` autorizada, execute:
+
+   ```bash
+   bash scripts/publish-local-release.sh DIRETORIO_EVIDENCIA SHA_COMPLETO SHA256_APROVADO --confirm
+   ```
+
+O script exige os gates registrados no `EVIDENCE.json`, SHA completo,
+checksums SHA-256/SHA-512, branch oficial remota exata e tag anotada que
+aponte ao mesmo commit. Copia o tarball aprovado para um diretório temporário,
+usa a mesma lógica de publicação do workflow, recupera e verifica o pacote
+no registry antes de promover o canal, e cria a GitHub Release sem
+sobrescrever uma release divergente. Uma nova tentativa nunca altera
+um pacote npm de conteúdo diferente. Não execute o helper de registry
+isoladamente como substituto dos gates.
+
+A autorização e o relatório local são evidências administrativas, não
+assinaturas criptográficas ou prova da matriz multi-OS. Se faltar PowerShell,
+acesso ao registry, autenticação ou aprovação, interrompa. CodeQL e a
+homologação de providers reais continuam explicitamente separados.
+Não há bypass de CI no workflow remoto.
 
 ## Rollback
 
