@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "currency": "USD",
+  "asOf": "2026-11-24",
+  "source": "operator-maintained: copy the current per-million prices from the provider pricing page before enabling cost budgets; this repository ships no price it cannot cite",
+  "models": {}
+}

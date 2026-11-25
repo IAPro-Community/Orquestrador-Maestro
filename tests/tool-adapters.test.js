@@ -9,6 +9,17 @@ const repoRoot = path.resolve(__dirname, "..");
 const manifestPath = path.join(repoRoot, "orquestrador", "TOOL_ADAPTERS.json");
 const cliPath = path.join(repoRoot, "bin", "orquestrador-maestro.js");
 
+// Temporary project roots are removed when the test ends. Long-lived tmpfs
+// hosts accumulate them otherwise, until the suite fails with ENOSPC.
+function tempProject(t) {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-adapter-"));
+  t.after(() => {
+    try { fs.rmSync(project, { recursive: true, force: true }); }
+    catch { /* best-effort cleanup */ }
+  });
+  return project;
+}
+
 test("adapter manifest protects private state categories", () => {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   assert.equal(manifest.schemaVersion, 1);
@@ -39,8 +50,8 @@ test("adapters paths exposes only declared destinations", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(output, "sessions"), false);
 });
 
-test("render dry-run does not create files", () => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-adapter-"));
+test("render dry-run does not create files", (t) => {
+  const project = tempProject(t);
   fs.writeFileSync(path.join(project, "AGENTS.md"), "# Projeto\n", "utf8");
   const result = spawnSync(process.execPath, [cliPath, "adapters", "render", "junie", "--project-path", project, "--dry-run"], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
@@ -48,8 +59,8 @@ test("render dry-run does not create files", () => {
   assert.equal(fs.existsSync(path.join(project, ".junie")), false);
 });
 
-test("render applies safe files and preserves existing config", () => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-adapter-"));
+test("render applies safe files and preserves existing config", (t) => {
+  const project = tempProject(t);
   const configDir = path.join(project, ".junie");
   fs.mkdirSync(configDir, { recursive: true });
   const original = "{\"model\":\"operator-owned\"}\n";
@@ -60,8 +71,8 @@ test("render applies safe files and preserves existing config", () => {
   assert.equal(fs.existsSync(path.join(project, ".junie", "skills", "orquestrador-maestro", "SKILL.md")), true);
 });
 
-test("render applies Goose and OpenHands project artifacts", () => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-adapter-"));
+test("render applies Goose and OpenHands project artifacts", (t) => {
+  const project = tempProject(t);
   for (const adapter of ["goose", "openhands"]) {
     const result = spawnSync(process.execPath, [cliPath, "adapters", "render", adapter, "--project-path", project, "--apply"], { encoding: "utf8" });
     assert.equal(result.status, 0, `${adapter}: ${result.stderr}`);

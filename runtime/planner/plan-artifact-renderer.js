@@ -1,5 +1,7 @@
 "use strict";
 
+const { renderSpecBrief } = require("./spec-traceability");
+
 function computeWaves(tasks) {
   if (!Array.isArray(tasks) || tasks.length === 0) return [];
 
@@ -157,6 +159,13 @@ class PlanArtifactRenderer {
           sections.push(`- **${item.key}**: ${JSON.stringify(item.value)} (${item.kind})`);
         }
       }
+      sections.push("");
+    }
+
+    // Optional, opt-in traceability section. Absent unless the caller built it,
+    // so the default plan artifact stays byte-identical for existing users.
+    if (context.specTraceability) {
+      sections.push(renderSpecBrief(context.specTraceability));
       sections.push("");
     }
 

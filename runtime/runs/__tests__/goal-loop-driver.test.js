@@ -33,7 +33,31 @@ class FakeOpenCode {
   }
 }
 
-async function failedSubmissionFixture(t, { budget } = {}) {
+// Failed provider that still reports its own billed cost per step. This is the
+// real-world shape (opencode `step_finish`) that makes a corrective review
+// priceable without any invented price table.
+class PricedOpenCode {
+  constructor(exitCode = 1, cost = 0.75) { this.id = "opencode"; this.calls = 0; this.exitCode = exitCode; this.cost = cost; }
+  async detect() { return { id: this.id, installed: true, executable: "fake-opencode" }; }
+  async capabilities() { return capabilities({ headless: true, streaming: true }); }
+  async execute() {
+    this.calls++;
+    const stdout = [
+      JSON.stringify({ type: "step_start", sessionID: "op-priced", modelID: "claude-test", providerID: "anthropic" }),
+      JSON.stringify({ type: "step_finish", sessionID: "op-priced", part: { tokens: { input: 1_000_000, output: 0 }, cost: this.cost } })
+    ].join("\n");
+    return {
+      pid: 11, cancel() {},
+      result: Promise.resolve({
+        providerId: this.id, pid: 11, exitCode: this.exitCode,
+        stdout, stderr: this.exitCode === 0 ? "" : "boom",
+        durationMs: 1, cancelled: false, timedOut: false
+      })
+    };
+  }
+}
+
+async function failedSubmissionFixture(t, { budget, provider: providerOverride } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-goal-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const projectRoot = path.join(tmp, "project");
@@ -47,7 +71,7 @@ async function failedSubmissionFixture(t, { budget } = {}) {
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
   await store.initialize();
   await store.createProject({ id: "project-goal-001", path: projectRoot });
-  const provider = new FakeOpenCode(1);
+  const provider = providerOverride || new FakeOpenCode(1);
   const app = new MaestroApplication({
     projectRoot, store, providers: new ProviderRegistry([provider]),
     skills: { get: () => null }
@@ -296,4 +320,87 @@ test("worker recovers missing terminal Goal decision without provider redispatch
   assert.equal((await worker.step()).claimed, 0);
   assert.equal((await store.listGoalLoopDecisions({ submissionId: ack.submissionId })).length, 1);
   assert.equal(provider.calls, calls);
+});
+
+test("provider-reported cost makes a bounded corrective review auditable", async (t) => {
+  const provider = new PricedOpenCode(1, 0.75);
+  const { store, ack, worker } = await failedSubmissionFixture(t, {
+    budget: { maxCostUSD: 5 }, provider
+  });
+  const result = await worker.step();
+  assert.equal(result.outcomes[0].submissionStatus, "FAILED");
+  assert.equal(result.outcomes[0].goalLoop.decision, "CORRECTIVE_REVIEW");
+  const [record] = await store.listGoalLoopDecisions({ submissionId: ack.submissionId });
+  assert.equal(record.usage.totalCostUSD, 0.75); // one dispatched task reported 0.75; the dependent task never ran
+  assert.equal(record.usage.iterationCostUSD, 0.75);
+  assert.equal(record.usage.costBasis, "provider-reported");
+  // The corrective proposal is still never dispatched by the read-only step.
+  assert.deepEqual([...record.affectedTaskIds], ["task-goal-front-001", "task-goal-integ-001"]);
+  assert.equal((await worker.step()).claimed, 0);
+});
+
+test("unpriced tokens never become a number, and prior spend is added once", async (t) => {
+  const { collectSubmissionCost } = require("../goal-loop-driver");
+  const priced = {
+    tool: "claude", provider: "anthropic", model: "claude-test",
+    tokenInput: 1_000_000, tokenOutput: 0, usageComplete: true,
+    costUSD: null, costSource: "unavailable"
+  };
+  const unpriced = { ...priced, usageComplete: false };
+  const store = async (usage) => ({
+    async listExecutions({ runId }) {
+      assert.equal(runId, "run-goal-cost-01");
+      return [{ metadata: { usage } }];
+    }
+  });
+  const submission = { taskRuns: { "task-goal-front-001": "run-goal-cost-01" } };
+  const pricing = require("../../telemetry/cost-estimator").validatePricing({
+    schemaVersion: 1, currency: "USD", asOf: "2026-11-01", source: "fixture",
+    models: { "anthropic/claude-test": { inputPerMillionUSD: 3, outputPerMillionUSD: 15 } }
+  });
+
+  // No provider-reported cost and no price table: unknown, never a guess.
+  const unpricedTotal = await collectSubmissionCost({ store: await store(priced), submission, history: [] });
+  assert.equal(unpricedTotal.currentUSD, null);
+  assert.equal(unpricedTotal.totalCostUSD, null);
+  assert.equal(unpricedTotal.reason, "PRICING_UNAVAILABLE");
+
+  // With a price table the token math applies.
+  const tableTotal = await collectSubmissionCost({ store: await store(priced), submission, history: [], pricing });
+  assert.equal(tableTotal.currentUSD, 3);
+  assert.equal(tableTotal.basis, "pricing-table");
+
+  // Cumulative uses the latest iteration's cumulative value, never the sum of
+  // every record (that would count previous spend twice).
+  const history = [
+    { iteration: 1, usage: { totalCostUSD: 2 } },
+    { iteration: 3, usage: { totalCostUSD: 5 } },
+    { iteration: 2, usage: { totalCostUSD: 4 } }
+  ];
+  const cumulative = await collectSubmissionCost({ store: await store(priced), submission, history, pricing });
+  assert.equal(cumulative.totalCostUSD, 8);
+
+  // A single unpriced invocation keeps the whole total unknown.
+  const incomplete = await collectSubmissionCost({ store: await store(unpriced), submission, history, pricing });
+  assert.equal(incomplete.currentUSD, null);
+  assert.equal(incomplete.totalCostUSD, null);
+  assert.equal(incomplete.reason, "USAGE_INCOMPLETE");
+});
+
+test("a per-iteration cost can never exceed the recorded cumulative total", () => {
+  const record = {
+    id: "goal-cost-coherence", schemaVersion: 1, submissionId: "sub-cost-01",
+    projectId: "project-cost-01", planDigest: sha("plan"), artifactDigest: sha("artifact"),
+    decision: "CORRECTIVE_REVIEW", iteration: 1,
+    failedTaskIds: [], affectedTaskIds: [], preservedTaskIds: [],
+    usage: { iterations: 1, totalCostUSD: 1, iterationCostUSD: 2, costBasis: "provider-reported", elapsedMs: 10 },
+    createdAt: new Date().toISOString()
+  };
+  assert.throws(() => validateGoalLoopDecision(record), { code: "RUN_STORE_CORRUPTED" });
+  assert.throws(() => validateGoalLoopDecision({
+    ...record, usage: { ...record.usage, iterationCostUSD: 0.5, costBasis: 42 }
+  }), { code: "RUN_STORE_CORRUPTED" });
+  assert.equal(validateGoalLoopDecision({
+    ...record, usage: { ...record.usage, iterationCostUSD: 0.5 }
+  }).usage.iterationCostUSD, 0.5);
 });

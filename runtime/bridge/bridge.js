@@ -5,6 +5,7 @@ const path = require("node:path");
 const { buildBrief } = require("../../orquestrador/bin/context-brief");
 const { createScopedMemoryAPI } = require("./memory-api");
 const { createGuardedMemoryWriter } = require("./memory-write");
+const { memoryCapabilities, validateMemorySurface } = require("./memory-contract");
 const { validatePlanPreview } = require("./plan-validation");
 const { createComposePreview } = require("./project-compose");
 const { createRoutePreview } = require("./provider-route-preview");
@@ -115,6 +116,10 @@ function createBridge(options = {}) {
     "approvals.respond": () => unsupported("Approvals are not available in protocol version 1")
   };
 
+  // Construction-time gate: a memory method added, renamed or dropped without
+  // updating the canonical contract and its documentation is a hard failure.
+  validateMemorySurface(methods);
+
   return Object.freeze({
     protocolVersion,
     subscribe(listener) {
@@ -187,7 +192,7 @@ function initialize(params, protocolVersion, capabilities = {}) {
       runsSubmissionsPoll: capabilities.runsSubmissionsPoll === true,
       runsSubmissionsCancel: capabilities.runsSubmissionsCancel === true,
       runsSubmit: capabilities.runsSubmit === true,
-      memory: Object.freeze({ version: 1, read: true, write: capabilities.memoryWriteEnabled === true, scoped: true })
+      memory: memoryCapabilities({ writeEnabled: capabilities.memoryWriteEnabled === true })
     })
   });
 }

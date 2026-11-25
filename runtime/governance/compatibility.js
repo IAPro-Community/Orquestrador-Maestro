@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { CANONICAL_DIR_NAME, LEGACY_DIR_NAME, LEGACY_CONFIG_FILE_NAME } = require("../config/maestro-paths");
 const { normalizeCognitiveBudgetConfig } = require("./change-governance");
+const { resolveFeatureFlags } = require("../config/feature-flags");
 
 const DEFAULT_CONFIG = Object.freeze({
   mode: "compatibility",
@@ -46,7 +47,12 @@ function mergeConfig(value = {}) {
     // `implemented: false` is intentional and load-bearing: there is no hook
     // runtime yet, so `enabled` must never be presented as an active control.
     hooks: Object.freeze({ enabled: hooks.enabled === true, implemented: false }),
-    features: Object.freeze({ independentReview: features.independentReview === true }),
+    // Harness flags are resolved through the canonical registry: unknown
+    // names and non-boolean values are dropped (fail-closed), never coerced.
+    features: Object.freeze({
+      independentReview: features.independentReview === true,
+      ...resolveFeatureFlags(features).flags
+    }),
     cognitiveBudget
   });
 }

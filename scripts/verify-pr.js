@@ -241,6 +241,22 @@ runCheck(`HEAD is descendant of ${ancestryBase}`, () => {
   }
 });
 
+console.log("\n12. Memory Bridge contract");
+const memoryContract = spawnSync(process.execPath, ["scripts/check-memory-contract.js"], {
+  cwd: rootDir,
+  stdio: "pipe",
+  shell: false
+});
+if (memoryContract.status !== 0) {
+  const detail = memoryContract.error?.message
+    || memoryContract.stderr?.toString().trim()
+    || memoryContract.stdout?.toString().trim();
+  console.error(`  ✗ memory contract gate failed${detail ? `: ${detail}` : ""}`);
+  exitCode = 1;
+} else {
+  console.log("  ✓ memory contract gate passed");
+}
+
 console.log(`\n${"=".repeat(40)}`);
 if (exitCode === 0) {
   console.log("verify:pr: ALL CHECKS PASSED");

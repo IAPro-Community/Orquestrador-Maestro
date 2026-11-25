@@ -20,13 +20,24 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const test = require("node:test");
+const { test, after } = require("node:test");
 
 const repoRoot = path.resolve(__dirname, "..");
 const epoch = Date.now().toString(36);
 const packDir = path.join(os.tmpdir(), `maestro-m2-true-pack-${epoch}`);
 const installDir = path.join(os.tmpdir(), `maestro-m2-true-install-${epoch}`);
 const projectDir = path.join(os.tmpdir(), `maestro-m2-true-project-${epoch}`);
+
+// The pack/install/project trees contain a full node_modules copy. Leaving
+// them behind exhausts the inode budget of a long-lived tmpfs and makes the
+// next suite run fail with ENOSPC. Cleanup is best-effort: a locked file
+// (Windows/npm background handle) must never fail the test run.
+after(() => {
+  for (const dir of [packDir, installDir, projectDir]) {
+    try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); }
+    catch { /* best-effort cleanup */ }
+  }
+});
 
 function run(cmd, args, opts = {}) {
   if (process.platform === "win32" && cmd === "npm") cmd = "npm.cmd";

@@ -363,3 +363,45 @@ test("opencode can close subagent usage only when child step usage is explicitly
   assert.equal(parsed.usageComplete, true);
   assert.equal(parsed.usageScope, "aggregate");
 });
+
+test("provider-reported cost is captured verbatim and never token-derived", () => {
+  const opencode = parseProviderUsage({
+    providerId: "opencode",
+    stdout: [
+      JSON.stringify({ type: "step_start", sessionID: "op-cost", providerID: "anthropic", modelID: "claude-test" }),
+      JSON.stringify({ type: "step_finish", sessionID: "op-cost", part: { tokens: { input: 10, output: 5 }, cost: 0.0021 } }),
+      JSON.stringify({ type: "step_finish", sessionID: "op-cost", part: { tokens: { input: 7, output: 3 }, cost: 0.0009 } })
+    ].join("\n")
+  });
+  assert.equal(opencode.costUSD, 0.003);
+  assert.equal(opencode.costSource, "provider-reported");
+
+  const claude = parseProviderUsage({
+    providerId: "claude",
+    stdout: [
+      JSON.stringify({ type: "assistant", message: { model: "claude-test", usage: { input_tokens: 10, output_tokens: 5 } } }),
+      JSON.stringify({ type: "result", subtype: "success", total_cost_usd: 0.0412, usage: { input_tokens: 10, output_tokens: 5 } })
+    ].join("\n")
+  });
+  assert.equal(claude.costUSD, 0.0412);
+
+  // Codex currently reports no price: unknown, never zero.
+  const codex = parseProviderUsage({
+    providerId: "codex",
+    stdout: JSON.stringify({ type: "turn.completed", usage: { input_tokens: 10, output_tokens: 5 } })
+  });
+  assert.equal(codex.costUSD, null);
+  assert.equal(codex.costSource, "unavailable");
+
+  // A partially priced run is not reported as a cheaper total.
+  const partial = parseProviderUsage({
+    providerId: "opencode",
+    stdout: [
+      JSON.stringify({ type: "step_start", sessionID: "op-partial" }),
+      JSON.stringify({ type: "step_finish", sessionID: "op-partial", part: { tokens: { input: 10, output: 5 }, cost: 0.002 } }),
+      JSON.stringify({ type: "step_finish", sessionID: "op-partial", part: { tokens: { input: 10, output: 5 } } })
+    ].join("\n")
+  });
+  assert.equal(partial.costUSD, null);
+  assert.equal(partial.tokenInput, 20);
+});

@@ -34,6 +34,14 @@ function asNonNegativeInt(value) {
   return null;
 }
 
+function asNonNegativeNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0) {
+    return Number(value);
+  }
+  return null;
+}
+
 function safeJsonLines(text) {
   const lines = String(text || "").split("\n");
   const events = [];
@@ -73,12 +81,17 @@ function emptyUsage(tool) {
     tokenSource: "unavailable",
     usageScope: "unknown",
     usageComplete: false,
+    // Financial telemetry is reported by the provider or stays unknown. It is
+    // never derived from a token count without an explicit, sourced price.
+    costUSD: null,
+    costSource: "unavailable",
     source: "unavailable"
   });
 }
 
-function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, usageComplete = false, source }) {
+function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens, reasoningTokens, modelCalls, toolCalls, usageScope, usageComplete = false, source, costUSD = null }) {
   const hasTokens = tokenInput !== null || tokenOutput !== null || cachedInputTokens !== null || reasoningTokens !== null;
+  const reportedCost = asNonNegativeNumber(costUSD);
   return Object.freeze({
     tool: tool || "unknown",
     provider: provider || "unknown",
@@ -97,6 +110,8 @@ function finalize({ tool, provider, model, sessionId, tokenInput, tokenOutput, c
     // this execution; "unknown" means conservative (never sum blindly).
     usageScope: usageScope || (hasTokens ? "unknown" : "unknown"),
     usageComplete: usageComplete === true,
+    costUSD: reportedCost,
+    costSource: reportedCost === null ? "unavailable" : "provider-reported",
     source: source || (hasTokens ? "stdout-events" : "unavailable")
   });
 }
@@ -119,6 +134,9 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
   let turnCalls = 0;
   let sawAggregate = false;
   let sawThreadUsage = false;
+  // Forward-compatible: if a Codex build ever reports billed cost, keep the
+  // provider's own number; otherwise it stays unknown (never token-derived).
+  let costUSD = null;
   for (const event of events) {
     const threadId = asNonEmptyString(event.thread_id) || asNonEmptyString(event.threadId) || asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (threadId && !sessionId) sessionId = threadId;
@@ -126,6 +144,12 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
       || asNonEmptyString(event?.item?.model)
       || asNonEmptyString(event?.turn?.model);
     if (eventModel && (!model || model === "unknown")) model = eventModel;
+    const eventCost = pickFirst(
+      asNonNegativeNumber(event.total_cost_usd),
+      asNonNegativeNumber(event.cost_usd),
+      asNonNegativeNumber(event.costUSD)
+    );
+    if (eventCost !== null) costUSD = eventCost;
     const usage = event.usage && typeof event.usage === "object" ? event.usage : null;
     // Some Codex builds nest usage under turn/thread payloads.
     const nested = !usage && event.turn && typeof event.turn.usage === "object" ? event.turn.usage
@@ -188,7 +212,7 @@ function parseCodexUsage(stdout, { model: requestModel } = {}) {
   // Usage without any per-turn event (thread summary only) still implies one
   // observed generation; report it as such instead of zero.
   if (modelCalls === 0 && sawThreadUsage) modelCalls = 1;
-  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", usageComplete: sawThreadUsage, source: "stdout-events" });
+  return finalize({ tool, provider: "unknown", model: model || "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens, cachedOutputTokens: null, reasoningTokens, modelCalls, toolCalls: null, usageScope: sawAggregate ? "aggregate" : "unknown", usageComplete: sawThreadUsage, costUSD, source: "stdout-events" });
 }
 
 // Claude `--print --output-format stream-json --verbose` (+ agy variant):
@@ -211,11 +235,22 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
   let sawToolUse = false;
   let sawAggregate = false;
   let sawResultUsage = false;
+  // Claude Code reports the billed turn cost on the `result` event
+  // (`total_cost_usd`). It is the provider's own number: keep it verbatim and
+  // never infer cost from tokens here.
+  let costUSD = null;
   for (const event of events) {
     const sid = asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId);
     if (sid && !sessionId) sessionId = sid;
     const eventModel = asNonEmptyString(event.model) || asNonEmptyString(event?.message?.model);
     if (eventModel && (!model || model === "unknown")) model = eventModel;
+    const eventCost = pickFirst(
+      asNonNegativeNumber(event.total_cost_usd),
+      asNonNegativeNumber(event.totalCostUsd),
+      asNonNegativeNumber(event.cost_usd),
+      asNonNegativeNumber(event.costUSD)
+    );
+    if (eventCost !== null && (event.type === "result" || costUSD === null)) costUSD = eventCost;
     const usage = event.usage && typeof event.usage === "object" ? event.usage
       : event?.message?.usage && typeof event.message.usage === "object" ? event.message.usage : null;
     if (usage) {
@@ -260,6 +295,7 @@ function parseClaudeLikeUsage(stdout, { tool, model: requestModel } = {}) {
     reasoningTokens: null, modelCalls, toolCalls: sawToolUse ? toolCalls : null,
     usageScope: sawAggregate ? "aggregate" : "unknown",
     usageComplete: sawResultUsage,
+    costUSD,
     source: "stdout-events"
   });
 }
@@ -278,6 +314,12 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
   let sessionId = null;
   let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
   let provider = "unknown", modelCalls = 0, toolCalls = 0, sawToolCalls = false, lastLifecycleEvent = null;
+  // OpenCode reports per-step billed cost on step_finish (`part.cost`). The
+  // total is only usable when EVERY completed step reported a number;
+  // a partially priced run stays unknown rather than looking cheaper.
+  let costSum = 0;
+  let costSteps = 0;
+  let stepFinishes = 0;
   let sawSubagent = false;
   const childSessionIds = new Set();
   const stepFinishSessionIds = new Set();
@@ -305,6 +347,17 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     else if (isStepFinish) lastLifecycleEvent = "step-finish";
     if (isStepFinish) {
       if (sid) stepFinishSessionIds.add(sid);
+      stepFinishes += 1;
+      const stepCost = pickFirst(
+        asNonNegativeNumber(event?.part?.cost),
+        asNonNegativeNumber(event?.part?.costUSD),
+        asNonNegativeNumber(event.cost),
+        asNonNegativeNumber(event.costUSD)
+      );
+      if (stepCost !== null) {
+        costSum += stepCost;
+        costSteps += 1;
+      }
       const tokens = event?.part?.tokens && typeof event.part.tokens === "object" ? event.part.tokens : event.tokens && typeof event.tokens === "object" ? event.tokens : event.usage && typeof event.usage === "object" ? event.usage : null;
       if (tokens) {
         const input = pickFirst(asNonNegativeInt(tokens.input), asNonNegativeInt(tokens.input_tokens), asNonNegativeInt(tokens.inputTokens), asNonNegativeInt(tokens.prompt_tokens));
@@ -335,6 +388,7 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
     modelCalls, toolCalls: sawToolCalls ? toolCalls : null,
     usageScope: sawSubagent && childUsageComplete ? "aggregate" : modelCalls > 0 ? "self" : "unknown",
     usageComplete: modelCalls > 0 && lastLifecycleEvent === "step-finish" && childUsageComplete,
+    costUSD: stepFinishes > 0 && costSteps === stepFinishes ? costSum : null,
     source: "stdout-events"
   });
 }
@@ -353,9 +407,16 @@ function parseProviderUsage({ providerId, stdout, stderr, model } = {}) {
     let tokenInput = null;
     let tokenOutput = null;
     let sessionId = null;
+    let costUSD = null;
     for (const event of events) {
       const sid = asNonEmptyString(event.session_id) || asNonEmptyString(event.sessionId) || asNonEmptyString(event.sessionID);
       if (sid && !sessionId) sessionId = sid;
+      const eventCost = pickFirst(
+        asNonNegativeNumber(event.total_cost_usd),
+        asNonNegativeNumber(event.cost_usd),
+        asNonNegativeNumber(event.costUSD)
+      );
+      if (eventCost !== null) costUSD = eventCost;
       const usage = event.usage && typeof event.usage === "object" ? event.usage : null;
       if (usage) {
         const input = pickFirst(asNonNegativeInt(usage.input_tokens), asNonNegativeInt(usage.inputTokens), asNonNegativeInt(usage.input));
@@ -365,7 +426,7 @@ function parseProviderUsage({ providerId, stdout, stderr, model } = {}) {
       }
     }
     void stderr;
-    return finalize({ tool: id || "unknown", provider: "unknown", model: asNonEmptyString(model) && model !== "default" ? model : "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, source: "stdout-events" });
+    return finalize({ tool: id || "unknown", provider: "unknown", model: asNonEmptyString(model) && model !== "default" ? model : "unknown", sessionId, tokenInput, tokenOutput, cachedInputTokens: null, cachedOutputTokens: null, reasoningTokens: null, modelCalls: 0, toolCalls: null, costUSD, source: "stdout-events" });
   } catch {
     return emptyUsage(String(providerId || "unknown").toLowerCase() || "unknown");
   }

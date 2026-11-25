@@ -3,6 +3,7 @@
 .orquestrador/
 tests/.orquestrador-maestro/
 .playwright-mcp/
+.homologation/
 .omx/
 DEV/
 .env

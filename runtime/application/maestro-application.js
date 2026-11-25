@@ -1016,7 +1016,7 @@ class MaestroApplication {
     let primaryUsageSummary = null;
     try {
       const parsed = parseProviderUsage({ providerId: provider.id, stdout: result?.stdout, stderr: result?.stderr, model: request.model });
-      primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, tokenSource: parsed.tokenSource, usageComplete: parsed.usageComplete === true };
+      primaryUsageSummary = { tool: parsed.tool, provider: parsed.provider, model: parsed.model, sessionId: parsed.sessionId, tokenInput: parsed.tokenInput, tokenOutput: parsed.tokenOutput, cachedInputTokens: parsed.cachedInputTokens, cachedOutputTokens: parsed.cachedOutputTokens, reasoningTokens: parsed.reasoningTokens, tokenSource: parsed.tokenSource, usageComplete: parsed.usageComplete === true, costUSD: parsed.costUSD, costSource: parsed.costSource };
     } catch { primaryUsageSummary = null; }
     await this.store.saveExecution({ ...execution, status: executionStatus, completedAt: new Date().toISOString(), metadata: { summary: durableExecutionSummary(result, { providerId: provider.id }), engineeringContract: executionPackage.engineeringContract, usage: primaryUsageSummary } });
     const changes = diff(workspacePath);
@@ -1056,8 +1056,12 @@ class MaestroApplication {
         status: verifierConfigDrift ? "DRIFT_DETECTED" : "BOUNDED_INPUTS_MATCH",
         criterionProof: false
       });
+      // A verifier that never executed is "skipped", not "failed": drift blocks
+      // the verifier from running, so there is no check result to fail. The run
+      // is still rejected by the blocking VERIFICATION_CONFIG_DRIFT finding.
+      // Only a verifier that actually ran can be demoted to "failed".
       verification = Object.freeze({ ...verification,
-        status: verifierConfigDrift ? "failed" : verification.status,
+        status: verifierConfigDrift && verification.checks?.length > 0 ? "failed" : verification.status,
         metadata: { ...verification.metadata, inputIntegrity: provenance }
       });
     }
@@ -1387,7 +1391,7 @@ class MaestroApplication {
       try {
         reviewAgents = [...extractChildAgents({ providerId: provider.id, stdout: raw.stdout })];
       } catch { reviewAgents = []; }
-      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: durableReviewFindings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, tokenSource: reviewUsage.tokenSource } : null } });
+      await this.store.saveExecution({ ...execution, status: status === "approved" ? "completed" : "failed", completedAt: new Date().toISOString(), metadata: { role: "independent-reviewer", verdict: parsed.verdict, findings: durableReviewFindings, usage: reviewUsage ? { tool: reviewUsage.tool, provider: reviewUsage.provider, model: reviewUsage.model, sessionId: reviewUsage.sessionId, tokenInput: reviewUsage.tokenInput, tokenOutput: reviewUsage.tokenOutput, cachedInputTokens: reviewUsage.cachedInputTokens, cachedOutputTokens: reviewUsage.cachedOutputTokens, reasoningTokens: reviewUsage.reasoningTokens, tokenSource: reviewUsage.tokenSource, usageComplete: reviewUsage.usageComplete === true, costUSD: reviewUsage.costUSD, costSource: reviewUsage.costSource } : null } });
       await this.store.saveArtifact(core.createArtifact({ id: id("review-artifact"), runId: run.id, stepId: step.id, type: "REVIEW", name: "independent-review", createdAt: new Date().toISOString(), metadata: { verdict: parsed.verdict, findings: durableReviewFindings, summary: durableReviewSummary, executionId: execution.id, contextTruncated: prompt.truncated } }));
       await this.record(run.id, status === "approved" ? "review.completed" : "review.failed", { executionId: execution.id, verdict: parsed.verdict });
       return Object.freeze({ status, verdict: parsed.verdict, findings: parsed.findings, summary: parsed.summary, calls: 1, contextTruncated: prompt.truncated, executionId: execution.id, usage: reviewUsage, childAgents: reviewAgents });
