@@ -3,6 +3,7 @@
 # release workflow or scripts/publish-local-release.sh. No authorization bypass.
 set -euo pipefail
 [[ "$#" -eq 3 ]] || { echo "Usage: publish-validated-npm.sh TARBALL SHA256 VERSION" >&2; exit 2; }
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 artifact="$1"
 expected="$2"
 expected_version="$3"
@@ -23,7 +24,7 @@ export npm_config_fetch_timeout=30000
 export npm_config_ignore_scripts=true
 scope_registry="$(npm config get @iapro:registry)"
 [[ "$scope_registry" == "undefined" || "$scope_registry" == "null" || "$scope_registry" == "https://registry.npmjs.org/" || "$scope_registry" == "https://registry.npmjs.org" ]] || { echo "Unexpected scope registry" >&2; exit 1; }
-version="$(tar -xOf "$TARBALL" package/package.json | node -e 'const p=JSON.parse(require("node:fs").readFileSync(0,"utf8"));if(p.name!=="@iapro/orquestrador-maestro-cli")throw Error("Unexpected package");process.stdout.write(p.version)')"
+version="$(tar -xOf "$TARBALL" package/package.json | node -e 'const p=JSON.parse(require("node:fs").readFileSync(0,"utf8"));if(p.name!=="@iapro/orquestrador-maestro-cli")throw Error("Unexpected package");if(p.publishConfig?.registry&&!/^https:\/\/registry\.npmjs\.org\/?$/.test(p.publishConfig.registry))throw Error("Unexpected publish registry");process.stdout.write(p.version)')"
 [[ "$version" == "$expected_version" && "$TARBALL" == "iapro-orquestrador-maestro-cli-$version.tgz" ]] || { echo "Artifact version mismatch" >&2; exit 1; }
 
 dist_tag="latest"
@@ -37,7 +38,8 @@ echo "Publishing $version with npm dist-tag $dist_tag"
 package="@iapro/orquestrador-maestro-cli"
 update_dist_tag() {
   local tag_name="$1" current_version
-  current_version="$(npm view "$package" "dist-tags.$tag_name" --prefer-online 2>/dev/null || true)"
+  current_version="$(npm view "$package" "dist-tags.$tag_name" --prefer-online)"
+  node "$script_dir/release-channel-policy.js" "$tag_name" "$current_version" "$version"
   if [[ "$current_version" == "$version" ]]; then
     echo "npm dist-tag $tag_name already points to $version."
     return 0
@@ -64,7 +66,7 @@ if published_integrity="$(npm view "$package@$version" dist.integrity --json --p
 elif grep -qE '(^|[^A-Z0-9])E404([^A-Z0-9]|$)' "$err_file"; then
   # All channels are staged before promotion, including RCs.
   publish_tag=staged
-  npm publish "./$TARBALL" --ignore-scripts --access public --tag "$publish_tag"
+  npm publish "./$TARBALL" --registry=https://registry.npmjs.org/ --ignore-scripts --access public --tag "$publish_tag"
 else
   echo "Registry lookup failed; refusing to publish."
   exit 1
@@ -95,17 +97,7 @@ done
 # The identical tarball was smoke-tested before authorization. Do not run
 # package code or lifecycle scripts in the credential-bearing process.
 
-# Prevent regression of stable channel; prerelease channels are also checked below.
-if [[ "$dist_tag" == latest ]]; then
-  current_latest="$(npm view "$package" dist-tags.latest --prefer-online)"
-  node -e 'const [current,next]=process.argv.slice(1); if(!/^\d+\.\d+\.\d+$/.test(current)||!/^\d+\.\d+\.\d+$/.test(next))process.exit(1);const a=current.split(".").map(Number),b=next.split(".").map(Number);for(let i=0;i<3;i++){if(a[i]>b[i])process.exit(1);if(a[i]<b[i])break;}' "$current_latest" "$version"
-fi
-if [[ "$dist_tag" != latest ]]; then
-  current="$(npm view "$package" "dist-tags.$dist_tag" --prefer-online)"
-  if [[ -n "$current" && "$current" != "$version" ]]; then
-    node -e 'const parse=v=>{const m=/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(v);if(!m)throw Error("Invalid channel version");return [m.slice(1,4).map(BigInt),m[4]?.split(".")||null]};const [a,b]=process.argv.slice(1).map(parse);let c=0;for(let i=0;i<3;i++)if(a[0][i]!==b[0][i]){c=a[0][i]>b[0][i]?1:-1;break}if(!c){if(!a[1]&&b[1])c=1;else if(a[1]&&!b[1])c=-1;else if(a[1]&&b[1])for(let i=0;i<Math.max(a[1].length,b[1].length);i++){const x=a[1][i],y=b[1][i];if(x===y)continue;if(x===undefined){c=-1;break}if(y===undefined){c=1;break}const n=/^\d+$/;if(n.test(x)&&n.test(y)){c=BigInt(x)>BigInt(y)?1:-1}else if(n.test(x)!==n.test(y))c=n.test(x)?-1:1;else c=x>y?1:-1;break}}if(c>0)throw Error("Refusing dist-tag regression")' "$current" "$version"
-  fi
-fi
+# Re-read and validate each channel immediately before promotion.
 update_dist_tag "$dist_tag"
 confirm_tag() {
   local tag_name="$1" deadline=$((SECONDS + 1200)) current
