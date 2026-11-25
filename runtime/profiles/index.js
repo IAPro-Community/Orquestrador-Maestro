@@ -1,6 +1,12 @@
 "use strict";
 
 const { createExecutionProfile, createExecutionPolicy } = require("../core");
+const { isEnabled } = require("../config/feature-flags");
+const {
+  KNOWN_STACKS,
+  selectQualityProfile,
+  evaluateQualityEvidence
+} = require("../quality-profiles");
 
 const PROFILE_DEFINITIONS = Object.freeze({
   developer: { displayName: "Developer", defaultVerification: ["lint", "typecheck", "test", "build"] },
@@ -65,4 +71,24 @@ function getPolicy(id) {
   return definition ? createExecutionPolicy({ id, ...definition }) : null;
 }
 
-module.exports = { getPolicy, getProfile, deriveDelegationContract, POLICY_DEFINITIONS, PROFILE_DEFINITIONS };
+/**
+ * Quality profiles are opt-in. A caller must pass the resolved feature flags;
+ * without a proven `harness.qualityProfiles` enablement this returns `null`
+ * rather than a permissive default.
+ */
+function getQualityProfile({ stack, ui = false, features, extraRequirements } = {}) {
+  if (!isEnabled(features, "harness.qualityProfiles")) return null;
+  return selectQualityProfile({ stack, ui, extraRequirements });
+}
+
+module.exports = {
+  getPolicy,
+  getProfile,
+  deriveDelegationContract,
+  getQualityProfile,
+  evaluateQualityEvidence,
+  selectQualityProfile,
+  QUALITY_STACKS: KNOWN_STACKS,
+  POLICY_DEFINITIONS,
+  PROFILE_DEFINITIONS
+};

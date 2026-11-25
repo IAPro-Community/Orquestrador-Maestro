@@ -19,6 +19,17 @@ const { projectIdForPath } = require("../runtime/application/maestro-application
 
 const CLI = path.join(__dirname, "..", "bin", "orquestrador-maestro.js");
 
+// Seeded run collections live in the OS temp dir; they are removed when the
+// test ends so repeated runs cannot exhaust the tmpfs inode budget.
+function tempRoot(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-usage-"));
+  t.after(() => {
+    try { fs.rmSync(root, { recursive: true, force: true }); }
+    catch { /* best-effort cleanup */ }
+  });
+  return root;
+}
+
 async function seedRuns(root, total) {
   const dir = path.join(root, ".orquestrador", "runtime");
   fs.mkdirSync(dir, { recursive: true });
@@ -63,8 +74,8 @@ function usageJson(root, args) {
   return JSON.parse(out);
 }
 
-test("filter-before-limit finds an old match past the newest 200", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-usage-205-"));
+test("filter-before-limit finds an old match past the newest 200", async (t) => {
+  const root = tempRoot(t);
   await seedRuns(root, 205);
   const rows = usageJson(root, ["--model", "gpt", "--limit", "200"]);
   assert.equal(rows.length, 1, "old gpt match must be found despite 205 runs");
@@ -73,8 +84,8 @@ test("filter-before-limit finds an old match past the newest 200", async () => {
   assert.equal(rows[0].topologyVisibility, "unavailable");
 }, { timeout: 120000 });
 
-test("--model is a case-insensitive substring", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-usage-sub-"));
+test("--model is a case-insensitive substring", async (t) => {
+  const root = tempRoot(t);
   await seedRuns(root, 5);
   // A failed/unreported run carries sentinel "unknown" everywhere (the same
   // shape MaestroApplication persists when the model was never reported).
@@ -123,8 +134,8 @@ test("--model is a case-insensitive substring", async () => {
   assert.ok(all.some((row) => row.run === "run-unknown" && row.model === "unknown"));
 }, { timeout: 120000 });
 
-test("limit still bounds the final result", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-usage-limit-"));
+test("limit still bounds the final result", async (t) => {
+  const root = tempRoot(t);
   await seedRuns(root, 205);
   const rows = usageJson(root, ["--limit", "5"]);
   assert.equal(rows.length, 5);

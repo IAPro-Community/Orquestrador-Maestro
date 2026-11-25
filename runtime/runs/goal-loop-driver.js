@@ -7,11 +7,28 @@ const { validateStoredExecutableManifest } = require("./executable-manifest");
 const { approvedTaskContent } = require("./executable-submission");
 const { assessGoalCorrection } = require("./goal-loop-policy");
 const { resolveOutcomes } = require("./task-outcome-resolution");
+const { estimateCost, addCosts, loadPricing } = require("../telemetry/cost-estimator");
 
 const HASH = /^[a-f0-9]{64}$/;
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const DECISIONS = new Set(["PASS", "CORRECTIVE_REVIEW", "BLOCKED_NEEDS_USER"]);
 const MAX_EVIDENCE_ITEMS = 10;
+
+function diagnosticCode(error, fallback) {
+  const code = String(error?.code || "");
+  return /^[A-Z][A-Z0-9_]{1,63}$/.test(code) ? code : fallback;
+}
+
+// A malformed operator price table must degrade the financial estimate, not
+// the Goal assessment itself: the decision stays auditable and the cost is
+// reported as unknown.
+function safeLoadPricing() {
+  try {
+    return loadPricing();
+  } catch {
+    return null;
+  }
+}
 
 const hash = (value) => crypto.createHash("sha256").update(value, "utf8").digest("hex");
 
@@ -55,6 +72,24 @@ function validateGoalLoopDecision(row) {
       !Number.isFinite(row.usage.elapsedMs) || row.usage.elapsedMs < 0) {
     throw bad("malformed goal loop usage record", "RUN_STORE_CORRUPTED");
   }
+  // Financial provenance is optional for historical records and mandatory to
+  // be coherent when present: a per-iteration cost is either a real number or
+  // an explicit unknown, and it can never exceed the cumulative total.
+  if (row.usage.iterationCostUSD !== undefined &&
+      row.usage.iterationCostUSD !== null &&
+      (!Number.isFinite(row.usage.iterationCostUSD) || row.usage.iterationCostUSD < 0)) {
+    throw bad("malformed goal loop iteration cost", "RUN_STORE_CORRUPTED");
+  }
+  if (typeof row.usage.iterationCostUSD === "number" &&
+      typeof row.usage.totalCostUSD === "number" &&
+      row.usage.iterationCostUSD > row.usage.totalCostUSD + 1e-9) {
+    throw bad("iteration cost exceeds cumulative cost", "RUN_STORE_CORRUPTED");
+  }
+  if (row.usage.costBasis !== undefined &&
+      (typeof row.usage.costBasis !== "string" || row.usage.costBasis.length < 1 ||
+        row.usage.costBasis.length > 64)) {
+    throw bad("malformed goal loop cost basis", "RUN_STORE_CORRUPTED");
+  }
   return Object.freeze({
     id: row.id,
     schemaVersion: 1,
@@ -73,6 +108,8 @@ function validateGoalLoopDecision(row) {
     usage: Object.freeze({
       iterations: row.usage.iterations,
       totalCostUSD: row.usage.totalCostUSD,
+      ...(row.usage.iterationCostUSD !== undefined ? { iterationCostUSD: row.usage.iterationCostUSD } : {}),
+      ...(row.usage.costBasis !== undefined ? { costBasis: row.usage.costBasis } : {}),
       elapsedMs: row.usage.elapsedMs
     }),
     createdAt: row.createdAt
@@ -198,13 +235,53 @@ async function readExistingDecision(store, submission) {
 }
 
 /**
+ * Evidence-bound cost of the submission being assessed, plus the cumulative
+ * spend of the same approved artifact across earlier iterations.
+ *
+ * The value comes from the provider's own billed number or from
+ * provider-reported tokens multiplied by an operator-maintained price table.
+ * Anything else stays null: a Goal correction must never be unlocked by an
+ * invented (or optimistically partial) total.
+ */
+async function collectSubmissionCost({ store, submission, history = [], pricing = null } = {}) {
+  if (typeof store?.listExecutions !== "function") {
+    return Object.freeze({ currentUSD: null, totalCostUSD: null, basis: "unavailable", reason: "EXECUTIONS_UNREADABLE", unknown: Object.freeze([]), invocations: 0 });
+  }
+  const usages = [];
+  const taskRuns = submission?.taskRuns && typeof submission.taskRuns === "object" ? submission.taskRuns : {};
+  for (const runId of Object.values(taskRuns)) {
+    if (typeof runId !== "string" || !SAFE_ID.test(runId)) continue;
+    const executions = await store.listExecutions({ runId });
+    for (const execution of Array.isArray(executions) ? executions : []) {
+      const usage = execution?.metadata?.usage;
+      if (usage && typeof usage === "object") usages.push(usage);
+    }
+  }
+  const current = estimateCost({ usages, pricing });
+  // The stored `totalCostUSD` is cumulative, so only the highest iteration is
+  // added to; summing every record would count previous spend twice.
+  const latest = history.reduce((best, row) =>
+    (best === null || (Number(row?.iteration) || 0) > (Number(best?.iteration) || 0) ? row : best), null);
+  const priorTotal = latest ? (latest.usage?.totalCostUSD ?? null) : 0;
+  const total = current.usd === null ? null : addCosts([priorTotal, current.usd]);
+  return Object.freeze({
+    currentUSD: current.usd,
+    totalCostUSD: total,
+    basis: current.basis,
+    reason: current.usd === null ? (current.unknown[0]?.reason || "COST_UNAVAILABLE") : null,
+    unknown: current.unknown,
+    invocations: current.invocations
+  });
+}
+
+/**
  * Assess a finished submission with the read-only correction policy and
  * persist the decision as a durable audit record. Corrective dispatch is
  * NOT performed here: a CORRECTIVE_REVIEW must be re-admitted through
  * runs.submit with fresh human approval within the approved budget.
  */
 async function assessSubmissionGoal({
-  store, submissionId, now = new Date()
+  store, submissionId, now = new Date(), pricing
 } = {}) {
   validateID(submissionId, "submissionId");
   if (!store?.getRunSubmission || !store?.listGoalLoopDecisions || !store?.saveGoalLoopDecision) {
@@ -254,6 +331,19 @@ async function assessSubmissionGoal({
   }
 
   const elapsedMs = Math.max(0, now.getTime() - Date.parse(submission.createdAt));
+  let cost;
+  try {
+    cost = await collectSubmissionCost({
+      store, submission, history,
+      pricing: pricing === undefined ? safeLoadPricing() : pricing
+    });
+  } catch (error) {
+    cost = Object.freeze({
+      currentUSD: null, totalCostUSD: null, basis: "unavailable",
+      reason: diagnosticCode(error, "COST_TELEMETRY_UNAVAILABLE"),
+      unknown: Object.freeze([]), invocations: 0
+    });
+  }
   const decision = assessGoalCorrection({
     tasks: semanticTasks,
     results,
@@ -268,7 +358,7 @@ async function assessSubmissionGoal({
     },
     usage: {
       iterations: history.length + 1,
-      totalCostUSD: null,
+      totalCostUSD: cost.totalCostUSD,
       elapsedMs
     },
     history: priorEntries,
@@ -294,7 +384,9 @@ async function assessSubmissionGoal({
     failureFingerprints,
     usage: {
       iterations: history.length + 1,
-      totalCostUSD: null,
+      totalCostUSD: cost.totalCostUSD,
+      iterationCostUSD: cost.currentUSD,
+      costBasis: cost.basis,
       elapsedMs
     },
     createdAt: now.toISOString()
@@ -311,4 +403,4 @@ async function assessSubmissionGoal({
   return Object.freeze({ decision: decisionFromRecord(record), record });
 }
 
-module.exports = { validateGoalLoopDecision, assessSubmissionGoal, failureFingerprint, collectTaskResults };
+module.exports = { validateGoalLoopDecision, assessSubmissionGoal, failureFingerprint, collectTaskResults, collectSubmissionCost };

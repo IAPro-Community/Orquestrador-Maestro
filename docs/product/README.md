@@ -13,6 +13,9 @@ Código e testes vencem documentação: tudo aqui precisa de evidência no repos
 | `POSITIONING.md` | Categoria, tagline, proposta de valor, anti-positioning. |
 | `USE_CASES.md` | Cenários reais com limites explícitos. |
 | `GLOSSARY.md` | Definições formais dos conceitos do produto. |
+| `PROVIDER_PRICING.json` | Tabela de preços versionada usada por `runtime/telemetry/cost-estimator.js`. Vazia por padrão: o operador preenche com preço citável. |
+| `REAL_PROVIDER_CERTIFICATION.md` | Como rodar a matriz opt-in de providers reais e o que a evidência prova (ou não). |
+| `QUALITY_PROFILES.md` | Contrato dos perfis de qualidade por stack, incluindo "build verde não é prova de UI". |
 
 ## Regras
 

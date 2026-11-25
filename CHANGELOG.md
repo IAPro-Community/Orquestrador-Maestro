@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.2.0-rc.2 - 2026-11-24
+
+> Release candidate em preparação. Não publicada; `next` continua apontando para `1.2.0-rc.1` e `latest` para `1.1.1`.
+
+### Custo e evidência
+
+- Custo de provider passa a registrar o valor reportado pelo próprio CLI (`total_cost_usd` no Claude, `part.cost` no OpenCode, campos forward-compatible no Codex) e mantém `null` com motivo explícito quando o uso, o preço ou a taxa de cache não permitem um total completo.
+- Novo estimador com tabela de preços versionada (`docs/product/PROVIDER_PRICING.json`), casamento exato por `provider/model` e total all-or-nothing. A tabela publicada não inventa preços.
+- Goal Loop grava `iterationCostUSD`, `totalCostUSD` e `costBasis`; o validador recusa custo da iteração maior que o cumulativo.
+
+### Memória e harness
+
+- A superfície de memória do Bridge v1 passa a ter um contrato canônico (`runtime/bridge/memory-contract.js`), validado na construção do Bridge e no gate `npm run memory:contract` dentro de `verify:pr`.
+- Novo registry fechado de feature flags, default OFF, com validação estrita na escrita e rollback não destrutivo.
+- Spec curta com rastreabilidade `criterion → verifier → source → task`, critérios sem verificador explícitos e duplicatas reportadas.
+- Quality profiles por stack (`node`, `java`, `python`, `go`) com stack desconhecida bloqueante e build verde sem crédito para requisito funcional ou de UI.
+
+### Homologação e documentação
+
+- Scripts de homologação #44 para Linux/macOS e Windows, com `EVIDENCE.json`, home descartável e stub apenas sob opt-in explícito.
+- Job de CI `homologation` em Ubuntu, Windows e macOS.
+- Matriz opt-in de providers reais (`MAESTRO_REAL_PROVIDER_E2E=1`) com versão, OS/arch, prova de ausência de fallback silencioso, cancelamento e recuperação de claim.
+- Documentação nova: `docs/product/REAL_PROVIDER_CERTIFICATION.md`, `docs/product/QUALITY_PROFILES.md`, `docs/product/PROVIDER_PRICING.json` e `docs/architecture/HARNESS_TRANCHE_2026-11-24.md`.
+
+### Limites
+
+- Nenhum provider real é certificado por esta versão. macOS arm64, Windows amd64 e um segundo host continuam `NOT_TESTED` até execução real.
+- O harness é opt-in e default OFF; habilitar uma flag não altera os contratos de admissão, aprovação ou reconciliação.
+
 ## 1.2.0-rc.1 - 2026-11-23
 
 > Release candidate. Publicada no canal npm `next`; a linha estável permanece em `1.1.1` no canal `latest`.

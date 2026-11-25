@@ -112,6 +112,46 @@ jobs:
         if: always() && runner.os == 'Linux'
         run: npm uninstall -g @iapro/orquestrador-maestro-cli
 
+  homologation:
+    name: Issue #44 homologation — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      # The runner has no Claude Code CLI. MAESTRO_HOMOLOGATION_FAKE_CLAUDE=1
+      # installs a stub executable so the install/detection path is exercised
+      # for real, and the evidence states plainly that a stub was used.
+      - name: Run #44 homologation
+        env:
+          MAESTRO_HOMOLOGATION_FAKE_CLAUDE: "1"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/homologate-windows-claude.ps1 -OutputDir "$RUNNER_TEMP/homologation"
+            pwsh -NoProfile -Command "Get-Content -LiteralPath (Join-Path \$env:RUNNER_TEMP 'homologation/EVIDENCE.json') -Raw"
+          else
+            bash scripts/homologate-linux-claude.sh --output "$RUNNER_TEMP/homologation"
+            cat "$RUNNER_TEMP/homologation/EVIDENCE.json"
+          fi
+
+      - name: Record architecture
+        shell: bash
+        run: |
+          echo "runner: $RUNNER_OS"
+          echo "arch:   $(uname -m 2>/dev/null || echo unknown)"
+          echo "node:   $(node --version)"
+
   benchmark-smoke:
     name: Benchmark smoke — Node ${{ matrix.node-version }} on Ubuntu
     runs-on: ubuntu-latest

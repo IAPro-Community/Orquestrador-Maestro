@@ -12,6 +12,7 @@ module.exports = {
   ...require("./profiles"),
   ...require("./workspaces"),
   ...require("./config/maestro-paths"),
+  ...require("./config/feature-flags"),
   ...require("./governance/compatibility")
   ,...require("./interaction")
   ,...require("./progress")

@@ -15,6 +15,9 @@ Escolha o ponto de entrada conforme o que você quer fazer:
 | Executar planos com admissão durável | [Execução durável de Runs](architecture/DURABLE_RUN_ADMISSION.md) |
 | Diagnosticar leases e reconciliação | [Reconciliação de Runs](architecture/RUN_RECONCILIATION.md) |
 | Medir resultados | [Benchmark](benchmark.md) |
+| Homologar providers reais | [Certificação de providers reais](product/REAL_PROVIDER_CERTIFICATION.md) |
+| Definir o que "done" exige por stack | [Quality profiles](product/QUALITY_PROFILES.md) |
+| Conhecer a tranche de harness (custo, memória, flags) | [Tranche do harness](architecture/HARNESS_TRANCHE_2026-11-24.md) |
 | Evoluir o runtime com orçamento e review por risco | [Evolução controlada](maestro/controlled-evolution.md) |
 | Conferir privacidade | [Modelo de privacidade](privacy-model.md) |
 | Descobrir e combinar skills | [Portal de skills](skills/README.md) · [escolher por objetivo](skills/choose.md) · [receitas](skills/recipes.md) |
