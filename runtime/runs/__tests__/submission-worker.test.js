@@ -372,6 +372,11 @@ test("failed claim is observable and polling backs off without redispatch", asyn
   assert.equal(events.length, 1);
   assert.equal(events[0].stage, "supervision");
   assert.equal(events[0].submissionId, ack.submissionId);
+  const diagnostics = worker.diagnostics();
+  assert.equal(diagnostics.health, "DEGRADED");
+  assert.equal(diagnostics.lastSuccessfulPollAt, null);
+  assert.equal(diagnostics.lastOperationalError.stage, "supervision");
+  assert.equal(diagnostics.consecutiveUnhealthyPolls, 1);
   assert.doesNotMatch(JSON.stringify(events), /opaque-test-value/);
   assert.equal(f.provider.calls, 0);
   assert.equal((await f.store.getRunSubmission(ack.submissionId)).status, "PENDING_WORKER");
