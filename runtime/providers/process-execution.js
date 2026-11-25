@@ -1,6 +1,7 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { ownProcessGroup, signalManagedProcess } = require("./managed-process");
 const { isDeniedCommand } = require("../governance/policy-enforcer");
 
 function requiredPrompt(request) {
@@ -71,6 +72,7 @@ function startProcess({ executable, args, request, providerId }) {
     cwd: request.workspacePath,
     env: safeEnvironment(request.environment),
     shell: false,
+    detached: ownProcessGroup,
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -81,6 +83,7 @@ function startProcess({ executable, args, request, providerId }) {
   let settled = false;
   let timeout;
   let escalation;
+  let terminationDeadline;
   let resolveResult;
 
   const result = new Promise((resolve) => {
@@ -91,6 +94,8 @@ function startProcess({ executable, args, request, providerId }) {
     settled = true;
     if (timeout) clearTimeout(timeout);
     if (escalation) clearTimeout(escalation);
+    if (terminationDeadline) clearTimeout(terminationDeadline);
+    if ((timedOut || cancelled) && ownProcessGroup) signalManagedProcess(child, "SIGKILL");
     const completed = Object.freeze({
       providerId,
       pid: child.pid,
@@ -142,10 +147,14 @@ function startProcess({ executable, args, request, providerId }) {
 
   function terminate() {
     if (settled || escalation) return;
-    try { child.kill("SIGTERM"); } catch {}
-    escalation = setTimeout(() => {
-      if (!settled) { try { child.kill("SIGKILL"); } catch {} }
-    }, 2000);
+    if (ownProcessGroup) signalManagedProcess(child, "SIGTERM");
+    else signalManagedProcess(child, "SIGKILL");
+    escalation = setTimeout(() => { if (!settled) signalManagedProcess(child, "SIGKILL"); }, 2000);
+    terminationDeadline = setTimeout(() => {
+      if (settled) return;
+      child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
+      finish({exitCode:null,signal:null,terminationUncertain:true,error:"PROCESS_TERMINATION_UNCERTAIN"});
+    }, 7000);
   }
   if (timeoutMs) {
     timeout = setTimeout(() => {
@@ -171,7 +180,7 @@ function startProcess({ executable, args, request, providerId }) {
 function detectExecutable({ executable, args = [], providerId, timeoutMs = 5000 }) {
   return new Promise((resolve) => {
     let child;
-    try { child = spawn(executable, [...args, "--version"], { shell: false, env: safeEnvironment(), stdio: ["ignore", "pipe", "pipe"] }); }
+    try { child = spawn(executable, [...args, "--version"], { shell: false, detached: ownProcessGroup, env: safeEnvironment(), stdio: ["ignore", "pipe", "pipe"] }); }
     catch { resolve(Object.freeze({id:providerId,installed:false,executable,error:"DETECTION_SPAWN_FAILED"})); return; }
     let stdout = "", stderr = "", settled = false;
     const done = result => {
@@ -181,7 +190,7 @@ function detectExecutable({ executable, args = [], providerId, timeoutMs = 5000 
       resolve(Object.freeze({id:providerId,executable,...result}));
     };
     const timer = setTimeout(() => {
-      try { child.kill("SIGKILL"); } catch {}
+      signalManagedProcess(child, "SIGKILL");
       child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
       done({installed:false,error:"DETECTION_TIMEOUT"});
     }, timeoutMs);
