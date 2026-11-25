@@ -322,11 +322,13 @@ ensure_backup_dir() {
     return 0
   fi
 
-  mkdir -p "$BACKUP_ROOT"
+  if [ -L "$BACKUP_ROOT" ]; then echo "Refusing symbolic backup root" >&2; return 1; fi
+  (umask 077; mkdir -p "$BACKUP_ROOT")
+  chmod 700 "$BACKUP_ROOT"
   local attempt candidate
   for ((attempt = 0; attempt < 10; attempt++)); do
     candidate="$BACKUP_ROOT/$STAMP-$$-$RANDOM"
-    if mkdir "$candidate" 2>/dev/null; then
+    if (umask 077; mkdir "$candidate") 2>/dev/null; then
       BACKUP_DIR="$candidate"
       BACKUP_DIR_CREATED=true
       return 0
