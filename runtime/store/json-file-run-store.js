@@ -625,8 +625,12 @@ class JsonFileRunStore extends RunStore {
     for (const key of allowed) {
       if (filters[key] !== undefined) result = result.filter((record) => record[key] === filters[key]);
     }
+    if (filters.offset !== undefined) {
+      if (!Number.isSafeInteger(filters.offset) || filters.offset < 0) throw new TypeError("filters.offset must be a non-negative safe integer");
+      result = result.slice(filters.offset);
+    }
     if (filters.limit !== undefined) {
-      if (!Number.isInteger(filters.limit) || filters.limit < 0) throw new TypeError("filters.limit must be a non-negative integer");
+      if (!Number.isSafeInteger(filters.limit) || filters.limit < 0) throw new TypeError("filters.limit must be a non-negative safe integer");
       result = result.slice(0, filters.limit);
     }
     return clone(result);
@@ -764,6 +768,7 @@ class JsonFileRunStore extends RunStore {
       throw error;
     }
     try {
+      await handle.writeFile(JSON.stringify({pid:process.pid,token:crypto.randomUUID(),createdAt:new Date().toISOString()}),"utf8");
       let row;
       try { row = JSON.parse(await fs.readFile(this.lockPath, "utf8")); }
       catch (error) {
