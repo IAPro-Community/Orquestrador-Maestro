@@ -104,6 +104,7 @@ Uso:
   orquestrador-maestro usage [--project-path PATH] [--limit N] [--provider TOOL] [--model MODEL] [--branch BRANCH] [--project ID] [--json]
   orquestrador-maestro run show <id> [--project-path PATH]
   orquestrador-maestro run inspect <id> [--project-path PATH]
+  orquestrador-maestro run report <id> [--project-path PATH]
   orquestrador-maestro run cancel <id> [--project-path PATH]
   orquestrador-maestro projects
   orquestrador-maestro project add <caminho>
@@ -1219,6 +1220,17 @@ async function createRuntimeApplication(projectPath) {
 
 async function handleRunCommand(args) {
   const [subcommand, ...rest] = args;
+  if (subcommand === "report") {
+    const options = parseRuntimeArgs(rest, ["--project-path"]);
+    const runId = options.values[0];
+    if (!runId || options.values.length !== 1) throw new Error("Uso: maestro run report <id> [--project-path PATH]");
+    const app = await createRuntimeApplication(options.projectPath);
+    const project = await app.inspectProject({ projectPath: app.projectRoot });
+    const { buildRunReport } = require(path.join(rootDir, "runtime", "runs", "run-report"));
+    const report = await buildRunReport({ store: app.store, runId, projectId: project.id });
+    if (!report) throw new Error("Run não encontrado no projeto ativo.");
+    console.log(JSON.stringify(report, null, 2)); return 0;
+  }
   if (subcommand === "show" || subcommand === "inspect") {
     const options = parseRuntimeArgs(rest, ["--project-path"]);
     const runId = options.values[0];
