@@ -2,6 +2,7 @@
 "use strict";
 
 const path = require("node:path");
+const { isDeepStrictEqual } = require("node:util");
 const { hookResponse, observeHarnessEvent } = require("../runtime/integrations/harness/contract");
 const MAX_INPUT = 1024 * 1024;
 
@@ -16,6 +17,36 @@ function renderHookConfig(host, script = __filename) {
   return { hooks: Object.fromEntries(events.map((event) => [event, [{ hooks: [{
     type: "command", command, timeout: host === "claude" ? 5 : 5000
   }] }]])) };
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+}
+
+// Pure merge/remove: callers review the result before replacing their settings.
+// Only exact generated groups belong to this opt-in integration.
+function editHookConfig(host, config, { remove = false, script = __filename } = {}) {
+  if (!isRecord(config) || (Object.hasOwn(config, "hooks") && !isRecord(config.hooks))) {
+    throw new TypeError("existing settings must be a JSON object with an optional hooks object");
+  }
+  const generated = renderHookConfig(host, script).hooks;
+  const hooks = { ...config.hooks };
+  for (const [name, [group]] of Object.entries(generated)) {
+    const existing = Object.hasOwn(hooks, name) ? hooks[name] : [];
+    if (!Array.isArray(existing)) throw new TypeError("existing hook groups must be arrays");
+    const matches = (entry) => isDeepStrictEqual(entry, group);
+    if (remove) {
+      const remaining = existing.filter((entry) => !matches(entry));
+      if (remaining.length === existing.length) continue;
+      if (remaining.length) hooks[name] = remaining;
+      else delete hooks[name];
+    } else if (!existing.some(matches)) {
+      hooks[name] = [...existing, group];
+    }
+  }
+  if (remove && !Object.hasOwn(config, "hooks")) return { ...config };
+  return { ...config, hooks };
 }
 
 async function readInput(input) {
@@ -36,6 +67,11 @@ async function main(args, input, output) {
     output.write(JSON.stringify(renderHookConfig(host), null, 2) + "\n");
     return;
   }
+  if (action === "--merge" || action === "--remove") {
+    const config = await readInput(input);
+    output.write(JSON.stringify(editHookConfig(host, config, { remove: action === "--remove" }), null, 2) + "\n");
+    return;
+  }
   if (action === "--inspect") {
     output.write(JSON.stringify(observeHarnessEvent(host, await readInput(input))) + "\n");
     return;
@@ -46,7 +82,7 @@ async function main(args, input, output) {
     catch { output.write("{}\n"); }
     return;
   }
-  throw new Error("usage: harness-hook.js --render claude|gemini | --inspect HOST | claude|gemini");
+  throw new Error("usage: harness-hook.js --render|--merge|--remove claude|gemini | --inspect HOST | claude|gemini");
 }
 
 if (require.main === module) {
@@ -55,4 +91,4 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-module.exports = { renderHookConfig, readInput, main };
+module.exports = { renderHookConfig, editHookConfig, readInput, main };

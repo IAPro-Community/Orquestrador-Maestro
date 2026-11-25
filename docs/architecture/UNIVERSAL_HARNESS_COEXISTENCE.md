@@ -36,7 +36,14 @@ node scripts/harness-hook.js --render claude
 node scripts/harness-hook.js --render gemini
 ```
 
-Review the generated JSON and append only its hook groups to the existing trusted user or project settings; never replace existing settings. Claude uses seconds and Gemini uses milliseconds for timeout. Disable/remove only the added groups to roll back. These hooks do not persist raw prompts, run project commands, or request retries. Stop/AfterAgent return neutral JSON. A host may intercept slash commands before prompt delivery.
+Review the generated JSON and append only its hook groups to the existing trusted user or project settings; never replace existing settings blindly. To prepare a merged configuration or remove only the exact generated groups, pipe the existing strict JSON settings into the helper and write its output to a **different** file:
+
+```bash
+node scripts/harness-hook.js --merge claude < settings.json > settings.maestro.json
+node scripts/harness-hook.js --remove claude < settings.json > settings.rollback.json
+```
+
+Use `gemini` instead of `claude` for Gemini. Back up the original, review the diff and apply through the host's trusted configuration procedure. The helper is idempotent, preserves unrelated hooks and settings, and rejects malformed input. It never edits files itself. Removal uses exact generated groups from the same package path; customized or relocated entries require manual review. Do not redirect output to the input file. Claude uses seconds and Gemini uses milliseconds for timeout. Disable/remove only the added groups to roll back. These hooks do not persist raw prompts, run project commands, or request retries. Stop/AfterAgent return neutral JSON. A host may intercept slash commands before prompt delivery.
 
 For OpenCode V2, install the pinned SDK in the local plugin directory explicitly (not a Maestro runtime dependency), then append its absolute directory to the existing V2 `plugins` array in `opencode.json(c)`. Keep the full Maestro package in place; the plugin imports its shared contract. V1 uses a different plugin API and is not supported by this plugin.
 

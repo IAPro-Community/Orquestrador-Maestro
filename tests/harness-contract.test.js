@@ -5,7 +5,7 @@ const test = require("node:test");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const { observeHarnessEvent, hookResponse, createOpenCodeHooks } = require("../runtime/integrations/harness/contract");
-const { renderHookConfig } = require("../scripts/harness-hook");
+const { renderHookConfig, editHookConfig } = require("../scripts/harness-hook");
 const script = path.join(__dirname, "..", "scripts", "harness-hook.js");
 
 for (const [host, promptEvent, endEvent] of [["codex", "UserPromptSubmit", "Stop"], ["claude", "UserPromptSubmit", "Stop"], ["gemini", "BeforeAgent", "AfterAgent"]]) {
@@ -74,4 +74,32 @@ test("real hook process emits valid neutral JSON on malformed or end payload", (
   const result = spawnSync(process.execPath, [script, "claude"], { input: JSON.stringify({ hook_event_name: "UserPromptSubmit", prompt: "/goal x" }), encoding: "utf8" });
   assert.equal(result.status, 0);
   assert.match(JSON.parse(result.stdout).hookSpecificOutput.additionalContext, /state unverified/);
+});
+
+test("merge and remove preserve existing host settings and are idempotent", () => {
+  const config = { model: "user-choice", hooks: { UserPromptSubmit: [{ hooks: [{ command: "user-hook" }] }], Stop: [], Other: [{ hooks: [{ command: "other" }] }] } };
+  const original = JSON.stringify(config);
+  const merged = editHookConfig("claude", config);
+  assert.equal(JSON.stringify(config), original);
+  assert.deepEqual(merged.hooks.UserPromptSubmit[0], config.hooks.UserPromptSubmit[0]);
+  assert.deepEqual(merged.hooks.Other, config.hooks.Other);
+  assert.equal(merged.model, "user-choice");
+  assert.deepEqual(editHookConfig("claude", merged), merged);
+  const removed = editHookConfig("claude", merged, { remove: true });
+  assert.deepEqual(removed.hooks.UserPromptSubmit, config.hooks.UserPromptSubmit);
+  assert.deepEqual(removed.hooks.Other, config.hooks.Other);
+  assert.equal(removed.hooks.Stop, undefined);
+  assert.deepEqual(editHookConfig("claude", removed, { remove: true }), removed);
+  assert.throws(() => editHookConfig("claude", { hooks: { Stop: "broken" } }));
+  assert.throws(() => editHookConfig("claude", null));
+  assert.throws(() => editHookConfig("claude", { hooks: [] }));
+});
+
+test("config CLI rejects malformed settings rather than replacing them", () => {
+  const invalid = spawnSync(process.execPath, [script, "--merge", "gemini"], { input: "not JSON", encoding: "utf8" });
+  assert.equal(invalid.status, 1);
+  assert.equal(invalid.stdout, "");
+  const valid = spawnSync(process.execPath, [script, "--merge", "gemini"], { input: JSON.stringify({ theme: "user" }), encoding: "utf8" });
+  assert.equal(valid.status, 0);
+  assert.equal(JSON.parse(valid.stdout).theme, "user");
 });
