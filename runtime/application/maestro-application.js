@@ -5,7 +5,7 @@ const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const path = require("node:path");
 const core = require("../core");
-const { runtimeTaskId, semanticTaskIdOf, storedTaskSemanticId } = require("../core/task-identity");
+const { runtimeTaskId, semanticTaskIdOf, storedTaskSemanticId, durableTaskId } = require("../core/task-identity");
 const { diff, snapshot } = require("../git/monitor");
 const { AgyAdapter, CodexAdapter, ClaudeAdapter, OpenCodeAdapter } = require("../providers");
 const { getPolicy, getProfile, deriveDelegationContract } = require("../profiles");
@@ -550,7 +550,7 @@ class MaestroApplication {
       ? "human-approval-required" : null;
     const preflightBlock = reviewPreflight || approvalPreflight;
     const taskId = request.durableSubmissionId && request.durableManifestId
-      ? "task-" + crypto.createHash("sha256").update(JSON.stringify([projectId, request.durableSubmissionId, request.durableManifestId, semanticTaskId])).digest("hex")
+      ? durableTaskId({projectId,submissionId:request.durableSubmissionId,manifestId:request.durableManifestId,semanticTaskId})
       : runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task");
     const existingTask = await this.store.getTask(taskId);
     const taskMetadata = {
