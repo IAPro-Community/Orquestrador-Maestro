@@ -1,8 +1,6 @@
 "use strict";
 
 const p = require("@clack/prompts");
-const { PlanRevisionService } = require("./plan-revision-service");
-const { PlanArtifactRenderer } = require("./plan-artifact-renderer");
 
 class PlanReviewWorkflow {
   constructor({ revisionService, notifier, aiImproveFn, regenerateFn, prompts } = {}) {

@@ -685,3 +685,53 @@ test("engine applies real ranker without promoting INFERENCE to FACT", async () 
   assert.equal(item.kind, "INFERENCE");
   assert.ok(item.relevance >= 0.3 && item.relevance <= 1);
 });
+
+test("METADATA_ONLY capture policy preserves trust-chain fields when verified with verifier", () => {
+  const { CapturePolicy, POLICIES } = require("../orquestrador/lib/capture-policy.js");
+  const policy = new CapturePolicy();
+  const obs = {
+    schemaVersion: 1,
+    id: "obs-meta-1",
+    timestamp: new Date().toISOString(),
+    project: "p1",
+    type: "discovery",
+    summary: "Run check",
+    details: "Secret detail",
+    files: ["a.js"],
+    tags: ["t1"],
+    verified: true,
+    verifier: "npm test",
+    verifiedAt: new Date().toISOString(),
+    verifyNote: "passed",
+    verifiedClaimed: true,
+    source: { tool: "codex" },
+    scope: { level: "repository", repositoryId: "p1" },
+  };
+  const out = policy.applyPolicy(obs, { policy: POLICIES.METADATA_ONLY, reasons: ["test"] });
+  assert.equal(out.summary, "[metadata only]");
+  assert.equal(out.verified, true);
+  assert.equal(out.verifier, "npm test");
+  assert.equal(out.verifyNote, "passed");
+  assert.ok(out.verifiedAt);
+});
+
+test("rankObservations does not boost forged bare verified:true observations", () => {
+  const { rankObservations } = require("../orquestrador/lib/visibility.js");
+  const forged = {
+    id: "forged-1",
+    summary: "auth token bug",
+    verified: true,
+    scope: { level: "repository", repositoryId: "r1" },
+  };
+  const trusted = {
+    id: "trusted-1",
+    summary: "auth token bug",
+    verified: true,
+    verifier: "node --test",
+    verifiedAt: new Date().toISOString(),
+    scope: { level: "repository", repositoryId: "r1" },
+  };
+  const ranked = rankObservations([forged, trusted], ["auth", "token"], { repositoryId: "r1" });
+  assert.equal(ranked[0].obs.id, "trusted-1");
+  assert.equal(ranked[0].score - ranked[1].score, 10);
+});

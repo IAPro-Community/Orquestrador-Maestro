@@ -58,7 +58,6 @@ function validateState(parsed) {
         && typeof entry.installedAt === "string"
         && typeof entry.target === "string" && entry.target.length > 0)) return false;
     }
-    if ("managedFiles" in target && !target.managedFiles.every(isSafeRelativePath)) return false;
   }
   return true;
 }

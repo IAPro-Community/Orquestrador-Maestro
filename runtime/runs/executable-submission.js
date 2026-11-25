@@ -4,8 +4,8 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { GraphValidator } = require("../planner/graph-validator");
 const { createTaskGraphProposal } = require("../planner/task-graph-proposal");
-const { normalizeExecutableManifest, validateStoredExecutableManifest } = require("./executable-manifest");
-const { validateID, validateDigest, bad } = require("./submission-admission");
+const { validateStoredExecutableManifest } = require("./executable-manifest");
+const { validateID, bad } = require("./submission-admission");
 const { bindingFromRealGitWorktree, samePhysicalPath } = require("./workspace-authority");
 
 // Durable submission contract v1: turns a reviewed plan plus explicit
@@ -291,7 +291,6 @@ function createTrustedApprovalVerifier({ store }) {
     let manifestDigest = subject.manifestDigest;
     if (!manifestDigest) {
       try {
-        const { validateStoredExecutableManifest } = require("./executable-manifest");
         const persisted = await store.getExecutableManifest(subject.manifestId);
         manifestDigest = validateStoredExecutableManifest(persisted)?.digest;
       } catch {

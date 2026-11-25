@@ -1,9 +1,7 @@
 "use strict";
 
-const { createIntentSpec, isValidTransition } = require("./intent-spec");
 const { parseRefinementProposal } = require("./proposal-parser");
 const { validateProposal, applyProposal } = require("./proposal-validator");
-const { evaluateReadiness } = require("./readiness-evaluator");
 
 class IntentRefiner {
   constructor({ aiProvider, application, taskRelevantContext }) {
@@ -13,10 +11,6 @@ class IntentRefiner {
   }
 
   async refine(intentSpec, clarification = null) {
-    if (!isValidTransition(intentSpec.status, "REFINING")) {
-      // Just a safety check, we'll force it for now
-    }
-
     const provider = this.app.providers.get(this.providerId);
     if (!provider) {
       return intentSpec; // fallback to unchanged if no provider

@@ -70,7 +70,7 @@ while [ "$#" -gt 0 ]; do
       VERBOSE_PATHS=true
       ;;
     --help|-h)
-      sed -n '2,4p' "$0"
+      sed -n '4,5p' "$0"
       exit 0
       ;;
     *)

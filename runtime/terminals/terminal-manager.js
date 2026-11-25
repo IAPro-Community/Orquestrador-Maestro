@@ -153,6 +153,7 @@ class TerminalManager {
     if (!active) return false;
     signalManagedProcess(active.child,ownProcessGroup?"SIGTERM":"SIGKILL");
     const killTimeout = setTimeout(() => { signalManagedProcess(active.child,"SIGKILL"); }, 5000);
+    killTimeout.unref?.();
     active.child.once("close", () => clearTimeout(killTimeout));
     return true;
   }

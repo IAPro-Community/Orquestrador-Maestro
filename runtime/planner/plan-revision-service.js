@@ -1,7 +1,6 @@
 "use strict";
 
 const { PlanArtifactRenderer } = require("./plan-artifact-renderer");
-const { PlanArtifactStore } = require("./plan-artifact-store");
 const { PlanRevisionCompiler } = require("./plan-revision-compiler");
 const { ExternalEditorLauncher } = require("./external-editor-launcher");
 const { PlanApprovalGate } = require("./plan-approval-gate");

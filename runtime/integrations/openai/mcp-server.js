@@ -189,8 +189,16 @@ function startMcpServer({ input = process.stdin, output = process.stdout } = {})
       return;
     }
     if (message.method === "notifications/initialized" || message.id === undefined) return;
-    const response = await handleRequest(message);
-    if (response) output.write(JSON.stringify(response) + "\n");
+    try {
+      const response = await handleRequest(message);
+      if (response) output.write(JSON.stringify(response) + "\n");
+    } catch (error) {
+      output.write(JSON.stringify({
+        jsonrpc: "2.0",
+        id: message.id ?? null,
+        error: { code: -32603, message: error && error.message ? error.message : "Internal error" }
+      }) + "\n");
+    }
   });
   return rl;
 }

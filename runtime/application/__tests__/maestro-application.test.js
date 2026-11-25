@@ -324,3 +324,27 @@ test("application orchestrates the intent session and creates a mission brief", 
   assert.equal(brief.objective, "Criar form");
   assert.equal(brief.intentSessionId, session.id);
 });
+
+test("budget-conflict blocks cleanly with task.projectId instead of throwing ReferenceError", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-budget-conflict-"));
+  const loaded = new Map([["a", { id: "a" }], ["b", { id: "b" }]]);
+  const adapter = new FakeAdapter();
+  const app = new MaestroApplication({
+    projectRoot: root,
+    store: new JsonFileRunStore({ filePath: path.join(root, "runs.json") }),
+    providers: new ProviderRegistry([adapter]),
+    skills: { get: (id) => loaded.get(id) },
+    governance: { cognitiveBudget: { standard: { maxSkills: 1 } } }
+  });
+  const outcome = await app.executeRun({
+    providerId: "fake",
+    description: "adicionar validação",
+    semanticTask: { id: "conflict-1", objective: "adicionar validação", risk: "low", complexity: "medium" },
+    skills: [{ id: "a", role: "explicit" }, { id: "b", role: "explicit" }],
+    verificationCommands: []
+  });
+  assert.equal(outcome.run.status, "blocked");
+  assert.equal(outcome.run.metadata.preflightBlock, "budget-conflict");
+  assert.equal(adapter.prompts.length, 0);
+  assert.match(outcome.governanceBlocking[0], /BUDGET_CONFLICT/);
+});

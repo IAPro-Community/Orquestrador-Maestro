@@ -124,10 +124,6 @@ function runCommand(command, options = {}) {
   });
 }
 
-function pathLikeNode(value) {
-  return typeof value === "string" && /(?:^|[\\/])node(?:\.exe)?$/iu.test(value);
-}
-
 class VerificationEngine {
   async verify({ id, runId, commands, cwd, timeoutMs, notApplicable = false, notApplicableReason = null }) {
     const checks = [];

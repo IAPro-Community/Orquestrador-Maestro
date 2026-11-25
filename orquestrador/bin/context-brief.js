@@ -6,7 +6,6 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const { classifyTask } = require("../lib/task-classifier.js");
 const { resolveGitContext, shouldUseMemory } = require("../lib/git-context.js");
-const { isObservationVisible, rankObservations } = require("../lib/visibility.js");
 const slices = require("../lib/context-slices.js");
 
 const DEFAULT_MAX_CHARS = 16000;
@@ -633,13 +632,10 @@ function buildBrief(options) {
       // Single source for the repository id: resolveRepositoryId() hashes a
       // sanitized/truncated path for non-git projects while
       // resolveGitContext() hashes the resolved path, so mixing them yields
-      // different ids and a silently empty memory section. Use gitCtx.
-      const gitCtx = resolveGitContext(projectRoot);
+      // different ids and a silently empty memory section. Reuse outer gitCtx.
       const projectId = gitCtx.repositoryId;
-      const taskTokens = tokenize(options.task || "");
-      const taskClass = classifyTask(options.task);
 
-      if (shouldUseMemory(taskClass)) {
+      if (shouldUseMemory(taskClassification)) {
         const memResults = mem.searchWithVisibility(projectId, gitCtx, {
           search: options.task || undefined,
           taskId: options.taskId || undefined,

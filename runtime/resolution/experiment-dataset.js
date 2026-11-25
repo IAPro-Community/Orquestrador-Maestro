@@ -35,10 +35,6 @@ function tokenEvidenceFromRun(run) {
   return Object.freeze({ total, source, confidence, trusted });
 }
 
-function tokensFromRun(run) {
-  return tokenEvidenceFromRun(run).total;
-}
-
 function fixtureHashFromRun(run) {
   return nonEmptyOrNull(run?.fixtureHash) || nonEmptyOrNull(run?.fixture?.hash);
 }
