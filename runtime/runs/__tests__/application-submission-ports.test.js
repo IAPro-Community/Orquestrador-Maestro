@@ -21,8 +21,9 @@ class FakeOpenCode {
   constructor() { this.id = "opencode"; this.calls = 0; }
   async detect() { return { id: this.id, installed: true, executable: "fake-opencode" }; }
   async capabilities() { return capabilities({ headless: true, streaming: true }); }
-  async execute() {
+  async execute(request) {
     this.calls++;
+    this.lastRequest = request;
     return {
       pid: 10, cancel() {},
       result: Promise.resolve({
@@ -33,7 +34,7 @@ class FakeOpenCode {
     };
   }
 }
-async function fixture(t, { testScript } = {}) {
+async function fixture(t, { testScript, providerId = "opencode", sandbox = "none" } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-executable-once-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const projectRoot = path.join(tmp, "project");
@@ -50,6 +51,7 @@ async function fixture(t, { testScript } = {}) {
   const store = new JsonFileRunStore({ filePath: path.join(tmp, "runs.json") });
   await store.createProject({ id: projectId, path: projectRoot });
   const provider = new FakeOpenCode();
+  provider.id = providerId;
   const app = new MaestroApplication({
     projectRoot, store, providers: new ProviderRegistry([provider]),
     skills: { get: () => null }
@@ -64,7 +66,7 @@ async function fixture(t, { testScript } = {}) {
       modelId: "default", workspaceFingerprint: binding.fingerprint,
       headCommit: binding.headCommit, branch: binding.branch,
       promptDigest: hash(description), acceptanceDigest: hash(acceptanceText),
-      sandbox: "none", maxAttempts: 1, maxDurationMs: 5000, maxCostUSD: 0
+      sandbox, maxAttempts: 1, maxDurationMs: 5000, maxCostUSD: 0
     }]
   });
   const approved = async () => true;
@@ -362,4 +364,20 @@ test("manifest approval revoked during preparation cannot dispatch provider", as
   assert.equal(result.submission.status, "CANCELLED");
   assert.equal(result.dispatched, false);
   assert.equal(f.provider.calls, 0);
+});
+
+test("durable dispatch forwards approved sandbox, model and timeout, and uses scoped task ID", async t => {
+  const f = await fixture(t,{providerId:"codex",sandbox:"read-only"});
+  const ports = createApplicationSubmissionPorts({
+    application:f.app,store:f.store,projectRoot:f.projectRoot,workspacePath:f.projectRoot,
+    verifyApproval:f.approved,resolveApprovedTask:async()=>({description:f.description,acceptanceText:f.acceptanceText})
+  });
+  const result=await superviseSubmissionOnce({store:f.store,submissionId:f.submission.id,workerId:"worker-binding-test",...ports});
+  assert.equal(f.provider.lastRequest.sandbox,"read-only");
+  assert.equal(f.provider.lastRequest.model,"default");
+  assert.equal(f.provider.lastRequest.timeoutMs,5000);
+  const run=await f.store.getRun(result.runId);
+  assert.notEqual(run.taskId,f.manifest.tasks[0].taskId);
+  assert.equal(run.metadata.semanticTaskId,f.manifest.tasks[0].taskId);
+  assert.equal(run.metadata.durableSubmissionId,f.submission.id);
 });
