@@ -38,7 +38,8 @@ function safeEnvironment(environment) {
   const env = { ...process.env, ...(environment || {}) };
   for (const key of BLOCKED_ENV_KEYS) delete env[key];
   for (const key of Object.keys(env)) {
-    if (BLOCKED_ENV_PREFIXES.some((prefix) => key.startsWith(prefix))) delete env[key];
+    const normalized = key.toUpperCase();
+    if (BLOCKED_ENV_KEYS.has(normalized) || BLOCKED_ENV_PREFIXES.some(prefix => normalized.startsWith(prefix)) || /(?:^|_)(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY|CREDENTIALS?)(?:_|$)/.test(normalized)) delete env[key];
   }
   return env;
 }
@@ -79,6 +80,7 @@ function startProcess({ executable, args, request, providerId }) {
   let timedOut = false;
   let settled = false;
   let timeout;
+  let escalation;
   let resolveResult;
 
   const result = new Promise((resolve) => {
@@ -88,6 +90,7 @@ function startProcess({ executable, args, request, providerId }) {
     if (settled) return;
     settled = true;
     if (timeout) clearTimeout(timeout);
+    if (escalation) clearTimeout(escalation);
     const completed = Object.freeze({
       providerId,
       pid: child.pid,
@@ -137,10 +140,17 @@ function startProcess({ executable, args, request, providerId }) {
   child.once("error", (error) => finish({ exitCode: null, signal: null, error: error.message }));
   child.once("close", (exitCode, signal) => finish({ exitCode, signal, error: undefined }));
 
+  function terminate() {
+    if (settled || escalation) return;
+    try { child.kill("SIGTERM"); } catch {}
+    escalation = setTimeout(() => {
+      if (!settled) { try { child.kill("SIGKILL"); } catch {} }
+    }, 2000);
+  }
   if (timeoutMs) {
     timeout = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGTERM");
+      terminate();
     }, timeoutMs);
   }
 
@@ -152,27 +162,33 @@ function startProcess({ executable, args, request, providerId }) {
     cancel() {
       if (!settled) {
         cancelled = true;
-        child.kill("SIGTERM");
+        terminate();
       }
     }
   });
 }
 
-function detectExecutable({ executable, args = [], providerId }) {
+function detectExecutable({ executable, args = [], providerId, timeoutMs = 5000 }) {
   return new Promise((resolve) => {
-    const child = spawn(executable, [...args, "--version"], { shell: false, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => { stdout += chunk.toString("utf8"); });
-    child.stderr.on("data", (chunk) => { stderr += chunk.toString("utf8"); });
-    child.once("error", (error) => resolve(Object.freeze({ id: providerId, installed: false, executable, error: error.message })));
-    child.once("close", (exitCode) => resolve(Object.freeze({
-      id: providerId,
-      installed: exitCode === 0,
-      executable,
-      version: exitCode === 0 ? (stdout.trim() || stderr.trim() || undefined) : undefined,
-      error: exitCode === 0 ? undefined : (stderr.trim() || `exit code ${exitCode}`)
-    })));
+    let child;
+    try { child = spawn(executable, [...args, "--version"], { shell: false, env: safeEnvironment(), stdio: ["ignore", "pipe", "pipe"] }); }
+    catch { resolve(Object.freeze({id:providerId,installed:false,executable,error:"DETECTION_SPAWN_FAILED"})); return; }
+    let stdout = "", stderr = "", settled = false;
+    const done = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(Object.freeze({id:providerId,executable,...result}));
+    };
+    const timer = setTimeout(() => {
+      try { child.kill("SIGKILL"); } catch {}
+      child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
+      done({installed:false,error:"DETECTION_TIMEOUT"});
+    }, timeoutMs);
+    child.stdout.on("data", chunk => { stdout = (stdout + chunk.toString("utf8")).slice(-8192); });
+    child.stderr.on("data", chunk => { stderr = (stderr + chunk.toString("utf8")).slice(-8192); });
+    child.once("error", () => done({installed:false,error:"DETECTION_SPAWN_FAILED"}));
+    child.once("close", exitCode => done({installed:exitCode===0,version:exitCode===0?(stdout.trim()||stderr.trim()||undefined):undefined,error:exitCode===0?undefined:"DETECTION_EXIT_"+exitCode}));
   });
 }
 
