@@ -96,6 +96,19 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/scripts/hook.js\"",
+            "commandWindows": "node \"${PLUGIN_ROOT}\\scripts\\hook.js\"",
+            "timeout": 3,
+            "statusMessage": "Recording Maestro turn boundary"
+          }
+        ]
+      }
     ]
   }
 }

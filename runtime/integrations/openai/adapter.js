@@ -20,6 +20,8 @@ const { approximateTokens, injectionBudget, trimToBudget } = require("./context-
 const { contextResponse, denyTool, preToolContext, rewriteTool } = require("./hook-response");
 const { endSession, getSession, updateSession } = require("./session-state");
 const { governToolUse } = require("./tool-governor");
+const { NATIVE_GOAL_GUIDANCE, observesNativeGoalCommand } = require("../../providers/goal-preflight");
+const { updateLedger } = require("./context-ledger");
 
 const MODES = Object.freeze(["off", "observe", "optimize", "strict"]);
 
@@ -109,6 +111,7 @@ function handleOpenAIHookEvent(event, options = {}) {
   if (eventName === "UserPromptSubmit") {
     const prompt = String(event?.prompt || "").trim();
     if (!prompt) return {};
+    const nativeGoalCommandObserved = observesNativeGoalCommand(prompt);
     const routed = routePrompt(prompt, cwd, options);
     const complexity = routed?.complexity || {};
     const selectedSkills = selectedSkillIds(routed);
@@ -122,9 +125,13 @@ function handleOpenAIHookEvent(event, options = {}) {
       profile: routed?.profile || "standard",
       contextBudget: complexity.budget?.maxContextTokens || routed?.contextBudget || null,
       selectedSkills,
-      allowSubagents
+      allowSubagents,
+      nativeGoalCommandObserved
     });
-    const context = trimToBudget(buildTurnContext(routed, mode), injectionBudget(complexity.level));
+    const turnContext = buildTurnContext(routed, mode);
+    const context = trimToBudget(nativeGoalCommandObserved
+      ? NATIVE_GOAL_GUIDANCE + "\n" + turnContext : turnContext,
+      injectionBudget(complexity.level));
     const tokens = approximateTokens(context);
     updateSession(pluginData, sessionId, {
       cwd,
@@ -191,6 +198,22 @@ function handleOpenAIHookEvent(event, options = {}) {
 
   if (eventName === "PostCompact") {
     updateSession(pluginData, sessionId, { compactionsCompleted: increment(current.compactionsCompleted) });
+    return {};
+  }
+
+  if (eventName === "Stop") {
+    // Stop is a turn boundary, not a terminal Goal event. Never dispatch,
+    // block the host, run project scripts, or claim independent acceptance.
+    if (sessionId && ledger.policy?.nativeGoalCommandObserved === true &&
+        (!turnId || !ledger.turnId || turnId === ledger.turnId)) {
+      updateLedger(pluginData, sessionId, {
+        lastNativeGoalTurnStop: {
+          turnId: turnId || ledger.turnId || null,
+          goalState: "unknown",
+          verification: "not-performed"
+        }
+      });
+    }
     return {};
   }
 

@@ -5,14 +5,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { sessionKey } = require("./session-state");
 
-function stablePolicyShape({ mode, complexity, profile, contextBudget, selectedSkills, allowSubagents } = {}) {
+function stablePolicyShape({ mode, complexity, profile, contextBudget, selectedSkills, allowSubagents, nativeGoalCommandObserved } = {}) {
   return {
     mode: String(mode || "optimize"),
     complexity: String(complexity || "STANDARD"),
     profile: String(profile || "standard"),
     contextBudget: contextBudget == null ? null : Number.isFinite(Number(contextBudget)) ? Number(contextBudget) : null,
     selectedSkills: [...new Set((selectedSkills || []).filter(Boolean))].sort(),
-    allowSubagents: Boolean(allowSubagents)
+    allowSubagents: Boolean(allowSubagents),
+    ...(nativeGoalCommandObserved === true ? { nativeGoalCommandObserved: true } : {})
   };
 }
 

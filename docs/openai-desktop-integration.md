@@ -50,7 +50,10 @@ When two turns resolve to the same effective policy — mode, complexity, profil
 - `SubagentStart`: keeps delegated work narrow.
 - `PreCompact`: persists a compact capsule with complexity, selected skills, budget counters and the current policy digest.
 - `PostCompact`: records compaction completion.
+- `Stop`: records an observed turn boundary when the current routed prompt exposed a literal `/goal` command; it never blocks, dispatches, or treats the turn as a terminal Goal.
 - `SessionEnd`: closes the local ledger.
+
+A `/goal` command delivered to `UserPromptSubmit` adds bounded coexistence guidance and changes the policy digest once, without storing the command text. Host-intercepted slash commands may never reach that hook. No native Goal lifecycle is certified, and the hook does not perform independent acceptance checks. See [Universal harness coexistence](architecture/UNIVERSAL_HARNESS_COEXISTENCE.md).
 
 The integration is fail-open if the Maestro CLI itself is unavailable. Deliberate budget denials from a running governor are not treated as runtime failures.
 

@@ -56,3 +56,13 @@ test("detection errors and invalid surfaces never become capabilities", async ()
   assert.throws(() => selectGoalExecution(preflight, { requestedOwner: "other" }), TypeError);
   await assert.rejects(inspectProviderGoal(provider, { surface: "unsupported" }), TypeError);
 });
+
+test("native Goal prompt observation is not a lifecycle capability", () => {
+  const { observesNativeGoalCommand } = require("../goal-preflight");
+  for (const prompt of ["/goal", "/goal status", "  /goal\nimplement"]) {
+    assert.equal(observesNativeGoalCommand(prompt), true);
+  }
+  for (const prompt of [null, undefined, {}, "/goals", "/goal-loop", "use /goal to implement", " `/goal`"]) {
+    assert.equal(observesNativeGoalCommand(prompt), false);
+  }
+});

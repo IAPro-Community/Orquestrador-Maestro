@@ -15,3 +15,5 @@ Use the Maestro policy already injected for the current turn. Do not load broad 
 - Prefer narrow file reads and targeted searches before expanding scope.
 - Preserve native Codex/Work behavior for trivial requests; do not create a Mission unless the task actually needs orchestration.
 - If the tool governor rejects a repository-wide scan, narrow the scope instead of bypassing the governor.
+
+- If the host owns a native Goal, let it own continuation. Apply project acceptance criteria and evidence; do not launch another loop. A Stop event does not certify a Goal or independent verification.

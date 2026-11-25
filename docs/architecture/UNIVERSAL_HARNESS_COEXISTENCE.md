@@ -1,0 +1,41 @@
+# Universal harness coexistence — release 1.2.0
+
+Scope: issues #67, #82 and #86. This increment is additive; it is not native Goal certification, automated corrective execution, or a new orchestrator.
+
+## Authority and compatibility levels
+
+- Portable: the installed Maestro protocol and skills instruct the host to prepare context and verify against project criteria, regardless of whether it has a Goal.
+- Governed: a real, trusted host hook can apply context budgets or other deterministic policy. Textual hooks are not executable hooks.
+- Goal integrated: requires real lifecycle observation, single continuation owner, independent acceptance bound to the exact revision, and version/surface-specific evidence. No host is certified at this level by this increment.
+
+| Surface | Delivered integration | Missing proof |
+| --- | --- | --- |
+| Codex / OpenAI hook-capable desktop | existing governor; prompt-visible slash command advisory; Stop observation | slash commands may bypass prompt hooks; native Goal state, terminal event and independent acceptance not certified |
+| Claude Code | portable protocol; ordinary runtime adapter | registered trusted lifecycle hook and Goal binding |
+| OpenCode | portable protocol; ordinary runtime adapter | version-specific real plugin events and Goal binding |
+| Antigravity | portable profile; ordinary runtime adapter | native lifecycle support unknown |
+| Gemini CLI, Cursor, Windsurf | portable profiles, textual guidance | executable hook configuration, trust and real tests |
+| Grok CLI, MiMo Code, Kimi Code, Freebuff | portable profile | Goal lifecycle unknown; no Maestro-owned headless provider |
+| Junie, Goose, OpenHands, Continue, Cline, Copilot | catalog/blueprint coverage varies | certify per tool, version and surface before advertising enforcement |
+
+The authoritative current headless checks remain in `runtime/providers/goal-preflight.js` and `docs/product/GOAL_PROVIDER_CAPABILITIES.json`. Ollama and LM Studio are model providers, not coding harnesses. Do not infer integration from installation, a tool name, a skill or a generic event.
+
+## Behavior and rollback
+
+The OpenAI plugin only recognizes an anchored literal /goal when the host actually forwards it. Control commands also count as observations, not creation. The native state remains unknown. The existing policy digest differentiates observed-command turns; the next ordinary prompt retains the existing policy shape. Stop only records the most recent matching observed-command turn with verification not performed. It does not request continuation, cancel a Goal, start a provider or execute untrusted project scripts. Observe mode records without injecting; off mode disables the plugin. Host trust is unchanged.
+
+Existing managed submissions, RunStore, worker, Goal Loop, VerificationEngine and ResolutionEngine remain authoritative and unchanged. No parallel store, scheduler, new dependency, automatic credentials change, or external Goal completion claim.
+
+## Release gates and follow-up
+
+- [ ] Run full tests and installer/upgrade/rollback on final release SHA.
+- [ ] Test the plugin in actual Codex TUI and Desktop with a native Goal, ordinary prompt, repeated turn, stop, cancel, resume and compact; record whether each event is exposed.
+- [ ] Verify Claude and OpenCode separately against current supported versions and extension contracts; do not infer Goal completion from idle/Stop.
+- [ ] Exercise Gemini, Cursor and Windsurf integrations only with explicit hook trust and preserve existing user config.
+- [ ] Check portable discovery for other advertised profiles; unsupported lifecycle is reported, never emulated silently.
+- [ ] Prove independent verifier execution with approved immutable scope, revision and criterion binding before advertising external Goal acceptance.
+- [ ] Keep corrective dispatch and headless native Goal blocked until issue #67 gates and real-provider certification pass.
+
+Official extension references for implementers: [Codex Goals](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex), [Claude hooks](https://code.claude.com/docs/en/hooks), [OpenCode plugins](https://opencode.ai/docs/plugins/).
+
+Only Portable and tested Governed behavior may be claimed on release. This checklist remains open until real evidence is attached.

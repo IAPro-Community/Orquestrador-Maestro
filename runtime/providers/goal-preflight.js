@@ -11,6 +11,15 @@ const GOAL_CONTROLS = Object.freeze([
 ]);
 const GOAL_PROVIDERS = new Set(["codex", "claude", "opencode"]);
 
+// A slash command delivered to a host hook is an observation, not proof that a
+// Goal was created, is active, or has finished. Do not parse vendor subcommands
+// or infer execution authority from prompt text.
+function observesNativeGoalCommand(prompt) {
+  return typeof prompt === "string" && /^\/goal(?:\s|$)/u.test(prompt.trim());
+}
+
+const NATIVE_GOAL_GUIDANCE = "Native Goal command observed (state unverified). Preserve the host's continuation; do not launch a competing loop. Verify acceptance criteria with independent evidence before claiming completion.";
+
 async function inspectProviderGoal(adapter, { surface = "headless" } = {}) {
   if (!adapter || typeof adapter.id !== "string" ||
       typeof adapter.detect !== "function" ||
@@ -75,4 +84,4 @@ function selectGoalExecution(preflight, {
   });
 }
 
-module.exports = { GOAL_CONTROLS, inspectProviderGoal, selectGoalExecution };
+module.exports = { GOAL_CONTROLS, NATIVE_GOAL_GUIDANCE, observesNativeGoalCommand, inspectProviderGoal, selectGoalExecution };

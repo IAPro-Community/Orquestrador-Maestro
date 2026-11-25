@@ -13,6 +13,13 @@ When the task is broad or a session is being resumed, the orquestrador may use `
 5. Verify: run the lightest meaningful validation.
 6. Report: summarize what changed, what was verified, and any remaining risk.
 
+## Native Goal and harness coexistence
+
+- Normal requests do not require `/goal`. If the host owns a native Goal or equivalent continuation, preserve it; never start a competing Maestro worker, Ralph loop or native Goal for that objective.
+- Use the existing Maestro routing, context, scope and acceptance criteria. Verify the resulting work against the project contract and record evidence in `DEV/VERIFY.md` when applicable; a turn ending or a provider claiming success is not proof.
+- A slash command, skill, or tool-idle event does not prove an active or finished Goal. If lifecycle control or independent evidence is unavailable, report the limitation. Do not fabricate completion, change ownership, or silently retry.
+- A Maestro-managed submission requires explicit admission, approved scope and a supported execution path. Native headless Goal and automated corrective dispatch remain blocked until certified; no prompt authorizes them.
+
 ## Project DEV Context
 
 When a project has a `DEV/` directory, use it as local project memory after reading the nearest project `AGENTS.md` and before selecting global skills. Start with `DEV/AGENTS.md`, `DEV/README.md`, `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md`, then open only the files relevant to the task.

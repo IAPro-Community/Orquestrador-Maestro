@@ -258,3 +258,47 @@ test("desktop doctor detects a stale installed plugin version", () => {
   assert.equal(result.healthy, false);
   assert.ok(result.failed.includes("version:plugin.json"));
 });
+
+test("native goal command preserves host ownership and does not certify a Stop", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-native-goal-"));
+  try {
+    const options = { pluginData, mode: "optimize", route: () => route("STANDARD") };
+    const event = { hook_event_name: "UserPromptSubmit", session_id: "goal-session", cwd: process.cwd() };
+    const plain = handleOpenAIHookEvent({ ...event, turn_id: "t0", prompt: "implement a feature" }, options);
+    assert.doesNotMatch(plain.hookSpecificOutput.additionalContext, /Native Goal command observed/);
+    const first = handleOpenAIHookEvent({ ...event, turn_id: "t1", prompt: "/goal implement a feature" }, options);
+    assert.match(first.hookSpecificOutput.additionalContext, /state unverified/);
+    assert.match(first.hookSpecificOutput.additionalContext, /do not launch a competing loop/);
+    const repeated = handleOpenAIHookEvent({ ...event, turn_id: "t2", prompt: "/goal implement a feature" }, options);
+    assert.deepEqual(repeated, {});
+    const stale = handleOpenAIHookEvent({ hook_event_name: "Stop", session_id: "goal-session", turn_id: "t1" }, options);
+    assert.deepEqual(stale, {});
+    assert.equal(readLedger(pluginData, "goal-session").lastNativeGoalTurnStop, undefined);
+    const stopped = handleOpenAIHookEvent({ hook_event_name: "Stop", session_id: "goal-session", turn_id: "t2" }, options);
+    assert.deepEqual(stopped, {});
+    assert.deepEqual(readLedger(pluginData, "goal-session").lastNativeGoalTurnStop, {
+      turnId: "t2", goalState: "unknown", verification: "not-performed"
+    });
+    const ordinary = handleOpenAIHookEvent({ ...event, turn_id: "t3", prompt: "continue normally" }, options);
+    assert.doesNotMatch(ordinary.hookSpecificOutput.additionalContext, /Native Goal command observed/);
+    assert.equal(readLedger(pluginData, "goal-session").policy.nativeGoalCommandObserved, undefined);
+  } finally {
+    fs.rmSync(pluginData, { recursive: true, force: true });
+  }
+});
+
+test("native Goal observation respects observe and off modes", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-native-goal-mode-"));
+  try {
+    const event = { hook_event_name: "UserPromptSubmit", session_id: "goal-observe", prompt: "/goal status", cwd: process.cwd() };
+    assert.deepEqual(handleOpenAIHookEvent(event, { pluginData, mode: "off" }), {});
+    assert.equal(readLedger(pluginData, "goal-observe"), null);
+    assert.deepEqual(handleOpenAIHookEvent(event, { pluginData, mode: "observe", route: () => route("STANDARD") }), {});
+    assert.equal(readLedger(pluginData, "goal-observe").policy.nativeGoalCommandObserved, true);
+    assert.deepEqual(handleOpenAIHookEvent({ hook_event_name: "Stop", session_id: "goal-observe" },
+      { pluginData, mode: "observe" }), {});
+    assert.equal(readLedger(pluginData, "goal-observe").lastNativeGoalTurnStop.goalState, "unknown");
+  } finally {
+    fs.rmSync(pluginData, { recursive: true, force: true });
+  }
+});

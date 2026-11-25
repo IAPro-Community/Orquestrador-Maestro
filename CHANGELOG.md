@@ -4,6 +4,12 @@
 
 > Release candidate em preparação. Não publicada; `next` continua apontando para `1.2.0-rc.1` e `latest` para `1.1.1`.
 
+### Coexistência com Goals nativos (experimental)
+
+- O protocolo portátil preserva a autoridade de continuidade do harness nativo e exige evidência de aceite, sem iniciar um loop concorrente.
+- O plugin OpenAI observa comandos `/goal` quando expostos ao hook de prompt, deduplica orientação e registra `Stop` como fim de turno, nunca como conclusão de Goal. Integração consultiva, sem redespacho ou certificação de lifecycle.
+- Matriz de níveis e pendências de homologação em `docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md`.
+
 ### Custo e evidência
 
 - Custo de provider passa a registrar o valor reportado pelo próprio CLI (`total_cost_usd` no Claude, `part.cost` no OpenCode, campos forward-compatible no Codex) e mantém `null` com motivo explícito quando o uso, o preço ou a taxa de cache não permitem um total completo.
