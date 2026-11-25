@@ -5,18 +5,39 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    groups:
+      cli-compatible:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
   - package-ecosystem: "npm"
     directory: "/site"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    groups:
+      react-pair:
+        applies-to: version-updates
+        patterns: ["react", "react-dom"]
+      site-compatible:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
   - package-ecosystem: "npm"
     directory: "/benchmark-harness"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    groups:
+      benchmark-compatible:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    groups:
+      actions-compatible:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+# Major updates outside the React pair stay individually reviewable.
+# Security updates retain independent priority; no automatic merge is enabled.

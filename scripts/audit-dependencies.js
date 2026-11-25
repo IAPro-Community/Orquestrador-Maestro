@@ -26,6 +26,13 @@ const targets = [
   ],
 ];
 
+// Security CI already audits these two workspaces independently. Include
+// them in the maintainer's full outdated inventory without duplicating CI.
+if (mode === "outdated") {
+  targets.push(["site", path.join(root, "site")],
+    ["benchmark-harness", path.join(root, "benchmark-harness")]);
+}
+
 const npmBin = "npm";
 const useShell = process.platform === "win32";
 let hasAuditFailure = false;
