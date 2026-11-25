@@ -574,7 +574,7 @@ $installedProfiles = New-Object System.Collections.Generic.List[string]
 $skippedProfiles = New-Object System.Collections.Generic.List[string]
 if ($InstallToolProfiles) {
   function Test-ToolPresent {
-    param([string]$ToolCommand, [string]$ConfigDir)
+    param([Alias("Command")][string]$ToolCommand, [string]$ConfigDir)
     if ($ToolCommand -and (Get-Command $ToolCommand -ErrorAction SilentlyContinue)) { return $true }
     if ($ConfigDir) {
       $full = Join-Path $HomePath $ConfigDir

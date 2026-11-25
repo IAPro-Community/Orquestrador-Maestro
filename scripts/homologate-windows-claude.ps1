@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Homologation for issue #44 on Windows with Claude Code.
 
@@ -64,6 +64,7 @@ function Get-LogText {
   return (Get-Content -LiteralPath $Path -Raw -Encoding utf8 -ErrorAction SilentlyContinue)
 }
 
+$env:ORQUESTRADOR_ALLOW_ROOT_INSTALL = "1"
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("maestro-homologation-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
 $tempHome = if ($HomePath) { $HomePath } else { Join-Path $work "home" }
 New-Item -ItemType Directory -Force -Path $tempHome | Out-Null
