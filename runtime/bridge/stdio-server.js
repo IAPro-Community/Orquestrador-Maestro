@@ -1,7 +1,5 @@
 "use strict";
 
-const readline = require("node:readline");
-
 const { ERROR_CODES, errorResponse } = require("./bridge");
 
 function createStdioServer(bridge, options = {}) {
@@ -38,7 +36,7 @@ function createStdioServer(bridge, options = {}) {
       const stop = end < 0 ? chunk.length : end;
       const part = chunk.slice(offset, stop);
       if (!oversized && frame.length + part.length <= maxChars) frame += part;
-      else { oversized = true; frame = ""; }
+      else { oversized = true; frame = ""; close(); break; }
       if (end < 0) break;
       if (oversized) { close(); break; }
       submit(frame.replace(/\r$/, ""));
