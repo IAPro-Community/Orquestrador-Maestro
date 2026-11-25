@@ -2,6 +2,7 @@
 
 const { spawn } = require("node:child_process");
 const { safeEnvironment } = require("../providers/process-execution");
+const { ownProcessGroup, signalManagedProcess } = require("../providers/managed-process");
 const path = require("node:path");
 const { createVerification, createVerificationCheck } = require("../core");
 const { isDeniedCommand } = require("../governance/policy-enforcer");
@@ -80,7 +81,7 @@ function runCommand(command, options = {}) {
     }
     let child;
     try {
-      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: false, windowsHide: true, env: safeEnvironment() });
+      child = spawn(spawnCommand, spawnArgs, { cwd: options.cwd, shell: false, detached: ownProcessGroup, windowsHide: true, env: safeEnvironment() });
     } catch (error) {
       resolve({ exitCode: 1, stdout: "", stderr: String((error && error.message) || error), durationMs: Date.now() - startedAt, timedOut: false, error: String((error && error.message) || error) });
       return;
@@ -94,15 +95,24 @@ function runCommand(command, options = {}) {
     const err = { value: "", truncated: false };
     let timedOut = false;
     let settled = false;
+    let escalation, deadline;
     const killTimer = options.timeoutMs ? setTimeout(() => {
       timedOut = true;
-      try { child.kill("SIGTERM"); } catch {}
-      setTimeout(() => { try { if (!settled) child.kill("SIGKILL"); } catch {} }, 2000);
+      signalManagedProcess(child, ownProcessGroup ? "SIGTERM" : "SIGKILL");
+      escalation = setTimeout(() => { if (!settled) signalManagedProcess(child,"SIGKILL"); }, 2000);
+      deadline = setTimeout(() => {
+        if (settled) return;
+        child.stdout?.destroy(); child.stderr?.destroy(); child.unref();
+        done({exitCode:1,stdout:out.value,stderr:err.value,durationMs:Date.now()-startedAt,timedOut:true,terminationUncertain:true,error:"PROCESS_TERMINATION_UNCERTAIN"});
+      },7000);
     }, options.timeoutMs) : null;
     const done = (result) => {
       if (settled) return;
       settled = true;
       if (killTimer) clearTimeout(killTimer);
+      if (escalation) clearTimeout(escalation);
+      if (deadline) clearTimeout(deadline);
+      if (timedOut && ownProcessGroup) signalManagedProcess(child,"SIGKILL");
       resolve(result);
     };
     if (child.stdout) child.stdout.on("data", (chunk) => append(out, String(chunk)));
@@ -129,11 +139,12 @@ class VerificationEngine {
         exitCode: result.timedOut || result.error || result.denied ? 1 : result.exitCode,
         timedOut: result.timedOut,
         truncated: result.truncated,
-        failureCode: result.timedOut ? "VERIFICATION_TIMEOUT" : result.denied ? "VERIFICATION_DENIED" : result.error ? "VERIFICATION_PROCESS_ERROR" : undefined,
+        failureCode: result.terminationUncertain ? "PROCESS_TERMINATION_UNCERTAIN" : result.timedOut ? "VERIFICATION_TIMEOUT" : result.denied ? "VERIFICATION_DENIED" : result.error ? "VERIFICATION_PROCESS_ERROR" : undefined,
         stdout: sanitizeDiagnostic(result.stdout || "", { maxChars: 8000 }),
         stderr: sanitizeDiagnostic(result.stderr || "", { maxChars: 8000 }),
         durationMs: result.durationMs
       }));
+      if (result.terminationUncertain) break;
     }
     return createVerification({
       id,
