@@ -58,6 +58,7 @@ function collectInputs(workspacePath, paths) {
 function verifierInputStat(workspacePath, relative) {
   let current = workspacePath;
   const parts = relative.split("/");
+  if (parts.length > 64 || parts.some(part => !part || part === "." || part === ".." || part.includes("\\") || part.includes(":"))) throw Error("Unsafe verifier input path");
   for (const [index, part] of parts.entries()) {
     current = path.join(current, part);
     const info = fs.lstatSync(current);
@@ -68,23 +69,49 @@ function verifierInputStat(workspacePath, relative) {
   }
 }
 
+function sameFile(a, b) {
+  return a.isFile() && b.isFile() && a.dev === b.dev && a.ino === b.ino &&
+    a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs;
+}
+function readBounded(workspacePath, relative, cap) {
+  const before = verifierInputStat(workspacePath, relative);
+  if (!before.isFile() || before.size > cap) throw Error("Unsafe or oversized verifier input");
+  const file = path.join(workspacePath, relative);
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+  try {
+    const opened = fs.fstatSync(fd);
+    if (!sameFile(before, opened)) throw Error("Verifier file changed before read");
+    const bytes = Buffer.alloc(opened.size + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(fd, bytes, offset, bytes.length - offset, offset);
+      if (!count) break;
+      offset += count;
+    }
+    if (offset !== opened.size || !sameFile(opened, fs.fstatSync(fd)) ||
+        !sameFile(opened, verifierInputStat(workspacePath, relative))) throw Error("Verifier file changed during read");
+    return bytes.subarray(0, offset);
+  } finally { fs.closeSync(fd); }
+}
 function verifierConfigSnapshot(workspacePath) {
   const paths = new Set(VERIFIER_CONFIG_FILES);
   let unsafe = false;
-  const packageFile = path.join(workspacePath, "package.json");
   try {
     const info = verifierInputStat(workspacePath, "package.json");
     if (!info.isFile() || info.size > MAX_VERIFIER_INPUT_BYTES) {
       unsafe = true;
     } else {
-      const pkg = JSON.parse(fs.readFileSync(packageFile, "utf8"));
+      const pkg = JSON.parse(readBounded(workspacePath, "package.json", MAX_VERIFIER_INPUT_BYTES).toString("utf8"));
       for (const script of Object.values(pkg?.scripts || {})) {
         if (typeof script !== "string") continue;
         // Only local paths inside fixed script directories. This is deliberately
         // not a shell parser; ambiguous/unrecognized indirection must not be
         // advertised as fully protected by this guard.
         const matcher = /\b((?:scripts|tools|test|tests)\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_.-]+\.(?:[cm]?js|ts|sh|py))\b/g;
-        for (const hit of script.matchAll(matcher)) paths.add(hit[1]);
+        for (const hit of script.matchAll(matcher)) {
+          paths.add(hit[1]);
+          if (paths.size > MAX_ENTRIES) throw Error("Verifier input bound exceeded");
+        }
       }
     }
   } catch (error) {
@@ -94,7 +121,6 @@ function verifierConfigSnapshot(workspacePath) {
   let totalBytes = 0;
   const snapshot = [];
   for (const relative of [...paths].sort()) {
-    const file = path.join(workspacePath, relative);
     try {
       const info = verifierInputStat(workspacePath, relative);
       totalBytes += info.size;
@@ -103,7 +129,7 @@ function verifierConfigSnapshot(workspacePath) {
         snapshot.push([relative, "UNSAFE"]);
       } else {
         snapshot.push([relative,
-          crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")]);
+          crypto.createHash("sha256").update(readBounded(workspacePath, relative, info.size)).digest("hex")]);
       }
     } catch (error) {
       if (error?.code === "ENOENT") snapshot.push([relative, "ABSENT"]);
