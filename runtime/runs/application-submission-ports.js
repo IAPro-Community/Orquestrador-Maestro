@@ -26,6 +26,7 @@ function createApplicationSubmissionPorts({
       "SUBMISSION_DISPATCH_UNAVAILABLE");
   }
   const preparedByTask = new Map();
+  const keyFor = (submissionId, taskId) => JSON.stringify([submissionId, taskId]);
   async function load(submission, task) {
     if (!submission?.manifestId) {
       throw bad("submission must reference a stored executable manifest",
@@ -45,7 +46,8 @@ function createApplicationSubmissionPorts({
       throw bad("prepared submission differs from immutable manifest",
         "EXECUTABLE_MANIFEST_MISMATCH");
     }
-    const target = task || manifest.tasks[0];
+    const target = task ? manifest.tasks.find(item => item.taskId === task.taskId) : manifest.tasks[0];
+    if (!target || (task && JSON.stringify(target) !== JSON.stringify(task))) throw bad("Task differs from approved manifest", "EXECUTABLE_MANIFEST_MISMATCH");
     if (target.modelId !== "default") {
       throw bad("model-specific dispatch is not certified by the current adapter",
         "MODEL_LOCK_DISPATCH_UNSUPPORTED");
@@ -63,7 +65,7 @@ function createApplicationSubmissionPorts({
     async releasePreparedRun({ submissionId } = {}) {
       const held = [...preparedByTask.values()].filter((item) => item.submissionId === submissionId);
       for (const item of held) {
-        preparedByTask.delete(item.task.taskId);
+        preparedByTask.delete(keyFor(item.submissionId, item.task.taskId));
         application.discardPreparedRun?.(item.prepared);
       }
       return held.length > 0;
@@ -92,6 +94,13 @@ function createApplicationSubmissionPorts({
         projectId: manifest.projectId,
         workspacePath: binding.workspace,
         providerId: target.providerId,
+        // "none" means no explicit sandbox guarantee; do not translate it
+        // into an unsafe provider-specific permission escalation.
+        sandbox: target.sandbox === "none" ? undefined : target.sandbox,
+        model: target.modelId,
+        executionTimeoutMs: target.maxDurationMs,
+        durableSubmissionId: submission.id,
+        durableManifestId: manifest.id,
         description: source.description,
         // Safety-only flag: keep project verification configuration immutable
         // during this trust-bound durable submission. Legacy one-shot Runs are
@@ -108,25 +117,29 @@ function createApplicationSubmissionPorts({
         // Explicit approved verifier commands require a digest-bound contract
         // before they can be introduced to this durable dispatch path.
       });
+      const key = keyFor(submission.id, target.taskId);
+      if (preparedByTask.has(key)) throw bad("Prepared handle already exists", "PREPARED_RUN_NOT_OWNED");
       const prepared = await application.createRun(request);
       if (!prepared?.run?.id || prepared.preflightBlock) {
+        if (prepared) application.discardPreparedRun?.(prepared);
         throw bad("Maestro Run was blocked during canonical preparation",
           "PREPARED_RUN_BLOCKED");
       }
-      preparedByTask.set(target.taskId, { prepared, request, submissionId: submission.id, task: target });
+      preparedByTask.set(key, { prepared, request, submissionId: submission.id, task: target });
       return { runId: prepared.run.id, taskId: target.taskId };
     },
     async dispatchRun({ submission, task, runId, signal }) {
       const target = task || [...preparedByTask.values()]
         .find((item) => item.prepared.run.id === runId)?.task;
-      const held = target && preparedByTask.get(target.taskId);
+      const key = target && keyFor(submission?.id, target.taskId);
+      const held = key && preparedByTask.get(key);
       if (!held || held.prepared.run.id !== runId || held.submissionId !== submission?.id ||
           signal?.aborted) {
         throw bad("prepared handle missing, changed or cancelled",
           "PREPARED_RUN_NOT_OWNED");
       }
       await load(submission, held.task); // Recheck Git HEAD and immutable bindings before effects.
-      preparedByTask.delete(target.taskId);
+      preparedByTask.delete(key);
       // Forward the supervisor's fenced cancellation signal to the canonical
       // MaestroApplication so the active provider handle can be cancelled.
       await application.executePreparedRun(held.prepared, held.request, { signal });
