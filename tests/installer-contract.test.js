@@ -53,7 +53,10 @@ test("desktop notifications keep a compatible notifier API and safe uuid overrid
 
   assert.equal(typeof notifier.notify, "function");
   assert.equal(packageJson.overrides?.["node-notifier"]?.uuid, "11.1.1");
-  assert.equal(require("uuid/package.json").version, "11.1.1");
+  // Resolve from the runtime consumer, not from the unrelated dev dependency.
+  const notifierRequire = require("node:module").createRequire(require.resolve("node-notifier"));
+  assert.equal(notifierRequire("uuid/package.json").version, "11.1.1");
+  assert.equal(typeof notifierRequire("uuid").v4, "function");
 });
 
 
