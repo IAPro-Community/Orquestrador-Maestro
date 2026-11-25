@@ -95,4 +95,49 @@ test("review accepts equivalent physical root paths but rejects a nested directo
   const plan = previewReview({ ...input, workspacePath: alias }, { snapshot });
   assert.equal(plan.head, git("rev-parse", "HEAD"));
   assert.equal(plan.dispatchAllowed, false);
+  const relativePath = path.join(cwd, ".", "nested", "..");
+  assert.equal(previewReview({ ...input, workspacePath: relativePath }, { snapshot }).approvalDigest, plan.approvalDigest);
+  const nestedLink = path.join(aliasDir, "nested-link");
+  fs.symlinkSync(nested, nestedLink, process.platform === "win32" ? "junction" : "dir");
+  assert.throws(() => previewReview({ ...input, workspacePath: nestedLink }, { snapshot }), /CLEAN_WORKTREE_ROOT_REQUIRED/);
+});
+
+test("review handles linked git worktrees, distinct repos, untracked dirtiness, goalId binding, and build-only warning", async t => {
+  const { cwd, git, input, snapshot } = fixture(t);
+  const linkedParent = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-review-wt-"));
+  t.after(() => fs.rmSync(linkedParent, { recursive: true, force: true }));
+  const linked = path.join(linkedParent, "wt");
+  git("worktree", "add", "-q", "-b", "wt-branch", linked);
+  t.after(() => { try { git("worktree", "remove", "--force", linked); } catch {} });
+  fs.mkdirSync(path.join(linked, "sub"), { recursive: true });
+  fs.writeFileSync(path.join(linked, "sub", "f.txt"), "ok");
+  execFileSync("git", ["add", "."], { cwd: linked, stdio: "ignore" });
+  execFileSync("git", ["commit", "-qm", "sub in worktree"], { cwd: linked, stdio: "ignore" });
+
+  const wtPlan = previewReview({ ...input, workspacePath: linked }, { snapshot: () => ({
+    unsafe: false, digest: "a".repeat(64),
+    binding: { headCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: linked, encoding: "utf8" }).trim(), repositoryId: "repo", workspaceId: "wt" }
+  }) });
+  assert.throws(() => previewReview({ ...input, workspacePath: path.join(linked, "sub") }, { snapshot }), /CLEAN_WORKTREE_ROOT_REQUIRED/);
+
+  // Distinct repository cannot reuse digest
+  const other = fixture(t);
+  await assert.rejects(executeReview(other.input, wtPlan.approvalDigest, { snapshot: other.snapshot, runCommand: async () => ({ exitCode: 0 }) }), /REVIEW_SCOPE_CHANGED/);
+
+  // Untracked file marks workspace dirty
+  fs.writeFileSync(path.join(cwd, "untracked.tmp"), "dirty");
+  assert.throws(() => previewReview(input, { snapshot }), /CLEAN_WORKTREE_ROOT_REQUIRED/);
+  fs.rmSync(path.join(cwd, "untracked.tmp"));
+
+  // Build-only review warns and never certifies acceptance; goalId binds digest
+  const buildInput = { workspacePath: cwd, goalId: "goal-42", checks: [{ criterionId: "build", command: "npm run build", timeoutMs: 1000 }] };
+  const buildPlan = previewReview(buildInput, { snapshot });
+  assert.equal(buildPlan.buildOnlyWarning, true);
+  assert.equal(buildPlan.goalId, "goal-42");
+  await assert.rejects(executeReview({ ...buildInput, goalId: "goal-99" }, buildPlan.approvalDigest, { snapshot, runCommand: async () => assert.fail() }), /REVIEW_SCOPE_CHANGED/);
+  const buildReport = await executeReview(buildInput, buildPlan.approvalDigest, { snapshot, runCommand: async () => ({ exitCode: 0 }) });
+  assert.equal(buildReport.status, "CHECKS_PASSED");
+  assert.equal(buildReport.buildOnlyWarning, true);
+  assert.equal(buildReport.acceptanceCertified, false);
+  assert.equal(buildReport.results[0].kind, "build");
 });

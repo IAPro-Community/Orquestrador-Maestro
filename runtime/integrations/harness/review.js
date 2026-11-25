@@ -5,11 +5,19 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
-const COMMANDS = Object.freeze([
-  "npm run test", "npm run tests", "npm run lint", "npm run typecheck", "npm run build",
-  "mvn -q test", "python -m pytest -q", "go test ./..."
-]);
+const CHECK_CLASS = Object.freeze({
+  "npm run test": "test",
+  "npm run tests": "test",
+  "npm run lint": "lint",
+  "npm run typecheck": "typecheck",
+  "npm run build": "build",
+  "mvn -q test": "test",
+  "python -m pytest -q": "test",
+  "go test ./...": "test"
+});
+const COMMANDS = Object.freeze(Object.keys(CHECK_CLASS));
 const HEX = /^[a-f0-9]{64}$/u;
+const GOAL_ID = /^[A-Za-z0-9._:-]{1,64}$/u;
 const digest = value => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 function git(cwd, args) {
@@ -21,8 +29,14 @@ function git(cwd, args) {
 
 function cleanSnapshot(workspacePath, snapshot = require("../../verification/input-integrity").verifierConfigSnapshot) {
   if (typeof workspacePath !== "string" || !workspacePath.trim()) throw new Error("WORKSPACE_REQUIRED");
-  const requested = fs.realpathSync(path.resolve(workspacePath));
-  const cwd = fs.realpathSync(git(requested, ["rev-parse", "--show-toplevel"]).trim());
+  let requested, cwd;
+  try {
+    requested = fs.realpathSync(path.resolve(workspacePath));
+    if (!fs.statSync(requested).isDirectory()) throw new Error("NOT_DIRECTORY");
+    cwd = fs.realpathSync(git(requested, ["rev-parse", "--show-toplevel"]).trim());
+  } catch {
+    throw new Error("CLEAN_WORKTREE_ROOT_REQUIRED");
+  }
   // Git for Windows can expand an 8.3 alias while Node preserves it.
   // Reuse the canonical physical-directory authority; do not weaken the
   // root check to case-folded path strings or allow nested directories.
@@ -57,13 +71,21 @@ function normalizeChecks(checks) {
   });
 }
 
+function normalizeGoalId(goalId) {
+  if (goalId === undefined) return undefined;
+  if (typeof goalId !== "string" || !GOAL_ID.test(goalId)) throw new Error("INVALID_REVIEW_INPUT");
+  return goalId;
+}
+
 function previewReview(input, { snapshot } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input) ||
-      Object.keys(input).some(key => !["workspacePath", "checks"].includes(key))) throw new Error("INVALID_REVIEW_INPUT");
+      Object.keys(input).some(key => !["workspacePath", "checks", "goalId"].includes(key))) throw new Error("INVALID_REVIEW_INPUT");
+  const goalId = normalizeGoalId(input.goalId);
   const checks = normalizeChecks(input.checks);
   const scope = cleanSnapshot(input.workspacePath, snapshot);
-  const plan = { schemaVersion: 1, ...scope, checks };
-  return { ...plan, approvalDigest: digest(plan), goalState: "unknown", dispatchAllowed: false };
+  const plan = { schemaVersion: 1, ...(goalId ? { goalId } : {}), ...scope, checks };
+  const buildOnly = checks.every(check => CHECK_CLASS[check.command] === "build");
+  return { ...plan, approvalDigest: digest(plan), buildOnlyWarning: buildOnly, goalState: "unknown", dispatchAllowed: false };
 }
 
 // Operator-invoked review only. A hash binds a reviewed plan, not a human identity.
@@ -79,7 +101,8 @@ async function executeReview(input, approvedDigest, { snapshot, runCommand } = {
     if (previewReview(input, { snapshot }).approvalDigest !== approvedDigest) throw new Error("REVIEW_SCOPE_CHANGED");
     const result = await run(check.command, { cwd: plan.cwd, timeoutMs: check.timeoutMs });
     const passed = result?.exitCode === 0 && !result.timedOut && !result.error && !result.denied && !result.terminationUncertain;
-    results.push({ criterionId: check.criterionId, passed, exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null,
+    results.push({ criterionId: check.criterionId, kind: CHECK_CLASS[check.command], passed,
+      exitCode: Number.isInteger(result?.exitCode) ? result.exitCode : null,
       timedOut: result?.timedOut === true, terminationUncertain: result?.terminationUncertain === true });
     try {
       if (previewReview(input, { snapshot }).approvalDigest !== approvedDigest) throw new Error("REVIEW_SCOPE_CHANGED");
@@ -89,8 +112,11 @@ async function executeReview(input, approvedDigest, { snapshot, runCommand } = {
     }
     if (!passed) { status = "CHECKS_FAILED"; break; }
   }
-  return { schemaVersion: 1, approvalDigest: approvedDigest, head: plan.head, workspaceId: plan.workspaceId,
-    verifierDigest: plan.verifierDigest, status, results, goalState: "unknown", dispatchAllowed: false,
+  return { schemaVersion: 1, approvalDigest: approvedDigest, ...(plan.goalId ? { goalId: plan.goalId } : {}),
+    head: plan.head, workspaceId: plan.workspaceId,
+    verifierDigest: plan.verifierDigest, status, results,
+    buildOnlyWarning: plan.buildOnlyWarning,
+    goalState: "unknown", dispatchAllowed: false,
     acceptanceCertified: false, coverage: "operator-reviewed-checks-only" };
 }
 
