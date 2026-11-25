@@ -549,12 +549,15 @@ class MaestroApplication {
     const approvalPreflight = cognitiveBudget.humanApproval && !approvalGranted
       ? "human-approval-required" : null;
     const preflightBlock = reviewPreflight || approvalPreflight;
-    const taskId = runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task");
+    const taskId = request.durableSubmissionId && request.durableManifestId
+      ? "task-" + crypto.createHash("sha256").update(JSON.stringify([projectId, request.durableSubmissionId, request.durableManifestId, semanticTaskId])).digest("hex")
+      : runtimeTaskId({ missionId: request.missionId, semanticTaskId, semanticTask: request.semanticTask }) || id("task");
     const existingTask = await this.store.getTask(taskId);
     const taskMetadata = {
       ...(existingTask?.metadata || {}),
       ...(request.missionId ? { missionId: request.missionId } : {}),
       ...(semanticTaskId ? { semanticTaskId } : {}),
+      ...(request.durableSubmissionId ? { durableSubmissionId: request.durableSubmissionId, durableManifestId: request.durableManifestId } : {}),
       ...(request.semanticTask ? { semanticTask: request.semanticTask } : {}),
       ...(request.riskOverride ? { riskOverride: request.riskOverride } : {}),
       cognitiveBudget,
@@ -797,6 +800,8 @@ class MaestroApplication {
     if (prepared.preflightBlock) {
       return { run, verification: null, qualityFindings: [], review: { status: "blocked", verdict: "not-requested", calls: 0, reason: prepared.preflightBlock }, execution: null, governanceWarnings: [], governanceBlocking: [prepared.preflightBlock], recommendations: [] };
     }
+    const executionTimeoutMs = request.executionTimeoutMs === undefined ? policy.timeoutMs : Math.min(policy.timeoutMs, request.executionTimeoutMs);
+    if (!Number.isSafeInteger(executionTimeoutMs) || executionTimeoutMs < 1) throw new TypeError("Invalid execution timeout");
     const cognitiveBudget = run.metadata?.cognitiveBudget || evaluateCognitiveBudget(request.semanticTask || {}, this.governance.cognitiveBudget);
     const execution = core.createExecution({ id: id("execution"), runId: run.id, stepId: step.id, providerId: provider.id, status: "running", startedAt: new Date().toISOString() });
     await this.store.saveRun({ ...run, status: "running", startedAt: execution.startedAt });
@@ -871,7 +876,7 @@ class MaestroApplication {
       // Dispatch is already fenced by the supervisor before this method
       // starts. An abort racing with provider startup is delivered to the
       // returned handle and reconciled through the normal cancelled result.
-      handle = await provider.execute({ prompt: promptEnvelope.prompt, workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: policy.timeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
+      handle = await provider.execute({ prompt: promptEnvelope.prompt, workspacePath, model: request.model, sandbox: request.sandbox, permissionMode: request.permissionMode, mode: request.mode, agent: request.agent, sessionId: request.sessionId, continue: request.continue, timeoutMs: executionTimeoutMs, onEvent: (event) => this.record(run.id, event.type, event) });
       this.activeRuns.set(run.id, handle);
       // Cancellation may race with provider.execute() returning the handle.
       // Register first, then inspect aborted, so neither ordering is missed.
@@ -1026,7 +1031,7 @@ class MaestroApplication {
       // Never execute a verifier whose inputs were changed by the provider.
       commands: verifierConfigDrift ? [] : commands,
       cwd: workspacePath,
-      timeoutMs: policy.timeoutMs,
+      timeoutMs: executionTimeoutMs,
       notApplicable: !verifierConfigDrift && verificationApplicability,
       notApplicableReason: verificationReason
     });
