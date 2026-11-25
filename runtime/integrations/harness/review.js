@@ -21,9 +21,13 @@ function git(cwd, args) {
 
 function cleanSnapshot(workspacePath, snapshot = require("../../verification/input-integrity").verifierConfigSnapshot) {
   if (typeof workspacePath !== "string" || !workspacePath.trim()) throw new Error("WORKSPACE_REQUIRED");
-  const cwd = fs.realpathSync(path.resolve(workspacePath));
-  const root = fs.realpathSync(git(cwd, ["rev-parse", "--show-toplevel"]).trim());
-  if (root !== cwd || git(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none"])) {
+  const requested = fs.realpathSync(path.resolve(workspacePath));
+  const cwd = fs.realpathSync(git(requested, ["rev-parse", "--show-toplevel"]).trim());
+  // Git for Windows can expand an 8.3 alias while Node preserves it.
+  // Reuse the canonical physical-directory authority; do not weaken the
+  // root check to case-folded path strings or allow nested directories.
+  const { samePhysicalPath } = require("../../runs/workspace-authority");
+  if (!samePhysicalPath(cwd, requested) || git(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none"])) {
     throw new Error("CLEAN_WORKTREE_ROOT_REQUIRED");
   }
   const head = git(cwd, ["rev-parse", "HEAD"]).trim();

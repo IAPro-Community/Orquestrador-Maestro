@@ -79,3 +79,20 @@ test("operator review runs the real canonical verifier in a committed fixture", 
   assert.equal(report.acceptanceCertified, false);
   assert.equal(report.dispatchAllowed, false);
 });
+
+test("review accepts equivalent physical root paths but rejects a nested directory", t => {
+  const { cwd, git, input, snapshot } = fixture(t);
+  const nested = path.join(cwd, "nested");
+  fs.mkdirSync(nested);
+  fs.writeFileSync(path.join(nested, "tracked.txt"), "fixture");
+  git("add", "."); git("commit", "-qm", "nested directory");
+  assert.doesNotThrow(() => previewReview(input, { snapshot }));
+  assert.throws(() => previewReview({ ...input, workspacePath: nested }, { snapshot }), /CLEAN_WORKTREE_ROOT_REQUIRED/);
+  const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-review-alias-"));
+  t.after(() => fs.rmSync(aliasDir, { recursive: true, force: true }));
+  const alias = path.join(aliasDir, "project");
+  fs.symlinkSync(cwd, alias, process.platform === "win32" ? "junction" : "dir");
+  const plan = previewReview({ ...input, workspacePath: alias }, { snapshot });
+  assert.equal(plan.head, git("rev-parse", "HEAD"));
+  assert.equal(plan.dispatchAllowed, false);
+});
