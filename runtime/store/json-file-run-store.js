@@ -716,10 +716,7 @@ class JsonFileRunStore extends RunStore {
           }
         }
         if (!contended) throw error;
-        if (await this._isStaleFileLock()) {
-          try { await fs.unlink(this.lockPath); } catch (unlinkError) { if (unlinkError?.code !== "ENOENT") throw unlinkError; }
-          continue;
-        }
+        if (await this._recoverDeadFileLock()) continue;
         if (Date.now() - startedAt >= this.lockTimeoutMs) {
           const timeout = new Error(`RunStore lock timed out: ${this.lockPath}`);
           timeout.code = "RUN_STORE_LOCK_TIMEOUT";
@@ -730,33 +727,38 @@ class JsonFileRunStore extends RunStore {
     }
   }
 
-  async _isStaleFileLock() {
-    let stat;
-    let lock = null;
+  async _recoverDeadFileLock() {
+    // Serialize recoverers. A crashed recovery gate requires operator
+    // inspection; never guess ownership from age or remove malformed locks.
+    const gate = this.lockPath + ".recovery";
+    let handle;
+    try { handle = await fs.open(gate, "wx", 0o600); }
+    catch (error) {
+      if (["EEXIST", "EPERM", "EACCES"].includes(error.code)) return false;
+      throw error;
+    }
     try {
-      stat = await fs.stat(this.lockPath);
-      lock = JSON.parse(await fs.readFile(this.lockPath, "utf8"));
-    } catch (error) {
-      // ENOENT means the observed owner already released its lock. Returning
-      // "stale" here is unsafe: another process may acquire a fresh lock
-      // between this check and the caller's unlink, causing that fresh owner
-      // to be deleted. Let the acquisition loop retry instead.
-      if (error?.code === "ENOENT") return false;
-      // A malformed lock is removable only after the stale threshold.
-      try { stat = stat || await fs.stat(this.lockPath); } catch { return false; }
-    }
-
-    const ownerPid = Number(lock?.pid);
-    if (Number.isInteger(ownerPid) && ownerPid > 0) {
-      try {
-        process.kill(ownerPid, 0);
-        return false;
-      } catch (error) {
-        if (error?.code === "ESRCH") return true;
-        if (error?.code === "EPERM") return false;
+      let row;
+      try { row = JSON.parse(await fs.readFile(this.lockPath, "utf8")); }
+      catch (error) {
+        if (error.code === "ENOENT" || error instanceof SyntaxError) return false;
+        throw error;
       }
+      if (typeof row?.token !== "string" || !Number.isSafeInteger(row.pid) || row.pid <= 0) return false;
+      try { process.kill(row.pid, 0); return false; }
+      catch (error) { if (error.code !== "ESRCH") return false; }
+      // No live owner can release this lock and only this recoverer may
+      // remove it. Re-read identity as a defensive check.
+      let current;
+      try { current = JSON.parse(await fs.readFile(this.lockPath, "utf8")); }
+      catch (error) { if (error.code === "ENOENT" || error instanceof SyntaxError) return false; throw error; }
+      if (current.token !== row.token || current.pid !== row.pid) return false;
+      try { await fs.unlink(this.lockPath); return true; }
+      catch (error) { if (error.code === "ENOENT") return false; throw error; }
+    } finally {
+      await handle.close();
+      await fs.unlink(gate).catch(error => { if (error.code !== "ENOENT") throw error; });
     }
-    return Date.now() - stat.mtimeMs >= this.lockStaleMs;
   }
 
   async _releaseFileLock(token) {
