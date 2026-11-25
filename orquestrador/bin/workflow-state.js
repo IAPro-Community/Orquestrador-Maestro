@@ -150,8 +150,21 @@ function advance(args) {
   return 0;
 }
 
+function printHelp() {
+  console.log(`Uso:
+  orquestrador-maestro workflow-state init --lockfile FILE [--project-path PATH] [--task-id ID] [--force]
+  orquestrador-maestro workflow-state get [--task-id ID | --lockfile FILE] [--project-path PATH] [--json]
+  orquestrador-maestro workflow-state validate [--task-id ID | --lockfile FILE] [--project-path PATH]
+  orquestrador-maestro workflow-state approve --kind plan|review|release|side-effect --by NOME [--task-id ID | --lockfile FILE] [--project-path PATH]
+  orquestrador-maestro workflow-state advance --to-step STEP [--task-id ID | --lockfile FILE] [--project-path PATH]`);
+}
+
 function main(args) {
   const [subcommand = "help", ...rest] = args;
+  if (subcommand === "help" || subcommand === "--help" || subcommand === "-h") {
+    printHelp();
+    return 0;
+  }
   if (subcommand === "init") return init(rest);
   if (subcommand === "get") return get(rest);
   if (subcommand === "validate") return validate(rest);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-const { spawn, spawnSync } = require("node:child_process");
+const { spawnSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -25,8 +25,8 @@ const { resolveMaestroRoot } = require(path.join(rootDir, "runtime", "config", "
 const { loadGovernanceConfig, writeGovernanceConfig } = require(path.join(rootDir, "runtime", "governance", "compatibility"));
 const { loadInteractionCatalog, resolveInteractionProfile, setInteractionProfile, resetInteractionProfile } = require(path.join(rootDir, "runtime", "interaction"));
 const { formatStatus, resolveStatus } = require(path.join(rootDir, "runtime", "status"));
-const { listSupportedTools, getToolDefinition, isSupportedTool, resolveToolConfigPaths } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
-const { DETECTION_STATES, detectTool, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
+const { listSupportedTools, getToolDefinition, isSupportedTool } = require(path.join(rootDir, "orquestrador", "lib", "tool-registry.js"));
+const { DETECTION_STATES, detectAllTools, detectToolById } = require(path.join(rootDir, "orquestrador", "lib", "tool-detector.js"));
 const installState = require(path.join(rootDir, "orquestrador", "lib", "install-state.js"));
 const telemetryTimeoutMs = 350;
 const telemetryConsentVersion = 2;
@@ -69,34 +69,38 @@ Uso:
   orquestrador-maestro update [opcoes]
   orquestrador-maestro verify [opcoes]
   orquestrador-maestro rollback [--home-path PATH] [--to STAMP] [--list]
-  orquestrador-maestro doctor [opcoes]
+  orquestrador-maestro doctor [--home-path PATH] [--strict]
   orquestrador-maestro init-dev [--project-path PATH]
   orquestrador-maestro compact-worklog [--project-path PATH] [--keep N]
-  orquestrador-maestro check-dev-gates [--project-path PATH] [--max-entries N] [--strict]
+  orquestrador-maestro check-dev-gates [--project-path PATH] [--max-entries N] [--strict] [--architectural]
+  orquestrador-maestro check-recurrence [--project-path PATH] [--threshold N] [--write]
   orquestrador-maestro context brief [--project-path PATH] [--task TEXT] [--max-chars N] [--since COMMIT] [--json]
   orquestrador-maestro context section --path FILE.md --heading TEXT [--project-path PATH] [--json]
-  orquestrador-maestro run [--provider ID] [--profile ID] [--workspace PATH] "tarefa"
-  orquestrador-maestro go|plan [--auto] [--router-version 2|3] [--complexity LEVEL] [--project-path PATH] "objetivo"
+  orquestrador-maestro context inspect --intent TEXT [--project-path PATH]
+  orquestrador-maestro workflow-lock <generate|validate> [opcoes]
+  orquestrador-maestro workflow-state <init|get|validate|approve|advance> [opcoes]
   orquestrador-maestro route explain [--json] [--complexity LEVEL] "objetivo"
   orquestrador-maestro governance <status|set> [opcoes]
   orquestrador-maestro interaction <list|get|set|reset> [opcoes]
   orquestrador-maestro status [--json] [--task-id ID] [--lockfile PATH] [--project-path PATH]
-  orquestrador-maestro projects|missions|terminal|providers|skills [opcoes]
   orquestrador-maestro memory record [--project PATH] --type TYPE --summary TEXT [opcoes]
   orquestrador-maestro memory search [--project PATH] [--search TEXT] [--type TYPE] [--verified] [--unverified]
   orquestrador-maestro memory show [--project PATH] --id ID
+  orquestrador-maestro memory forget [--project PATH] --id ID [--force]
   orquestrador-maestro memory timeline [--project PATH] [--limit N]
+  orquestrador-maestro memory export [--project PATH] [--output PATH]
+  orquestrador-maestro memory import [--project PATH] --input PATH [--dry-run]
   orquestrador-maestro memory promote [--project PATH] --id ID --destination PATH [--apply]
   orquestrador-maestro memory stats [--project PATH]
   orquestrador-maestro memory status
   orquestrador-maestro memory cleanup [--project PATH]
   orquestrador-maestro benchmark list
-  orquestrador-maestro benchmark run [--scenario ID] [--condition CONDITION]
+  orquestrador-maestro benchmark run [scenario] [--scenario ID] [--condition CONDITION] [opcoes]
   orquestrador-maestro benchmark validate <scenario>
-  orquestrador-maestro benchmark run [scenario] [opcoes]
+  orquestrador-maestro benchmark <pair|adaptive-pair|report|preflight|inspect|compare|suite> [opcoes]
   orquestrador-maestro run [--provider ID] [--profile ID] [--policy ID] [--workspace PATH] "tarefa"
-  orquestrador-maestro go [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
-  orquestrador-maestro plan [--auto] [--plan] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
+  orquestrador-maestro go [--auto] [--plan] [--router-version 2|3] [--complexity LEVEL] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
+  orquestrador-maestro plan [--auto] [--plan] [--router-version 2|3] [--complexity LEVEL] [--provider ID] [--model MODEL] [--interviewer ID] [--project-path PATH] "tarefa"
   orquestrador-maestro runs [--project-path PATH]
   orquestrador-maestro runs worker [--project-path PATH] [--interval MS] [--concurrency N] [--once]
   orquestrador-maestro runs admissions [--project-path PATH] [--limit N]
@@ -109,6 +113,7 @@ Uso:
   orquestrador-maestro projects
   orquestrador-maestro project add <caminho>
   orquestrador-maestro project show <id> [--project-path PATH]
+  orquestrador-maestro project inspect [--project-path PATH]
   orquestrador-maestro missions [--project-path PATH]
   orquestrador-maestro mission create [--project-path PATH] "objetivo"
   orquestrador-maestro mission show <id> [--project-path PATH]
@@ -136,7 +141,7 @@ Opcoes de install/update/uninstall:
   --core-only                 Instala somente .orquestrador e AGENTS.md
   --only <component>          Limita a um componente: core, codex, agents,
                               claude, opencode, cursor, gemini, windsurf,
-                              antigravity
+                              antigravity, freebuff, mimo, kimi, grok
   --all-targets               Instala em todos os targets suportados (opt-in)
   --no-tool-profiles          Nao instala perfis globais das ferramentas
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
@@ -163,6 +168,7 @@ Opcoes de verify:
 
 Opcoes de doctor:
   --home-path <path>          Diagnostica outro home
+  --strict                    Falha em avisos e verifica integridade detalhada
 
 Opcoes de init-dev:
   --project-path <path>       Cria a hierarquia DEV recomendada no projeto
@@ -175,6 +181,7 @@ Opcoes de check-dev-gates:
   --project-path <path>       Projeto que contem a hierarquia DEV
   --max-entries <n>           Falha se DEV/WORKLOG.md passar do limite
   --strict                    Exige entrada substantiva e bullets minimos
+  --architectural             Exige cobertura da secao arquitetural
 
 Opcoes de changelog:
   --full                      Mostra o historico completo embutido no pacote
@@ -270,11 +277,6 @@ function run(command, args, options = {}) {
 
 function commandExists(filePath) {
   return fs.existsSync(filePath);
-}
-
-function executableAvailable(command) {
-  const result = spawnSync(command, ["--version"], { stdio: "ignore", shell: false });
-  return !result.error && result.status === 0;
 }
 
 function getNpmCommand() {
@@ -713,7 +715,7 @@ function readNativeRollbackPlan(homePath, backupDirectory) {
     if (stateAlreadyRestored && !treeAlreadyRestored) {
       throw new Error(`Rollback recusado: estado restaurado, mas skills continuam atualizadas em ${group.targetRoot}.`);
     }
-    if (!stateAlreadyRestored && treeAlreadyRestored && group.operations.some(({ operation }) => ["updated", "copied"].includes(operation.action))) {
+    if (!stateAlreadyRestored && treeAlreadyRestored && group.operationPlans.some(({ operation }) => ["updated", "copied"].includes(operation.action))) {
       throw new Error(`Rollback recusado: skills restauradas, mas o estado ainda indica a atualização em ${group.targetRoot}.`);
     }
     if (!stateAlreadyRestored) {
@@ -893,7 +895,7 @@ function runRollback(args) {
   const stamp = to || stamps[stamps.length - 1];
   const src = path.join(backupRoot, stamp);
   if (!fs.existsSync(src)) throw new Error(`Backup não encontrado: ${src}`);
-  const restored = rollbackCoreSnapshot(path.resolve(homePath), src);
+  rollbackCoreSnapshot(path.resolve(homePath), src);
   console.log(`Rollback concluído a partir de ${stamp}. Reexecute 'orquestrador-maestro verify' para confirmar.`);
   return 0;
 }
@@ -1011,6 +1013,7 @@ function runMemoryCommand(args) {
 
   const project = memory.resolveProjectFromArgs(rest, process.cwd());
   const projectRoot = memory.resolveProjectRootFromArgs(rest, process.cwd());
+  const gitCtx = resolveGitContext(projectRoot);
 
   switch (subcommand) {
     case "record": {
@@ -1026,10 +1029,12 @@ function runMemoryCommand(args) {
         files: memory.getArgList(rest, "--files"),
         tags: memory.getArgList(rest, "--tags"),
         verified: rest.includes("--verified"),
+        verifier: memory.getArg(rest, "--verifier"),
+        verifyNote: memory.getArg(rest, "--verify-note"),
         taskId: memory.getArg(rest, "--task"),
         scope: memory.resolveScope(project, rest, projectRoot),
-        gitContext: resolveGitContext(projectRoot)
-      }, { projectRoot, gitContext: resolveGitContext(projectRoot) });
+        gitContext: gitCtx
+      }, { projectRoot, gitContext: gitCtx });
       console.log(JSON.stringify(obs, null, 2));
       return 0;
     }
@@ -1084,6 +1089,32 @@ function runMemoryCommand(args) {
       console.log(JSON.stringify(result, null, 2));
       return 0;
     }
+    case "forget": {
+      const id = memory.getArg(rest, "--id");
+      if (!id) throw new Error("--id is required");
+      const result = memory.forget(project, id, { force: rest.includes("--force") });
+      console.log(JSON.stringify(result, null, 2));
+      return 0;
+    }
+    case "export": {
+      const out = memory.getArg(rest, "--output");
+      const data = memory.exportData(project);
+      const text = JSON.stringify(data, null, 2);
+      if (out) {
+        fs.writeFileSync(path.resolve(out), text + "\n", "utf8");
+      } else {
+        console.log(text);
+      }
+      return 0;
+    }
+    case "import": {
+      const input = memory.getArg(rest, "--input");
+      if (!input) throw new Error("--input is required");
+      const payload = fs.readFileSync(path.resolve(input), "utf8");
+      const result = memory.importData(project, payload, { dryRun: rest.includes("--dry-run") });
+      console.log(JSON.stringify(result, null, 2));
+      return result.rejected.length > 0 && !rest.includes("--dry-run") ? 2 : 0;
+    }
     default:
       throw new Error(`Unknown memory subcommand: ${subcommand}`);
   }
@@ -1126,7 +1157,7 @@ function resolveBenchmarkScenario(value) {
 
 function runBenchmarkCommand(args) {
   const [subcommand = "list", ...rest] = args;
-  if (subcommand === "real" || subcommand === "ai-real") throw new Error("Os benchmarks legados foram removidos; use `benchmark run` com o harness v2.");
+  if (subcommand === "real" || subcommand === "ai-real") throw new Error("Os benchmarks legados foram removidos; use `benchmark run` com o harness v3.");
   const forwarded = [subcommand];
   if (subcommand === "list" && !rest.some((arg) => arg === "--dir" || arg.startsWith("--dir="))) {
     forwarded.push("--dir", path.join(rootDir, "benchmark-harness", "scenarios"));
@@ -1137,6 +1168,7 @@ function runBenchmarkCommand(args) {
     if (scenario) forwarded.push("--scenario", resolveBenchmarkScenario(scenario));
     for (let index = 0; index < rest.length; index += 1) {
       if (rest[index] === "--scenario" || (subcommand === "run" && rest[index] === "--condition")) { index += 1; continue; }
+      if (rest[index].startsWith("--scenario=") || (subcommand === "run" && rest[index].startsWith("--condition="))) continue;
       forwarded.push(rest[index]);
     }
     if (condition) forwarded.push("--condition", condition);
@@ -2208,14 +2240,12 @@ async function handleGoCommand(args, planningOnly = false) {
   const core = require(path.join(rootDir, "runtime", "core"));
   const { IntentRouter } = require(path.join(rootDir, "runtime", "planner", "intent-router"));
   const { SkillRouterV3 } = require(path.join(rootDir, "runtime", "planner", "skill-router-v3"));
-  const { gatherPreflight } = require(path.join(rootDir, "runtime", "planner", "context-preflight"));
-  const { DynamicInterviewer } = require(path.join(rootDir, "runtime", "planner", "dynamic-interviewer"));
   const { SemanticPlanner } = require(path.join(rootDir, "runtime", "planner", "semantic-planner"));
   const { PlanApprovalGate } = require(path.join(rootDir, "runtime", "planner", "plan-approval-gate"));
   const { LegacyExecutionProjection } = require(path.join(rootDir, "runtime", "planner", "legacy-execution-projection"));
   const { formatTasks } = require(path.join(rootDir, "runtime", "planner", "task-formatter"));
-  const { estimateCost } = require(path.join(rootDir, "runtime", "planner", "model-router"));
   const { LaneExecutor } = require(path.join(rootDir, "runtime", "planner", "lane-executor"));
+  planningOnly = Boolean(planningOnly || options.plan);
 
   const workspacePath = path.resolve(options.projectPath || process.cwd());
   const app = await createRuntimeApplication(workspacePath);
@@ -2289,7 +2319,7 @@ async function handleGoCommand(args, planningOnly = false) {
 
   // Instancia a IntentSession localmente
   let session;
-  if (!args.includes("--auto")) {
+  if (!options.auto) {
     session = await app.startIntentSession({ workspacePath, rawIntent: description });
   }
 
@@ -2323,7 +2353,7 @@ async function handleGoCommand(args, planningOnly = false) {
     aiProvider: options.interviewer
   });
 
-  const spec = args.includes("--auto")
+  const spec = options.auto
     ? await interviewer.runBatch()
     : await interviewer.runInteractive();
 
@@ -2486,7 +2516,7 @@ async function handleGoCommand(args, planningOnly = false) {
 
   // Fase 4.5: Plan Approval Gate
   try {
-  if (args.includes("--auto")) {
+  if (options.auto) {
     const autoEval = PlanApprovalGate.evaluateAutoApproval({
       validationResult: { valid: true, blockers: [] },
       planningMode: planResult.planningMode
@@ -3003,9 +3033,7 @@ function handleTargetsCommand(args) {
           installedAt: new Date().toISOString(),
           target: toolId
         });
-        if (markerExists || def.configPaths.length > 0) {
-          break;
-        }
+        break;
       }
 
       installSuccess = true;
@@ -3076,21 +3104,6 @@ function handleTargetsCommand(args) {
     const modifiedManagedFile = [];
     const removedFileBackups = new Map();
     const force = rest.includes("--force");
-
-    function isPathContained(relPath) {
-      const full = path.resolve(homePath, relPath);
-      // Resolve symlinks to prevent physical path escape
-      let realHome;
-      try { realHome = fs.realpathSync(homePath); } catch { realHome = path.resolve(homePath); }
-      let realFull;
-      try { realFull = fs.realpathSync(full); } catch {
-        // Path doesn't exist yet — check parent directory instead
-        try { realFull = fs.realpathSync(path.dirname(full)); } catch { realFull = path.dirname(full); }
-        realFull = path.join(realFull, path.basename(full));
-      }
-      const rel = path.relative(realHome, realFull);
-      return !rel.startsWith("..") && !path.isAbsolute(rel);
-    }
 
     const managedEntries = targetState?.managedEntries || [];
     for (const entry of managedEntries) {
@@ -3299,6 +3312,23 @@ async function dispatch(command, args) {
     return await runInstall(args);
   }
 
+  if (command === "memory") {
+    if (args.includes("--help") || args.includes("-h")) {
+      const memory = new Memory();
+      memory.printHelp();
+      return 0;
+    }
+    return runMemoryCommand(args);
+  }
+
+  if (command === "benchmark") {
+    return runBenchmarkCommand(args);
+  }
+
+  if (command === "adapters") {
+    return runToolAdapters(args);
+  }
+
   if (args.includes("--help") || args.includes("-h")) {
     printHelp();
     return 0;
@@ -3348,6 +3378,10 @@ async function dispatch(command, args) {
     return runDevContextHelper("check-dev-gates", args);
   }
 
+  if (command === "check-recurrence") {
+    return runDevContextHelper("check-recurrence", args);
+  }
+
   if (command === "desktop-plugin") return handleDesktopPluginCommand(args);
   if (command === "desktop-mcp") return handleDesktopMcpCommand(args);
   if (command === "desktop-hook") return handleDesktopHookCommand(args);
@@ -3366,23 +3400,6 @@ async function dispatch(command, args) {
   if (command === "governance") return handleGovernanceCommand(args);
   if (command === "interaction") return handleInteractionCommand(args);
   if (command === "status") return handleStatusCommand(args);
-
-  if (command === "memory") {
-    if (args.includes("--help") || args.includes("-h")) {
-      const memory = new Memory();
-      memory.printHelp();
-      return 0;
-    }
-    return runMemoryCommand(args);
-  }
-
-  if (command === "benchmark") {
-    return runBenchmarkCommand(args);
-  }
-
-  if (command === "adapters") {
-    return runToolAdapters(args);
-  }
 
   if (command === "targets") {
     return handleTargetsCommand(args);
@@ -3414,10 +3431,11 @@ async function main() {
 
   const telemetryCommands = new Set([
     "install", "update", "uninstall", "list-targets", "dry-run", "verify", "rollback", "doctor",
-    "init-dev", "compact-worklog", "check-dev-gates", "changelog", "version", "run",
+    "init-dev", "compact-worklog", "check-dev-gates", "check-recurrence", "changelog", "version", "run",
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
     "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
-    "status", "memory", "benchmark", "adapters", "targets", "go", "plan", "desktop-plugin"
+    "status", "memory", "benchmark", "adapters", "targets", "go", "plan", "route",
+    "context", "workflow-lock", "workflow-state", "desktop-plugin"
   ]);
   if (telemetryCommands.has(command)) {
     await sendTelemetry(buildTelemetryPayload(command, args, exitCode, errorName));

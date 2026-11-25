@@ -114,7 +114,11 @@ class CapturePolicy {
           details: null,
           files: [],
           tags: [],
-          verified: observation.verified || false,
+          verified: Boolean(observation.verified),
+          verifier: observation.verifier || "",
+          verifiedAt: observation.verifiedAt || null,
+          verifyNote: observation.verifyNote || "",
+          verifiedClaimed: Boolean(observation.verifiedClaimed),
           source: { tool: observation.source?.tool || "unknown" },
           scope: observation.scope || { level: "repository" },
           capturePolicy: POLICIES.METADATA_ONLY

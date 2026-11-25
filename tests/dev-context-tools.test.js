@@ -185,3 +185,55 @@ test("PowerShell DEV gate wrappers translate strict options on Windows", { skip:
     assert.match(result.stdout, /DEV gates passed\./u);
   }
 });
+
+test("check-dev-gates --strict --architectural reads the last section even when it has no capital Z", () => {
+  const projectRoot = makeLegacyCompatibleDevProject();
+  writeFile(projectRoot, "DEV/ADR/001-test.md", "# ADR 001\n\n## Decision\n\nUse structural prevention.\n");
+  writeFile(projectRoot, "DEV/SPECS/ACTIVE.md", [
+    "# Active Specification",
+    "",
+    "## Goal",
+    "",
+    "Keep DEV gates compatible.",
+    "",
+    "## In Scope",
+    "",
+    "- Existing DEV control files.",
+    "",
+    "## Out Of Scope",
+    "",
+    "- Unrelated modules.",
+    "",
+    "## Acceptance",
+    "",
+    "- Gate passes.",
+    "",
+    "## Verification Plan",
+    "",
+    "- Preflight check and node --test.",
+    "",
+    "## Status",
+    "",
+    "In progress.",
+    "",
+    "## Structural Prevention",
+    "",
+    "- Change class: structural",
+    "- Adjustment: validate trailing markdown section without regex \\Z escape"
+  ].join("\n"));
+
+  const result = spawnSync(process.execPath, [
+    toolPath,
+    "check-dev-gates",
+    "--project-path",
+    projectRoot,
+    "--strict",
+    "--architectural"
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /DEV gates passed\./u);
+});

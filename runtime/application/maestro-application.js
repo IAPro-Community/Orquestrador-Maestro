@@ -269,12 +269,6 @@ function listSourceFiles(workspacePath, relativePath = "") {
   });
 }
 
-function filesForQualityReview(workspacePath) {
-  const gitSnapshot = snapshot(workspacePath);
-  if (gitSnapshot.available) return gitSnapshot.files.map(({ path: filePath }) => filePath);
-  return listSourceFiles(workspacePath);
-}
-
 class ProviderRegistry {
   constructor(adapters = [new CodexAdapter(), new ClaudeAdapter(), new AgyAdapter(), new OpenCodeAdapter()]) {
     this.adapters = new Map(adapters.map((adapter) => [adapter.id, adapter]));
@@ -842,7 +836,7 @@ class MaestroApplication {
       const releasedReservation = releaseBudgetReservation(run.metadata.resolution.budget.reservation, "budget-conflict", { completedAt });
       const releasedResolution = withBudgetReservation(run.metadata.resolution, releasedReservation);
       const blockedResolution = finalizeResolution({ contract: releasedResolution, runStatus: "blocked", reason, now: completedAt });
-      const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length });
+      const blockedTelemetryValue = blockedTelemetry({ budget: cognitiveBudget, projectId: task.projectId, workspacePath, reason, skillsRequested: requestedSkills.length, skillsResolved: resolvedSkills.length });
       const blockedCognitiveTelemetry = {
         ...blockedTelemetryValue,
         resolution: buildResolutionTelemetry({ plan: blockedResolution, cognitiveTelemetry: blockedTelemetryValue, status: "blocked" })

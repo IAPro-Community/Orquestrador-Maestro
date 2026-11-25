@@ -74,12 +74,6 @@ function splitSections(content) {
   return sections;
 }
 
-function preamble(content, firstSection) {
-  const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
-  const end = firstSection ? firstSection.startLine - 1 : lines.length;
-  return lines.slice(0, end).join("\n").trim();
-}
-
 function makeSlice(text, strategy, range, source) {
   const output = String(text || "").trim();
   return {

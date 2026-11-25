@@ -158,7 +158,7 @@ function extractBullet(entryRaw, label) {
 }
 
 function extractSection(content, heading) {
-  const pattern = new RegExp(`^##\\s+${escapeRegex(heading)}\\s*$([\\s\\S]*?)(?=^##\\s+|\\Z)`, "m");
+  const pattern = new RegExp(`^##\\s+${escapeRegex(heading)}\\s*$([\\s\\S]*?)(?=^##\\s+|(?![\\s\\S]))`, "m");
   const match = content.match(pattern);
   return match ? match[1].trim() : "";
 }

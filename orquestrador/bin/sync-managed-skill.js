@@ -14,10 +14,6 @@ function lstatOrNull(target) {
   catch (error) { if (error && error.code === "ENOENT") return null; throw error; }
 }
 
-function sha256(value) {
-  return crypto.createHash("sha256").update(value).digest("hex");
-}
-
 function treeEntries(root) {
   const rootInfo = lstatOrNull(root);
   if (!rootInfo || rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {

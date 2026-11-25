@@ -11,7 +11,6 @@ const {
   loadLock,
   loadManifest,
   loadWorkflow,
-  packageRoot,
   parseOptions,
   resolveLockPath
 } = require("./workflow-utils.js");
@@ -89,8 +88,18 @@ function validate(args) {
   return 0;
 }
 
+function printHelp() {
+  console.log(`Uso:
+  orquestrador-maestro workflow-lock generate --task-id task/<slug> [--project-path PATH] [--workflow NAME] [--out FILE] [--force]
+  orquestrador-maestro workflow-lock validate --lockfile FILE [--project-path PATH]`);
+}
+
 function main(args) {
   const [subcommand = "help", ...rest] = args;
+  if (subcommand === "help" || subcommand === "--help" || subcommand === "-h") {
+    printHelp();
+    return 0;
+  }
   if (subcommand === "generate") return generate(rest);
   if (subcommand === "validate") return validate(rest);
   throw new Error(`Subcomando de workflow-lock desconhecido: ${subcommand}`);

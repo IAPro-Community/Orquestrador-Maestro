@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
+function isTrulyVerified(obs) {
+  if (!obs || obs.verified !== true) return false;
+  if (typeof obs.verifier !== "string" || obs.verifier.trim().length === 0) return false;
+  if (typeof obs.verifiedAt !== "string" || Number.isNaN(Date.parse(obs.verifiedAt))) return false;
+  return true;
+}
+
 function isValidScope(scope) {
   if (!scope || typeof scope !== "object") return false;
   const level = scope.level;
@@ -147,7 +154,7 @@ function rankObservations(observations, taskTokens, currentContext, options = {}
       return { obs, score: -1, blocked: true, reason: "visibility blocked" };
     }
 
-    if (obs.verified) score += 10;
+    if (isTrulyVerified(obs)) score += 10;
 
     const obsTokens = tokenizeRank(
       (obs.summary || "") + " " +
@@ -185,7 +192,7 @@ function tokenizeRank(text) {
     "the", "and", "that", "this", "with", "for", "from", "are", "was",
     "para", "com", "uma", "um", "dos", "das", "que", "por", "mais",
     "continue", "continuar", "fazer", "ajustar", "using", "used",
-    "have", "has", "had", "was", "were", "been", "being"
+    "have", "has", "had", "were", "been", "being"
   ]);
   return text
     .toLowerCase()
@@ -196,6 +203,7 @@ function tokenizeRank(text) {
 }
 
 module.exports = {
+  isTrulyVerified,
   isValidScope,
   isObservationVisible,
   resolveObservationScope,

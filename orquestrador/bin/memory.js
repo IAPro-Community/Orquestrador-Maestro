@@ -8,10 +8,9 @@ const os = require("node:os");
 
 const MEMORY_SCHEMA = require("../schemas/MEMORY_SCHEMA.json");
 const OBSERVATION_TYPES = MEMORY_SCHEMA.properties.type.enum;
-const { classifyTask } = require("../lib/task-classifier.js");
 const { CapturePolicy, POLICIES } = require("../lib/capture-policy.js");
-const { resolveGitContext, resolveProjectRoot, shouldUseMemory } = require("../lib/git-context.js");
-const { isValidScope, isObservationVisible, resolveObservationScope, rankObservations } = require("../lib/visibility.js");
+const { resolveGitContext, resolveProjectRoot, resolveRepositoryId } = require("../lib/git-context.js");
+const { isTrulyVerified, isValidScope, isObservationVisible, resolveObservationScope, rankObservations } = require("../lib/visibility.js");
 const { withLock, getLockPath } = require("../lib/lock.js");
 
 const SAFE_DESTINATIONS = [
@@ -24,19 +23,6 @@ const SAFE_DESTINATIONS = [
 // RFC-0003: unbounded details bloat JSONL and smuggle bulk content past
 // review. Truncated (not rejected) so adapter flows keep working.
 const MAX_DETAILS_CHARS = 4000;
-
-/**
- * Uniform trust predicate for READS. A bare `verified:true` (legacy rows,
- * hand-edited JSONL) has no authority: verified requires an identified
- * verifier and a parseable verifiedAt. Write paths enforce this via
- * resolveVerification(); every read path below must use this predicate.
- */
-function isTrulyVerified(obs) {
-  if (!obs || obs.verified !== true) return false;
-  if (typeof obs.verifier !== "string" || obs.verifier.trim().length === 0) return false;
-  if (typeof obs.verifiedAt !== "string" || Number.isNaN(Date.parse(obs.verifiedAt))) return false;
-  return true;
-}
 
 const PROMPT_INJECTION_PATTERNS = [
   /ignore\s+(all\s+)?previous\s+instructions/i,
@@ -93,13 +79,12 @@ class Memory {
   }
 
   resolveRepositoryId(projectRoot) {
-    const { resolveRepositoryId: resolveFromGitContext } = require("../lib/git-context.js");
     // Resolve through the canonical Git root first. On Windows the caller may
     // hold an 8.3/alternate-casing temp path while a child process receives
     // Git's canonical toplevel path; hashing those representations directly
     // produces different repository identities for the same repository.
     const canonicalRoot = resolveProjectRoot(projectRoot) || path.resolve(projectRoot);
-    return resolveFromGitContext(canonicalRoot);
+    return resolveRepositoryId(canonicalRoot);
   }
 
   resolveScope(projectId, args, projectRoot) {
@@ -266,7 +251,6 @@ class Memory {
   }
 
   writeAtomic(filePath, content) {
-    const crypto = require("node:crypto");
     const tmpPath = `${filePath}.tmp.${Date.now()}.${crypto.randomBytes(4).toString("hex")}`;
     fs.writeFileSync(tmpPath, content, { encoding: "utf8", mode: 0o600 });
     try {
@@ -556,7 +540,7 @@ class Memory {
       "the", "and", "that", "this", "with", "for", "from", "are", "was",
       "para", "com", "uma", "um", "dos", "das", "que", "por", "mais",
       "continue", "continuar", "fazer", "ajustar", "using", "used",
-      "have", "has", "had", "was", "were", "been", "being"
+      "have", "has", "had", "were", "been", "being"
     ]);
     return text
       .toLowerCase()
@@ -1159,7 +1143,11 @@ function main() {
       }
     }
     case "timeline": {
-      const tl = memory.timeline(project, { limit: memory.getArgNumber(rest, "--limit") || 50 });
+      const tl = memory.timeline(project, {
+        from: memory.getArg(rest, "--from"),
+        to: memory.getArg(rest, "--to"),
+        limit: memory.getArgNumber(rest, "--limit") || 50
+      });
       console.log(JSON.stringify(tl, null, 2));
       return 0;
     }

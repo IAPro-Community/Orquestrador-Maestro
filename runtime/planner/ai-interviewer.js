@@ -9,50 +9,6 @@ const { BatchIntentDiscoverer } = require("./batch-intent-discoverer");
 const { IntentReconciler } = require("./intent-reconciler");
 const { BatchRefinementCoordinator } = require("./batch-refinement-coordinator");
 const { ClackBatchInteractionAdapter } = require("./clack-batch-adapter");
-const { validateQuestionSet } = require("./question-set-validator");
-
-function blockerSignature(blocker) {
-  return `${blocker.type}|${blocker.dimension}|${blocker.description}`;
-}
-
-function canonicalReadinessState(intentSpec) {
-  return JSON.stringify({
-    requirements: (intentSpec.requirements || []).length,
-    constraints: (intentSpec.constraints || []).length,
-    openUnknowns: (intentSpec.unknowns || [])
-      .filter(u => u.blocking && u.status === "OPEN")
-      .map(u => `${u.id}:${u.dimension}`)
-  });
-}
-
-function resolveUnknown(unknown, blocker, answer) {
-  if (unknown && unknown.dimension === blocker.dimension && unknown.status === "OPEN") {
-    const resolved = {
-      ...unknown,
-      status: "RESOLVED",
-      metadata: { ...(unknown.metadata || {}), resolvedBy: "USER_DECISION", answeredAt: new Date().toISOString(), answer }
-    };
-    try {
-      return createIntentUnknown({
-        id: unknown.id,
-        dimension: unknown.dimension,
-        description: unknown.description,
-        reason: unknown.reason,
-        blocking: unknown.blocking === true,
-        status: "RESOLVED",
-        metadata: resolved.metadata
-      });
-    } catch (e) {
-      return resolved;
-    }
-  }
-  return unknown;
-}
-
-function createIntentUnknown(input) {
-  const core = require("../core");
-  return core.createIntentUnknown(input);
-}
 
 class AiInterviewer {
   constructor({ resolvedSkills, preflightFacts, application, intent, aiProvider = "opencode", prompts = defaultPrompts, maxDiscoveryRounds, autoPolicy }) {
@@ -154,66 +110,6 @@ class AiInterviewer {
       s.stop();
       throw e;
     }
-  }
-
-  async _runLegacyRefinement(provider) {
-    let isReady = false;
-    const s = this.p.spinner();
-    let lastQuestion = null;
-    let lastCanonicalState = null;
-
-    while (!isReady) {
-       try {
-         s.start("IA analisando intencao...");
-         this.intentSpec = await this.refiner.refine(this.intentSpec, lastQuestion && lastQuestion.answer ? {
-           blocker: lastQuestion.blocker,
-           answer: lastQuestion.answer
-         } : null);
-       } catch (e) {
-         this.p.log.error(`Falha no refinamento via IA: ${e.message}`);
-         throw e;
-       } finally {
-         s.stop();
-       }
-
-       const evalResult = evaluateReadiness(this.intentSpec);
-       if (evalResult.ready) {
-         isReady = true;
-         break;
-       }
-
-       const blocker = evalResult.blockers[0];
-       const currentState = canonicalReadinessState(this.intentSpec);
-
-       if (lastQuestion &&
-           blockerSignature(blocker) === lastQuestion.signature &&
-           currentState === lastCanonicalState) {
-         throw new Error(
-           `M2_CLARIFICATION_LOOP: a pergunta "${blocker.description}" (${blocker.dimension}) repetiu sem evolucao de estado (requirements=${this.intentSpec.requirements.length}, constraints=${this.intentSpec.constraints.length}).`
-         );
-       }
-
-       const answer = await this.p.text({
-         message: `[AI] Esclareca a seguinte pendencia (${blocker.dimension}): ${blocker.description}`,
-         placeholder: "Sua resposta (ou 'skip' para prosseguir)"
-       });
-
-       if (this.p.isCancel(answer) || answer === "skip" || answer === "q" || answer.trim() === "") {
-         break;
-       }
-
-       this.intentSpec = createIntentSpec(this.intentSpec.intent, {
-         ...this.intentSpec,
-         updatedAt: new Date().toISOString(),
-         userDecisions: [...this.intentSpec.userDecisions, `Decided [${blocker.dimension}]: ${answer}`],
-         unknowns: this.intentSpec.unknowns.map(u => resolveUnknown(u, blocker, answer))
-       });
-
-       lastQuestion = { signature: blockerSignature(blocker), blocker, answer };
-       lastCanonicalState = canonicalReadinessState(this.intentSpec);
-    }
-
-    return this.buildSpec();
   }
 
   async runBatch() {

@@ -201,3 +201,59 @@ test("rollback rejects explicit valid-looking backups that have been removed", (
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /Backup inexistente ou inválido/);
 });
+
+test("rollback rejects manually restored native skill tree when state still records update without throwing TypeError", () => {
+  const home = makeTempHome("maestro-rollback-native-mismatch-");
+  const stamp = "20261016-091234-12346";
+  const backupDir = path.join(home, ".orquestrador-public-backups", stamp);
+  const backupCore = path.join(backupDir, ".orquestrador");
+  const activeCore = path.join(home, ".orquestrador");
+  const nativeRoot = path.join(home, ".agents", "skills");
+  const activeSkill = path.join(nativeRoot, "skill-example");
+  const nativeArtifacts = path.join(backupDir, "update-artifacts", "native-skills");
+  const previousSkill = path.join(nativeArtifacts, "native-skills-before", "agents", "skill-example");
+  for (const root of [backupCore, activeCore, activeSkill, previousSkill]) fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(backupCore, "version.txt"), "before update\n");
+  fs.writeFileSync(path.join(activeCore, "version.txt"), "after update\n");
+  fs.writeFileSync(path.join(activeSkill, "SKILL.md"), "native version before\n");
+  fs.writeFileSync(path.join(previousSkill, "SKILL.md"), "native version before\n");
+
+  const prevHash = nativeSkillsSync.treeHash(previousSkill);
+  const postHash = "b".repeat(64);
+  const statePath = path.join(nativeRoot, nativeSkillsSync.STATE_FILE);
+  fs.writeFileSync(statePath, JSON.stringify({
+    version: nativeSkillsSync.STATE_VERSION,
+    skills: {
+      "skill-example": {
+        sourceTreeSha256: postHash,
+        installedTreeSha256: postHash,
+        customized: false,
+      },
+    },
+  }));
+  const stateSnapshot = path.join(nativeArtifacts, "native-skill-state-before", "agents.json");
+  fs.mkdirSync(path.dirname(stateSnapshot), { recursive: true });
+  fs.writeFileSync(stateSnapshot, JSON.stringify({
+    version: nativeSkillsSync.STATE_VERSION,
+    skills: {},
+  }));
+  fs.writeFileSync(path.join(nativeArtifacts, "native-skills-report.json"), JSON.stringify({
+    schemaVersion: 1,
+    kind: "orquestrador-native-skill-update-report",
+    operations: [{
+      program: "agents",
+      skill: "skill-example",
+      targetRoot: ".agents/skills",
+      action: "updated",
+      sourceTreeSha256: postHash,
+      installedTreeSha256: postHash,
+      previousTreeSha256: prevHash,
+      previousCopy: "native-skills-before/agents/skill-example",
+    }],
+  }, null, 2));
+
+  const run = spawnSync(process.execPath, [cli, "rollback", "--home-path", home, "--to", stamp], { encoding: "utf8" });
+  assert.notEqual(run.status, 0);
+  assert.doesNotMatch(run.stderr, /TypeError|Cannot read properties of undefined/);
+  assert.match(run.stderr, /Rollback recusado: skills restauradas, mas o estado ainda indica/);
+});
