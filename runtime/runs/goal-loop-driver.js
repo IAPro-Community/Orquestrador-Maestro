@@ -93,8 +93,10 @@ async function collectTaskResults({ store, manifest, submission, taskOutcomes })
       "GOAL_LOOP_UNAVAILABLE");
   }
   const semanticTask = async (taskId) => {
-    const persistedId = `exec-${manifest.planDigest.slice(0, 16)}-${taskId}`.slice(0, 200);
-    const persisted = await store.getTask(persistedId);
+    const legacyId = `exec-${manifest.planDigest.slice(0, 16)}-${taskId}`.slice(0, 200);
+    const persistedId = manifest.projectId ? require("./executable-submission").approvedPlanTaskId(manifest.projectId, manifest.planDigest, taskId) : legacyId;
+    const persisted = await store.getTask(persistedId) || (persistedId !== legacyId ? await store.getTask(legacyId) : null);
+    if (manifest.projectId && (persisted?.projectId !== manifest.projectId || persisted?.metadata?.executablePlanDigest !== manifest.planDigest)) throw bad("Approved plan task scope mismatch", "EXECUTABLE_ARTIFACT_MISMATCH");
     const semantic = persisted?.metadata?.semantic;
     if (!semantic || semantic.id !== taskId) {
       throw bad("approved task content is not resolvable for goal assessment",
