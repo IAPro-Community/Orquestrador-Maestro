@@ -11,6 +11,8 @@ const { createRoutePreview } = require("./provider-route-preview");
 const { createRunObserver } = require("./run-observation");
 const { createSubmissionStatusReader } = require("./submission-status");
 const { submitExecutablePlan } = require("../runs/executable-submission");
+const { samePhysicalPath } = require("../runs/workspace-authority");
+const { resolveGitContext } = require("../../orquestrador/lib/git-context");
 
 const PROTOCOL_VERSION = 1;
 const JSON_RPC_VERSION = "2.0";
@@ -23,6 +25,7 @@ const ERROR_CODES = Object.freeze({
 });
 
 function createBridge(options = {}) {
+  if (options.trustMode !== undefined && options.trustMode !== "trusted-local") throw new TypeError("Bridge v1 is a trusted-local transport, not a remote authorization boundary");
   const protocolVersion = options.protocolVersion || PROTOCOL_VERSION;
   if (!Number.isInteger(protocolVersion) || protocolVersion <= 0) {
     throw new TypeError("protocolVersion must be a positive integer");
@@ -92,7 +95,7 @@ function createBridge(options = {}) {
     "runs.submissions.get": (params) => submissions.get(params),
     "runs.submissions.poll": (params) => submissions.poll(params),
     "runs.submissions.cancel": (params) => submissions.cancel(params),
-    "runs.create": (params) => invokeRunCreate(services.runtime, params),
+    "runs.create": (params) => invokeRunCreate(services.runtime, scopedExecutionParams(params, projectRoot)),
     "runs.submit": (params) => submitRun(params, projectRoot, services),
     "resolution.get": (params) => invokeResolutionGet(services.runtime, params),
     "evidence.list": (params) => invokeList(services.runtime, "listEvidence", params),
@@ -105,7 +108,7 @@ function createBridge(options = {}) {
     "artifacts.get": (params) => invokeGet(services.runStore, "getArtifact", params, "artifactId"),
     "verification.get": (params) => invokeGet(services.runStore, "getVerification", params, "runId"),
     // Compatibilidade com o contrato inicial de comandos gerenciados.
-    "terminals.start": (params) => invokeCall(services.runtime, "startTerminal", params),
+    "terminals.start": (params) => invokeCall(services.runtime, "startTerminal", scopedExecutionParams(params, projectRoot)),
     "terminals.stop": (params) => invokeCall(services.runtime, "stopTerminal", params, "terminalId"),
     "terminals.input": (params) => invokeTerminalInput(services.runtime, params),
     "events.subscribe": () => unsupported("Push event subscriptions are unavailable; poll runs.observe"),
@@ -314,6 +317,26 @@ async function invokeTerminalInput(service, params) {
   requireTerminalData(params.input, "input");
   if (!service || typeof service.sendTerminalInput !== "function") return unsupported("sendTerminalInput is unavailable");
   return service.sendTerminalInput(params.terminalId, params.input);
+}
+
+// Compatibility execution is a trusted local operator operation, not a
+// substitute for the fenced admission API. Internal durable fields cannot
+// be supplied by legacy RPC clients.
+function scopedExecutionParams(params, projectRoot) {
+  for (const field of ["durableSubmissionId","durableManifestId","requireVerificationConfigIntegrity","executionTimeoutMs","resolutionEnforceAuthorized"]) {
+    if (Object.hasOwn(params,field)) throw invalidParams("Internal execution field is not accepted: "+field);
+  }
+  if (params.workspacePath === undefined) return { ...params, workspacePath: projectRoot };
+  if (typeof params.workspacePath !== "string" || !params.workspacePath.trim()) throw invalidParams("Invalid workspacePath");
+  const workspacePath = path.resolve(params.workspacePath);
+  try {
+    if (!samePhysicalPath(projectRoot, workspacePath)) {
+      const root = resolveGitContext(projectRoot), target = resolveGitContext(workspacePath);
+      if (root.vcs !== "git" || target.vcs !== "git" || !samePhysicalPath(target.projectRoot,workspacePath) ||
+          !samePhysicalPath(root.commonGitDir,target.commonGitDir)) throw Error("scope");
+    }
+  } catch { throw invalidParams("Execution workspace is outside the active project"); }
+  return { ...params, workspacePath };
 }
 
 async function invokeRunCreate(service, params) {
