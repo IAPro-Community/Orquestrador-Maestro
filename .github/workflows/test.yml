@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, v1]
+    branches: [main, v1, "release/1.*"]
   pull_request:
-    branches: [main, v1, "feature/*", "feat/*"]
+    branches: [main, v1, "release/1.*", "feature/*", "feat/*"]
   workflow_dispatch:
 
 concurrency:
@@ -67,7 +67,7 @@ jobs:
       - name: Run release hygiene and full tests
         if: matrix.node-version == '24'
         env:
-          VERIFY_BASE_REF: origin/${{ github.base_ref || github.ref_name }}
+          VERIFY_BASE_REF: origin/${{ github.base_ref || (startsWith(github.ref_name, 'release/1.') && 'v1') || github.ref_name }}
         run: |
           npm run verify:pr
           npm run validate
@@ -96,6 +96,7 @@ jobs:
           orquestrador-maestro memory status
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
+          orquestrador-maestro harness --help
           temp_home="$(mktemp -d)"
           fake_bin="$temp_home/bin"
           mkdir -p "$fake_bin"
@@ -224,6 +225,7 @@ jobs:
           orquestrador-maestro memory status
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
+          orquestrador-maestro harness --help
 
       - name: Smart target lifecycle
         shell: pwsh
@@ -310,6 +312,7 @@ jobs:
           orquestrador-maestro memory status
           orquestrador-maestro benchmark --help
           orquestrador-maestro context brief --help
+          orquestrador-maestro harness --help
 
       - name: Smart target lifecycle
         shell: bash

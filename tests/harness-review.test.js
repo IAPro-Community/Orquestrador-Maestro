@@ -63,3 +63,19 @@ test("failed checks stop and workspace drift invalidates otherwise green check",
   assert.equal(drift.status, "WORKSPACE_CHANGED"); assert.equal(drift.results.length, 1);
   assert.equal(drift.acceptanceCertified, false);
 });
+
+test("operator review runs the real canonical verifier in a committed fixture", async t => {
+  const { cwd, git, input } = fixture(t);
+  fs.writeFileSync(path.join(cwd, "package.json"), JSON.stringify({
+    name: "maestro-review-fixture", private: true, scripts: { test: "node check.js" }
+  }));
+  fs.writeFileSync(path.join(cwd, "check.js"), "process.exit(0);\n");
+  git("add", "."); git("commit", "-qm", "reviewed checks");
+  input.checks[0].timeoutMs = 30000;
+  const plan = previewReview(input);
+  const report = await executeReview(input, plan.approvalDigest);
+  assert.equal(report.status, "CHECKS_PASSED");
+  assert.equal(report.results[0].exitCode, 0);
+  assert.equal(report.acceptanceCertified, false);
+  assert.equal(report.dispatchAllowed, false);
+});

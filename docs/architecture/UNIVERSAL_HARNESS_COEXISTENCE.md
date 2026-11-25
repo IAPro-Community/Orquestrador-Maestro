@@ -85,7 +85,7 @@ This is a local diagnostic, not an authenticated approval, sandbox, transitive i
 
 ## Release gates and follow-up
 
-- [ ] Run full tests and installer/upgrade/rollback on final release SHA.
+- [ ] Run Tests and Security on the final release SHA (release/1.* now triggers the existing workflows without publishing); preserve v1 ancestry and execute installer/upgrade/rollback gates. The focused tests include a real npm fixture with the canonical verifier; a green fixture is not live provider certification.
 - [ ] Test the plugin in actual Codex TUI and Desktop with a native Goal, ordinary prompt, repeated turn, stop, cancel, resume and compact; record whether each event is exposed.
 - [ ] Verify Claude and OpenCode separately against current supported versions and extension contracts; do not infer Goal completion from idle/Stop.
 - [ ] Exercise Gemini, Cursor and Windsurf integrations only with explicit hook trust and preserve existing user config.
