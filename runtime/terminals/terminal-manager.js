@@ -1,6 +1,8 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { safeEnvironment } = require("../providers/process-execution");
+const { ownProcessGroup,signalManagedProcess } = require("../providers/managed-process");
 const crypto = require("node:crypto");
 const { sanitizeTerminalError, toPersistedTerminalIdentity } = require("./terminal-persistence");
 
@@ -25,6 +27,7 @@ class TerminalManager {
     this.store = store;
     this.emitEvent = emitEvent || (async () => {});
     this.active = new Map();
+    this.starting = 0;
     this.writeQueues = new Map();
     this.completionPromises = new Map();
     this.buffers = new Map();
@@ -70,6 +73,7 @@ class TerminalManager {
       completionResolve(fallback);
     } finally {
       this.completionPromises.delete(id);
+      this.writeQueues.delete(id);
     }
   }
 
@@ -85,16 +89,19 @@ class TerminalManager {
     if (typeof cwd !== "string" || !cwd) throw new TypeError("cwd is required");
     if (typeof command !== "string" || !command) throw new TypeError("command is required");
     if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) throw new TypeError("args must be an array of strings");
+    if (this.active.size + this.starting >= 32) throw new Error("TERMINAL_LIMIT_REACHED");
+    this.starting++;
     const id = terminalId();
     const startedAt = new Date().toISOString();
     const persistedIdentity = toPersistedTerminalIdentity(command, args);
     const record = { kind: "terminal", id, projectId, cwd, ...persistedIdentity, status: "starting", startedAt, pid: null };
-    await this.store.saveTerminal(record);
+    try { await this.store.saveTerminal(record); } catch (error) { this.starting--; throw error; }
     this._bufferFor(id);
     let child;
     try {
-      child = spawn(command, args, { cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+      child = spawn(command, args, { cwd, shell: false, detached:ownProcessGroup, env:safeEnvironment(), stdio: ["pipe", "pipe", "pipe"] });
     } catch (error) {
+      this.starting--;
       await this.store.saveTerminal({ ...record, status: "failed", completedAt: new Date().toISOString(), error: sanitizeTerminalError(error) });
       throw error;
     }
@@ -133,8 +140,10 @@ class TerminalManager {
     });
     const active = { child, record, finished };
     this.active.set(id, active);
+    this.starting--;
     const started = { ...record, status: "running", pid: child.pid || null };
-    await this.store.saveTerminal(started);
+    try { await this.queueWrite(id,()=>this.store.saveTerminal(started)); }
+    catch(error) { signalManagedProcess(child,"SIGKILL"); throw error; }
     await this.emitEvent(null, "terminal.started", { terminalId: id, projectId, pid: child.pid || null });
     return started;
   }
@@ -142,8 +151,8 @@ class TerminalManager {
   async stop(id) {
     const active = this.active.get(id);
     if (!active) return false;
-    active.child.kill("SIGTERM");
-    const killTimeout = setTimeout(() => { try { active.child.kill("SIGKILL"); } catch {} }, 5000);
+    signalManagedProcess(active.child,ownProcessGroup?"SIGTERM":"SIGKILL");
+    const killTimeout = setTimeout(() => { signalManagedProcess(active.child,"SIGKILL"); }, 5000);
     active.child.once("close", () => clearTimeout(killTimeout));
     return true;
   }
