@@ -126,6 +126,7 @@ Uso:
   orquestrador-maestro providers goals [--project-path PATH]
   orquestrador-maestro bridge --stdio [--with-worker] [--project-path PATH]
   orquestrador-maestro desktop-plugin <install|status|doctor|stats|remove> [opcoes]
+  orquestrador-maestro harness <status|install|update|remove|rollback|doctor> [alvo] [opcoes]
   orquestrador-maestro harness --render|--merge|--remove claude|gemini
   orquestrador-maestro harness --preview-review|--verify-review [APPROVAL_DIGEST] (JSON via stdin)
   orquestrador-maestro adapters <list|paths|validate> [id]
@@ -149,6 +150,7 @@ Opcoes de install/update/uninstall:
   --skip-community-skills     Nao copia a biblioteca comunitaria offload
   --skip-skill-sync           Nao roda o sync de skills
   --skip-desktop-plugin       Nao instala o plugin do app ChatGPT/Codex Desktop
+  --with-harness-hooks        Configura hooks/plugins opt-in para harnesses detectados (backup antes de editar)
   --dry-run                   Mostra o plano sem alterar arquivos
   --list-targets              Lista os destinos conhecidos
   --non-interactive           Evita prompts interativos
@@ -512,7 +514,9 @@ async function runInstall(args, injectedFlags = []) {
   }
 
   const skipDesktopPlugin = normalizedForOnly.includes("--skip-desktop-plugin");
-  const scriptArgs = [...args, ...injectedFlags].filter((arg) => arg !== "--skip-desktop-plugin");
+  const withHarnessHooks = normalizedForOnly.includes("--with-harness-hooks");
+  const isDryRunInstall = normalizedForOnly.includes("--dry-run");
+  const scriptArgs = [...args, ...injectedFlags].filter((arg) => arg !== "--skip-desktop-plugin" && arg !== "--with-harness-hooks");
   const runOnly = normalizedForOnly.includes("--uninstall")
     || normalizedForOnly.includes("--list-targets")
     || normalizedForOnly.includes("--dry-run");
@@ -528,6 +532,20 @@ async function runInstall(args, injectedFlags = []) {
 
   if (!skipDesktopPlugin && !runOnly) {
     maybeInstallDesktopPlugin(normalizedForOnly, result);
+  }
+  if (withHarnessHooks && result === 0 && !normalizedForOnly.includes("--uninstall") && !normalizedForOnly.includes("--list-targets")) {
+    const home = path.resolve(getArg(scriptArgs, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir());
+    try {
+      const harnessInstaller = require(path.join(rootDir, "runtime", "integrations", "harness", "installer.js"));
+      const summary = harnessInstaller.installDetectedHarnesses({ home, packageRoot: rootDir, dryRun: isDryRunInstall });
+      for (const entry of summary.results) {
+        if (entry.skipped) continue;
+        if (entry.error) console.error(`Aviso: harness ${entry.host} nao configurado (${entry.error}).`);
+        else console.log(`Harness ${entry.host}: ${entry.action}${entry.dryRun ? " (dry-run)" : ""} -> ${entry.targetPath}`);
+      }
+    } catch (error) {
+      console.error(`Aviso: harness hooks nao configurados (${error.message || error}).`);
+    }
   }
   if (!runOnly && result === 0) {
     const home = path.resolve(getArg(scriptArgs, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir());
@@ -948,6 +966,12 @@ function runDoctor(args) {
   if (strict) verifyArgs.push("--strict");
   const code = runVerify(verifyArgs);
   const findings = diagnostics.printClaudeGuidance(home);
+  try {
+    const harnessInstaller = require(path.join(rootDir, "runtime", "integrations", "harness", "installer.js"));
+    const report = harnessInstaller.harnessDoctor({ home, packageRoot: rootDir });
+    const configured = Object.entries(report.hosts).filter(([, info]) => info.configured).map(([id]) => id);
+    console.log(`Harness adapters: healthy=${report.healthy} configured=${configured.length ? configured.join(",") : "none"}`);
+  } catch {}
   return code || (strict && findings.length ? 1 : 0);
 }
 
@@ -3438,7 +3462,7 @@ async function main() {
     "runs", "usage", "projects", "project", "missions", "mission", "terminal",
     "skills", "skill-catalog", "providers", "bridge", "governance", "interaction",
     "status", "memory", "benchmark", "adapters", "targets", "go", "plan", "route",
-    "context", "workflow-lock", "workflow-state", "desktop-plugin"
+    "context", "workflow-lock", "workflow-state", "desktop-plugin", "harness"
   ]);
   if (telemetryCommands.has(command)) {
     await sendTelemetry(buildTelemetryPayload(command, args, exitCode, errorName));

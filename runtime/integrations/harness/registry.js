@@ -4,8 +4,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { TOOL_DEFINITIONS, resolveToolConfigPaths } = require("../../../orquestrador/lib/tool-registry");
-const { detectTool } = require("../../../orquestrador/lib/tool-detector");
+const { TOOL_DEFINITIONS } = require("../../../orquestrador/lib/tool-registry");
+const { configPathExists, hasMaestroMarker } = require("../../../orquestrador/lib/tool-detector");
 
 const SAFE_COMMAND = /^[a-zA-Z0-9._-]+$/;
 const PRIORITIZED_HARNESSES = Object.freeze([
@@ -254,8 +254,8 @@ function inspectHarness(harnessId, {
   }
   let configDetected = false;
   if (registryDef) {
-    const detected = detectTool(harnessId, home);
-    configDetected = detected.state === "configured" || detected.state === "detected";
+    const cfg = configPathExists(harnessId, home);
+    configDetected = Boolean(cfg?.exists && !hasMaestroMarker(home, harnessId));
   } else if (harnessId === "freebuff") {
     configDetected = fs.existsSync(path.join(home, ".agents", "skills"));
   }
@@ -263,7 +263,7 @@ function inspectHarness(harnessId, {
   const maxSupportedLevel = spec?.maxSupportedLevel || "portable";
   const compatibilityLevel = adapterState.installed && adapterState.healthy && maxSupportedLevel === "governed"
     ? "governed"
-    : (installed || configDetected ? "portable" : "portable");
+    : "portable";
   const unavailabilityReasons = [];
   if (!installed) unavailabilityReasons.push("BINARY_NOT_FOUND");
   if (installed && !version) unavailabilityReasons.push("VERSION_UNVERIFIED");
