@@ -18,6 +18,7 @@ npm ci
 VERIFY_BASE_REF="origin/$branch" npm run verify:pr
 npm run skills:contract-audit:strict
 npm run validate:paths
+npm run validate
 npm run bench:typecheck
 npm run bench:test
 pwsh -NoProfile -File scripts/validate-public.ps1
@@ -35,10 +36,11 @@ mkdir -p "$smoke/home"
 npm install --global --prefix "$smoke/prefix" "$artifact/$tarball"
 cli="$smoke/prefix/bin/orquestrador-maestro"
 [[ "$("$cli" version)" == "$version" ]]
-HOME="$smoke/home" "$cli" install --home-path "$smoke/home" --non-interactive --skip-desktop-plugin
-HOME="$smoke/home" "$cli" verify --home-path "$smoke/home" --strict
-HOME="$smoke/home" ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE=1 "$cli" update --home-path "$smoke/home" --non-interactive --skip-desktop-plugin
-HOME="$smoke/home" "$cli" verify --home-path "$smoke/home" --strict
+env -u CODEX_HOME HOME="$smoke/home" USERPROFILE="$smoke/home" "$cli" install --home-path "$smoke/home" --non-interactive --all-targets --skip-desktop-plugin
+env -u CODEX_HOME HOME="$smoke/home" USERPROFILE="$smoke/home" "$cli" verify --home-path "$smoke/home" --strict
+env -u CODEX_HOME HOME="$smoke/home" USERPROFILE="$smoke/home" ORQUESTRADOR_MAESTRO_SKIP_CLI_UPDATE=1 "$cli" update --home-path "$smoke/home" --non-interactive --all-targets --skip-desktop-plugin
+env -u CODEX_HOME HOME="$smoke/home" USERPROFILE="$smoke/home" "$cli" verify --home-path "$smoke/home" --strict
+env -u CODEX_HOME HOME="$smoke/home" USERPROFILE="$smoke/home" "$cli" doctor --home-path "$smoke/home" --strict
 [[ "$(git rev-parse HEAD)" == "$expected" && -z "$(git status --porcelain)" ]]
 node - "$artifact" "$tarball" "$expected" "$version" <<'NODE'
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto"), os = require("node:os");
@@ -50,8 +52,8 @@ const report = {
   createdAt: new Date().toISOString(),
   artifact: { filename: file, sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
     integrity: "sha512-" + crypto.createHash("sha512").update(bytes).digest("base64") },
-  checks: ["check-release-version", "verify:pr", "skills:contract-audit:strict", "validate:paths", "validate-public.ps1", "validate-skills.ps1",
-    "npm audit", "site npm ci/audit", "tarball install/verify/update/verify", "benchmark typecheck/tests"],
+  checks: ["check-release-version", "verify:pr", "skills:contract-audit:strict", "validate:paths", "validate", "validate-public.ps1", "validate-skills.ps1",
+    "npm audit", "site npm ci/audit", "tarball install/verify/update/verify/doctor", "benchmark typecheck/tests"],
   notCovered: ["other OS/Node versions", "CodeQL", "real provider homologation", "registry publication", "maintainer authorization"]
 };
 fs.writeFileSync(path.join(dir, "EVIDENCE.json"), JSON.stringify(report, null, 2) + "\n", {flag:"wx"});
