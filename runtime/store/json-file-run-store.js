@@ -722,10 +722,10 @@ class JsonFileRunStore extends RunStore {
         return async () => this._releaseFileLock(token);
       } catch (error) {
         // On Windows, opening an existing/contended lock with "wx" may
-        // surface as EPERM instead of EEXIST. Treat EPERM as contention only
+        // surface as EPERM or EBUSY instead of EEXIST. Treat EPERM/EBUSY as contention only
         // when the lock path can actually be observed; otherwise preserve the
         // real permission error.
-        let contended = error?.code === "EEXIST";
+        let contended = error?.code === "EEXIST" || (process.platform === "win32" && error?.code === "EBUSY");
         if (!contended && error?.code === "EPERM" && process.platform === "win32") {
           try {
             await fs.stat(this.lockPath);
@@ -734,7 +734,10 @@ class JsonFileRunStore extends RunStore {
             if (statError?.code === "ENOENT") {
               // Owner released between open() and stat(); retry acquisition.
               contended = true;
-            } else if (statError?.code === "EPERM") {
+            } else if (statError?.code === "EBUSY") {
+              // File exists and is held by another process with sharing lock.
+              contended = true;
+            } else if (statError?.code === "EPERM" || statError?.code === "EACCES") {
               // Some Windows/Node combinations also deny stat() while another
               // process owns the file. Verify the directory itself is writable
               // before classifying the original EPERM as contention.
