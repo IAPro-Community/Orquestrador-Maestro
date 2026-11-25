@@ -134,7 +134,10 @@ function createVerificationCheck(input) {
     exitCode,
     stdout: optionalText(input.stdout, "verification check.stdout"),
     stderr: optionalText(input.stderr, "verification check.stderr"),
-    durationMs: input.durationMs
+    durationMs: input.durationMs,
+    ...(input.timedOut === true ? { timedOut: true } : {}),
+    ...(input.truncated === true ? { truncated: true } : {}),
+    ...(input.failureCode ? { failureCode: requiredString(input.failureCode, "verification check.failureCode") } : {})
   });
 }
 
