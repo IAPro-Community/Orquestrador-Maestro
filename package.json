@@ -108,7 +108,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "node-notifier": "10.0.1",
+    "node-notifier": "12.1.0",
     "tsx": "^4.23.15"
   },
   "devDependencies": {
