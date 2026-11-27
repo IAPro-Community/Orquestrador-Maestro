@@ -251,6 +251,27 @@ function Copy-TreeWithPlaceholders {
   }
 }
 
+function Copy-TreePreservingJson {
+  # Maestro-managed profile: mirror the tree, but merge a settings file that
+  # already exists so user-owned root keys survive a reinstall.
+  param([string]$SourceDir, [string]$DestinationDir, [string]$BackupDirLabel = "")
+  $backupDir = if ($BackupDirLabel) { Join-Path $BackupDir $BackupDirLabel } else { "" }
+  foreach ($file in Get-TreeFiles -SourceDir $SourceDir) {
+    $relative = Get-RelativePath -BasePath $SourceDir -Path $file.FullName
+    $dest = Join-Path $DestinationDir $relative
+    if ($file.Extension -eq ".json" -and (Test-Path -LiteralPath $dest -PathType Leaf)) {
+      $staged = Join-Path ([System.IO.Path]::GetTempPath()) ("maestro-profile-" + [guid]::NewGuid().ToString("N") + ".json")
+      Copy-WithPlaceholders -SourceFile $file.FullName -DestinationFile $staged
+      & node (Join-Path $RepoRoot "scripts/install-profile-file.js") install $staged $dest $backupDir
+      $code = $LASTEXITCODE
+      Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue
+      if ($code -ne 0) { throw "Failed to merge managed profile file: $dest" }
+      continue
+    }
+    Copy-WithPlaceholders -SourceFile $file.FullName -DestinationFile $dest
+  }
+}
+
 function Backup-Path {
   param([string]$Path, [string]$Label)
   if (-not (Test-Path -LiteralPath $Path)) { return }
@@ -868,7 +889,11 @@ try {
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
 foreach ($target in $extraTargets) {
-  Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
+  if (Test-Path -LiteralPath (Join-Path $target.Destination ".maestro-managed")) {
+    Copy-TreePreservingJson -SourceDir $target.Source -DestinationDir $target.Destination -BackupDirLabel $target.Label
+  } else {
+    Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
+  }
 }
 foreach ($target in $extraFileTargets) {
   Copy-WithPlaceholders -SourceFile $target.Source -DestinationFile $target.Destination

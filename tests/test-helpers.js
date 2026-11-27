@@ -32,6 +32,7 @@ function runInstaller(home, {
   skipSkillSync = false,
   nonInteractive = true,
   only = [],
+  args: extraArgs = [],
   env = process.env,
   ...options
 } = {}) {
@@ -43,6 +44,7 @@ function runInstaller(home, {
     if (skipSkillSync) args.push("-SkipSkillSync");
     if (nonInteractive) args.push("-NonInteractive");
     if (only.length > 0) args.push("-Only", only.join(","));
+    args.push(...extraArgs);
     return spawnSync(powershell, args, {
       encoding: "utf8",
       env: {
@@ -62,6 +64,7 @@ function runInstaller(home, {
   if (skipSkillSync) args.push("--skip-skill-sync");
   if (nonInteractive) args.push("--non-interactive");
   if (only.length > 0) args.push("--only", only.join(","));
+  args.push(...extraArgs);
   return spawnSync("bash", args, {
     encoding: "utf8",
     env: { ...process.env, ...env, HOME: home, USERPROFILE: home, CODEX_HOME: path.join(home, ".codex") },

@@ -270,6 +270,37 @@ copy_tree_with_placeholders() {
   done < <(find "$src_dir" -type f -print0)
 }
 
+# Same mirror as copy_tree_with_placeholders, but a settings file that already
+# exists in the destination is merged instead of replaced: user-owned keys stay,
+# template keys win, and the pre-merge file is copied to the install backup.
+copy_tree_preserving() {
+  local src_dir="$1"
+  local dest_dir="$2"
+  local backup_dir="${3:-}"
+  local src_file relative dest_file staged
+
+  [ -d "$src_dir" ] || return 0
+
+  while IFS= read -r -d '' src_file; do
+    relative="${src_file#$src_dir/}"
+    dest_file="$dest_dir/$relative"
+    if [[ "$src_file" == *.json ]] && [ -f "$dest_file" ]; then
+      (umask 077; mkdir -p "$(dirname "$dest_file")")
+      staged="$(mktemp "${TMPDIR:-/tmp}/maestro-profile-XXXXXX")" || { echo "Error: cannot stage profile file: $dest_file" >&2; exit 1; }
+      copy_with_placeholders "$src_file" "$staged"
+      if ! node "$REPO_ROOT/scripts/install-profile-file.js" install "$staged" "$dest_file" \
+        "$backup_dir/$(dirname "$relative")"; then
+        rm -f "$staged"
+        echo "Error: failed to merge managed profile file: $dest_file" >&2
+        exit 1
+      fi
+      rm -f "$staged"
+      continue
+    fi
+    copy_with_placeholders "$src_file" "$dest_file"
+  done < <(find "$src_dir" -type f -print0)
+}
+
 path_under_root() {
   local path="$1"
   local root="$2"
@@ -301,8 +332,12 @@ backup_path() {
 
   [ -e "$path" ] || return 0
 
-  if [ -L "$path" ] || { [ -d "$path" ] && find "$path" -type l -print -quit 2>/dev/null | grep -q .; }; then
-    echo "Error: refusing to replace a path containing a symbolic link: $path" >&2
+  # Only refuse when the top path itself is a symlink: replacing it would
+  # write through the link. A symlink *inside* the tree (for example, a skill
+  # symlinked to a repository checkout) is preserved verbatim by cp -R, and
+  # the swap below replaces the whole directory without following links.
+  if [ -L "$path" ]; then
+    echo "Error: refusing to replace a symbolic link: $path" >&2
     return 1
   fi
 
@@ -965,10 +1000,17 @@ trap - EXIT
 copy_with_placeholders "$SOURCE_AGENTS" "$TARGET_AGENTS"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-  IFS='|' read -r src dest _label _component _kind <<EOF
+  IFS='|' read -r src dest label _component _kind <<EOF
 $entry
 EOF
-  copy_tree_with_placeholders "$src" "$dest"
+  if [ ! -f "$dest/.maestro-managed" ]; then
+    copy_tree_with_placeholders "$src" "$dest"
+  else
+    # Maestro-managed tool profile: the tree mirror stays authoritative, but a
+    # settings file that already exists is merged, never wiped, so user-owned
+    # root keys (an OpenCode `provider` block, for example) survive reinstalls.
+    copy_tree_preserving "$src" "$dest" "${BACKUP_DIR:-}/$label"
+  fi
 done
 
 for entry in "${FILE_TARGETS[@]+"${FILE_TARGETS[@]}"}"; do
