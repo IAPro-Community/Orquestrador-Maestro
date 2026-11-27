@@ -26,7 +26,7 @@ Os parâmetros legados `-CreateTag` e `-PushTag` são rejeitados. O script usa o
 
 A criação de tags e a publicação são duas operações independentes e manuais. Nenhum push ou tag aciona a publicação nesta revisão.
 
-1. Execute Tests e Security checks na branch de release oficial, para o SHA final exato. Runs de PR não certificam o commit da tag, porque podem testar um merge sintético. O gate exige branch, SHA e tentativa exatos, os dez jobs da matriz Tests e os dois de Security, além de suas etapas obrigatórias. Rejeita runs ausentes, pendentes, cancelados, falhos ou com etapas essenciais ignoradas.
+1. Execute Tests e Security checks na branch de release oficial, para o SHA final exato. Runs de PR não certificam o commit da tag, porque podem testar um merge sintético. O gate exige branch, SHA e tentativa exatos, os treze jobs da matriz Tests e os dois de Security, além de suas etapas obrigatórias. Rejeita runs ausentes, pendentes, cancelados, falhos ou com etapas essenciais ignoradas.
 2. Dispare `Prepare authorized release tag` na branch `v1` (ou `main` na linha 0.x), informe `expected_sha` completo e confirme `confirm`. O workflow cria a tag anotada, mas não publica.
 3. Dispare [Release](../.github/workflows/release.yml) nessa mesma branch, com `tag`, `expected_sha` e `confirm`. O checkout da tag precisa corresponder ao SHA aprovado e estar na ancestralidade da linha oficial. O environment `npm-release` continua necessário.
 

@@ -79,7 +79,11 @@ function recordRoute(pluginData, sessionId, data = {}) {
   const policy = stablePolicyShape(data);
   const digest = computePolicyDigest(policy);
   const current = readLedger(pluginData, sessionId) || {};
-  const repeated = current.lastPolicyDigest === digest;
+  // A routed policy is not necessarily an emitted policy. Session boundaries
+  // and workspace changes invalidate the local retention assumption.
+  const repeated = current.lastPolicyDigest === digest &&
+    current.lastInjectedPolicyDigest === digest &&
+    Boolean(data.cwd) && current.cwd === data.cwd && !current.endedAt;
   const next = updateLedger(pluginData, sessionId, {
     cwd: data.cwd || current.cwd || null,
     turnId: data.turnId || null,
@@ -107,7 +111,7 @@ function recordPolicyInjection(pluginData, sessionId, { injected, approximateTok
         injectedTokensApprox: (Number(counters.injectedTokensApprox) || 0) + Number(approximateTokens || 0)
       };
     }
-    return { counters };
+    return { counters, ...(injected ? { lastInjectedPolicyDigest: current.lastPolicyDigest || null } : {}) };
   });
 }
 
@@ -132,12 +136,13 @@ function recordToolDecision(pluginData, sessionId, decision = {}) {
 function recordCompaction(pluginData, sessionId, capsule) {
   return updateLedger(pluginData, sessionId, (current) => ({
     compactionCapsule: capsule || null,
+    lastInjectedPolicyDigest: null,
     counters: incrementCounter(current, "compactions")
   }));
 }
 
 function closeLedger(pluginData, sessionId) {
-  return updateLedger(pluginData, sessionId, { endedAt: new Date().toISOString() });
+  return updateLedger(pluginData, sessionId, { endedAt: new Date().toISOString(), lastInjectedPolicyDigest: null });
 }
 
 function ledgerStats(pluginData, sessionId) {

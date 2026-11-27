@@ -11,7 +11,7 @@ const {
   recordToolDecision
 } = require("./context-ledger");
 const { approximateTokens, injectionBudget, trimToBudget } = require("./context-budget");
-const { contextResponse, denyTool, preToolContext, rewriteTool } = require("./hook-response");
+const { contextResponse, denyTool, preToolContext } = require("./hook-response");
 const { endSession, getSession, updateSession } = require("./session-state");
 const { governToolUse } = require("./tool-governor");
 const { observeHarnessEvent } = require("../harness/contract");
@@ -64,14 +64,20 @@ function handleOpenAIHookEvent(event, options = {}) {
   if (mode === "off") return {};
 
   if (eventName === "SessionStart") {
+    const source = event?.source || "startup";
+    const sameWorkspace = current.cwd === cwd && ledger.cwd === cwd;
+    const preserve = sameWorkspace && current.mode === mode && ["resume", "compact"].includes(source);
+    updateLedger(pluginData, sessionId, {
+      lastInjectedPolicyDigest: null, endedAt: null,
+      ...(preserve ? {} : { compactionCapsule: null, complexity: null, profile: null, selectedSkills: [], allowSubagents: false })
+    });
     const next = updateSession(pluginData, sessionId, {
-      cwd,
-      mode,
-      source: event?.source || "startup",
+      cwd, mode, source, endedAt: null,
+      ...(preserve ? {} : { complexity: null, profile: null, selectedSkills: [], allowSubagents: false, turnId: null }),
       starts: increment(current.starts)
     });
     if (mode === "observe") return {};
-    const context = buildSessionContext(event?.source, next, mode, ledger);
+    const context = buildSessionContext(source, next, mode, preserve ? ledger : {});
     return context ? contextResponse("SessionStart", context) : {};
   }
 
@@ -101,6 +107,7 @@ function handleOpenAIHookEvent(event, options = {}) {
       ? goalObservation.guidance + "\n" + turnContext : turnContext,
       injectionBudget(complexity.level));
     const tokens = approximateTokens(context);
+    const emitted = mode !== "observe" && !routeRecord.repeated;
     updateSession(pluginData, sessionId, {
       cwd,
       mode,
@@ -112,10 +119,13 @@ function handleOpenAIHookEvent(event, options = {}) {
       explicitMultiagent: Boolean(complexity.explicitMultiagent),
       prompts: increment(current.prompts),
       lastPolicyDigest: routeRecord.digest,
-      lastInjectedTokens: routeRecord.repeated ? 0 : tokens,
-      injectedTokensApprox: (Number(current.injectedTokensApprox) || 0) + (routeRecord.repeated ? 0 : tokens)
+      lastInjectedTokens: emitted ? tokens : 0,
+      injectedTokensApprox: (Number(current.injectedTokensApprox) || 0) + (emitted ? tokens : 0)
     });
-    if (mode === "observe") return {};
+    if (mode === "observe") {
+      updateLedger(pluginData, sessionId, { lastInjectedPolicyDigest: null });
+      return {};
+    }
     if (routeRecord.repeated) {
       recordPolicyInjection(pluginData, sessionId, { injected: false });
       return {};
@@ -135,7 +145,6 @@ function handleOpenAIHookEvent(event, options = {}) {
     recordToolDecision(pluginData, sessionId, decision);
     if (mode === "observe") return {};
     if (decision.action === "deny") return denyTool(decision.reason);
-    if (decision.action === "rewrite") return rewriteTool(decision.updatedInput);
     if (decision.action === "context") return preToolContext(decision.reason);
     return {};
   }
@@ -165,6 +174,7 @@ function handleOpenAIHookEvent(event, options = {}) {
   }
 
   if (eventName === "PostCompact") {
+    updateLedger(pluginData, sessionId, { lastInjectedPolicyDigest: null });
     updateSession(pluginData, sessionId, { compactionsCompleted: increment(current.compactionsCompleted) });
     return {};
   }

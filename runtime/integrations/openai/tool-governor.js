@@ -53,15 +53,10 @@ function hasOutputBound(command) {
 }
 
 function rewriteBroadBashInput(input, complexity = "MICRO") {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
-  const command = commandFromInput(input);
-  if (!command || !isReadOnlyScanCommand(command) || hasOutputBound(command)) return null;
-  const level = String(complexity || "MICRO").toUpperCase();
-  const limit = level === "MICRO" ? 80 : 120;
-  const boundedCommand = /\bGet-ChildItem\b/iu.test(command)
-    ? `${command} | Select-Object -First ${limit}`
-    : `${command} | head -n ${limit}`;
-  return { ...input, command: boundedCommand };
+  // Compatibility export: a shell string cannot establish read-only behavior
+  // or preserve exit status and output semantics when a pipeline is appended.
+  // Never mutate the caller's command or grant a tool permission.
+  return null;
 }
 
 function governToolUse({ toolName, toolInput, complexity = "STANDARD", allowSubagents = false, mode = "optimize" } = {}) {
@@ -82,14 +77,10 @@ function governToolUse({ toolName, toolInput, complexity = "STANDARD", allowSuba
       return { action: "deny", toolName: normalizedTool, reason };
     }
     if (mode === "optimize" && ["MICRO", "SIMPLE"].includes(level)) {
-      const updatedInput = isBashTool(normalizedTool) ? rewriteBroadBashInput(toolInput, level) : null;
-      if (updatedInput) {
-        return {
-          action: "rewrite",
-          toolName: normalizedTool,
-          reason: `${reason} Output was bounded automatically for this read-only scan.`,
-          updatedInput
-        };
+      if (commandFromInput(toolInput)) {
+        return hasOutputBound(commandFromInput(toolInput))
+          ? { action: "allow", toolName: normalizedTool, reason: null }
+          : { action: "context", toolName: normalizedTool, reason };
       }
       return { action: "deny", toolName: normalizedTool, reason };
     }

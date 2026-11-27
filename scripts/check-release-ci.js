@@ -7,6 +7,7 @@ const MATRIX = Object.freeze({
   "test.yml": Object.freeze(Object.fromEntries([
     ["Contracts — catalogs, router, install policy (Node 22 on Ubuntu)", ["Contract gate (no PowerShell required)", "Installer E2E (--full, isolated temp home)"]],
     ...["20.19.0", "22", "24"].map(n => ["Full tests — Node "+n+" on ubuntu-latest", [n==="24"?"Run release hygiene and full tests":"Run tests", "Validate native Maestro Skill Contract V2", "npm pack dry-run", "Create tarball", "Install from tarball", "CLI smoke tests"]]),
+    ...["ubuntu-latest", "windows-latest", "macos-latest"].map(os => ["Issue #44 homologation — "+os, ["Run #44 homologation", "Record architecture"]]),
     ...["20.19.0", "24"].map(n => ["Benchmark smoke — Node "+n+" on Ubuntu", ["Benchmark list", "Benchmark validate", "Benchmark typecheck", "Benchmark unit tests"]]),
     ...["Windows", "macOS"].flatMap(os => ["20.19.0", "24"].map(n => ["Full + smoke tests — Node "+n+" on "+os, ["Run full tests", "Run smoke tests", "Create tarball", "Install from tarball", "CLI smoke tests", "Smart target lifecycle", ...(os==="Windows"?["Verify fenced admission and trusted supervisor before full suite", "Public validation (secrets, forbidden files, mojibake)", "PowerShell installer E2E (--Full)", "doctor --strict (loss detection)"]:[])]]))
   ])),

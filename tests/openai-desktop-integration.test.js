@@ -217,7 +217,7 @@ test("policy digest changes when the effective context budget changes", () => {
 });
 
 
-test("PreToolUse returns updatedInput for safe read-only Bash scans", () => {
+test("PreToolUse preserves shell input and native permission decisions", () => {
   const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-openai-rewrite-"));
   handleOpenAIHookEvent({
     hook_event_name: "UserPromptSubmit",
@@ -235,10 +235,11 @@ test("PreToolUse returns updatedInput for safe read-only Bash scans", () => {
     tool_input: { command: "rg TODO ." }
   }, { pluginData, mode: "optimize" });
 
-  assert.equal(result.hookSpecificOutput.permissionDecision, "allow");
-  assert.equal(result.hookSpecificOutput.updatedInput.command, "rg TODO . | head -n 80");
+  assert.equal(result.hookSpecificOutput.permissionDecision, undefined);
+  assert.equal(result.hookSpecificOutput.updatedInput, undefined);
+  assert.match(result.hookSpecificOutput.additionalContext, /Narrow this repository-wide scan/);
   const ledger = readLedger(pluginData, "s-rewrite");
-  assert.equal(ledger.counters.toolRewrites, 1);
+  assert.equal(ledger.counters.toolWarnings, 1);
 });
 
 
@@ -301,4 +302,36 @@ test("native Goal observation respects observe and off modes", () => {
   } finally {
     fs.rmSync(pluginData, { recursive: true, force: true });
   }
+});
+
+
+test("policy deduplication is reset on session boundaries and workspace changes", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-retention-"));
+  try {
+    const options = { pluginData, mode: "optimize", route: () => route("SIMPLE") };
+    const event = { session_id: "retention", cwd: process.cwd() };
+    const prompt = (cwd = event.cwd) => handleOpenAIHookEvent({ ...event, cwd, hook_event_name: "UserPromptSubmit", prompt: "small change" }, options);
+    assert.ok(prompt().hookSpecificOutput.additionalContext);
+    assert.deepEqual(prompt(), {});
+    for (const source of ["resume", "clear", "startup", "compact"]) {
+      handleOpenAIHookEvent({ ...event, hook_event_name: "SessionStart", source }, options);
+      assert.ok(prompt().hookSpecificOutput.additionalContext);
+      assert.deepEqual(prompt(), {});
+    }
+    handleOpenAIHookEvent({ ...event, hook_event_name: "PostCompact" }, options);
+    assert.ok(prompt().hookSpecificOutput.additionalContext);
+    assert.ok(prompt(path.dirname(event.cwd)).hookSpecificOutput.additionalContext);
+    assert.deepEqual(prompt(path.dirname(event.cwd)), {});
+  } finally { fs.rmSync(pluginData, { recursive: true, force: true }); }
+});
+
+test("observe mode never records injected tokens or suppresses a later active policy", () => {
+  const pluginData = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-observe-"));
+  try {
+    const event = { hook_event_name: "UserPromptSubmit", session_id: "observe", cwd: process.cwd(), prompt: "small change" };
+    const options = { pluginData, route: () => route("SIMPLE") };
+    assert.deepEqual(handleOpenAIHookEvent(event, { ...options, mode: "observe" }), {});
+    assert.equal(readLedger(pluginData, "observe").lastInjectedPolicyDigest, null);
+    assert.ok(handleOpenAIHookEvent(event, { ...options, mode: "optimize" }).hookSpecificOutput.additionalContext);
+  } finally { fs.rmSync(pluginData, { recursive: true, force: true }); }
 });

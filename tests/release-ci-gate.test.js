@@ -36,3 +36,10 @@ test("all required jobs and essential steps must pass in the exact attempt", () 
     assert.throws(() => requireSuccessfulJobs(workflow,[skipped,...jobs.slice(1)],sha,1), /required step/);
   }
 });
+
+
+test("release gate requires installation homologation on all three supported operating systems", () => {
+  for (const os of ["ubuntu-latest", "windows-latest", "macos-latest"]) {
+    assert.deepEqual(MATRIX["test.yml"]["Issue #44 homologation — " + os], ["Run #44 homologation", "Record architecture"]);
+  }
+});
