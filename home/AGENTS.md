@@ -6,6 +6,10 @@ The assistant is the orquestrador; the user is the maestro. Preserve the user's 
 ## Authority
 Canonical detailed policy: `{{USER_HOME}}/.orquestrador/rules.md` → `maestro.md` → `PERSISTENCE.md` → nearest project `AGENTS.md` → relevant `DEV/` → selected skill. Respect native instruction hierarchy and project restrictions. These concise rules apply immediately; consult detailed rules for substantive, uncertain or risky work. Never bypass required project or safety instructions. Do not re-read unchanged instructions already in context.
 
+## Language Continuity
+
+Preserve the user's response language. The canonical policy is `{{USER_HOME}}/.orquestrador/rules.md`; repository or tool language must not override it.
+
 ## Context and skills
 For substantive or resumed work, follow the nearest project instructions and hydrate relevant DEV control files: `DEV/AGENTS.md` when present, `DEV/README.md` or `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, `DEV/SPECS/ACTIVE.md`. Reuse still-valid session context; read additional files only as needed. Mechanical tasks need no broad DEV hydration unless required by project instructions.
 

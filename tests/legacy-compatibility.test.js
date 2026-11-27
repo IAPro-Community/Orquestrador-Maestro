@@ -161,6 +161,6 @@ test("program entrypoints and tool profiles retain native integration contracts"
     "tool-profiles/claude/hooks.md", "tool-profiles/opencode/hooks.md", "tool-profiles/cursor/hooks.md",
     "tool-profiles/gemini/hooks.md", "tool-profiles/windsurf/hooks.md"
   ]) {
-    assert.match(readText(hookFile), /SKILLS_ROUTER\.json/u, `${hookFile} must keep compact skill routing`);
+    assert.match(readText(hookFile), /route explain --compact --json/u, `${hookFile} must keep compact skill routing`);
   }
 });

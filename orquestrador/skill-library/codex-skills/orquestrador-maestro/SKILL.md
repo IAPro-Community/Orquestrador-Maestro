@@ -8,7 +8,7 @@ source: orquestrador-native
 
 # Orquestrador Maestro
 
-Apply the shared `~/AGENTS.md` operating contract and nearest project instructions. Do not reload unchanged policy already present in the session. Consult detailed canonical rules for substantive, uncertain or risky work.
+In the active client, apply the shared `~/AGENTS.md` operating contract and nearest project instructions. Apply the hierarchy `rules -> maestro -> local AGENTS` subject to native instruction precedence. Do not reload unchanged policy already present in the session. Consult detailed canonical rules for substantive, uncertain or risky work.
 
 For specialized skills, reuse a hook-provided route or run `orquestrador-maestro route explain --compact --json "task summary"` from the project directory, safely quoting the summary as data. Open only selected skill bodies. If the router is unavailable, use native skill discovery or a relevant index excerpt. Never load full routing catalogs.
 

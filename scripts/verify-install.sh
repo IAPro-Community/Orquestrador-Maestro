@@ -333,7 +333,7 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
 
   OPENCODE_CONFIG="$HOME_PATH/.config/opencode/opencode.json"
   if should_check_profile_path "$OPENCODE_CONFIG" && [ -f "$OPENCODE_CONFIG" ]; then
-    if ! node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); const a=c.instructions; if(!Array.isArray(a)||!a.includes("~/AGENTS.md")||a.some(x=>typeof x==="string"&&/^~/\.orquestrador(?:-maestro)?/(?:SKILLS_ROUTER\.json|SKILLS_INDEX\.md)$/.test(x)))process.exit(1)' "$OPENCODE_CONFIG"; then
+    if ! node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); const a=c.instructions; if(!Array.isArray(a)||!a.includes("~/AGENTS.md")||a.some(x=>typeof x==="string"&&/^~\/\.orquestrador(?:-maestro)?\/(?:SKILLS_ROUTER\.json|SKILLS_INDEX\.md)$/.test(x)))process.exit(1)' "$OPENCODE_CONFIG"; then
       add_issue "OpenCode global config must use the compact contract without eager catalogs: $OPENCODE_CONFIG"
     fi
   fi
