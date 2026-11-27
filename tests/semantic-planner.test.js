@@ -226,6 +226,9 @@ test("SemanticPlanner retries on malformed JSON and throws STRUCTURED_OUTPUT_FAI
   );
 
   assert.equal(app.executeCalls.length, 3);
+  assert.match(app.executeCalls[1].prompt, /Previous response was not valid JSON/);
+  assert.equal(app.executeCalls[1].prompt, app.executeCalls[2].prompt, "retry feedback must not grow cumulatively");
+  assert.doesNotMatch(app.executeCalls[1].prompt, /Invalid JSON output that cannot be parsed/);
 });
 
 test("SemanticPlanner succeeds on retry if subsequent attempt returns valid JSON", async () => {
@@ -413,4 +416,22 @@ test("SemanticPlanner buildFallback can be invoked without another provider call
   assert.equal(fallback.planningTelemetry.modelCalls, 0);
   assert.equal(fallback.planningTelemetry.fallbackUsed, true);
   assert.equal(app.executeCalls.length, 0);
+});
+
+
+test("SemanticPlanner corrective retry uses bounded validator codes instead of rejected content", async () => {
+  const app = new MockApp(call => JSON.stringify({
+    tasks: [{ id: "t1", title: call === 1 ? "IMPLEMENT" : "Inspect existing configuration",
+      objective: call === 1 ? "SENSITIVE_REJECTED_OUTPUT" : "Read patterns",
+      type: "analyze", dependsOn: [] }],
+    assumptions: [], rationale: "fixture"
+  }));
+  const planner = new SemanticPlanner({ application: app, plannerTarget: { providerId: "opencode", model: "local", local: true } });
+  const result = await planner.plan({ missionBrief: { id: "retry", objective: "Inspect configuration", requirements: [] },
+    taskRelevantContext: { items: [] }, allowFallback: false, maxAttempts: 2 });
+  assert.equal(app.executeCalls.length, 2);
+  assert.match(app.executeCalls[1].prompt, /GENERIC_TASK_TITLE_REJECTED/);
+  assert.doesNotMatch(app.executeCalls[1].prompt, /SENSITIVE_REJECTED_OUTPUT/);
+  assert.ok(app.executeCalls[1].prompt.startsWith(app.executeCalls[0].prompt));
+  assert.notEqual(result.planningTelemetry.attempts[0].promptHash, result.planningTelemetry.attempts[1].promptHash);
 });

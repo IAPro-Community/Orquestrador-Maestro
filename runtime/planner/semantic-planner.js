@@ -86,6 +86,21 @@ function normalizedProviderOptions(providerOptions = {}) {
   return Object.fromEntries(allowed.filter((key) => providerOptions[key] !== undefined).map((key) => [key, providerOptions[key]]));
 }
 
+// Retry guidance is bounded and uses only validator-owned codes. Never copy
+// the rejected response or raw parser error into the next prompt.
+function correctivePrompt(basePrompt, failureKind, blockerCodes = []) {
+  const codes = [...new Set(blockerCodes.filter(code =>
+    typeof code === "string" && /^[A-Z][A-Z0-9_]{0,79}$/u.test(code)
+  ))].slice(0, 12);
+  const feedback = failureKind === "parse"
+    ? "Previous response was not valid JSON. Return exactly one complete JSON object without prose or markdown."
+    : failureKind === "structure"
+      ? "Previous response did not match the task schema. Include required task fields and valid enumerated values."
+      : "Previous graph failed validation. Resolve these blocker codes: " + (codes.join(", ") || "INVALID_PROPOSAL") + ".";
+  return basePrompt + "\n\nCorrection: " + feedback +
+    " Preserve the original objective, constraints and evidence. Do not weaken acceptance criteria.";
+}
+
 class SemanticPlanner {
   constructor({
     application,
@@ -176,13 +191,14 @@ class SemanticPlanner {
       throw error;
     }
 
-    const prompt = this._buildPrompt(missionBrief, taskRelevantContext, resolvedSkills);
+    const basePrompt = this._buildPrompt(missionBrief, taskRelevantContext, resolvedSkills);
     const attempts = [];
     let lastError = null;
     let lastFailureKind = "unknown";
     let lastBlockerCodes = [];
 
     for (let attempt = 1; attempt <= attemptLimit; attempt++) {
+      const prompt = attempt === 1 ? basePrompt : correctivePrompt(basePrompt, lastFailureKind, lastBlockerCodes);
       let result;
       try {
         const handle = await provider.execute({
@@ -202,7 +218,7 @@ class SemanticPlanner {
         }
       } catch (err) {
         attempts.push(buildPlanningAttempt({
-          attempt, prompt, providerId, model: this.plannerTarget.model, result: null,
+          attempt, prompt, providerId, model: this.plannerTarget.model, result: result || null,
           outcome: "provider-error", failureKind: "provider"
         }));
         throw planningError(`Provider execution failed: ${err.message}`, {

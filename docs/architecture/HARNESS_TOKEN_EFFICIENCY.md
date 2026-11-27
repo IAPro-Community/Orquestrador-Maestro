@@ -17,3 +17,6 @@ The OpenAI plugin retains its existing ledger and governor. Do not reuse ledger 
 
 ## Codex retention and tool semantics
 The default optimize mode advises narrower shell scans without changing commands, output semantics, exit codes, or host permissions. Strict mode can explicitly deny broad scans; no shell rewrite grants approval. The local ledger suppresses repeated policies only after emission in the same workspace and invalidates the assumption at session start, compaction and end. This is conservative local bookkeeping, not proof of host context retention. Real interactive benchmark evidence is still required.
+
+
+Semantic planning retries retain the original contract and append one bounded correction from validator-owned codes or the parse/structure category, never rejected output. The retry budget and fail-closed provider error behavior remain unchanged. See [release finalization](RELEASE_1_2_FINALIZATION.md).
