@@ -884,17 +884,17 @@ Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
 foreach ($target in $extraTargets) {
   $markerPath = Join-Path $target.Destination ".maestro-managed"
-  if ($target.ManagedTool -and (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+  if ($target.ManagedTool -and ((Test-Path -LiteralPath $markerPath -PathType Leaf) -or ($target.ManagedTool -eq "opencode" -and (Test-Path -LiteralPath (Join-Path $target.Destination "opencode.json") -PathType Leaf)))) {
     Copy-TreePreservingJson -SourceDir $target.Source -DestinationDir $target.Destination -BackupDirLabel $target.Label
   } else {
     Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
-    if ($target.ManagedTool -and $null -eq (Get-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue)) {
+  }
+  if ($target.ManagedTool -and $null -eq (Get-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue)) {
       # Mark the tool profile with the canonical LF marker so both reinstalls
       # (Copy-TreePreservingJson) and `targets` CLI recognize it.
       New-Item -ItemType Directory -Path $target.Destination -Force | Out-Null
       $markerBody = "managed by orquestrador-maestro`ntool: $($target.ManagedTool)`n"
       [System.IO.File]::WriteAllText($markerPath, $markerBody, [System.Text.UTF8Encoding]::new($false))
-    }
   }
 }
 foreach ($target in $extraFileTargets) {

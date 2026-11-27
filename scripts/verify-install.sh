@@ -299,22 +299,16 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
   assert_path "$HOME_PATH/.ai-standards/core/rules.md" "Antigravity AI standards rules"
   assert_path "$HOME_PATH/.ai-standards/core/workflow.md" "Antigravity AI standards workflow"
 
-  assert_file_contains "$HOME_PATH/.codex/AGENTS.md" "DEV/WORKLOG\\.md" "Codex AGENTS profile"
-  assert_file_contains "$HOME_PATH/.codex/AGENTS.md" "PERSISTENCE\\.md" "Codex AGENTS profile"
-  assert_file_contains "$HOME_PATH/.config/opencode/AGENTS.md" "DEV/WORKLOG\\.md" "OpenCode global AGENTS profile"
-  assert_file_contains "$HOME_PATH/.config/opencode/AGENTS.md" "PERSISTENCE\\.md" "OpenCode global AGENTS profile"
-  assert_file_contains "$HOME_PATH/.claude/CLAUDE.md" "DEV/WORKLOG\\.md" "Claude global memory"
-  assert_file_contains "$HOME_PATH/.claude/CLAUDE.md" "PERSISTENCE\\.md" "Claude global memory"
-  assert_file_contains "$HOME_PATH/.cursor/AGENTS.md" "DEV/WORKLOG\\.md" "Cursor AGENTS profile"
-  assert_file_contains "$HOME_PATH/.cursor/AGENTS.md" "PERSISTENCE\\.md" "Cursor AGENTS profile"
-  assert_file_contains "$HOME_PATH/.cursor/rules/orquestrador-maestro.mdc" "DEV/WORKLOG\\.md" "Cursor Orquestrador rule"
+  assert_file_contains "$HOME_PATH/.codex/AGENTS.md" "AGENTS.md" "Codex AGENTS profile"
+  assert_file_contains "$HOME_PATH/.config/opencode/AGENTS.md" "AGENTS.md" "OpenCode global AGENTS profile"
+  assert_file_contains "$HOME_PATH/.claude/CLAUDE.md" "AGENTS.md" "Claude global memory"
+  assert_file_contains "$HOME_PATH/.cursor/AGENTS.md" "AGENTS.md" "Cursor AGENTS profile"
+  assert_file_contains "$HOME_PATH/.cursor/rules/orquestrador-maestro.mdc" "AGENTS.md" "Cursor Orquestrador rule"
   assert_file_contains "$HOME_PATH/.cursor/commands/maestro.md" "DEV/HANDOFF\\.md" "Cursor Maestro command"
-  assert_file_contains "$HOME_PATH/.gemini/GEMINI.md" "DEV/WORKLOG\\.md" "Gemini global context"
-  assert_file_contains "$HOME_PATH/.gemini/GEMINI.md" "PERSISTENCE\\.md" "Gemini global context"
-  assert_file_contains "$HOME_PATH/.codeium/windsurf/memories/global_rules.md" "DEV/WORKLOG\\.md" "Windsurf global rules"
-  assert_file_contains "$HOME_PATH/.codeium/windsurf/memories/global_rules.md" "PERSISTENCE\\.md" "Windsurf global rules"
-  assert_file_contains "$HOME_PATH/.mimo/AGENTS.md" "PERSISTENCE\\.md" "MiMo Code global AGENTS profile"
-  assert_file_contains "$HOME_PATH/.kimi-code/AGENTS.md" "PERSISTENCE\\.md" "Kimi Code global AGENTS profile"
+  assert_file_contains "$HOME_PATH/.gemini/GEMINI.md" "AGENTS.md" "Gemini global context"
+  assert_file_contains "$HOME_PATH/.codeium/windsurf/memories/global_rules.md" "AGENTS.md" "Windsurf global rules"
+  assert_file_contains "$HOME_PATH/.mimo/AGENTS.md" "AGENTS.md" "MiMo Code global AGENTS profile"
+  assert_file_contains "$HOME_PATH/.kimi-code/AGENTS.md" "AGENTS.md" "Kimi Code global AGENTS profile"
   assert_file_contains "$HOME_PATH/.kimi-code/config.toml" "extra_skill_dirs" "Kimi Code global config"
   assert_file_contains "$HOME_PATH/.grok/config.toml" "\\.agents/skills" "Grok global config"
   assert_file_contains "$HOME_PATH/antigravity-rules.json" "\\.ai-standards" "Antigravity global rules"
@@ -332,18 +326,15 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
 
   for hook_check in "${HOOK_CHECKS[@]}"; do
     IFS='|' read -r hook_path hook_max hook_label <<< "$hook_check"
-    assert_file_contains "$hook_path" "SKILLS_ROUTER\\.json" "$hook_label"
+    assert_file_contains "$hook_path" "route explain --compact" "$hook_label"
     assert_file_line_count_at_most "$hook_path" "$hook_max" "$hook_label"
     assert_file_not_contains "$hook_path" "(GLOBAL SKILLS HOOKS|Complete Skill Reference with Descriptions)" "$hook_label"
   done
 
   OPENCODE_CONFIG="$HOME_PATH/.config/opencode/opencode.json"
   if should_check_profile_path "$OPENCODE_CONFIG" && [ -f "$OPENCODE_CONFIG" ]; then
-    if ! grep -q "~/$MAESTRO_REFERENCE/rules.md" "$OPENCODE_CONFIG"; then
-      add_issue "OpenCode global config does not include Orquestrador rules: $OPENCODE_CONFIG"
-    fi
-    if ! grep -q "~/$MAESTRO_REFERENCE/maestro.md" "$OPENCODE_CONFIG"; then
-      add_issue "OpenCode global config does not include Orquestrador maestro: $OPENCODE_CONFIG"
+    if ! node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); const a=c.instructions; if(!Array.isArray(a)||!a.includes("~/AGENTS.md")||a.some(x=>typeof x==="string"&&/^~\/\.orquestrador(?:-maestro)?\/(?:SKILLS_ROUTER\.json|SKILLS_INDEX\.md)$/.test(x)))process.exit(1)' "$OPENCODE_CONFIG"; then
+      add_issue "OpenCode global config must use the compact contract without eager catalogs: $OPENCODE_CONFIG"
     fi
   fi
 fi

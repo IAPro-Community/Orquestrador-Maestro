@@ -1012,19 +1012,19 @@ for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
   IFS='|' read -r src dest label _component _kind managed_tool <<EOF
 $entry
 EOF
-  if [ -n "$managed_tool" ] && [ -f "$dest/.maestro-managed" ]; then
-    # Maestro-managed tool profile: the tree mirror stays authoritative, but a
+  if [ -n "$managed_tool" ] && { [ -f "$dest/.maestro-managed" ] || { [ "$managed_tool" = "opencode" ] && [ -f "$dest/opencode.json" ]; }; }; then
+    # Maestro-managed or existing OpenCode tool profile: the tree mirror stays authoritative, but a
     # settings file that already exists is merged, never wiped, so user-owned
     # root keys (an OpenCode `provider` block, for example) survive reinstalls.
     copy_tree_preserving "$src" "$dest" "${BACKUP_DIR:-}/$label"
   else
     copy_tree_with_placeholders "$src" "$dest"
-    if [ -n "$managed_tool" ] && [ ! -e "$dest/.maestro-managed" ] && [ ! -L "$dest/.maestro-managed" ]; then
+  fi
+  if [ -n "$managed_tool" ] && [ ! -e "$dest/.maestro-managed" ] && [ ! -L "$dest/.maestro-managed" ]; then
       # Mark the tool profile with the canonical ownership marker so both
       # reinstalls (copy_tree_preserving) and `targets` CLI recognize it.
       mkdir -p "$dest"
       printf 'managed by orquestrador-maestro\ntool: %s\n' "$managed_tool" > "$dest/.maestro-managed"
-    fi
   fi
 done
 

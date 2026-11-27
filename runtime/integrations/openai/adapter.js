@@ -1,12 +1,6 @@
 "use strict";
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { resolveMaestroRoot } = require("../../config/maestro-paths");
-const { classifyComplexity } = require("../../planner/complexity-gate");
-const { collectRoutingSignals } = require("../../planner/routing-signals");
-const { SkillRouterV3 } = require("../../planner/skill-router-v3");
+const { routePrompt } = require("../harness/routing");
 const { buildCompactionCapsule } = require("./context-capsule");
 const {
   closeLedger,
@@ -28,33 +22,6 @@ const MODES = Object.freeze(["off", "observe", "optimize", "strict"]);
 function resolveMode(value = process.env.MAESTRO_OPENAI_MODE) {
   const mode = String(value || "optimize").trim().toLowerCase();
   return MODES.includes(mode) ? mode : "optimize";
-}
-
-function hasV3SkillManifest(root) {
-  try {
-    const document = JSON.parse(fs.readFileSync(path.join(root, "SKILLS_MANIFEST.json"), "utf8"));
-    return document.version === 3;
-  } catch {
-    return false;
-  }
-}
-
-function resolveRouter() {
-  const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
-  const installedRoot = resolveMaestroRoot({ home });
-  const bundledRoot = path.resolve(__dirname, "..", "..", "..", "orquestrador");
-  const maestroRoot = hasV3SkillManifest(installedRoot) ? installedRoot : bundledRoot;
-  return new SkillRouterV3({ maestroRoot });
-}
-
-function routePrompt(prompt, cwd, options = {}) {
-  if (typeof options.route === "function") return options.route(prompt, cwd);
-  const preliminary = classifyComplexity(prompt);
-  const routingSignals = collectRoutingSignals(path.resolve(cwd || process.cwd()), {
-    intent: prompt,
-    memory: null
-  });
-  return resolveRouter().resolve(prompt, routingSignals);
 }
 
 function selectedSkillIds(result) {

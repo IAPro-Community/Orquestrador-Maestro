@@ -4,7 +4,7 @@ Chat history is not durable project memory. Every supported software must recove
 
 ## Rehydrate before work
 
-When a project contains `DEV/`, read the files that exist in this order:
+For substantive, resumed or uncertain work, read the relevant existing `DEV/` control files in this order. Reuse valid session context; mechanical tasks need no broad hydration unless project instructions require it:
 
 1. `DEV/README.md` or `DEV/INDEX.md`
 2. `DEV/HANDOFF.md`
@@ -16,7 +16,7 @@ Do not infer missing context from an old chat, another tool, or memory. If the c
 
 ## Persist after substantive work
 
-Before ending a session, switching tools, or handing work to another agent:
+Before ending a session, switching tools, or handing work to another agent after substantive work:
 
 - update `DEV/WORKLOG.md` with a short entry containing change, reason, verification, and next context;
 - refresh `DEV/VERIFY.md` with the checks and their results;

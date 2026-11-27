@@ -1,13 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "~/AGENTS.md",
-    "~/.orquestrador/rules.md",
-    "~/.orquestrador/maestro.md",
-    "~/.orquestrador/SKILLS_INDEX.md",
-    "~/.orquestrador/SKILLS_ROUTER.json",
-    "~/.opencode/SYSTEM.md",
-    "~/.opencode/rules.md",
-    "~/.opencode/hooks.md"
+    "~/AGENTS.md"
   ]
 }

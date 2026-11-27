@@ -6,7 +6,7 @@
   "capabilityModel": {
     "install": "Installers copy fixed symbolic targets only; they never accept arbitrary source or destination paths from CLI flags.",
     "activation": "Entrypoints point each tool back to AGENTS.md, .orquestrador/rules.md, .orquestrador/maestro.md, and project DEV documentation when present.",
-    "contextEconomy": "Tools should load compact contracts, indexes, routers, and task-specific skills before opening large catalogs or full DEV trees.",
+    "contextEconomy": "Tools should load the shared compact contract and use local compact routing; load only task-specific skills and DEV context.",
     "uninstall": "Uninstall is conservative: core files can be removed, shared skill/tool directories remove only files mapped from this public snapshot."
   },
   "canonical": {
@@ -55,7 +55,7 @@
         "commandRewrite": false,
         "statusline": false,
         "settingsMerge": "file copy with backup",
-        "verify": "OpenCode config includes ~/.orquestrador/rules.md and ~/.orquestrador/maestro.md"
+        "verify": "OpenCode config includes ~/AGENTS.md and excludes eager routing catalogs"
       },
       "primary": [
         "{{USER_HOME}}/.config/opencode/AGENTS.md",

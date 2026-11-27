@@ -175,10 +175,17 @@ function evaluateContinuationAuthority({
   });
 }
 
-function hookResponse(host, event) {
+function hookResponse(host, event, options = {}) {
   const observed = observeHarnessEvent(host, event);
-  if (!observed?.guidance) return {};
-  const output = { additionalContext: observed.guidance };
+  if (!observed || !["claude", "codex", "gemini"].includes(host)) return {};
+  let guidance = observed.guidance;
+  if (!guidance && observed.kind === "prompt" && options.routeNative === true &&
+      ["claude", "gemini"].includes(host)) {
+    const { nativeRoutingGuidance } = require("./routing");
+    guidance = nativeRoutingGuidance(event.prompt, event.cwd, options);
+  }
+  if (!guidance) return {};
+  const output = { additionalContext: guidance };
   if (host === "claude" || host === "codex") output.hookEventName = event.hook_event_name;
   if (host !== "claude" && host !== "codex" && host !== "gemini") return {};
   return { hookSpecificOutput: output };

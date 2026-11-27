@@ -137,6 +137,23 @@ function main(argv) {
     fs.copyFileSync(destination, path.join(backupDir, path.basename(destination)));
   }
   const merged = mergeDeep(existing, overlay);
+  // Migrate only known Maestro paths, not arbitrary user instructions.
+  if (path.basename(destination) === "opencode.json" &&
+      overlay.$schema === "https://opencode.ai/config.json" &&
+      Array.isArray(overlay.instructions) && overlay.instructions.length === 1 &&
+      overlay.instructions[0] === "~/AGENTS.md" && Array.isArray(existing.instructions)) {
+    const legacy = new Set([
+      "~/AGENTS.md", "~/.orquestrador/rules.md", "~/.orquestrador/maestro.md",
+      "~/.orquestrador/SKILLS_INDEX.md", "~/.orquestrador/SKILLS_ROUTER.json",
+      "~/.orquestrador-maestro/rules.md", "~/.orquestrador-maestro/maestro.md",
+      "~/.orquestrador-maestro/SKILLS_INDEX.md", "~/.orquestrador-maestro/SKILLS_ROUTER.json",
+      "~/.opencode/SYSTEM.md", "~/.opencode/rules.md", "~/.opencode/hooks.md"
+    ]);
+    merged.instructions = [...new Set([
+      ...overlay.instructions,
+      ...existing.instructions.filter(entry => !legacy.has(entry))
+    ])];
+  }
   if (JSON.stringify(merged) === JSON.stringify(existing)) return;
   atomicWriteFile(destination, `${JSON.stringify(merged, null, 2)}\n`);
 }

@@ -45,7 +45,11 @@ const COMPLEXITY_BUDGETS = Object.freeze({
   })
 });
 
+const COMPOUND_TASK = /(?:&&|\|\||;|\b(?:e|and|then|depois|also|também)\s+(?:implemente|implementar|crie|criar|adicione|adicionar|refatore|refatorar|altere|alterar|migre|migrar|corrija|corrigir|implement|create|add|refactor|rewrite|migrate|change|fix)\b)/iu;
+
 const MICRO_PATTERNS = Object.freeze([
+  /^(?:fix|correct)\s+(?:the\s+|a\s+|this\s+)?typo\b/iu,
+  /^rename\s+(?:the\s+|a\s+|this\s+)?(?:variable|constant|file)\b/iu,
   /^git\s+(status|diff|add|stage)(?:\s|$)/iu,
   /^(faça|faca|fazer|crie|gere)?\s*(um\s+)?git\s+commit\b/iu,
   /^(commit|commitar)\b.*\b(alterações|alteracoes|mudanças|mudancas|changes)?\s*$/iu,
@@ -55,6 +59,9 @@ const MICRO_PATTERNS = Object.freeze([
 ]);
 
 const SIMPLE_PATTERNS = Object.freeze([
+  /^(?:corrija|corrigir|ajuste|ajustar)\s+(?:(?:o|a|um|uma|esse|essa|este|esta)\s+)?(?:alinhamento|texto|label|overflow|espaçamento|espacamento|ícone|icone)\b/iu,
+  /^(?:fix|adjust|correct)\s+(?:(?:the|a|this)\s+)?(?:alignment|spacing|label|text|overflow|icon)\b/iu,
+  /^(?:add|write)\s+(?:a\s+)?unit\s+test\b/iu,
   /\badicionar\s+(um\s+)?teste\s+(unitário|unitario)?\s*(para|de)\b/iu,
   /\bcorrigir\s+(um\s+)?(overflow|label|texto|copy|ícone|icone|spacing|espaçamento|espacamento)\b/iu,
   /\bajustar\s+(uma\s+)?(função|funcao|componente|query|configuração|configuracao)\b/iu,
@@ -145,6 +152,7 @@ function classifyComplexity(intent, options = {}) {
   const simple = SIMPLE_PATTERNS.find((pattern) => pattern.test(classificationText));
   const micro = MICRO_PATTERNS.find((pattern) => pattern.test(classificationText));
   const highRiskTerms = containsAny(text, HIGH_RISK_TERMS);
+  const compoundTask = COMPOUND_TASK.test(classificationText);
 
   if (deep) {
     level = "DEEP";
@@ -152,10 +160,10 @@ function classifyComplexity(intent, options = {}) {
   } else if (complex) {
     level = "COMPLEX";
     evidence.push(Object.freeze({ kind: "complex-pattern", value: complex.source }));
-  } else if (micro && highRiskTerms.length === 0) {
+  } else if (micro && !compoundTask && highRiskTerms.length === 0) {
     level = "MICRO";
     evidence.push(Object.freeze({ kind: "micro-pattern", value: micro.source }));
-  } else if (simple && highRiskTerms.length === 0) {
+  } else if (simple && !compoundTask && highRiskTerms.length === 0) {
     level = "SIMPLE";
     evidence.push(Object.freeze({ kind: "simple-pattern", value: simple.source }));
   }

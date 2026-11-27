@@ -56,3 +56,16 @@ test("route explain rejects invalid complexity override", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /complexity override must be one of/u);
 });
+
+
+test("compact route exposes only selected skill paths and execution budget", () => {
+  const result = run("route", "explain", "--compact", "--json", "frontend-design");
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.routingVersion, 3);
+  assert.ok(parsed.skills.length >= 1);
+  assert.ok(parsed.skills.every((skill) => typeof skill.id === "string" && typeof skill.path === "string"));
+  assert.equal("rejected" in parsed, false);
+  assert.equal("routingSignals" in parsed, false);
+  assert.equal("intent" in parsed, false);
+});

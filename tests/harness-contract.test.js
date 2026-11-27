@@ -156,3 +156,19 @@ test("harness registry covers all prioritized harnesses and classifies levels ho
   assert.equal(claude.continuationAuthority, "external-host");
   assert.ok(claude.unavailabilityReasons.includes("NATIVE_GOAL_LIFECYCLE_NOT_CERTIFIED"));
 });
+
+
+test("native prompt routing is advisory and fail-open for Claude and Gemini", () => {
+  const { classifyComplexity } = require("../runtime/planner/complexity-gate");
+  const route = () => ({ routingVersion: 3, profile: "standard", complexity: classifyComplexity("frontend-design"), allSkills: [{ id: "skill-open-design-ui", path: "/skills/ui" }] });
+  for (const [host, event] of [["claude", "UserPromptSubmit"], ["gemini", "BeforeAgent"]]) {
+    const input = { hook_event_name: event, prompt: "frontend-design", cwd: process.cwd() };
+    const output = hookResponse(host, input, { routeNative: true, route });
+    assert.match(output.hookSpecificOutput.additionalContext, /skill-open-design-ui/u);
+    assert.equal("decision" in output, false);
+    assert.equal("continue" in output, false);
+    assert.deepEqual(hookResponse(host, input, { routeNative: true, route: () => { throw Error("unavailable"); } }), {});
+    assert.deepEqual(hookResponse(host, { ...input, cwd: null }, { routeNative: true, route }), {});
+    assert.match(hookResponse(host, { ...input, prompt: "/goal do it" }, { routeNative: true, route }).hookSpecificOutput.additionalContext, /competing loop/u);
+  }
+});

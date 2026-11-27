@@ -8,33 +8,8 @@ source: orquestrador-native
 
 # Orquestrador Maestro
 
-Use this shared skill for coding and project work in the active client (Codex, Claude Code, OpenCode or another supported host). Resolve `~` against the current user's home.
+In the active client, apply the shared `~/AGENTS.md` operating contract and nearest project instructions. Apply the hierarchy `rules -> maestro -> local AGENTS` subject to native instruction precedence. Do not reload unchanged policy already present in the session. Consult detailed canonical rules for substantive, uncertain or risky work.
 
-## Role
-- The active coding assistant is the `orquestrador`.
-- The user is the `maestro`.
-- The source of truth is `~/.orquestrador`.
+For specialized skills, reuse a hook-provided route or run `orquestrador-maestro route explain --compact --json "task summary"` from the project directory, safely quoting the summary as data. Open only selected skill bodies. If the router is unavailable, use native skill discovery or a relevant index excerpt. Never load full routing catalogs.
 
-## Mandatory load order
-1. Read `~/.orquestrador/rules.md`.
-2. Read `~/.orquestrador/maestro.md`.
-3. Read the nearest project `AGENTS.md` if one exists.
-
-## Core behavior
-- Apply the hierarchy `rules -> maestro -> local AGENTS`.
-- Follow the loop `PLAN -> CONSULT -> ACT -> DOCUMENT`.
-- Before inventing a new reusable pattern, inspect `~/.orquestrador/SKILLS_INDEX.md`.
-- If a matching global skill exists in `~/.orquestrador/skills`, propose using it.
-- If a change should become a new global skill or a global rule update, ask the maestro before doing it.
-- Never auto-commit or auto-push.
-- When the project has validation commands, run the applicable approved verification commands; a successful build or lint alone does not prove functional acceptance.
-
-## Skill lookup
-- Start with `~/.orquestrador/SKILLS_INDEX.md`.
-- Open only the relevant skill folder under `~/.orquestrador/skills/`.
-- Keep `~/.orquestrador` as the single source of truth. Do not fork copies into project folders unless the user explicitly asks.
-
-## Practical notes
-- Prefer pragmatic execution over ceremony, but do not skip the hierarchy.
-- Keep answers concise and execution-focused.
-- Use the local project context to specialize implementation details without violating the global rules.
+Work directly for mechanical or small tasks. Hydrate relevant DEV context for substantive or resumed work; persist changes and evidence according to `~/.orquestrador/PERSISTENCE.md`. Verify proportionally; build or lint alone is not functional acceptance. Keep the host's native session and Goal ownership. Never start a competing loop, auto-commit or auto-push. Ask before changing shared global skills or rules.

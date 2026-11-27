@@ -32,7 +32,7 @@ This is the compact global contract for agents on this machine.
 
 ## Project DEV Documentation
 
-When the current project contains a `DEV/` directory, treat it as the canonical project documentation and operational memory root. Read only compact control files first, in this order when present: `DEV/AGENTS.md`, `DEV/README.md`, `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, `DEV/SPECS/ACTIVE.md`.
+For substantive, resumed or uncertain project work, follow the nearest project instructions and read relevant DEV control files: `DEV/AGENTS.md` when present, `DEV/README.md` or `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md`. Reuse still-valid session context; mechanical tasks need no broad DEV hydration unless project instructions require it.
 
 After that, load only task-relevant files under `DEV/`, such as `ARCHITECTURE.md`, `DECISIONS.md`, `ADR/`, `API.md`, `DATABASE.md`, `TESTING.md`, `RUNBOOK.md`, `ROADMAP.md`, or `TASKS.md`. Existing sub-hierarchies such as `DEV/LOGS/`, `DEV/SQL/`, `DEV/ARCH/`, `DEV/WORKFLOWS/`, `DEV/TESTS/`, `DEV/DOCUMENTATION/`, and `DEV/BACKLOG/` are also valid. Do not bulk-load the entire `DEV/` tree by default, and do not open `DEV/WORKLOG.md` before the handoff and active spec unless the compact files are insufficient.
 
@@ -59,7 +59,7 @@ Open the pack index first. Do not bulk-load the whole library by default. Treat 
 
 ## Skill Discipline
 
-Use `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json` before opening skill files.
+For non-trivial work needing specialized skills, run `orquestrador-maestro route explain --compact --json "task summary"` locally in the project directory (or reuse an existing hook-provided route). Safely quote the summary as data. Open only the selected skill bodies. Never load a full routing catalog into model context. If the CLI is unavailable, use native skill discovery or a relevant index excerpt.
 
 Load only the skill files needed for the task. Load long references only when the selected skill requires them.
 
@@ -95,5 +95,5 @@ Linux/macOS:
 - In PowerShell, resolve the canonical root with `$orquestradorRoot = Join-Path $HOME '.orquestrador'`. Spell the folder exactly `.orquestrador`.
 - Check paths with `Test-Path -LiteralPath` and build child paths with `Join-Path` before reading or writing. If a path is missing, inspect `$HOME`; never create a near-spelling folder to work around a failed lookup.
 - Use PowerShell commands such as `Get-ChildItem -Force -LiteralPath` and `Get-Content -Raw`, `-Tail`, or `-TotalCount`. POSIX options such as `ls -la` and commands such as `tail` or `head` do not work in PowerShell.
-- Use the exact skill slug from `SKILLS_ROUTER.json` and read its `SKILL.md` from the configured skill root. Do not invent a skill name after a failed lookup.
+- Use the exact skill slug returned by the local router and read its `SKILL.md` from the configured skill root. Do not invent a skill name after a failed lookup.
 - Only create or edit a skill when the maestro asks for it. Treat `SKILLS_MANIFEST.json` as JSON; never append free text with `echo >>`.

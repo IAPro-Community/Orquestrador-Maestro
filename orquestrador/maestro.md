@@ -7,7 +7,7 @@ When the task is broad or a session is being resumed, the orquestrador may use `
 ## Execution Loop
 
 1. Observe: read the relevant entrypoints, project instructions, and `DEV/` overview docs when the project has them.
-2. Route: consult `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`.
+2. Route: For non-trivial work needing specialized skills, run `orquestrador-maestro route explain --compact --json "task summary"` locally in the project directory (or reuse an existing hook-provided route). Safely quote the summary as data. Open only the selected skill bodies. Never load a full routing catalog into model context. If the CLI is unavailable, use native skill discovery or a relevant index excerpt.
 3. Select: open only the task-relevant skills.
 4. Act: make the smallest safe change that solves the task.
 5. Verify: run the lightest meaningful validation.
@@ -22,7 +22,7 @@ When the task is broad or a session is being resumed, the orquestrador may use `
 
 ## Project DEV Context
 
-When a project has a `DEV/` directory, use it as local project memory after reading the nearest project `AGENTS.md` and before selecting global skills. Start with `DEV/AGENTS.md`, `DEV/README.md`, `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md`, then open only the files relevant to the task.
+For substantive, resumed or uncertain project work, follow the nearest project instructions and read relevant DEV control files: `DEV/AGENTS.md` when present, `DEV/README.md` or `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md`. Reuse still-valid session context; mechanical tasks need no broad DEV hydration unless project instructions require it.
 
 Follow `{{USER_HOME}}/.orquestrador/PERSISTENCE.md` as the mandatory cross-tool persistence contract. Chat history and tool-specific memory are not durable context.
 

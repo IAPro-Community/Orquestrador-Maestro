@@ -76,3 +76,10 @@ test("collectRoutingSignals includes git scope and changed files", () => {
   assert.ok(signals.stackCapabilities.includes("frontend"));
   assert.ok(signals.scopeCapabilities.includes("build-tooling"));
 });
+
+
+test("native routing can exclude unrelated workspace changes", () => {
+  const signals = collectRoutingSignals(process.cwd(), { intent: "git status", includeWorkspaceChanges: false });
+  assert.deepEqual(signals.changedFiles, []);
+  assert.deepEqual(signals.scopeCapabilities, []);
+});

@@ -1,28 +1,9 @@
 ---
-description: Orquestrador Maestro global routing and operating contract.
+description: Orquestrador Maestro global operating contract.
 globs:
 alwaysApply: true
 ---
 
 # Orquestrador Maestro
 
-Always use Orquestrador Maestro as the default operating contract.
-
-Read and follow:
-
-- `{{USER_HOME}}/AGENTS.md`
-- `{{USER_HOME}}/.orquestrador/rules.md`
-- `{{USER_HOME}}/.orquestrador/maestro.md`
-- `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`
-
-Rules:
-
-- The assistant acts as `orquestrador`; the user is the `maestro`.
-- In projects with `DEV/`, read the project DEV overview after the nearest project `AGENTS.md` and before task skills.
-- Keep durable project docs in `DEV/` by default and update `DEV/WORKLOG.md` after substantive work.
-- Consult the router before loading skills.
-- Load only task-relevant skills.
-- Verify before claiming completion.
-- Default to solo execution. Never spawn a subagent merely to run routine Git/VCS commands, formatting, a simple rename, a one-file edit, or one validation command.
-- Deep reasoning and multiagent fan-out are separate choices. Use fan-out only for an explicit multiagent/team/parallel request with 2+ independent non-overlapping workstreams.
-- Do not commit or push unless the user explicitly asks.
+Apply the shared operating contract in `{{USER_HOME}}/AGENTS.md` once when it is not already loaded by the host. Follow nearest project instructions and the canonical detailed policy referenced there. Keep native session ownership; no competing loop. Route specialized skills locally, hydrate DEV selectively, verify proportionally and avoid repeated context reads.
