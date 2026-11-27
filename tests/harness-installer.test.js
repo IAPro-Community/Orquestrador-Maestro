@@ -206,12 +206,12 @@ test("the shell installer still refuses a symlinked top-level target", (t) => {
 
 test("sanitizeCliError redacts Windows, UNC and POSIX paths without fragmenting them", () => {
   const cases = [
-    ["cannot read C:\\Users\\alice\\.orquestrador\\settings.json now", ["Users", "alice", "settings.json"]],
-    ["failed at C:/Users/alice/settings.json", ["Users", "alice"]],
-    ["C:\\Users\\bob\\file.json", ["bob", "file.json"]],
+    ["cannot read C:\\data\\profiles\\user1\\.orquestrador\\settings.json now", ["data", "profiles", "user1", "settings.json"]],
+    ["failed at C:/data/profiles/user1/settings.json", ["data", "profiles", "user1"]],
+    ["C:\\data\\user2\\file.json", ["data", "user2", "file.json"]],
     ["network \\\\srv\\share\\file.json", ["srv", "share", "file.json"]],
-    ["open file:///C:/Users/alice/x.json", ["Users", "alice"]],
-    ["open /home/alice/.orquestrador/rules.md please", ["home", "alice", "rules.md"]],
+    ["open file:///C:/data/user1/x.json", ["data", "user1"]],
+    ["open /home/user1/.orquestrador/rules.md please", ["home", "user1", "rules.md"]],
     ["plain message without path", []]
   ];
   for (const [message, secrets] of cases) {
@@ -227,7 +227,7 @@ test("sanitizeCliError redacts Windows, UNC and POSIX paths without fragmenting 
   coded.code = "HARNESS_PATH_NOT_SHELL_SAFE";
   assert.match(sanitizeCliError(coded), /^HARNESS_PATH_NOT_SHELL_SAFE: boom$/);
   // Truncation happens before rewriting, so a long message cannot keep half a path.
-  assert.equal(sanitizeCliError(new Error(`${"x".repeat(600)} /home/alice/secret`)).length <= 200 + "INVALID_INVOCATION: ".length, true);
+  assert.equal(sanitizeCliError(new Error(`${"x".repeat(600)} /home/user1/secret`)).length <= 200 + "INVALID_INVOCATION: ".length, true);
 });
 
 test("registry reports an unusable package path instead of crashing", (t) => {

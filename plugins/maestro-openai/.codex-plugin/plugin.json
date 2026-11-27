@@ -1,6 +1,6 @@
 {
   "name": "orquestrador-maestro",
-  "version": "1.2.0-rc.2",
+  "version": "1.2.0-rc.3",
   "description": "Context and workload governance for Codex Desktop and ChatGPT Work.",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",

@@ -71,7 +71,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 ### Fase D — release (autorização independente)
 
 - [ ] Fechar bloqueadores reais da #86 ou reduzir/documentar escopo experimental de modo verificável; manter Goal desabilitado. RC anterior não certifica novo SHA.
-- [ ] Preparar versão inédita (ex. 1.2.0-rc.2, após confirmar registry), manifestos e changelog. Gates exatos na main. Autorizar tag e publicação separadamente; canal next. Verificar latest continua intacto.
+- [ ] Preparar versão inédita (ex. 1.2.0-rc.3, após confirmar registry), manifestos e changelog. Gates exatos na main. Autorizar tag e publicação separadamente; canal next. Verificar latest continua intacto.
 - [ ] Homologar RC, corrigir regressões, repetir gates para 1.2.0 final; staged → latest apenas após evidências e aprovação. Não reutilizar versão ou mover tag.
 
 ## 5. Política de issues

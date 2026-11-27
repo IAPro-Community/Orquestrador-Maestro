@@ -193,12 +193,12 @@ async function main(args, input, output) {
 // or host configuration content. Only a stable error code and a redacted
 // summary are surfaced; absolute paths are replaced by a placeholder.
 // Windows paths carry the user name in the profile segment, so POSIX-only
-// redaction leaked `/Users/ana` as `C:\Users\ana` on every Windows host.
+// redaction leaked the POSIX form as the Windows form on every Windows host.
 const REDACTED_PATTERNS = Object.freeze([
   /\bfile:\/{2,3}[^\s:,;"'`|<>]+/giu, // file:///C:/x/y
   /\\\\[^\s:,;"'`|<>]+(?:\\[^\s:,;"'`|<>]+)*/gu, // \\server\share\...
   // A drive root plus the remainder of the path. Quoted/unquoted variants and
-  // single spaces (`C:\Users\Joao Smith\x`) stay inside one placeholder; the
+  // single spaces in a profile directory stay inside one placeholder; the
   // `now` after a space terminates the match.
   /[A-Za-z]:[\\/](?:"[^"]*"|'[^']*'|[^\s:,;"'`|<>]+(?: [^\s:,;"'`|<>]+)*)/gu,
   /(?:[A-Za-z]:)?(?:\/[^\s:,;"'`|<>]+)+/gu // POSIX absolute paths

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0-rc.2 - 2026-11-26
+## 1.2.0-rc.3 - 2026-11-27
 
 > Release candidate em preparação. Não publicada; `next` continua apontando para `1.2.0-rc.1` e `latest` para `1.1.1`.
 

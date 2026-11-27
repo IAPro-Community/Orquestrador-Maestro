@@ -12,12 +12,12 @@ A migração planejada para publicação exclusiva pela `main` está documentada
 2. Rode `npm ci`, `npm run verify:pr`, `npm run validate` e `npm run skills:contract-audit:strict`. Para a linha V1, use `VERIFY_BASE_REF=origin/v1` no gate de ancestralidade.
 3. Para versões `1.x`, integre o candidato homologado em `v1`; a linha histórica `0.x` usa `main`. Alterar a versão ou fazer push não autoriza criar tags nem publicar. Verifique se os workflows manuais desta revisão já estão presentes na branch de publicação antes de alterar a versão.
 
-> **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). O gate de ancestralidade exige que o commit da tag já esteja em `origin/v1`; por isso a branch de RC precisa ser integrada em `v1` antes da tag. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.2`.
+> **Release candidate:** a linha 1.2 começa em `1.2.0-rc.1`, publicada no dist-tag npm `next` e marcada como prerelease no GitHub (`latest` continua apontando a estável `1.1.1`). O gate de ancestralidade exige que o commit da tag já esteja em `origin/v1`; por isso a branch de RC precisa ser integrada em `v1` antes da tag. Um número de versão já publicado no npm não pode ser reutilizado: correções saem como `1.2.0-rc.3`.
 
 O script PowerShell local é exclusivamente validatório (inclusive RC):
 
 ```powershell
-.\scripts\release.ps1 -Version 1.2.0-rc.2
+.\scripts\release.ps1 -Version 1.2.0-rc.3
 ```
 
 Os parâmetros legados `-CreateTag` e `-PushTag` são rejeitados. O script usa o gate canônico de manifestos, verifica o checkout limpo e interrompe em qualquer falha dos gates.
@@ -94,8 +94,8 @@ para o ambiente de testes. Não desative as proteções hospedadas.
    O diretório de evidências é exibido pelo script. Não reutilize RC.1.
 2. Com autorização separada para criar tag, confira `git rev-parse HEAD`,
    a versão e o SHA no GitHub; crie uma tag anotada imutável no SHA aprovado
-   e envie apenas essa tag (por exemplo `git tag -a v1.2.0-rc.2 -m "Release v1.2.0-rc.2"`
-   e `git push origin refs/tags/v1.2.0-rc.2`). Não force ou mova tags.
+   e envie apenas essa tag (por exemplo `git tag -a v1.2.0-rc.3 -m "Release v1.2.0-rc.3"`
+   e `git push origin refs/tags/v1.2.0-rc.3`). Não force ou mova tags.
    Esse passo exige autorização do owner e deve respeitar o ruleset.
 3. Abra um ambiente de publicação separado, com acesso npm e `gh`
    configurados. No checkout limpo da `v1` autorizada, execute:
