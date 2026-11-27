@@ -246,18 +246,12 @@ if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
   Assert-Path -Path (Join-Path $HomePath ".ai-standards\core\workflow.md") -Label "Antigravity AI standards workflow"
 
   Assert-FileContains -Path (Join-Path $HomePath ".codex\AGENTS.md") -Pattern "AGENTS.md" -Label "Codex AGENTS profile"
-  Assert-FileContains -Path (Join-Path $HomePath ".codex\AGENTS.md") -Pattern "AGENTS.md" -Label "Codex AGENTS profile"
-  Assert-FileContains -Path (Join-Path $HomePath ".config\opencode\AGENTS.md") -Pattern "AGENTS.md" -Label "OpenCode global AGENTS profile"
   Assert-FileContains -Path (Join-Path $HomePath ".config\opencode\AGENTS.md") -Pattern "AGENTS.md" -Label "OpenCode global AGENTS profile"
   Assert-FileContains -Path (Join-Path $HomePath ".claude\CLAUDE.md") -Pattern "AGENTS.md" -Label "Claude global memory"
-  Assert-FileContains -Path (Join-Path $HomePath ".claude\CLAUDE.md") -Pattern "AGENTS.md" -Label "Claude global memory"
-  Assert-FileContains -Path (Join-Path $HomePath ".cursor\AGENTS.md") -Pattern "AGENTS.md" -Label "Cursor AGENTS profile"
   Assert-FileContains -Path (Join-Path $HomePath ".cursor\AGENTS.md") -Pattern "AGENTS.md" -Label "Cursor AGENTS profile"
   Assert-FileContains -Path (Join-Path $HomePath ".cursor\rules\orquestrador-maestro.mdc") -Pattern "AGENTS.md" -Label "Cursor Orquestrador rule"
   Assert-FileContains -Path (Join-Path $HomePath ".cursor\commands\maestro.md") -Pattern "DEV/HANDOFF\.md" -Label "Cursor Maestro command"
   Assert-FileContains -Path (Join-Path $HomePath ".gemini\GEMINI.md") -Pattern "AGENTS.md" -Label "Gemini global context"
-  Assert-FileContains -Path (Join-Path $HomePath ".gemini\GEMINI.md") -Pattern "AGENTS.md" -Label "Gemini global context"
-  Assert-FileContains -Path (Join-Path $HomePath ".codeium\windsurf\memories\global_rules.md") -Pattern "AGENTS.md" -Label "Windsurf global rules"
   Assert-FileContains -Path (Join-Path $HomePath ".codeium\windsurf\memories\global_rules.md") -Pattern "AGENTS.md" -Label "Windsurf global rules"
   Assert-FileContains -Path (Join-Path $HomePath ".mimo\AGENTS.md") -Pattern "AGENTS.md" -Label "MiMo Code global AGENTS profile"
   Assert-FileContains -Path (Join-Path $HomePath ".kimi-code\AGENTS.md") -Pattern "AGENTS.md" -Label "Kimi Code global AGENTS profile"
@@ -288,7 +282,7 @@ if ((-not $CoreOnly) -and (-not $SkipToolProfiles)) {
     try {
       $config = Get-Content -LiteralPath $opencodeConfig -Raw -Encoding UTF8 | ConvertFrom-Json
       $instructions = @($config.instructions)
-      if (-not ($instructions -contains "~/AGENTS.md") -or ($instructions -match "SKILLS_ROUTER\.json$|SKILLS_INDEX\.md$")) {
+      if (-not ($instructions -contains "~/AGENTS.md") -or ($instructions -match "^~/\.orquestrador(?:-maestro)?/(?:SKILLS_ROUTER\.json|SKILLS_INDEX\.md)$")) {
         Add-Issue "OpenCode global config must use the compact contract without eager catalogs: $opencodeConfig"
       }
     } catch {

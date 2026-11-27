@@ -204,16 +204,31 @@ test("compact OpenCode migration preserves custom instructions and provider sett
   const { root, backup } = fixture(t);
   const source = path.join(ROOT, "tool-profiles", "opencode-global", "opencode.json");
   const destination = path.join(root, "opencode.json");
-  const before = { instructions: ["~/.orquestrador/SKILLS_ROUTER.json", "~/my-rules.md", "~/AGENTS.md", "~/.opencode/hooks.md"], provider: { custom: {} }, plugins: ["user"] };
+  const before = { instructions: ["~/.orquestrador/SKILLS_ROUTER.json", "~/.orquestrador-maestro/SKILLS_INDEX.md", "~/custom/SKILLS_INDEX.md", "~/my-rules.md", "~/AGENTS.md", "~/.opencode/hooks.md"], provider: { custom: {} }, plugins: ["user"] };
   fs.writeFileSync(destination, JSON.stringify(before));
   const first = run(["install", source, destination, backup]);
   assert.equal(first.status, 0, first.stderr);
   const after = JSON.parse(fs.readFileSync(destination, "utf8"));
-  assert.deepEqual(after.instructions, ["~/AGENTS.md", "~/my-rules.md"]);
+  assert.deepEqual(after.instructions, ["~/AGENTS.md", "~/custom/SKILLS_INDEX.md", "~/my-rules.md"]);
   assert.deepEqual(after.provider, before.provider);
   assert.deepEqual(after.plugins, before.plugins);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(backup, "opencode.json"), "utf8")), before);
   const second = run(["install", source, destination, backup]);
   assert.equal(second.status, 0, second.stderr);
   assert.deepEqual(JSON.parse(fs.readFileSync(destination, "utf8")), after);
+});
+
+
+test("first managed OpenCode install preserves an existing unmarked JSON config", { skip: process.platform === "win32" }, t => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-first-opencode-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const configDir = path.join(home, ".config", "opencode");
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({ provider: { custom: {} }, instructions: ["~/custom.md"] }));
+  const result = runInstaller(home, { force: true, skipSkillSync: true, args: ["--install-tool-profiles", "--all-targets"], env: { XDG_CONFIG_HOME: path.join(home, ".config") } });
+  assert.equal(result.status, 0, result.stderr);
+  const config = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
+  assert.deepEqual(config.provider, { custom: {} });
+  assert.deepEqual(config.instructions, ["~/AGENTS.md", "~/custom.md"]);
+  assert.ok(fs.existsSync(path.join(configDir, ".maestro-managed")));
 });

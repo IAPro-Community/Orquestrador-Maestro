@@ -76,3 +76,14 @@ test("multiagent prefix does not inflate a mechanical git task", () => {
   assert.equal(result.budget.maxContextTokens, 1500);
   assert.equal(result.budget.allowSubagents, false);
 });
+
+
+test("native conversational requests are proportional without downgrading compound or risky work", () => {
+  for (const intent of ["corrija o alinhamento do botão salvar", "corrija esse texto", "fix the alignment", "add a unit test"]) {
+    assert.equal(classifyComplexity(intent).level, "SIMPLE", intent);
+  }
+  assert.equal(classifyComplexity("fix the typo").level, "MICRO");
+  assert.equal(classifyComplexity("git status e implemente a feature").level, "STANDARD");
+  assert.equal(classifyComplexity("fix the typo and implement a feature").level, "STANDARD");
+  assert.equal(classifyComplexity("corrija o texto da autenticação").level, "COMPLEX");
+});

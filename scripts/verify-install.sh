@@ -300,18 +300,12 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
   assert_path "$HOME_PATH/.ai-standards/core/workflow.md" "Antigravity AI standards workflow"
 
   assert_file_contains "$HOME_PATH/.codex/AGENTS.md" "AGENTS.md" "Codex AGENTS profile"
-  assert_file_contains "$HOME_PATH/.codex/AGENTS.md" "AGENTS.md" "Codex AGENTS profile"
-  assert_file_contains "$HOME_PATH/.config/opencode/AGENTS.md" "AGENTS.md" "OpenCode global AGENTS profile"
   assert_file_contains "$HOME_PATH/.config/opencode/AGENTS.md" "AGENTS.md" "OpenCode global AGENTS profile"
   assert_file_contains "$HOME_PATH/.claude/CLAUDE.md" "AGENTS.md" "Claude global memory"
-  assert_file_contains "$HOME_PATH/.claude/CLAUDE.md" "AGENTS.md" "Claude global memory"
-  assert_file_contains "$HOME_PATH/.cursor/AGENTS.md" "AGENTS.md" "Cursor AGENTS profile"
   assert_file_contains "$HOME_PATH/.cursor/AGENTS.md" "AGENTS.md" "Cursor AGENTS profile"
   assert_file_contains "$HOME_PATH/.cursor/rules/orquestrador-maestro.mdc" "AGENTS.md" "Cursor Orquestrador rule"
   assert_file_contains "$HOME_PATH/.cursor/commands/maestro.md" "DEV/HANDOFF\\.md" "Cursor Maestro command"
   assert_file_contains "$HOME_PATH/.gemini/GEMINI.md" "AGENTS.md" "Gemini global context"
-  assert_file_contains "$HOME_PATH/.gemini/GEMINI.md" "AGENTS.md" "Gemini global context"
-  assert_file_contains "$HOME_PATH/.codeium/windsurf/memories/global_rules.md" "AGENTS.md" "Windsurf global rules"
   assert_file_contains "$HOME_PATH/.codeium/windsurf/memories/global_rules.md" "AGENTS.md" "Windsurf global rules"
   assert_file_contains "$HOME_PATH/.mimo/AGENTS.md" "AGENTS.md" "MiMo Code global AGENTS profile"
   assert_file_contains "$HOME_PATH/.kimi-code/AGENTS.md" "AGENTS.md" "Kimi Code global AGENTS profile"
@@ -339,7 +333,7 @@ if [ "$CORE_ONLY" = false ] && [ "$SKIP_TOOL_PROFILES" = false ]; then
 
   OPENCODE_CONFIG="$HOME_PATH/.config/opencode/opencode.json"
   if should_check_profile_path "$OPENCODE_CONFIG" && [ -f "$OPENCODE_CONFIG" ]; then
-    if ! node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); const a=c.instructions; if(!Array.isArray(a)||!a.includes("~/AGENTS.md")||a.some(x=>typeof x==="string"&&/SKILLS_ROUTER\.json$|SKILLS_INDEX\.md$/.test(x)))process.exit(1)' "$OPENCODE_CONFIG"; then
+    if ! node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")); const a=c.instructions; if(!Array.isArray(a)||!a.includes("~/AGENTS.md")||a.some(x=>typeof x==="string"&&/^~/\.orquestrador(?:-maestro)?/(?:SKILLS_ROUTER\.json|SKILLS_INDEX\.md)$/.test(x)))process.exit(1)' "$OPENCODE_CONFIG"; then
       add_issue "OpenCode global config must use the compact contract without eager catalogs: $OPENCODE_CONFIG"
     fi
   fi

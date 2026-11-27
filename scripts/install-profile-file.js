@@ -145,6 +145,8 @@ function main(argv) {
     const legacy = new Set([
       "~/AGENTS.md", "~/.orquestrador/rules.md", "~/.orquestrador/maestro.md",
       "~/.orquestrador/SKILLS_INDEX.md", "~/.orquestrador/SKILLS_ROUTER.json",
+      "~/.orquestrador-maestro/rules.md", "~/.orquestrador-maestro/maestro.md",
+      "~/.orquestrador-maestro/SKILLS_INDEX.md", "~/.orquestrador-maestro/SKILLS_ROUTER.json",
       "~/.opencode/SYSTEM.md", "~/.opencode/rules.md", "~/.opencode/hooks.md"
     ]);
     merged.instructions = [...new Set([
