@@ -893,6 +893,10 @@ foreach ($target in $extraTargets) {
     Copy-TreePreservingJson -SourceDir $target.Source -DestinationDir $target.Destination -BackupDirLabel $target.Label
   } else {
     Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
+    # Mark the profile as Maestro-owned so the next install merges instead of
+    # replacing it. Without this marker Copy-TreePreservingJson never runs.
+    New-Item -ItemType Directory -Path $target.Destination -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $target.Destination ".maestro-managed") -Value "" -NoNewline
   }
 }
 foreach ($target in $extraFileTargets) {

@@ -1005,6 +1005,9 @@ $entry
 EOF
   if [ ! -f "$dest/.maestro-managed" ]; then
     copy_tree_with_placeholders "$src" "$dest"
+    # Mark the profile as Maestro-owned so the next install merges instead of
+    # replacing it. Without this marker copy_tree_preserving never runs.
+    mkdir -p "$dest" && : > "$dest/.maestro-managed"
   else
     # Maestro-managed tool profile: the tree mirror stays authoritative, but a
     # settings file that already exists is merged, never wiped, so user-owned

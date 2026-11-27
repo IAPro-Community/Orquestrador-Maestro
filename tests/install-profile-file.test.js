@@ -87,16 +87,31 @@ test("installer keeps the user provider block when a managed profile already exi
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-profile-merge-"));
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const configDir = path.join(home, ".config", "opencode");
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.writeFileSync(path.join(configDir, ".maestro-managed"), "{}\n");
+
+  // Detection reads PATH first, so a machine without the opencode binary would
+  // never install the profile and the assertion would test nothing. Force
+  // detection through the all-targets path instead of relying on the host.
+  const install = () => runInstaller(home, {
+    force: true,
+    skipSkillSync: true,
+    args: ["--install-tool-profiles", "--all-targets"],
+    env: { XDG_CONFIG_HOME: path.join(home, ".config") }
+  });
+
+  const first = install();
+  assert.equal(first.status, 0, first.stderr);
+  assert.ok(fs.existsSync(path.join(configDir, "opencode.json")), "first install must create the managed profile");
+
   const userProvider = { flatt: { name: "Flatt", npm: "@ai-sdk/openai-compatible", models: { automode: { name: "Auto" } } } };
+  const installed = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
+    ...installed,
     instructions: ["~/stale.md"],
     provider: userProvider
   }));
 
-  const first = runInstaller(home, { force: true, skipSkillSync: true, args: ["--install-tool-profiles"] });
-  assert.equal(first.status, 0, first.stderr);
+  const second = install();
+  assert.equal(second.status, 0, second.stderr);
 
   const config = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   assert.deepEqual(config.provider, userProvider, "user provider block survives reinstall");
