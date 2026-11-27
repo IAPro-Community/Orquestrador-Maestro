@@ -5,7 +5,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { editHookConfig } = require("../../../scripts/harness-hook");
 const { inspectHarness } = require("./registry");
 
 const SUPPORTED_HOSTS = Object.freeze(["claude", "gemini", "opencode"]);
@@ -106,8 +105,12 @@ function atomicWriteFile(filePath, content) {
   fs.renameSync(temp, filePath);
 }
 
+// Harness backups hold the previous content of host settings files, which can
+// carry credentials. They live in a dedicated private directory instead of the
+// Maestro core root, because the installer copies that whole root into the
+// public backup tree on every install and update.
 function backupDir(home) {
-  return path.join(path.resolve(home), ".orquestrador", "backups", "harness");
+  return path.join(path.resolve(home), ".maestro-harness-backups");
 }
 
 function ensurePrivateDir(dirPath) {
@@ -160,6 +163,9 @@ function computeNextConfig(host, config, { packageRoot, remove = false }) {
     const pluginDir = path.resolve(packageRoot, "tool-profiles", "opencode", "maestro-harness-v2");
     return editOpenCodeConfig(config, pluginDir, { remove });
   }
+  // Loaded lazily: scripts/harness-hook.js requires this module, so a static
+  // import here would close a cycle and expose a partially initialized export.
+  const { editHookConfig } = require("../../../scripts/harness-hook");
   const hookScript = path.resolve(packageRoot, "scripts", "harness-hook.js");
   return editHookConfig(host, config, { remove, script: hookScript });
 }
@@ -184,11 +190,7 @@ function applyHarnessChange(host, {
   let backup = null;
   if (changed && !dryRun) {
     backup = writeBackup(resolvedHome, host, targetPath, existed, raw);
-    if (remove && !existed) {
-      // nothing to write
-    } else {
-      atomicWriteFile(targetPath, nextText);
-    }
+    atomicWriteFile(targetPath, nextText);
   }
 
   let sdkNote = null;
@@ -228,7 +230,12 @@ function removeHarnessAdapter(host, options = {}) {
 function listHarnessBackups(host, home) {
   if (!SUPPORTED_HOSTS.includes(host)) throw makeError("UNSUPPORTED_HARNESS_HOST", `Unsupported harness host: ${host}`);
   const dir = backupDir(home);
-  if (!lstatOrNull(dir)) return [];
+  const info = lstatOrNull(dir);
+  if (!info) return [];
+  // A symlinked backup directory would redirect reads outside the home.
+  if (info.isSymbolicLink() || !info.isDirectory()) {
+    throw makeError("UNSAFE_SYMLINK_PATH", `Unsafe harness backup directory: ${dir}`);
+  }
   const prefix = `${host}-`;
   return fs.readdirSync(dir)
     .filter((name) => name.startsWith(prefix) && name.endsWith(".json"))
@@ -295,10 +302,16 @@ function installDetectedHarnesses({
   home = os.homedir(),
   packageRoot = path.resolve(__dirname, "..", "..", ".."),
   dryRun = false,
+  hosts = null,
   probeCommand
 } = {}) {
   const results = [];
-  for (const host of SUPPORTED_HOSTS) {
+  // An explicit host list narrows the scope: `install --only codex` must not
+  // configure adapters for tools the operator did not select.
+  const selectedHosts = Array.isArray(hosts)
+    ? SUPPORTED_HOSTS.filter((host) => hosts.includes(host))
+    : SUPPORTED_HOSTS;
+  for (const host of selectedHosts) {
     const inspected = inspectHarness(host, { home, packageRoot, probeCommand });
     if (!inspected.installed && !inspected.configDetected) {
       results.push({ host, skipped: true, reason: "not-detected" });

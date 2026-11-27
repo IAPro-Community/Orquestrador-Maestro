@@ -5,6 +5,7 @@ tests/.orquestrador-maestro/
 .playwright-mcp/
 .homologation/
 .omx/
+.test-home-router-v3/
 DEV/
 .env
 .env.*

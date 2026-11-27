@@ -329,7 +329,10 @@ function Get-OrchestratorRoutingHealth {
     }
   }
   foreach ($name in $skillNames) {
-    if (-not $routerSet.ContainsKey($name)) {
+    # Library skills (issue-context etc.) are routed through librarySkills and
+    # mirrored into skills/ by the sync. Treating them as unrouted produced a
+    # permanent false positive on every host.
+    if (-not $routerSet.ContainsKey($name) -and -not $aliasTargetSet.ContainsKey($name)) {
       Add-RoutingIssue -Issues $issues -Kind "canonical-skill-unrouted" -Name $name -Detail "Missing from SKILLS_ROUTER.json"
     }
   }
@@ -473,13 +476,19 @@ function Get-NativeSkillRootHealth {
     $count = 0
     if (Test-Path -LiteralPath $root) {
       $dirs = @(Get-ChildItem -LiteralPath $root -Directory -Force -ErrorAction SilentlyContinue)
-      $count = $dirs.Count
       foreach ($dir in $dirs) {
+        # Dot directories (.system) are tool-owned, not installed skills.
+        if ($dir.Name.StartsWith(".")) { continue }
+        $count++
         if (-not $allowSet.ContainsKey($dir.Name)) {
           $extra += $dir.Name
         }
       }
     }
+    # maxDirectories is a growth alarm, not an inventory target: the libraries
+    # mirror more skills than the historical ceiling, and exceeding it is not
+    # data loss. Real loss is MissingRequiredSkills.
+    $withinBudget = [int]$prop.Value.maxDirectories -le 0 -or $count -le [int]$prop.Value.maxDirectories
     foreach ($skill in $RequiredSkills) {
       if (-not (Test-Path -LiteralPath (Join-Path $root "$skill\SKILL.md") -PathType Leaf)) {
         $missingRequired += $skill
@@ -496,7 +505,8 @@ function Get-NativeSkillRootHealth {
       ExtraCount = $extra.Count
       MissingRequiredSkills = $missingRequired
       MissingRequiredSkillCount = $missingRequired.Count
-      Healthy = (Test-Path -LiteralPath $root) -and ($count -le [int]$prop.Value.maxDirectories) -and ($missingRequired.Count -eq 0)
+      Healthy = (Test-Path -LiteralPath $root) -and ($missingRequired.Count -eq 0)
+      WithinDirectoryBudget = $withinBudget
       CommunityLibraryExists = Test-Path -LiteralPath $communityLibrary
       CodexLibraryExists = Test-Path -LiteralPath $codexLibrary
       DisabledNativeRootExists = Test-Path -LiteralPath $disabledNative

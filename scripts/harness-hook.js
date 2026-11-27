@@ -12,7 +12,11 @@ function renderHookConfig(host, script = __filename) {
   // Config contains a shell command. Refuse ambiguous shell characters rather
   // than interpolate arbitrary paths. No host config is modified by rendering.
   const absolute = path.resolve(script).replace(/\\/g, "/");
-  if (!/^[A-Za-z0-9_./: @+(),-]+$/u.test(absolute)) throw new Error("hook path requires manual shell-safe configuration");
+  if (!/^[A-Za-z0-9_./: @+(),-]+$/u.test(absolute)) {
+    const error = new Error("hook path requires manual shell-safe configuration");
+    error.code = "HARNESS_PATH_NOT_SHELL_SAFE";
+    throw error;
+  }
   const command = `node "${absolute}" ${host}`;
   const events = host === "claude" ? ["UserPromptSubmit", "Stop"] : ["BeforeAgent", "AfterAgent"];
   return { hooks: Object.fromEntries(events.map((event) => [event, [{ hooks: [{
@@ -185,10 +189,38 @@ async function main(args, input, output) {
   throw new Error("usage: harness status|install|update|remove|rollback|doctor | --render|--merge|--remove claude|gemini | --preview-review|--verify-review");
 }
 
+// CLI diagnostics must stay useful without leaking private paths, credentials
+// or host configuration content. Only a stable error code and a redacted
+// summary are surfaced; absolute paths are replaced by a placeholder.
+// Windows paths carry the user name in the profile segment, so POSIX-only
+// redaction leaked `/Users/ana` as `C:\Users\ana` on every Windows host.
+const REDACTED_PATTERNS = Object.freeze([
+  /\bfile:\/{2,3}[^\s:,;"'`|<>]+/giu, // file:///C:/x/y
+  /\\\\[^\s:,;"'`|<>]+(?:\\[^\s:,;"'`|<>]+)*/gu, // \\server\share\...
+  // A drive root plus the remainder of the path. Quoted/unquoted variants and
+  // single spaces (`C:\Users\Joao Smith\x`) stay inside one placeholder; the
+  // `now` after a space terminates the match.
+  /[A-Za-z]:[\\/](?:"[^"]*"|'[^']*'|[^\s:,;"'`|<>]+(?: [^\s:,;"'`|<>]+)*)/gu,
+  /(?:[A-Za-z]:)?(?:\/[^\s:,;"'`|<>]+)+/gu // POSIX absolute paths
+]);
+
+function sanitizeCliError(error) {
+  const code = typeof error?.code === "string" && /^[A-Z][A-Z0-9_]{1,63}$/u.test(error.code)
+    ? error.code
+    : (error instanceof TypeError ? "INVALID_ARGUMENT" : "INVALID_INVOCATION");
+  let raw = typeof error?.message === "string" ? error.message.split("\n")[0].trim() : "";
+  // Truncate before rewriting so a truncated fragment can never keep half a path.
+  if (raw.length > 400) raw = raw.slice(0, 400);
+  for (const pattern of REDACTED_PATTERNS) raw = raw.replace(pattern, "<path>");
+  const redacted = raw.slice(0, 200);
+  return redacted ? `${code}: ${redacted}` : code;
+}
+
+module.exports = { renderHookConfig, editHookConfig, readInput, main, sanitizeCliError };
+
 if (require.main === module) {
-  main(process.argv.slice(2), process.stdin, process.stdout).then(code => { process.exitCode = code || 0; }).catch(() => {
-    process.stderr.write("Maestro harness hook: invalid invocation\n");
+  main(process.argv.slice(2), process.stdin, process.stdout).then(code => { process.exitCode = code || 0; }).catch((error) => {
+    process.stderr.write(`Maestro harness hook: ${sanitizeCliError(error)}\n`);
     process.exitCode = 1;
   });
 }
-module.exports = { renderHookConfig, editHookConfig, readInput, main };

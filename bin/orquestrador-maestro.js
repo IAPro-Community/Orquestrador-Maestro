@@ -535,9 +535,18 @@ async function runInstall(args, injectedFlags = []) {
   }
   if (withHarnessHooks && result === 0 && !normalizedForOnly.includes("--uninstall") && !normalizedForOnly.includes("--list-targets")) {
     const home = path.resolve(getArg(scriptArgs, "--home-path") || process.env.HOME || process.env.USERPROFILE || os.homedir());
+    // `--only` narrows the scope: never configure an adapter for a tool the
+    // operator excluded from this install.
+    const onlyArg = getArg(scriptArgs, "--only");
+    const selectedComponents = typeof onlyArg === "string"
+      ? onlyArg.split(",").map((entry) => entry.trim().toLowerCase()).filter(Boolean)
+      : [];
+    const hosts = selectedComponents.length > 0 && !selectedComponents.includes("all")
+      ? selectedComponents
+      : null;
     try {
       const harnessInstaller = require(path.join(rootDir, "runtime", "integrations", "harness", "installer.js"));
-      const summary = harnessInstaller.installDetectedHarnesses({ home, packageRoot: rootDir, dryRun: isDryRunInstall });
+      const summary = harnessInstaller.installDetectedHarnesses({ home, packageRoot: rootDir, dryRun: isDryRunInstall, hosts });
       for (const entry of summary.results) {
         if (entry.skipped) continue;
         if (entry.error) console.error(`Aviso: harness ${entry.host} nao configurado (${entry.error}).`);
@@ -938,6 +947,18 @@ function parseDoctorArgs(args) {
   return { homePath, strict };
 }
 
+function printHarnessDoctorSummary(home) {
+  try {
+    const harnessInstaller = require(path.join(rootDir, "runtime", "integrations", "harness", "installer.js"));
+    const report = harnessInstaller.harnessDoctor({ home, packageRoot: rootDir });
+    const configured = Object.entries(report.hosts).filter(([, info]) => info.configured).map(([id]) => id);
+    console.log(`Harness adapters: healthy=${report.healthy} configured=${configured.length ? configured.join(",") : "none"}`);
+    for (const warning of report.warnings || []) console.log(`Aviso: harness ${warning}`);
+  } catch (error) {
+    console.log(`Harness adapters: indisponivel (${error.code || "HARNESS_DOCTOR_UNAVAILABLE"})`);
+  }
+}
+
 function runDoctor(args) {
   const { homePath, strict } = parseDoctorArgs(args);
   const home = path.resolve(homePath || process.env.HOME || process.env.USERPROFILE || os.homedir());
@@ -948,6 +969,7 @@ function runDoctor(args) {
   if (process.platform === "win32") {
     const code = run("powershell", psArgs);
     const findings = diagnostics.printClaudeGuidance(home);
+    printHarnessDoctorSummary(home);
     return code || (strict && findings.length ? 1 : 0);
   }
   // Preserve the detailed report when pwsh exists. Otherwise reuse the
@@ -956,6 +978,7 @@ function runDoctor(args) {
     try {
       const code = run(command, psArgs);
       const findings = diagnostics.printClaudeGuidance(home);
+      printHarnessDoctorSummary(home);
       return code || (strict && findings.length ? 1 : 0);
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
@@ -966,12 +989,7 @@ function runDoctor(args) {
   if (strict) verifyArgs.push("--strict");
   const code = runVerify(verifyArgs);
   const findings = diagnostics.printClaudeGuidance(home);
-  try {
-    const harnessInstaller = require(path.join(rootDir, "runtime", "integrations", "harness", "installer.js"));
-    const report = harnessInstaller.harnessDoctor({ home, packageRoot: rootDir });
-    const configured = Object.entries(report.hosts).filter(([, info]) => info.configured).map(([id]) => id);
-    console.log(`Harness adapters: healthy=${report.healthy} configured=${configured.length ? configured.join(",") : "none"}`);
-  } catch {}
+  printHarnessDoctorSummary(home);
   return code || (strict && findings.length ? 1 : 0);
 }
 

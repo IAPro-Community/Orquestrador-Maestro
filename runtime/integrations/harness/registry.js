@@ -115,6 +115,20 @@ const HARNESS_SPECS = Object.freeze({
   })
 });
 
+// The doctor probes every harness command; several hosts install a dozen
+// CLIs, and each miss pays the full spawn timeout. A per-process memo keeps
+// repeated inspections cheap without changing results.
+const probeCache = new Map();
+
+function probeExecutable(command, probeCommand, cacheKey) {
+  if (cacheKey && probeCache.has(cacheKey)) return probeCache.get(cacheKey);
+  const result = probeCommand
+    ? probeCommand(command)
+    : defaultProbeCommand(command);
+  if (cacheKey) probeCache.set(cacheKey, result);
+  return result;
+}
+
 function defaultProbeCommand(command) {
   if (!command || !SAFE_COMMAND.test(command)) return { installed: false, version: null };
   try {
@@ -169,7 +183,17 @@ function inspectExecutableAdapterState(harnessId, { home, packageRoot }) {
     if (!parsed.exists) return { supported: true, installed: false, registered: false, healthy: false, configPath: settingsFile, detail: "settings-absent" };
     if (!parsed.valid) return { supported: true, installed: false, registered: false, healthy: false, configPath: settingsFile, detail: "settings-invalid" };
     const { renderHookConfig } = require("../../../scripts/harness-hook");
-    const expected = renderHookConfig(harnessId, path.join(packageRoot, "scripts", "harness-hook.js")).hooks;
+    // A package root that cannot be rendered as a shell-safe hook command is
+    // not a crash: the adapter stays unconfigured and the reason is reported.
+    // Only that exact code degrades; any other failure is a real defect and
+    // must not be relabelled as an unsafe path.
+    let expected;
+    try {
+      expected = renderHookConfig(harnessId, path.join(packageRoot, "scripts", "harness-hook.js")).hooks;
+    } catch (error) {
+      if (error?.code !== "HARNESS_PATH_NOT_SHELL_SAFE") throw error;
+      return { supported: true, installed: false, registered: false, healthy: false, configPath: settingsFile, detail: "hook-path-not-shell-safe" };
+    }
     const hooksObj = parsed.value.hooks && typeof parsed.value.hooks === "object" && !Array.isArray(parsed.value.hooks) ? parsed.value.hooks : null;
     if (!hooksObj) return { supported: true, installed: false, registered: false, healthy: false, configPath: settingsFile, detail: "hooks-absent" };
     const marker = `harness-hook.js" ${harnessId}`;
@@ -244,7 +268,9 @@ function inspectHarness(harnessId, {
   let version = null;
   let commandFound = null;
   for (const cmd of commands) {
-    const probed = probeCommand(cmd);
+    // Cache key is per command, not per call: the same binary must not pay
+    // the spawn timeout again for every harness that lists it.
+    const probed = probeExecutable(cmd, probeCommand, `probe:${cmd}`);
     if (probed?.installed) {
       installed = true;
       version = probed.version || "present";
@@ -323,5 +349,6 @@ module.exports = {
   inspectHarness,
   inspectAllHarnesses,
   inspectExecutableAdapterState,
-  defaultProbeCommand
+  defaultProbeCommand,
+  probeExecutable
 };

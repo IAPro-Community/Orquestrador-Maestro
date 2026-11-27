@@ -42,6 +42,42 @@ test("doctor --strict passes on a healthy install", { skip: PS ? false : "pwsh n
   assert.equal(res.status, 0, `--strict must not fail on a healthy install:\n${res.stderr?.slice(0, 800)}`);
 });
 
+test("doctor routing health does not flag library skills mirrored into skills/", { skip: PS ? false : "pwsh not available" }, () => {
+  // issue-context (and other librarySkills) are routed through librarySkills
+  // and mirrored into skills/ by the sync. The unrouted check must honor that,
+  // otherwise every host reports a permanent false positive.
+  const home = freshInstall();
+  const mirrored = path.join(home, ".orquestrador", "skills", "issue-context");
+  fs.mkdirSync(mirrored, { recursive: true });
+  fs.writeFileSync(path.join(mirrored, "SKILL.md"), "---\nname: issue-context\ndescription: fixture\n---\n", "utf8");
+  const routerPath = path.join(home, ".orquestrador", "SKILLS_ROUTER.json");
+  const router = JSON.parse(fs.readFileSync(routerPath, "utf8"));
+  router.librarySkills = router.librarySkills || {};
+  router.librarySkills["issue-context"] = { description: "fixture", triggers: [] };
+  delete router.skills["issue-context"];
+  fs.writeFileSync(routerPath, JSON.stringify(router, null, 2));
+
+  const res = runDoctor(home, false);
+  assert.equal(res.status, 0, `doctor must not crash:\n${res.stderr?.slice(0, 800)}`);
+  const report = JSON.parse(res.stdout);
+  const kinds = (report.OrchestratorRoutingHealth?.Issues || []).map((issue) => `${issue.Kind}:${issue.Name}`);
+  assert.equal(kinds.some((entry) => entry === "canonical-skill-unrouted:issue-context"), false,
+    `librarySkills entries must not be reported as unrouted: ${kinds.join(", ")}`);
+});
+
+test("doctor reports an unrouted canonical skill that is in neither router nor librarySkills", { skip: PS ? false : "pwsh not available" }, () => {
+  const home = freshInstall();
+  const stray = path.join(home, ".orquestrador", "skills", "stray-unrouted-skill");
+  fs.mkdirSync(stray, { recursive: true });
+  fs.writeFileSync(path.join(stray, "SKILL.md"), "---\nname: stray-unrouted-skill\ndescription: fixture\n---\n", "utf8");
+  const res = runDoctor(home, false);
+  assert.equal(res.status, 0);
+  const report = JSON.parse(res.stdout);
+  const kinds = (report.OrchestratorRoutingHealth?.Issues || []).map((issue) => `${issue.Kind}:${issue.Name}`);
+  assert.equal(kinds.includes("canonical-skill-unrouted:stray-unrouted-skill"), true,
+    `a truly unrouted skill must still be reported: ${kinds.join(", ")}`);
+});
+
 test("doctor --strict fails on a corrupted mirror", { skip: PS ? false : "pwsh not available" }, () => {
   const home = freshInstall();
   const mirrored = path.join(home, ".agents", "skills", "skill-adr", "SKILL.md");
