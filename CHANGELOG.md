@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0-rc.2 - 2026-11-24
+## 1.2.0-rc.2 - 2026-11-26
 
 > Release candidate em preparação. Não publicada; `next` continua apontando para `1.2.0-rc.1` e `latest` para `1.1.1`.
 
@@ -39,6 +39,25 @@
 - Correções de runtime e CLI: tratamento de `budget-conflict` em `executePreparedRun` (`task.projectId`), leitura de última seção em `extractSection` (`(?![\s\S])`), rollback seguro de skills nativas (`operationPlans`), roteamento correto de `--help` por subcomando (`memory`, `benchmark`, `adapters`, `workflow-lock`, `workflow-state`), despacho de `check-recurrence`, opções `memory forget|export|import` + `--verifier`/`--verify-note` e `handleGoCommand` (`--plan`/`--auto`).
 - Preservação de proveniência (`verifier`, `verifiedAt`, `verifyNote`) em `METADATA_ONLY` e aplicação de `isTrulyVerified` no ranking de visibilidade de memória; fallback `SIGKILL` e proteção JSON-RPC no servidor MCP.
 - Limpeza de código morto e organização documental: remoção de arquivos e símbolos não utilizados, alinhamento da matriz de capacidades (`58` canônicas / `81` públicas) e consolidação de guias legados da raiz (`QUICKTEST.md`, `PRODUCT.md`, `DESIGN.md`, `COMPARISON.md`, `INSPIRATION_MATRIX.md`, `PROOF_PLAN.md`) em `docs/`.
+- Perfis de ferramenta gerenciados pelo Maestro (`<destino>/.maestro-managed`) deixam de sobrescrever `*.json` existentes: `scripts/install-profile-file.js` faz merge profundo (template vence, chaves do usuário permanecem, arrays substituídos), copia o conteúdo anterior para o backup do install e nunca toca arquivo que não seja JSON estrito. Corrige a perda do bloco `provider` do OpenCode (`~/.config/opencode/opencode.json`) a cada reinstalação, que removia os modelos do provider Flatt da lista do `opencode models`.
+
+### Adapters de provider corrigidos contra CLIs reais
+
+- `agy`: a ordem dos argumentos colocava `--print` antes de `--output-format`, e o CLI real aborta com `--print took "--output-format" as its prompt` (exit 2). Todas as flags agora precedem `--print`, que fica como última flag antes do prompt.
+- `opencode`: o adapter emitia `--dir <workspace>`, flag inexistente em `opencode run` (o CLI aborta com `Unrecognized flag: --dir`, exit 1). O diretório de trabalho é o cwd do processo.
+- `agy` no parser de usage: o envelope real (`{ event, result: { usage, conversation_id } }`) não é o formato Claude-like, então toda execução real reportava `unavailable`. Novo parser `parseAgyUsage` lê `result.usage`/`step_update.usage` com `input_tokens`, `output_tokens`, `thinking_tokens` e `cache_read_tokens`; o custo continua `null` (`unavailable`) porque o `agy` não reporta custo.
+- Regressões: ordem de flags do `agy`, ausência de `--dir` no `opencode` e parsing de usage do `agy` (com envelope real e sem usage).
+
+### Ciclo de vida dos adaptadores e correções da auditoria
+
+- CLI `harness status|install|update|remove|rollback|doctor` para os adaptadores opt-in: mesclagem idempotente que preserva as demais configurações e hooks do usuário, `--dry-run` sem escrita nem backup, `remove` restrito aos grupos gerados e `rollback` a partir do backup da integração.
+- `install --with-harness-hooks` continua opt-in e passa a respeitar `--only` (nenhum adaptador é configurado para ferramenta excluída da seleção) e `--dry-run`.
+- Backups do harness passam para `~/.maestro-harness-backups` (diretório privado, modo 0700), fora de `~/.orquestrador`, porque o instalador copia essa raiz para `~/.orquestrador-public-backups` e o conteúdo anterior das configurações do host pode conter credenciais.
+- Correção do ciclo de dependência `installer.js` ⇄ `harness-hook.js`, que expunha um export parcial e quebrava o CLI direto com `editHookConfig is not a function`.
+- CLI direto passa a reportar erro sanitizado (código estável e caminho redigido) em vez de mensagem crua.
+- `doctor` imprime o resumo dos adaptadores de harness em todos os caminhos de plataforma, incluindo PowerShell.
+- Registry: caminho de pacote que não pode ser renderizado como comando shell-safe degrada para "adaptador não configurado" em vez de lançar erro durante a inspeção.
+- Documentação de coexistência, instalação, perfis de ferramenta, integração [OI], READMEs e matriz de capacidades alinhadas com a evidência observada; a nova capability `harness-adapter-lifecycle` permanece `experimental` e sem claim público. Nenhuma superfície é declarada `goal-integrated`.
 
 ### Limites
 

@@ -537,6 +537,32 @@
       ],
       "publicClaimAllowed": false,
       "notes": "Implementado e coberto por testes, porém opt-in: feature flags default OFF, providers reais ainda não homologados e nenhum provider é certificado por esta capability."
+    },
+    {
+      "id": "harness-adapter-lifecycle",
+      "name": "Ciclo de vida opt-in dos adaptadores de harness — install, update, remove, rollback, doctor e registry",
+      "category": "runtime",
+      "status": "experimental",
+      "surface": "runtime",
+      "implementationEvidence": [
+        "runtime/integrations/harness/installer.js",
+        "runtime/integrations/harness/registry.js",
+        "runtime/integrations/harness/contract.js",
+        "runtime/integrations/harness/review.js",
+        "scripts/harness-hook.js"
+      ],
+      "testEvidence": [
+        "tests/harness-installer.test.js",
+        "tests/harness-contract.test.js",
+        "tests/harness-review.test.js",
+        "tests/goal-coexistence-scenarios.test.js"
+      ],
+      "documentation": [
+        "docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md",
+        "docs/product/GOAL_PROVIDER_CAPABILITIES.json"
+      ],
+      "publicClaimAllowed": false,
+      "notes": "Somente aCLI opt-in é coberta: mesclagem idempotente das configurações do host, backup privado, rollback e doctor sintético, verificados em suíte e em smoke do tarball. Nenhum host é goal-integrated: no host de release candidate, 8 de 17 harnesses detectados, 0 governed e 0 goal-integrated. Trust do hook continua sendo do host e nenhum evento externo concede autoridade de execução ou conclusão."
     }
   ],
   "tools": [

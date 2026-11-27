@@ -99,6 +99,33 @@ node .\bin\orquestrador-maestro.js verify
 
 `--non-interactive` aplica os perfis detectados e registra a seleção para o verificador. Use `--all-targets` (Windows: `-AllTargets`) se quiser todos os perfis. Quando houver alterações locais no clone, preserve-as antes de trocar a branch; `--ff-only` evita um merge automático.
 
+## Integração opt-in com harnesses
+
+O Maestro pode gravar hooks consultivos e o plugin do OpenCode V2 nas configurações das ferramentas. A integração é **opt-in**: nada é escrito sem pedido explícito, e a confiança do hook continua sendo controlada pela própria ferramenta.
+
+```bash
+orquestrador-maestro harness status
+orquestrador-maestro harness install claude --dry-run
+orquestrador-maestro harness install claude
+orquestrador-maestro harness doctor
+orquestrador-maestro harness remove claude
+orquestrador-maestro harness rollback claude
+```
+
+`install` e `update` mesclam apenas os grupos gerados, preservando as demais configurações e os hooks do usuário; uma segunda execução resulta em `unchanged`. `--dry-run` mostra o que mudaria sem gravar arquivo nem backup. `remove` remove apenas os grupos gerados, e `rollback` restaura o conteúdo anterior registrado no backup da integração.
+
+Para aplicar a mesma mesclagem em todas as ferramentas detectadas durante a instalação:
+
+```bash
+orquestrador-maestro install --with-harness-hooks
+```
+
+Use `--only codex,claude` para limitar o conjunto e `--dry-run` para manter todo o fluxo somente leitura.
+
+O conteúdo anterior dos arquivos de configuração fica em `~/.maestro-harness-backups` (diretório privado, modo 0700), fora de `~/.orquestrador` porque o instalador copia essa raiz para `~/.orquestrador-public-backups` e o conteúdo anterior pode conter credenciais.
+
+Depois de instalar, aprove (ou recuse) o hook na própria ferramenta. Um `harness doctor` verde confirma a configuração e o helper, não a execução real do host. Limites e níveis de autoridade: [Universal harness coexistence](architecture/UNIVERSAL_HARNESS_COEXISTENCE.md).
+
 ## Pastas Instaladas
 
 | Destino | Função |
@@ -135,6 +162,7 @@ node .\bin\orquestrador-maestro.js verify
 | `%USERPROFILE%\antigravity-rules.json` | Regras globais do Antigravity apontando para Orquestrador e AI standards |
 | `%USERPROFILE%\.antigravity\antigravity.json` | Configuração de integração Antigravity + Orquestrador |
 | `%USERPROFILE%\.antigravity\settings.json` | Configuração portável do Antigravity |
+| `%USERPROFILE%\.maestro-harness-backups` | Backups privados do conteúdo anterior das configurações dos harnesses (criado somente pela integração opt-in) |
 
 No Linux/macOS, os destinos equivalentes usam `$HOME` e `/`, por exemplo `$HOME/.orquestrador` (ou legado `$HOME/.orquestrador-maestro`), `$HOME/AGENTS.md`, `$HOME/.codex/skills`, `$HOME/.config/opencode` e `$HOME/.ai-standards`.
 
@@ -154,6 +182,8 @@ Linux/macOS: $HOME/.orquestrador-public-backups/YYYYMMDD-HHMMSS-PID
 ```
 
 Depois aplica a instalação como merge incremental: arquivos e skills desconhecidos (do usuário) são sempre preservados; somente arquivos antes gerenciados e ausentes no novo snapshot são removidos (tombstones via `MANAGED_FILES.json`). Para voltar atrás: `orquestrador-maestro rollback --list` e `orquestrador-maestro rollback [--to STAMP]`.
+
+A integração opt-in de harnesses mantém backups separados em `~/.maestro-harness-backups`, fora da árvore pública acima, porque o conteúdo anterior das configurações do host pode conter credenciais. O rollback desses arquivos usa `orquestrador-maestro harness rollback <claude|gemini|opencode>`.
 
 ## Verificação
 

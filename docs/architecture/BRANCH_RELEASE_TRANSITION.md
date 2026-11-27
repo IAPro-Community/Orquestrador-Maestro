@@ -1,7 +1,7 @@
 # Transição de branches e política de release — plano de execução
 
 **Estado:** PREPARAÇÃO, sem ativação. **Decisão de cutover:** pendente de homologação e autorização específica.
-**Baseline auditada:** `v1@13bac05451b5f52cb8caf700287089e3fdaee09e`, 24/11/2026. A política vigente continua em [AGENTS.md](../../AGENTS.md) e [release.md](../release.md). Este documento não autoriza merge, alteração de settings, criação de tag ou publicação.
+**Baseline auditada:** `v1@13bac05451b5f52cb8caf700287089e3fdaee09e`, 24/11/2026, e `origin/v1@f08914f51c3092d69514669d9d3f8e18e05ee0da` em 26/11/2026 (Tests [45680592723](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45680592723), Security [45680592709](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45680592709), Pages [45680592808](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45680592808) verdes). A política vigente continua em [AGENTS.md](../../AGENTS.md) e [release.md](../release.md). Este documento não autoriza merge, alteração de settings, criação de tag ou publicação.
 
 ## 1. Objetivo e política alvo
 
@@ -13,7 +13,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 
 ## 2. Evidências e bloqueadores
 
-- HEAD da v1 auditado acima; Tests [45492762025](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45492762025) e Security [45492762311](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45492762311) concluíram com sucesso. São evidências do baseline, não de um futuro commit de migração.
+- HEAD da v1 auditado acima; Tests [45680592723](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45680592723) e Security [45680592709](https://github.com/IAPro-Community/Orquestrador-Maestro/actions/runs/45680592709) concluíram com sucesso em `origin/v1@f08914f`. São evidências do baseline, não de um futuro commit de migração.
 - A branch padrão atual é v1; main histórica em `be7383232a69e95ff34db527e533b23a792cf4cc`. Comparação anterior mostrou main ancestral de v1, sem divergência; recalcular no cutover. `release/1.2.0` estava em `d810222b08`, anterior ao baseline; não presumir que inclui o hardening posterior.
 - Ruleset 27872254 protege v1 contra exclusão e non-fast-forward. Ruleset 22163803 ("block main") apareceu ativo com include/exclude vazios e regras de criação, update, exclusão e non-fast-forward; efeito real sobre main não comprovado. Revisão pelo owner obrigatória antes da transição.
 - **Risco crítico de ordem:** o arquivo auto-tag.yml da main histórica ainda contém gatilho push em main/v1, com permissão de escrita. Não promover código antigo, alterar versão, disparar workflow histórico ou mover tag. Antes da troca, confirmar que o commit promovido contém apenas workflows manuais fail-closed e que o environment bloqueia qualquer caminho antigo de publicação.
@@ -49,7 +49,7 @@ A `v1` permanece como referência de compatibilidade; nenhum novo desenvolviment
 
 - [x] Inventário inicial de workflows, scripts, documentação e branches.
 - [x] Definir política alvo, riscos e gates; registrar evidência de CI do baseline.
-- [ ] Finalizar inventário textual completo no checkout (incluindo site, manifests, bootstrap, tests e docs). Exemplo: `git grep -n -I -E 'refs/heads/v1|origin/v1|--branch[ =]v1|/(blob|tree|raw)/v1/|branches:.*v1|ref_name.*v1' -- .`. Revisar cada resultado por intenção, não substituir cegamente.
+- [x] Finalizar inventário textual completo no checkout (incluindo site, manifests, bootstrap, tests e docs). Auditoria de 26/11/2026 no checkout: 17 arquivos com referência literal a `v1` (`.github/ISSUE_TEMPLATE/config.yml`, `.github/PULL_REQUEST_TEMPLATE.md`, `auto-tag.yml`, `pages.yml`, `release.yml`, `router-v3.yml`, `security.yml`, `test.yml`, `CONTRIBUTING.md`, `docs/installation.md`, `docs/release.md`, `scripts/verify-pr.js`, `site/docusaurus.config.js`, `site/remark-repo-links.cjs`, `site/scripts/generate-content.mjs`, `site/src/pages/benchmark.jsx` e este documento). Cada ocorrência foi revisada por intenção: links de leitura, gatilhos por branch e gates de ancestralidade continuam apontando para `v1` porque a linha canônica **é** `v1` nesta fase. Nenhuma substituição cega foi aplicada; a migração dos gatilhos e links para `main` pertence à Fase B/C, ainda sem cutover autorizado.
 - [ ] Confirmar settings administrativos e consumidores externos. Não mexer nas regras vigentes nesta fase.
 
 ### Fase B — preparação técnica do cutover (sem publicar)

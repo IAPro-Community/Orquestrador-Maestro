@@ -19,6 +19,8 @@ Scope: issues #67, #82 and #86. This increment is additive; it is not native Goa
 | Grok CLI, MiMo Code, Kimi Code, Freebuff | portable profile | Goal lifecycle unknown; no Maestro-owned headless provider |
 | Junie, Goose, OpenHands, Continue, Cline, Copilot | catalog/blueprint coverage varies | certify per tool, version and surface before advertising enforcement |
 
+Every opt-in adapter in this table can also be installed, updated, removed and rolled back through the `harness` lifecycle CLI described below. A configured adapter still raises the level only to *governed*, and only while the host keeps its own approval of the hook.
+
 The authoritative current headless checks remain in `runtime/providers/goal-preflight.js` and `docs/product/GOAL_PROVIDER_CAPABILITIES.json`. Ollama and LM Studio are model providers, not coding harnesses. Do not infer integration from installation, a tool name, a skill or a generic event.
 
 ## Behavior and rollback
@@ -53,6 +55,33 @@ npm install --ignore-scripts
 ```
 
 The V2 prompt hook observes without changing the user text or attachment offsets. The model-context hook adds at most one short advisory block per request for sessions whose latest observed prompt exposed /goal. Bounded in-memory state (256 sessions) is cleared on unload; it is not a Goal ledger or reliable lifecycle state. Remove only this plugin entry to roll back.
+
+### Adapter lifecycle CLI
+
+The installed CLI exposes the opt-in lifecycle of those adapters (Node 20.19+):
+
+```bash
+orquestrador-maestro harness status [--home-path PATH] [--json]
+orquestrador-maestro harness install <claude|gemini|opencode|detected> [--home-path PATH] [--dry-run]
+orquestrador-maestro harness update <claude|gemini|opencode|detected> [--home-path PATH] [--dry-run]
+orquestrador-maestro harness remove <claude|gemini|opencode> [--home-path PATH] [--dry-run]
+orquestrador-maestro harness rollback <claude|gemini|opencode> [--home-path PATH] [--to STAMP]
+orquestrador-maestro harness doctor [--home-path PATH] [--json]
+```
+
+`install` and `update` merge only the generated groups into the host settings file, keep every unrelated setting and user hook, and are idempotent: a second run reports `unchanged`. `--dry-run` reports the planned change without writing the file or a backup. `remove` strips only the exact generated groups, and `rollback` restores the previous content recorded in the harness backup, or deletes a file that the integration itself created.
+
+`install --with-harness-hooks` performs the same merge for every detected host after the regular install. `--only` narrows that set to the selected tools, and `--dry-run` keeps the whole flow read-only.
+
+Backups of the previous host settings content are written to `~/.maestro-harness-backups` (private directory, mode 0700). They are deliberately kept out of `~/.orquestrador`: the installer copies that core root into `~/.orquestrador-public-backups` on every install and update, and the previous settings content can carry credentials.
+
+The host still owns trust. Maestro writes the configuration; the operator approves it in the host tool.
+
+### Release-candidate host evidence (2026-11-26, Linux x86_64)
+
+Detected on the release-candidate host: `codex-cli 0.172.0`, [CC] `2.1.325`, `opencode v2.4.1`, `gemini 0.62.0`, `agy 1.5.18`, `grok 1.0.1`, `cline 3.0.76`, `copilot 1.0.83`. Registry summary: 8 of 17 harnesses installed, **0 governed**, **0 goal-integrated**.
+
+These are binary detections and adapter-configuration states, not lifecycle evidence. No native Goal was started, observed, cancelled or recovered on any host in this increment. `harness doctor` runs the generated hook with a synthetic payload, which is a self-check and never a live host event. A green doctor result certifies the configuration and the helper, not the host.
 
 The shared event contract returns `dispatchAllowed: false`, `goalState: unknown`, and `verification: not-performed` for all external events. The runtime Goal assessor continues to accept only manifest-bound canonical submissions. A generic host event cannot create a verification receipt. This increment is advisory and **does not provide enforcement or independent external acceptance**.
 

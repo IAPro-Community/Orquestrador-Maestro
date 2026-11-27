@@ -358,6 +358,18 @@ Submissões recém-admitidas ficam em `PENDING_WORKER` até um worker reivindic�
 
 A superfície é **experimental**: o caminho está coberto por testes e E2E com provider shim, com suíte completa aprovada na CI pública para Linux, Windows e macOS. Continuam pendentes CLIs reais de provider, macOS arm64, restart durante execução e dois clientes em hosts distintos. Contrato completo, exemplos, status e lista de limites em [Execução durável de Runs](docs/architecture/DURABLE_RUN_ADMISSION.md).
 
+## Integração opt-in com harnesses (experimental)
+
+O Maestro pode gravar hooks consultivos e o plugin do OpenCode V2 nas configurações de outras ferramentas, sempre por pedido explícito:
+
+```bash
+orquestrador-maestro harness status
+orquestrador-maestro harness install claude --dry-run
+orquestrador-maestro harness doctor
+```
+
+A integração mescla apenas os grupos gerados, preserva as demais configurações e hooks do usuário, e pode ser revertida (`harness remove`, `harness rollback`). A confiança do hook continua sendo da própria ferramenta. Nenhum host está certificado para Goal nativo: o nível máximo entregue é *governed*, e a evidência de lifecycle nativo ainda não existe. Contrato e limites: [Coexistência universal de harnesses](docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md).
+
 ## Guias técnicos
 
 | Se você quer… | Comece aqui |
@@ -368,6 +380,7 @@ A superfície é **experimental**: o caminho está coberto por testes e E2E com 
 | Exigir qualidade verificável | [Engenharia guiada](docs/engineering-quality.md) · [Resolution Engine](docs/maestro-resolution-engine.md) |
 | Executar planos com admissão durável | [Execução durável de Runs](docs/architecture/DURABLE_RUN_ADMISSION.md) · [reconciliação](docs/architecture/RUN_RECONCILIATION.md) |
 | Avaliar a evolução para Harness Orchestrator | [ADR e arquitetura](docs/architecture/ADR_0068_HARNESS_ORCHESTRATOR.md) · [auditoria #67](docs/architecture/HARNESS_AUDIT_ISSUE_67.md) · [benchmark open-source](docs/research/HARNESS_ORCHESTRATOR_BENCHMARK_2026.md) |
+| Integrar hooks opt-in em harnesses | [Coexistência universal de harnesses](docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md) · [instalação](docs/installation.md#integração-opt-in-com-harnesses) |
 | Avaliar privacidade | [Modelo de privacidade](docs/privacy-model.md) |
 | Retomar tarefas longas | [Workflows](docs/workflows.md) · [contratos](docs/task-and-workspace-contracts.md) |
 | Organizar memória | [Hierarquia DEV/](docs/project-dev-hierarchy.md) · [escopos](docs/memory-scopes.md) |

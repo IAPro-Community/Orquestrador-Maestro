@@ -2,14 +2,17 @@
   "schemaVersion": 1,
   "referenceIssue": 67,
   "branch": "v1",
-  "baselineCommit": "f9a93336167cc0449ac1672c6f00784494343dbb",
+  "baselineCommit": "31664794c7a3cea53edcb831bc6c54d186d62b59",
   "environment": {
     "os": "Linux x86_64",
-    "node": "v22.16.0",
-    "codex": "NOT_INSTALLED",
-    "claude": "NOT_INSTALLED",
-    "opencode": "NOT_INSTALLED",
-    "realProviderTests": "NOT_TESTED"
+    "node": "v22.17.0",
+    "observedAt": "2026-11-26",
+    "codex": "codex-cli 0.172.0 (installed; headless adapter executed, no Goal lifecycle)",
+    "claude": "2.1.325 (installed; headless adapter executed, no Goal lifecycle)",
+    "opencode": "opencode v2.4.1 (installed; headless adapter executed, no Goal lifecycle)",
+    "agy": "1.5.18 (installed; headless adapter executed, no Goal lifecycle)",
+    "gemini": "0.62.0 (binary detected; no Maestro headless adapter)",
+    "realProviderTests": "PASS (codex, claude, agy, opencode on Linux x86_64; dispatch and persistence only)"
   },
   "states": [
     "supported",
@@ -114,6 +117,7 @@
   ],
   "notes": [
     "Interactive support comes from published documentation, NOT from an installed binary.",
+    "A detected binary only fills the environment block; it never fills a goal capability.",
     "unknown fields never grant permission or promise headless support.",
     "No managed corrective dispatch has been certified yet; all overnight combinations remain blocked.",
     "Default autonomy flag is OFF."

@@ -121,6 +121,18 @@ orquestrador-maestro runs worker --project-path /repo --concurrency 1
 Submissions stay `PENDING_WORKER` until a worker claims them. The worker runs the DAG in topological order, creates one Run per task, blocks descendants of failed tasks and records a Goal Loop decision without automatic re-dispatch. The full suite passed in public CI for Linux, Windows and macOS; real provider CLIs, macOS arm64, restart during execution and two clients on distinct hosts remain pending. See the full contract in Portuguese: [durable Run execution](docs/architecture/DURABLE_RUN_ADMISSION.md).
 
 
+## Opt-in harness integration (experimental)
+
+Maestro can write advisory hooks and the OpenCode V2 plugin into other tools' settings, always on explicit request:
+
+```bash
+orquestrador-maestro harness status
+orquestrador-maestro harness install claude --dry-run
+orquestrador-maestro harness doctor
+```
+
+It merges only the generated groups, keeps every unrelated setting and user hook, and can be undone (`harness remove`, `harness rollback`). Hook trust stays with the host. No host is certified for a native Goal: the highest delivered level is *governed*, and native lifecycle evidence does not exist yet. Contract and limits (Portuguese): [universal harness coexistence](docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md).
+
 ## Keep exploring
 
 - [Installation](docs/installation.md)
@@ -128,6 +140,7 @@ Submissions stay `PENDING_WORKER` until a worker claims them. The worker runs th
 - [Context economy](docs/context-economy.md)
 - [Engineering quality](docs/engineering-quality.md)
 - [Durable plan execution (PT)](docs/architecture/DURABLE_RUN_ADMISSION.md)
+- [Universal harness coexistence (PT)](docs/architecture/UNIVERSAL_HARNESS_COEXISTENCE.md)
 - [Skills portal (detailed documentation in Portuguese)](docs/skills/README.md)
 - [Privacy model](docs/privacy-model.md)
 - [Full technical documentation](docs/)

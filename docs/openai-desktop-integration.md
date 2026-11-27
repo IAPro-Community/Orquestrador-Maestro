@@ -116,6 +116,8 @@ Restart ChatGPT Desktop or Codex after installation. Plugin hooks still require 
 
 The host's hook trust approval cannot be forced or proven by the CLI; the doctor reports that boundary explicitly.
 
+A stale installed plugin is reported explicitly instead of being ignored. On the release-candidate host (2026-11-26) the installed plugin was `1.1.0` while the CLI was `1.2.0-rc.2`, so `desktop-plugin doctor` returned `healthy: false` with the `version:plugin.json` and `version:.codex-plugin/plugin.json` checks failing, and the harness registry kept the Codex adapter at `desktop-plugin-version-mismatch`. Reinstalling the desktop plugin is the fix.
+
 Runtime counters can be inspected when the plugin data directory is available:
 
 ```bash
