@@ -3461,6 +3461,31 @@ async function dispatch(command, args) {
   throw new Error(`Comando desconhecido: ${command}`);
 }
 
+function flushStream(stream) {
+  return new Promise((resolve) => {
+    if (!stream || stream.destroyed || stream.writableEnded) {
+      resolve();
+      return;
+    }
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stream.removeListener("error", done);
+      resolve();
+    };
+    const timer = setTimeout(done, 250);
+    if (typeof timer.unref === "function") timer.unref();
+    stream.once("error", done);
+    try {
+      stream.write("", done);
+    } catch {
+      done();
+    }
+  });
+}
+
 async function main() {
   const [command = "--help", ...args] = process.argv.slice(2);
   let exitCode = 0;
@@ -3486,6 +3511,9 @@ async function main() {
     await sendTelemetry(buildTelemetryPayload(command, args, exitCode, errorName));
   }
 
+  // Wait for buffered pipe writes (e.g. `harness status --json`) before forcing
+  // process exit, otherwise Node 20 on macOS can truncate stdout.
+  await Promise.all([flushStream(process.stdout), flushStream(process.stderr)]);
   process.exit(exitCode);
 }
 

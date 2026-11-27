@@ -170,8 +170,9 @@ test("doctor prints the harness summary on every platform path", (t) => {
     `doctor must report the harness summary:\n${res.stdout?.slice(-800)}\n${res.stderr?.slice(-800)}`);
 });
 
-test("the shell installer tolerates symlinks inside the target tree and records the manifest", (t) => {
-  if (process.platform === "win32") t.skip("symlink-based scenario is POSIX-only");
+test("the shell installer tolerates symlinks inside the target tree and records the manifest", {
+  skip: process.platform === "win32" ? "symlink-based scenario is POSIX-only" : false
+}, (t) => {
   const { runInstaller: runNativeInstaller } = require("./test-helpers.js");
   const home = makeHome(t);
   // Simulate the real-world host state: a previous skill sync left a symlink
@@ -192,8 +193,9 @@ test("the shell installer tolerates symlinks inside the target tree and records 
   assert.equal(fs.readFileSync(path.join(maestroRoot, "keepme.txt"), "utf8"), "user file", "untracked user file must survive");
 });
 
-test("the shell installer still refuses a symlinked top-level target", (t) => {
-  if (process.platform === "win32") t.skip("symlink-based scenario is POSIX-only");
+test("the shell installer still refuses a symlinked top-level target", {
+  skip: process.platform === "win32" ? "symlink-based scenario is POSIX-only" : false
+}, (t) => {
   const { runInstaller: runNativeInstaller } = require("./test-helpers.js");
   const home = makeHome(t);
   const elsewhere = path.join(home, "elsewhere");
@@ -210,8 +212,12 @@ test("sanitizeCliError redacts Windows, UNC and POSIX paths without fragmenting 
     ["failed at C:/data/profiles/user1/settings.json", ["data", "profiles", "user1"]],
     ["C:\\data\\user2\\file.json", ["data", "user2", "file.json"]],
     ["network \\\\srv\\share\\file.json", ["srv", "share", "file.json"]],
+    ["UNC \\\\srv\\my share\\user1\\file.json failed", ["srv", "my share", "user1", "file.json"]],
     ["open file:///C:/data/user1/x.json", ["data", "user1"]],
     ["open /home/user1/.orquestrador/rules.md please", ["home", "user1", "rules.md"]],
+    ["POSIX /Users/John Doe/Library/settings.json failed", ["Users", "John Doe", "Library", "settings.json"]],
+    ["Quoted \"C:\\Program Files\\App\\settings.json\" failed", ["Program Files", "App", "settings.json"]],
+    ["Double space C:\\Users\\John  Doe\\settings.json", ["Users", "John  Doe", "settings.json"]],
     ["plain message without path", []]
   ];
   for (const [message, secrets] of cases) {

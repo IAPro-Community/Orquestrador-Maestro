@@ -56,7 +56,9 @@ test("install keeps user-owned root keys while the template still wins", t => {
   assert.deepEqual(merged.instructions, TEMPLATE.instructions, "template arrays replace stale selections");
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "backup", "opencode.json"), "utf8")).instructions,
     ["~/legacy.md"], "pre-merge content is backed up");
-  assert.equal(fs.statSync(destination).mode & 0o777, 0o600);
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(destination).mode & 0o777, 0o600);
+  }
 });
 
 test("install never overwrites a destination that is not strict JSON", t => {
@@ -117,4 +119,79 @@ test("installer keeps the user provider block when a managed profile already exi
   assert.deepEqual(config.provider, userProvider, "user provider block survives reinstall");
   assert.ok(config.instructions.includes("~/.orquestrador/rules.md"), "template instructions are applied");
   assert.ok(!config.instructions.includes("~/stale.md"), "template arrays replace stale selections");
+  assert.equal(
+    fs.readFileSync(path.join(configDir, ".maestro-managed"), "utf8"),
+    "managed by orquestrador-maestro\ntool: opencode\n",
+    "installer writes canonical tool marker"
+  );
+  assert.equal(fs.existsSync(path.join(home, ".orquestrador", "skill-library", "codex-skills", ".maestro-managed")), false,
+    "non-profile targets must not receive .maestro-managed markers");
+});
+
+test("install-profile-file refuses symlink destinations", {
+  skip: process.platform === "win32" ? "POSIX symlink assertion" : false
+}, t => {
+  const { root, source, backup } = fixture(t);
+  const target = path.join(root, "real.json");
+  fs.writeFileSync(target, JSON.stringify({ provider: { keep: true } }));
+  const destination = path.join(root, "opencode.json");
+  fs.symlinkSync(target, destination);
+
+  const result = run(["install", source, destination, backup]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /symbolic link/i);
+});
+
+test("non-interactive reinstall without --all-targets still merges previously installed profiles", {
+  skip: process.platform === "win32" ? "POSIX installer assertions" : false
+}, t => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-profile-reinstall-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const configDir = path.join(home, ".config", "opencode");
+  const { configurationState } = require("../orquestrador/lib/install-diagnostics.js");
+
+  // Build a minimal PATH that contains node/bash/standard tools but NO opencode
+  // binary, so the second install proves it relies on INSTALL_PROFILES.json
+  // instead of skipping the profile when .maestro-managed is present.
+  const minimalBin = path.join(home, "bin");
+  fs.mkdirSync(minimalBin, { recursive: true });
+  for (const dir of ["/bin", "/usr/bin", path.dirname(process.execPath)]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const name of ["node", "bash", "sh", "mkdir", "rm", "cp", "mv", "cat", "sed", "grep", "find", "chmod", "date", "basename", "dirname", "head", "tr", "printf", "mktemp", "uname"]) {
+      const candidate = path.join(dir, name);
+      if (fs.existsSync(candidate) && !fs.existsSync(path.join(minimalBin, name))) {
+        fs.symlinkSync(candidate, path.join(minimalBin, name));
+      }
+    }
+  }
+
+  const first = runInstaller(home, {
+    force: true,
+    skipSkillSync: true,
+    args: ["--install-tool-profiles", "--all-targets"],
+    env: { PATH: minimalBin, XDG_CONFIG_HOME: path.join(home, ".config") }
+  });
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(configurationState("opencode", home), "maestro-managed");
+
+  const userProvider = { flatt: { name: "Flatt", models: { automode: { name: "Auto" } } } };
+  const installed = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
+  fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
+    ...installed,
+    instructions: ["~/stale.md"],
+    provider: userProvider
+  }));
+
+  const second = runInstaller(home, {
+    force: true,
+    skipSkillSync: true,
+    args: ["--install-tool-profiles"],
+    env: { PATH: minimalBin, XDG_CONFIG_HOME: path.join(home, ".config") }
+  });
+  assert.equal(second.status, 0, second.stderr);
+
+  const config = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
+  assert.deepEqual(config.provider, userProvider, "user provider block survives non-interactive reinstall without --all-targets");
+  assert.ok(config.instructions.includes("~/.orquestrador/rules.md"), "template instructions are re-applied on reinstall");
+  assert.ok(!config.instructions.includes("~/stale.md"), "stale instructions are replaced");
 });

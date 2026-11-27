@@ -195,13 +195,12 @@ async function main(args, input, output) {
 // Windows paths carry the user name in the profile segment, so POSIX-only
 // redaction leaked the POSIX form as the Windows form on every Windows host.
 const REDACTED_PATTERNS = Object.freeze([
+  /"(?:file:\/{2,3}|\\\\|[A-Za-z]:[\\/]|\/)[^"\r\n]*"/giu, // quoted paths (incl. spaces)
+  /'(?:file:\/{2,3}|\\\\|[A-Za-z]:[\\/]|\/)[^'\r\n]*'/giu, // single-quoted paths
   /\bfile:\/{2,3}[^\s:,;"'`|<>]+/giu, // file:///C:/x/y
-  /\\\\[^\s:,;"'`|<>]+(?:\\[^\s:,;"'`|<>]+)*/gu, // \\server\share\...
-  // A drive root plus the remainder of the path. Quoted/unquoted variants and
-  // single spaces in a profile directory stay inside one placeholder; the
-  // `now` after a space terminates the match.
-  /[A-Za-z]:[\\/](?:"[^"]*"|'[^']*'|[^\s:,;"'`|<>]+(?: [^\s:,;"'`|<>]+)*)/gu,
-  /(?:[A-Za-z]:)?(?:\/[^\s:,;"'`|<>]+)+/gu // POSIX absolute paths
+  /\\\\[^\s:,;"'`|<>]+(?: +[^\s:,;"'`|<>]+(?=[\\/]))*(?:[\\/][^\s:,;"'`|<>]+(?: +[^\s:,;"'`|<>]+(?=[\\/]))*)*/gu, // \\server\share\...
+  /[A-Za-z]:(?:[\\/][^\s:,;"'`|<>]+(?: +[^\s:,;"'`|<>]+(?=[\\/]))*)+/gu, // C:\... or C:/...
+  /(?:[A-Za-z]:)?(?:\/[^\s:,;"'`|<>]+(?: +[^\s:,;"'`|<>]+(?=\/))*)+\/?/gu // POSIX /...
 ]);
 
 function sanitizeCliError(error) {

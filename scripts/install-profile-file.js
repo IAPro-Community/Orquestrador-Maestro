@@ -13,7 +13,7 @@
 // Before any write in install/merge mode the existing file is copied into the
 // install backup directory, so an upgrade can always be rolled back.
 //
-// Usage: install-profile-file.js install|backup <source> <destination> <backup-dir> [--warn-file PATH]
+// Usage: install-profile-file.js install|backup <source> <destination> <backup-dir>
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -43,6 +43,7 @@ function atomicWriteFile(filePath, content) {
 function mergeDeep(base, overlay) {
   const out = { ...base };
   for (const [key, value] of Object.entries(overlay)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
     out[key] = isPlainObject(value) && isPlainObject(out[key]) ? mergeDeep(out[key], value) : value;
   }
   return out;
@@ -51,7 +52,11 @@ function mergeDeep(base, overlay) {
 // Arrays are replaced wholesale: they carry ordered selections (instructions,
 // plugins, model lists), so merging them would resurrect stale entries.
 function copyTree(sourceDir, backupDir) {
-  if (!lstatOrNull(backupDir)) fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+  const backupStat = lstatOrNull(backupDir);
+  if (backupStat && backupStat.isSymbolicLink()) {
+    throw new Error(`Refusing symbolic backup directory: ${backupDir}`);
+  }
+  if (!backupStat) fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
     const from = path.join(sourceDir, entry.name);
     const to = path.join(backupDir, entry.name);
@@ -63,8 +68,24 @@ function copyTree(sourceDir, backupDir) {
   }
 }
 
-function warn(target, message) {
+function warn(message) {
   process.stderr.write(`Warning: ${message}\n`);
+}
+
+function assertSafeDestination(target) {
+  const stats = lstatOrNull(target);
+  if (stats && stats.isSymbolicLink()) {
+    throw new Error(`Refusing to operate on symbolic link: ${target}`);
+  }
+  return stats;
+}
+
+function ensureSafeBackupDir(backupDir) {
+  const stats = lstatOrNull(backupDir);
+  if (stats && stats.isSymbolicLink()) {
+    throw new Error(`Refusing symbolic backup directory: ${backupDir}`);
+  }
+  fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
 }
 
 function main(argv) {
@@ -72,14 +93,14 @@ function main(argv) {
   if (!["install", "backup"].includes(mode) || !source || !destination) {
     throw new Error("Usage: install-profile-file.js install|backup <source> <destination> <backup-dir>");
   }
-  const stats = lstatOrNull(destination);
+  const stats = assertSafeDestination(destination);
 
   if (mode === "backup") {
     if (!stats) return;
     if (!backupDir) throw new Error("backup mode requires a backup directory");
     if (stats.isDirectory()) copyTree(destination, backupDir);
     else {
-      fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+      ensureSafeBackupDir(backupDir);
       fs.copyFileSync(destination, path.join(backupDir, path.basename(destination)));
     }
     return;
@@ -95,11 +116,11 @@ function main(argv) {
   try {
     existing = JSON.parse(fs.readFileSync(destination, "utf8"));
   } catch {
-    warn(destination, `existing file is not strict JSON; left untouched (template: ${source})`);
+    warn(`existing file is not strict JSON; left untouched (template: ${source})`);
     return;
   }
   if (!isPlainObject(existing)) {
-    warn(destination, `existing JSON is not an object; left untouched (template: ${source})`);
+    warn(`existing JSON is not an object; left untouched (template: ${source})`);
     return;
   }
 
@@ -112,7 +133,7 @@ function main(argv) {
   if (!isPlainObject(overlay)) throw new Error(`Tool-profile template must be a JSON object (${source})`);
 
   if (backupDir) {
-    fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+    ensureSafeBackupDir(backupDir);
     fs.copyFileSync(destination, path.join(backupDir, path.basename(destination)));
   }
   const merged = mergeDeep(existing, overlay);

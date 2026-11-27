@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$HomePath = [Environment]::GetFolderPath("UserProfile"),
   [switch]$Force,
@@ -40,18 +40,6 @@ function Get-HostPowerShell {
   $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
   if ($pwsh) { return "pwsh" }
   return "powershell"
-}
-
-function Test-ToolPresent {
-  # Mirrors install.sh tool_is_present: binary on PATH, or a config dir
-  # that we did not create ourselves (.maestro-managed marker).
-  param([string]$Command, [string]$ConfigDir)
-  if ($Command -and (Get-Command $Command -ErrorAction SilentlyContinue)) { return $true }
-  if ($ConfigDir) {
-    $dir = Join-Path $HomePath $ConfigDir
-    if ((Test-Path -LiteralPath $dir) -and -not (Test-Path -LiteralPath (Join-Path $dir ".maestro-managed"))) { return $true }
-  }
-  return $false
 }
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
@@ -255,14 +243,16 @@ function Copy-TreePreservingJson {
   # Maestro-managed profile: mirror the tree, but merge a settings file that
   # already exists so user-owned root keys survive a reinstall.
   param([string]$SourceDir, [string]$DestinationDir, [string]$BackupDirLabel = "")
-  $backupDir = if ($BackupDirLabel) { Join-Path $BackupDir $BackupDirLabel } else { "" }
+  $backupRootDir = if ($BackupDirLabel) { Join-Path $BackupDir $BackupDirLabel } else { "" }
   foreach ($file in Get-TreeFiles -SourceDir $SourceDir) {
     $relative = Get-RelativePath -BasePath $SourceDir -Path $file.FullName
     $dest = Join-Path $DestinationDir $relative
     if ($file.Extension -eq ".json" -and (Test-Path -LiteralPath $dest -PathType Leaf)) {
+      $relDir = Split-Path -Parent $relative
+      $fileBackupDir = if ($backupRootDir -and $relDir -and $relDir -ne ".") { Join-Path $backupRootDir $relDir } else { $backupRootDir }
       $staged = Join-Path ([System.IO.Path]::GetTempPath()) ("maestro-profile-" + [guid]::NewGuid().ToString("N") + ".json")
       Copy-WithPlaceholders -SourceFile $file.FullName -DestinationFile $staged
-      & node (Join-Path $RepoRoot "scripts/install-profile-file.js") install $staged $dest $backupDir
+      & node (Join-Path $RepoRoot "scripts/install-profile-file.js") install $staged $dest $fileBackupDir
       $code = $LASTEXITCODE
       Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue
       if ($code -ne 0) { throw "Failed to merge managed profile file: $dest" }
@@ -351,7 +341,8 @@ function Add-InstallTarget {
     [string]$Source,
     [string]$Destination,
     [string]$Label,
-    [string]$Component = ""
+    [string]$Component = "",
+    [string]$ManagedTool = ""
   )
   if (Test-Path -LiteralPath $Source) {
     $Targets.Add([pscustomobject]@{
@@ -359,6 +350,7 @@ function Add-InstallTarget {
       Destination = $Destination
       Label = $Label
       Component = $Component
+      ManagedTool = $ManagedTool
       Kind = "directory"
     })
   }
@@ -594,24 +586,29 @@ if (-not $SkipExtraSkills) {
 $installedProfiles = New-Object System.Collections.Generic.List[string]
 $skippedProfiles = New-Object System.Collections.Generic.List[string]
 if ($InstallToolProfiles) {
+  $previousInstallProfiles = @{}
+  $previousProfilesPath = Join-Path $TargetOrquestrador "INSTALL_PROFILES.json"
+  if (Test-Path -LiteralPath $previousProfilesPath -PathType Leaf) {
+    try {
+      $previousProfilesState = Get-Content -LiteralPath $previousProfilesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      foreach ($profileId in @($previousProfilesState.profiles)) {
+        if ($profileId) { $previousInstallProfiles[[string]$profileId] = $true }
+      }
+    } catch { }
+  }
   function Test-ToolPresent {
     param([Alias("Command")][string]$ToolCommand, [string]$ConfigDir)
     if ($ToolCommand -and (Get-Command $ToolCommand -ErrorAction SilentlyContinue)) { return $true }
     if ($ConfigDir) {
       $full = Join-Path $HomePath $ConfigDir
-      if (Test-Path -LiteralPath $full) {
-        if (Test-Path -LiteralPath (Join-Path $full ".maestro-managed")) {
-          $items = @(Get-ChildItem -LiteralPath $full -Force -ErrorAction SilentlyContinue)
-          if ($items.Count -eq 1) { return $false }
-        }
-        return $true
-      }
+      if ((Test-Path -LiteralPath $full) -and -not (Test-Path -LiteralPath (Join-Path $full ".maestro-managed"))) { return $true }
     }
     return $false
   }
   function Test-ToolShouldInstall {
-    param([string]$Component, [string]$ToolCommand, [string]$ConfigDir)
+    param([string]$ProfileId, [string]$ToolCommand, [string]$ConfigDir)
     if ($AllTargets) { return $true }
+    if ($ProfileId -and $previousInstallProfiles.ContainsKey($ProfileId)) { return $true }
     if ($NonInteractive) { return (Test-ToolPresent -ToolCommand $ToolCommand -ConfigDir $ConfigDir) }
     return $true
   }
@@ -632,30 +629,27 @@ if ($InstallToolProfiles) {
   )
   foreach ($target in $toolProfileTargets) {
     if (-not (Test-SelectedComponent -Names @("tool-profiles", $target.Component))) { continue }
-    # -AllTargets installs everything; -NonInteractive installs only
-    # detected tools (mirrors install.sh tool_should_install).
-    if (-not $AllTargets -and $NonInteractive) {
-      if (-not (Test-ToolPresent -Command $target.ToolCommand -ConfigDir $target.ToolConfigDir)) {
-        $skippedProfiles.Add($target.Source)
-        continue
-      }
+    # -AllTargets installs everything; previously installed profiles stay
+    # active so reinstalls merge; -NonInteractive installs only detected tools.
+    if (-not (Test-ToolShouldInstall -ProfileId $target.Source -ToolCommand $target.ToolCommand -ConfigDir $target.ToolConfigDir)) {
+      $skippedProfiles.Add($target.Source)
+      continue
     }
-    if (Test-SelectedComponent -Names @("tool-profiles", $target.Component)) {
-      if (-not (Test-Path -LiteralPath (Join-Path $SourceToolProfiles $target.Source) -PathType Container)) {
-        throw "Missing tool profile source: $($target.Source)"
-      }
-      Add-InstallTarget `
-        -Targets $extraTargets `
-        -Source (Join-Path $SourceToolProfiles $target.Source) `
-        -Destination (Join-Path $HomePath $target.Destination) `
-        -Label $target.Label `
-        -Component $target.Component
-      $installedProfiles.Add($target.Source)
+    if (-not (Test-Path -LiteralPath (Join-Path $SourceToolProfiles $target.Source) -PathType Container)) {
+      throw "Missing tool profile source: $($target.Source)"
     }
+    Add-InstallTarget `
+      -Targets $extraTargets `
+      -Source (Join-Path $SourceToolProfiles $target.Source) `
+      -Destination (Join-Path $HomePath $target.Destination) `
+      -Label $target.Label `
+      -Component $target.Component `
+      -ManagedTool $target.Component
+    $installedProfiles.Add($target.Source)
   }
 
   if (Test-SelectedComponent -Names @("tool-profiles", "antigravity")) {
-    $antigravityDetected = $AllTargets -or -not $NonInteractive -or (Test-ToolPresent -Command "antigravity" -ConfigDir ".antigravity")
+    $antigravityDetected = Test-ToolShouldInstall -ProfileId "antigravity-home" -ToolCommand "antigravity" -ConfigDir ".antigravity"
     if ($antigravityDetected) {
       if (-not (Test-Path -LiteralPath (Join-Path $SourceToolProfiles "antigravity-home\antigravity-rules.json") -PathType Leaf)) {
         throw "Missing tool profile source: antigravity-home"
@@ -889,14 +883,18 @@ try {
 Copy-WithPlaceholders -SourceFile $SourceAgents -DestinationFile $TargetAgents
 
 foreach ($target in $extraTargets) {
-  if (Test-Path -LiteralPath (Join-Path $target.Destination ".maestro-managed")) {
+  $markerPath = Join-Path $target.Destination ".maestro-managed"
+  if ($target.ManagedTool -and (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
     Copy-TreePreservingJson -SourceDir $target.Source -DestinationDir $target.Destination -BackupDirLabel $target.Label
   } else {
     Copy-TreeWithPlaceholders -SourceDir $target.Source -DestinationDir $target.Destination
-    # Mark the profile as Maestro-owned so the next install merges instead of
-    # replacing it. Without this marker Copy-TreePreservingJson never runs.
-    New-Item -ItemType Directory -Path $target.Destination -Force | Out-Null
-    Set-Content -LiteralPath (Join-Path $target.Destination ".maestro-managed") -Value "" -NoNewline
+    if ($target.ManagedTool -and $null -eq (Get-Item -LiteralPath $markerPath -Force -ErrorAction SilentlyContinue)) {
+      # Mark the tool profile with the canonical LF marker so both reinstalls
+      # (Copy-TreePreservingJson) and `targets` CLI recognize it.
+      New-Item -ItemType Directory -Path $target.Destination -Force | Out-Null
+      $markerBody = "managed by orquestrador-maestro`ntool: $($target.ManagedTool)`n"
+      [System.IO.File]::WriteAllText($markerPath, $markerBody, [System.Text.UTF8Encoding]::new($false))
+    }
   }
 }
 foreach ($target in $extraFileTargets) {

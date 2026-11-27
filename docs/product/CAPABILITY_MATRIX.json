@@ -562,7 +562,7 @@
         "docs/product/GOAL_PROVIDER_CAPABILITIES.json"
       ],
       "publicClaimAllowed": false,
-      "notes": "Somente aCLI opt-in é coberta: mesclagem idempotente das configurações do host, backup privado, rollback e doctor sintético, verificados em suíte e em smoke do tarball. Nenhum host é goal-integrated: no host de release candidate, 8 de 17 harnesses detectados, 0 governed e 0 goal-integrated. Trust do hook continua sendo do host e nenhum evento externo concede autoridade de execução ou conclusão."
+      "notes": "Somente a CLI opt-in é coberta: mesclagem idempotente das configurações do host, backup privado, rollback e doctor sintético, verificados em suíte e em smoke do tarball. Nenhum host é goal-integrated: no host de release candidate, 8 de 17 harnesses detectados, 0 governed e 0 goal-integrated. Trust do hook continua sendo do host e nenhum evento externo concede autoridade de execução ou conclusão."
     }
   ],
   "tools": [

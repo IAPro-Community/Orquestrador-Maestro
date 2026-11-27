@@ -424,8 +424,9 @@ add_target() {
   local dest="$2"
   local label="$3"
   local component="${4:-}"
+  local managed_tool="${5:-}"
   if [ -d "$src" ]; then
-    TARGETS+=("$src|$dest|$label|$component|directory")
+    TARGETS+=("$src|$dest|$label|$component|directory|$managed_tool")
   fi
 }
 
@@ -471,7 +472,7 @@ list_install_plan() {
     print_target_row "$mode" "AGENTS.md" "core" "file" "$TARGET_AGENTS" "$SOURCE_AGENTS"
   fi
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-    IFS='|' read -r src dest label component kind <<EOF
+    IFS='|' read -r src dest label component kind _managed_tool <<EOF
 $entry
 EOF
     print_target_row "$mode" "$label" "$component" "$kind" "$dest" "$src"
@@ -652,6 +653,24 @@ fi
 INSTALLED_PROFILES=()
 SKIPPED_PROFILES=()
 if [ "$INSTALL_TOOL_PROFILES" = true ]; then
+  PREVIOUS_INSTALL_PROFILES=""
+  if [ -f "$TARGET_ORQUESTRADOR/INSTALL_PROFILES.json" ] && command -v node >/dev/null 2>&1; then
+    PREVIOUS_INSTALL_PROFILES="$(node -e '
+      const fs = require("node:fs");
+      try {
+        const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        if (Array.isArray(data.profiles)) process.stdout.write("\n" + data.profiles.join("\n") + "\n");
+      } catch {}
+    ' "$TARGET_ORQUESTRADOR/INSTALL_PROFILES.json" 2>/dev/null || true)"
+  fi
+
+  profile_previously_installed() {
+    case "$PREVIOUS_INSTALL_PROFILES" in
+      *$'\n'"$1"$'\n'*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+
   tool_is_present() {
     local tool_cmd="$1"
     local tool_config_dir="$2"
@@ -668,10 +687,13 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
   }
 
   tool_should_install() {
-    local component="$1"
+    local profile_id="$1"
     local tool_cmd="$2"
     local tool_config_dir="$3"
     if [ "$ALL_TARGETS" = true ]; then
+      return 0
+    fi
+    if profile_previously_installed "$profile_id"; then
       return 0
     fi
     if [ "$NON_INTERACTIVE" = true ]; then
@@ -699,25 +721,12 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
   for entry in "${TOOL_PROFILES[@]}"; do
     IFS='|' read -r src_sub dest_sub label component tool_cmd <<< "$entry"
     if selected_component tool-profiles "$component"; then
-      config_dir=""
-      case "$component" in
-        codex) config_dir=".codex" ;;
-        opencode) config_dir=".opencode" ;;
-        claude) config_dir=".claude" ;;
-        cursor) config_dir=".cursor" ;;
-        gemini) config_dir=".gemini" ;;
-        windsurf) config_dir=".windsurf" ;;
-        antigravity) config_dir=".antigravity" ;;
-        mimo) config_dir=".mimo" ;;
-        kimi) config_dir=".kimi-code" ;;
-        grok) config_dir=".grok" ;;
-      esac
-      if tool_should_install "$component" "$tool_cmd" "$config_dir"; then
+      if tool_should_install "$src_sub" "$tool_cmd" "$dest_sub"; then
         if [ ! -d "$SOURCE_TOOL_PROFILES/$src_sub" ]; then
           echo "Error: missing tool profile source: $src_sub" >&2
           exit 1
         fi
-        add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component"
+        add_target "$SOURCE_TOOL_PROFILES/$src_sub" "$HOME_PATH/$dest_sub" "$label" "$component" "$component"
         INSTALLED_PROFILES+=("$src_sub")
       else
         SKIPPED_PROFILES+=("$src_sub")
@@ -726,7 +735,7 @@ if [ "$INSTALL_TOOL_PROFILES" = true ]; then
   done
 
   if selected_component tool-profiles antigravity; then
-    if tool_should_install "antigravity" "" ".antigravity"; then
+    if tool_should_install "antigravity-home" "" ".antigravity"; then
       if [ ! -f "$SOURCE_TOOL_PROFILES/antigravity-home/antigravity-rules.json" ]; then
         echo "Error: missing tool profile source: antigravity-home" >&2
         exit 1
@@ -799,7 +808,7 @@ if [ "$UNINSTALL" = true ]; then
   fi
 
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-    IFS='|' read -r src dest label _component _kind <<EOF
+    IFS='|' read -r src dest label _component _kind _managed_tool <<EOF
 $entry
 EOF
     backup_mapped_directory "$src" "$dest" "$label"
@@ -835,7 +844,7 @@ EOF
   fi
 
   for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-    IFS='|' read -r src dest _label _component _kind <<EOF
+    IFS='|' read -r src dest _label _component _kind _managed_tool <<EOF
 $entry
 EOF
     uninstall_mapped_directory "$src" "$dest"
@@ -903,7 +912,7 @@ backup_path "$LEGACY_ORQUESTRADOR" "$LEGACY_ORQUESTRADOR_NAME"
 backup_path "$TARGET_AGENTS" "AGENTS.md"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-  IFS='|' read -r src dest label _component _kind <<EOF
+  IFS='|' read -r src dest label _component _kind _managed_tool <<EOF
 $entry
 EOF
   backup_mapped_directory "$src" "$dest" "$label"
@@ -1000,19 +1009,22 @@ trap - EXIT
 copy_with_placeholders "$SOURCE_AGENTS" "$TARGET_AGENTS"
 
 for entry in "${TARGETS[@]+"${TARGETS[@]}"}"; do
-  IFS='|' read -r src dest label _component _kind <<EOF
+  IFS='|' read -r src dest label _component _kind managed_tool <<EOF
 $entry
 EOF
-  if [ ! -f "$dest/.maestro-managed" ]; then
-    copy_tree_with_placeholders "$src" "$dest"
-    # Mark the profile as Maestro-owned so the next install merges instead of
-    # replacing it. Without this marker copy_tree_preserving never runs.
-    mkdir -p "$dest" && : > "$dest/.maestro-managed"
-  else
+  if [ -n "$managed_tool" ] && [ -f "$dest/.maestro-managed" ]; then
     # Maestro-managed tool profile: the tree mirror stays authoritative, but a
     # settings file that already exists is merged, never wiped, so user-owned
     # root keys (an OpenCode `provider` block, for example) survive reinstalls.
     copy_tree_preserving "$src" "$dest" "${BACKUP_DIR:-}/$label"
+  else
+    copy_tree_with_placeholders "$src" "$dest"
+    if [ -n "$managed_tool" ] && [ ! -e "$dest/.maestro-managed" ] && [ ! -L "$dest/.maestro-managed" ]; then
+      # Mark the tool profile with the canonical ownership marker so both
+      # reinstalls (copy_tree_preserving) and `targets` CLI recognize it.
+      mkdir -p "$dest"
+      printf 'managed by orquestrador-maestro\ntool: %s\n' "$managed_tool" > "$dest/.maestro-managed"
+    fi
   fi
 done
 
