@@ -34,27 +34,63 @@ test("unknown hosts/events never become capabilities", () => {
   assert.equal(observeHarnessEvent("claude", null), null);
 });
 
-test("OpenCode V2 prompt stays intact and guidance is bounded per request/session", () => {
+test("OpenCode V2 uses delivered messages, not queued admissions, for Goal guidance", () => {
   const hooks = createOpenCodeHooks();
-  const event = { sessionID: "one", prompt: { text: "/goal feature", files: [{ uri: "file:///project/a" }] } };
+  const event = { sessionID: "one", messageID: "m1", prompt: { text: "/goal feature", files: [{ uri: "file:///project/a" }] } };
   const original = JSON.stringify(event);
   hooks.prompt(event);
   assert.equal(JSON.stringify(event), original);
-  const ctx = { sessionID: "one", system: [] };
+  const messages = [{ type: "user", id: "m1", text: "/goal feature" }];
+  const ctx = { sessionID: "one", messages, system: [] };
   hooks.context(ctx); hooks.context(ctx);
   assert.equal(ctx.system.length, 1);
   assert.match(ctx.system[0].text, /state unverified/);
-  const other = { sessionID: "two", system: [] };
-  hooks.context(other); assert.deepEqual(other.system, []);
-  hooks.prompt({ sessionID: "one", prompt: { text: "ordinary request" } });
-  const next = { sessionID: "one", system: [] };
+  hooks.prompt({ sessionID: "one", messageID: "m2", prompt: { text: "ordinary request" } });
+  const stillRunning = { sessionID: "one", messages, system: [] };
+  hooks.context(stillRunning); assert.equal(stillRunning.system.length, 1);
+  const next = { sessionID: "one", messages: [...messages, { type: "user", id: "m2", text: "ordinary request" }], system: [] };
   hooks.context(next); assert.deepEqual(next.system, []);
+  const unknown = { sessionID: "one", system: [] };
+  hooks.context(unknown); assert.deepEqual(unknown.system, []);
+  const idle = { sessionID: "one", messages: [...messages, { type: "idle" }], system: [] };
+  hooks.context(idle); assert.deepEqual(idle.system, []);
   for (let i = 0; i < 257; i++) hooks.prompt({ sessionID: String(i), prompt: { text: "/goal x" } });
-  const evicted = { sessionID: "0", system: [] };
-  hooks.context(evicted); assert.deepEqual(evicted.system, []);
+  assert.equal(hooks.getObservedState("0"), null);
   hooks.dispose();
-  const disposed = { sessionID: "256", system: [] };
-  hooks.context(disposed); assert.deepEqual(disposed.system, []);
+  assert.equal(hooks.getObservedState("256"), null);
+});
+
+test("OpenCode native routing is local, request-scoped, cached and isolated", () => {
+  const { classifyComplexity } = require("../runtime/planner/complexity-gate");
+  let calls = 0;
+  const hooks = createOpenCodeHooks({ routeNative: true, route: () => {
+    calls++;
+    return { routingVersion: 3, profile: "standard", complexity: classifyComplexity("frontend-design"), allSkills: [{ id: "skill-open-design-ui" }] };
+  } });
+  const messages = [{ type: "user", id: "m1", text: "frontend-design" }];
+  const cwd = process.cwd();
+  const request = (sessionID = "one", ms = messages) => ({ sessionID, messages: ms, system: [] });
+  const first = request();
+  hooks.context(first, cwd); hooks.context(first, cwd);
+  assert.equal(first.system.length, 1);
+  assert.match(first.system[0].text, /skill-open-design-ui/);
+  const second = request();
+  hooks.context(second, cwd);
+  assert.deepEqual(second.system, first.system);
+  assert.equal(calls, 1);
+  hooks.context(request("two"), cwd);
+  hooks.context(request(), path.dirname(cwd));
+  assert.equal(calls, 3);
+  const missing = request();
+  hooks.context(missing, null);
+  assert.deepEqual(missing.system, []);
+  const moved = request("one", [...messages, { type: "location-switched" }]);
+  hooks.context(moved, cwd); assert.deepEqual(moved.system, []);
+  const goal = request("one", [{ type: "user", id: "m2", text: "/goal feature" }]);
+  hooks.context(goal, cwd);
+  assert.match(goal.system[0].text, /competing loop/);
+  assert.equal(calls, 3);
+  hooks.dispose();
 });
 
 test("renderer is opt-in and rejects unsafe command paths", () => {

@@ -191,16 +191,23 @@ function hookResponse(host, event, options = {}) {
   return { hookSpecificOutput: output };
 }
 
-// OpenCode V2 prompt admission is observation-only. Never edit the persisted
-// user prompt, command registration, tool permissions, retry or inbox state.
-// Context is a fresh request: append at most one short block per request.
-function createOpenCodeHooks() {
+// Route the user message actually present in the outgoing primary context,
+// not the most recently admitted prompt (which may still be queued).
+// The bounded cache contains only IDs, workspace paths and compact guidance.
+// Never mutate stored messages, permissions, delivery, retry or Goal state.
+function createOpenCodeHooks(options = {}) {
   const observedSessions = new Map();
+  const routes = new Map();
   const limit = 256;
+  function put(map, key, value) {
+    map.delete(key);
+    map.set(key, value);
+    if (map.size > limit) map.delete(map.keys().next().value);
+  }
   return {
     prompt(event) {
-      const id = event?.sessionID;
-      if (typeof id !== "string" || !id || id.length > 256) return;
+      const id = boundedString(event?.sessionID, 256);
+      if (!id) return;
       const observation = observeHarnessEvent("opencode", {
         hook_event_name: "prompt",
         prompt: event?.prompt?.text,
@@ -208,36 +215,50 @@ function createOpenCodeHooks() {
         messageID: event?.messageID
       }, { surface: "tui" });
       observedSessions.delete(id);
-      if (!observation?.commandObserved) return;
-      observedSessions.set(id, Object.freeze({
-        guidance: observation.guidance,
-        lastIdleAt: null,
-        goalState: "unknown"
+      if (observation?.commandObserved) put(observedSessions, id, Object.freeze({
+        guidance: observation.guidance, lastIdleAt: null, goalState: "unknown"
       }));
-      if (observedSessions.size > limit) observedSessions.delete(observedSessions.keys().next().value);
     },
-    context(event) {
-      const state = observedSessions.get(event?.sessionID);
-      if (!state?.guidance || !Array.isArray(event.system)) return;
-      if (!event.system.some((part) => part?.type === "text" && part.text === state.guidance)) {
-        event.system.push({ type: "text", text: state.guidance });
+    context(event, cwd) {
+      const id = boundedString(event?.sessionID, 256);
+      if (!id || !Array.isArray(event?.system) || !Array.isArray(event?.messages)) return;
+      // No user message after an idle/location change means no proven active
+      // prompt. A compacted transcript without that message uses static rules.
+      let user;
+      for (let i = event.messages.length - 1; i >= 0; i--) {
+        const message = event.messages[i];
+        if (["idle", "location-switched"].includes(message?.type)) break;
+        if (message?.type === "user") { user = message; break; }
+      }
+      const messageId = boundedString(user?.id, 128);
+      if (!messageId || typeof user?.text !== "string") return;
+      let guidance;
+      if (observesNativeGoalCommand(user.text)) {
+        guidance = NATIVE_GOAL_GUIDANCE;
+      } else if (options.routeNative === true && typeof cwd === "string" && require("node:path").isAbsolute(cwd)) {
+        const key = JSON.stringify([id, messageId, cwd]);
+        if (!routes.has(key)) {
+          const { nativeRoutingGuidance } = require("./routing");
+          put(routes, key, nativeRoutingGuidance(user.text, cwd, options));
+        }
+        guidance = routes.get(key);
+      }
+      if (guidance && !event.system.some(part => part?.type === "text" && part.text === guidance)) {
+        event.system.push({ type: "text", text: guidance });
       }
     },
     idle(event) {
-      // experimental.idle is purely a session-idle observation, never Goal completion.
+      // Idle is not Goal completion or proof of acceptance.
       const id = event?.sessionID;
       if (typeof id !== "string" || !observedSessions.has(id)) return;
-      const existing = observedSessions.get(id);
-      observedSessions.set(id, Object.freeze({
-        ...existing,
-        lastIdleAt: new Date().toISOString(),
-        goalState: "unknown"
+      put(observedSessions, id, Object.freeze({
+        ...observedSessions.get(id), lastIdleAt: new Date().toISOString(), goalState: "unknown"
       }));
     },
     getObservedState(sessionId) {
       return observedSessions.get(sessionId) || null;
     },
-    dispose() { observedSessions.clear(); }
+    dispose() { observedSessions.clear(); routes.clear(); }
   };
 }
 
