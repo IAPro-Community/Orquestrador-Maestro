@@ -1,0 +1,15 @@
+# Harness-first token efficiency (1.2.0)
+
+Primary workflow: native interactive harnesses, not Maestro go/run. Keep host session, tool permissions and continuation ownership. No additional LLM call for routing.
+
+## Deterministic baseline
+- OpenCode automatic instructions use the compact shared contract, not the full router.
+- Native entrypoints point to one shared contract; DEV hydration is proportional, required project rules and durable evidence remain authoritative.
+- `route explain --compact --json "task summary"` projects selected skills and budgets from Router V3 without echoing raw intent, rejected candidates or the workspace diff. Native routing ignores unrelated working-tree changes.
+- Skill context estimates report their actual heuristic sum, not a clipped value. They are not measured provider tokens.
+- Existing managed OpenCode JSON migrates exact legacy paths while preserving custom instructions and provider settings. JSONC, custom paths and managed overrides require inspection.
+
+## Release evidence
+Use same harness/version/model/effort and fixed fixtures for vanilla, v0.3.5, v1.1.1, pre-fix RC and corrected RC. Compare hard-validated outcomes, failed runs, input/output/cache/reasoning separately, calls, cost and latency. Include fresh and resumed sessions, cold/warm cache, clean and upgraded installs, rollback, all supported OSes. No percentage claims without real paired provider-reported evidence (see existing benchmark gate).
+
+The OpenAI plugin retains its existing ledger and governor. Do not reuse ledger deduplication in hosts that rebuild system context per request without evidence of policy retention. Goal hooks remain observation-only until host-specific lifecycle and context semantics are certified. No adaptive-policy promotion or managed-runtime rewrite is required for this baseline.

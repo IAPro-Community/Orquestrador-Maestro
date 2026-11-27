@@ -4,16 +4,9 @@ This file must stay compact. It is a hook router, not a skill catalog.
 
 ## Preflight
 
-Before broad work:
+For substantive, resumed or uncertain project work, follow the nearest project instructions and read relevant DEV control files: `DEV/AGENTS.md` when present, `DEV/README.md` or `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md`. Reuse still-valid session context; mechanical tasks need no broad DEV hydration unless project instructions require it.
 
-1. Read project `AGENTS.md`.
-2. If `DEV/` exists, read `DEV/README.md` or `DEV/INDEX.md`, then `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, and `DEV/SPECS/ACTIVE.md` before opening any long project history.
-3. Read `{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json`.
-4. Read `{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json`.
-5. Read `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`.
-6. Read `{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json` only after selecting the primary skill.
-7. Open only the selected `SKILL.md` files and only the files directly referenced by them.
-8. Do not use this file, `SKILLS_INDEX.md`, or `skill-library/community-skills/` as a full discovery catalog.
+For non-trivial work needing specialized skills, run `orquestrador-maestro route explain --compact --json "task summary"` locally in the project directory (or reuse an existing hook-provided route). Safely quote the summary as data. Open only the selected skill bodies. Never load a full routing catalog into model context. If the CLI is unavailable, use native skill discovery or a relevant index excerpt.
 
 ## Token Budget
 
