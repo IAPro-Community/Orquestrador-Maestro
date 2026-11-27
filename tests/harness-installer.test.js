@@ -354,3 +354,19 @@ test("selective detection install, harnessDoctor, and CLI subcommands work end-t
   assert.equal(doctorCli.status, 0, doctorCli.stderr);
   assert.equal(JSON.parse(doctorCli.stdout).hosts.gemini.syntheticHook, "synthetic-hook-ok");
 });
+
+
+test("OpenCode automatic install refuses V1 and unverified versions without modifying config", (t) => {
+  const { supportsOpenCodeV2 } = require("../runtime/integrations/harness/registry");
+  for (const version of ["1.18.29", "present", null, "2.4.0", "3.0.0", "2.4.1-rc.1"]) assert.equal(supportsOpenCodeV2(version), false);
+  for (const version of ["2.4.1", "opencode v2.4.1", "v2.5.0"]) assert.equal(supportsOpenCodeV2(version), true);
+  const home = makeHome(t);
+  const file = path.join(home, ".config", "opencode", "opencode.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const original = JSON.stringify({ plugin: ["legacy-user-plugin"], theme: "dark" });
+  fs.writeFileSync(file, original);
+  const result = installDetectedHarnesses({ home, packageRoot: repoRoot, hosts: ["opencode"], probeCommand: () => ({ installed: true, version: "1.18.29" }) });
+  assert.equal(result.results[0].skipped, true);
+  assert.equal(result.results[0].reason, "opencode-v2-version-unverified");
+  assert.equal(fs.readFileSync(file, "utf8"), original);
+});

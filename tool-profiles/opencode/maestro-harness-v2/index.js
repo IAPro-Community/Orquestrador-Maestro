@@ -13,7 +13,7 @@ export default Plugin.define({
       let cwd;
       try {
         const session = await ctx.session.get({ sessionID: event.sessionID });
-        cwd = session?.directory;
+        cwd = session?.location?.directory ?? session?.directory;
       } catch { /* fail open */ }
       hooks.context(event, cwd);
     });

@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { inspectHarness } = require("./registry");
+const { inspectHarness, supportsOpenCodeV2 } = require("./registry");
 
 const SUPPORTED_HOSTS = Object.freeze(["claude", "gemini", "opencode"]);
 
@@ -317,6 +317,10 @@ function installDetectedHarnesses({
       results.push({ host, skipped: true, reason: "not-detected" });
       continue;
     }
+    if (host === "opencode" && !supportsOpenCodeV2(inspected.version)) {
+      results.push({ host, skipped: true, reason: "opencode-v2-version-unverified" });
+      continue;
+    }
     try {
       results.push({ skipped: false, ...installHarnessAdapter(host, { home, packageRoot, dryRun }) });
     } catch (err) {
@@ -403,6 +407,7 @@ function harnessDoctor({
         }
       } else if (host === "opencode" && !inspected.adapterState.healthy) {
         entry.healthy = false;
+        healthy = false;
         warnings.push(`${host}: ${inspected.adapterState.detail}`);
       }
     }

@@ -251,6 +251,13 @@ function loadCatalogAdapters(packageRoot) {
   }
 }
 
+// Match the installed stable V2 API family; V1 uses a different plugin
+// schema. The bundled SDK targets 2.4.1. Future major versions require review.
+function supportsOpenCodeV2(version) {
+  const match = /^(?:opencode\s+)?v?2\.(\d+)\.(\d+)$/iu.exec(String(version || "").trim());
+  return Boolean(match && (Number(match[1]) > 4 || (Number(match[1]) === 4 && Number(match[2]) >= 1)));
+}
+
 function inspectHarness(harnessId, {
   home = os.homedir(),
   packageRoot = path.resolve(__dirname, "..", "..", ".."),
@@ -285,7 +292,10 @@ function inspectHarness(harnessId, {
   } else if (harnessId === "freebuff") {
     configDetected = fs.existsSync(path.join(home, ".agents", "skills"));
   }
-  const adapterState = inspectExecutableAdapterState(harnessId, { home, packageRoot });
+  let adapterState = inspectExecutableAdapterState(harnessId, { home, packageRoot });
+  if (harnessId === "opencode" && adapterState.registered && !supportsOpenCodeV2(version)) {
+    adapterState = { ...adapterState, healthy: false, detail: "opencode-v2-version-unverified" };
+  }
   const maxSupportedLevel = spec?.maxSupportedLevel || "portable";
   const compatibilityLevel = adapterState.installed && adapterState.healthy && maxSupportedLevel === "governed"
     ? "governed"
@@ -350,5 +360,6 @@ module.exports = {
   inspectAllHarnesses,
   inspectExecutableAdapterState,
   defaultProbeCommand,
-  probeExecutable
+  probeExecutable,
+  supportsOpenCodeV2
 };
