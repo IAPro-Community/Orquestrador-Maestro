@@ -56,6 +56,38 @@ test("claude stream-json extracts cache split and session", () => {
   assert.equal(usage.tokenSource, "provider-reported");
 });
 
+test("agy stream-json extracts usage from its own event envelope", () => {
+  // agy does not use the Claude event shape: the payload lives under `result`
+  // and the conversation id is `conversation_id`.
+  const stdout = [
+    JSON.stringify({ event: "init", conversation_id: "conv-1", init: { cwd: "/tmp" } }),
+    JSON.stringify({ event: "step_update", step_update: { conversation_id: "conv-1", step_index: 1, state: "DONE", step_type: "agent_response", text_delta: "OK", usage: { input_tokens: 13540, output_tokens: 28, thinking_tokens: 27, cache_read_tokens: 0, total_tokens: 13568 } } }),
+    JSON.stringify({ event: "result", result: { conversation_id: "conv-1", status: "SUCCESS", response: "OK", num_turns: 1, usage: { input_tokens: 13540, output_tokens: 28, thinking_tokens: 27, cache_read_tokens: 0, total_tokens: 13568 } } })
+  ].join("\n");
+  const usage = parseProviderUsage({ providerId: "agy", stdout });
+  assert.equal(usage.tool, "agy");
+  assert.equal(usage.sessionId, "conv-1");
+  assert.equal(usage.tokenInput, 13540);
+  assert.equal(usage.tokenOutput, 28);
+  assert.equal(usage.reasoningTokens, 27);
+  assert.equal(usage.cachedInputTokens, 0);
+  assert.equal(usage.modelCalls, 1);
+  assert.equal(usage.usageComplete, true);
+  assert.equal(usage.tokenSource, "provider-reported");
+  // agy reports no billed cost: it stays unknown instead of being derived.
+  assert.equal(usage.costUSD, null);
+  assert.equal(usage.costSource, "unavailable");
+});
+
+test("agy stream without usage reports unavailable, never zero", () => {
+  const stdout = JSON.stringify({ event: "result", result: { conversation_id: "conv-2", status: "SUCCESS" } });
+  const usage = parseProviderUsage({ providerId: "agy", stdout });
+  assert.equal(usage.tokenInput, null);
+  assert.equal(usage.tokenOutput, null);
+  assert.equal(usage.tokenSource, "unavailable");
+  assert.notEqual(usage.tokenInput, 0);
+});
+
 test("opencode json honors explicit provider and model ids", () => {
   const stdout = [
     JSON.stringify({ type: "step_start", sessionID: "op-1", modelID: "anthropic/claude-test", providerID: "anthropic" }),

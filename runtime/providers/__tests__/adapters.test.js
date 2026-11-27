@@ -88,25 +88,31 @@ test("provider detection reports an unavailable executable without throwing", as
   assert.ok(installation.error);
 });
 
-test("AgyAdapter uses documented print stream-json, model, mode, and sandbox flags", async () => {
+test("AgyAdapter puts --print last so the real CLI does not consume a flag as its prompt", async () => {
   const root = makeTempDir("maestro-provider-");
   const script = fakeCli(root);
   const adapter = new AgyAdapter({ executable: process.execPath, commandPrefixArgs: [script] });
   const result = await (await adapter.execute({ prompt: "review", model: "agy-model", mode: "plan", sandbox: "enabled" })).result;
   const received = JSON.parse(result.stdout.trim());
   assert.equal(result.exitCode, 0);
-  assert.deepEqual(received.args.slice(0, 9), ["--print", "--output-format", "stream-json", "--model", "agy-model", "--mode", "plan", "--sandbox", "review"]);
+  // `agy --print` takes the next positional as its prompt: every other flag
+  // must precede it, and the prompt is appended last.
+  assert.deepEqual(received.args.slice(0, 8), ["--output-format", "stream-json", "--model", "agy-model", "--mode", "plan", "--sandbox", "--print"]);
+  assert.equal(received.args.at(-1), "review");
   assert.equal((await adapter.capabilities()).sandboxControl, true);
 });
 
-test("OpenCodeAdapter uses documented run JSON, model, agent, session, and workspace flags", async () => {
+test("OpenCodeAdapter uses documented run JSON, model, agent, and session flags without an invalid --dir", async () => {
   const root = makeTempDir("maestro-provider-");
   const script = fakeCli(root);
   const adapter = new OpenCodeAdapter({ executable: process.execPath, commandPrefixArgs: [script] });
   const result = await (await adapter.execute({ prompt: "review", workspacePath: root, model: "provider/model", agent: "reviewer", sessionId: "session-1" })).result;
   const received = JSON.parse(result.stdout.trim());
   assert.equal(result.exitCode, 0);
-  assert.deepEqual(received.args.slice(0, 11), ["run", "--format", "json", "--model", "provider/model", "--agent", "reviewer", "--session", "session-1", "--dir", root]);
+  // `opencode run` has no `--dir` flag; the workspace is the process cwd.
+  assert.deepEqual(received.args.slice(0, 9), ["run", "--format", "json", "--model", "provider/model", "--agent", "reviewer", "--session", "session-1"]);
+  assert.equal(received.args.includes("--dir"), false);
+  assert.equal(received.cwd, fs.realpathSync(root));
   assert.equal((await adapter.capabilities()).mcp, true);
   assert.equal((await adapter.capabilities()).sandboxControl, false);
 });
@@ -118,7 +124,7 @@ test("adapters skip the --model flag when model is the \"default\" sentinel", as
     { Adapter: OpenCodeAdapter, expectedPrefix: ["run", "--format", "json"] },
     { Adapter: CodexAdapter, expectedPrefix: ["exec", "--json", "--color", "never"] },
     { Adapter: ClaudeAdapter, expectedPrefix: ["--print", "--output-format", "stream-json", "--include-partial-messages"] },
-    { Adapter: AgyAdapter, expectedPrefix: ["--print", "--output-format", "stream-json"] }
+    { Adapter: AgyAdapter, expectedPrefix: ["--output-format", "stream-json"] }
   ];
   for (const { Adapter, expectedPrefix } of cases) {
     const adapter = new Adapter({ executable: process.execPath, commandPrefixArgs: [script] });

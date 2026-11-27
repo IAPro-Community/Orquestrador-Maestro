@@ -23,7 +23,9 @@ class OpenCodeAdapter extends ProviderAdapter {
     if (request.agent) args.push("--agent", request.agent);
     if (request.sessionId) args.push("--session", request.sessionId);
     else if (request.continue === true) args.push("--continue");
-    if (request.workspacePath) args.push("--dir", request.workspacePath);
+    // `opencode run` has no `--dir` flag; the working directory comes from the
+    // process cwd (set to the workspace by the executor). Passing `--dir` made
+    // the real CLI abort with "Unrecognized flag: --dir" (exit 1).
     assertSandboxHonourable({
       requested: request.sandbox,
       providerId: this.id,

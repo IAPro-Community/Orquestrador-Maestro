@@ -135,6 +135,12 @@ test("real provider certification matrix (opt-in)", {
     assert.equal(run.providerId, providerId, `${providerId}: fallback provider executed`);
     const executions = await app.store.listExecutions({ runId: run.id });
     assert.ok(executions.length >= 1, `${providerId}: no execution persisted`);
+    // The store may append retries or reviewer executions later; usage is
+    // read from the first completed execution, not from an arbitrary index.
+    const primary = [...executions].sort((a, b) =>
+      String(a.completedAt || "").localeCompare(String(b.completedAt || "")) ||
+      String(a.id || "").localeCompare(String(b.id || ""))
+    ).find((entry) => entry.status === "completed") || executions[0];
     cases.push({
       providerId,
       status: "COMPLETED",
@@ -143,8 +149,11 @@ test("real provider certification matrix (opt-in)", {
       runId: run.id,
       runStatus: run.status,
       executionCount: executions.length,
-      reportedCostUSD: executions[0]?.metadata?.usage?.costUSD ?? null,
-      costSource: executions[0]?.metadata?.usage?.costSource ?? null
+      reportedCostUSD: primary?.metadata?.usage?.costUSD ?? null,
+      costSource: primary?.metadata?.usage?.costSource ?? null,
+      tokenInput: primary?.metadata?.usage?.tokenInput ?? null,
+      tokenOutput: primary?.metadata?.usage?.tokenOutput ?? null,
+      tokenSource: primary?.metadata?.usage?.tokenSource ?? null
     });
   }
 

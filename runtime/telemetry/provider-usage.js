@@ -393,12 +393,76 @@ function parseOpenCodeUsage(stdout, { model: requestModel } = {}) {
   });
 }
 
+// agy `--output-format stream-json`: the event envelope is `{ event, ... }`
+// and the terminal payload lives under `result` (or `step_update`), with the
+// conversation id named `conversation_id`. The Claude-like shape
+// (`type: "result"`, `usage` at the top level) never appears here, so the
+// shared parser reported "unavailable" for every real agy run.
+//
+// Honored keys:
+// - `result.usage` / `step_update.usage` with `input_tokens`, `output_tokens`,
+//   `thinking_tokens`, `cache_read_tokens`, `total_tokens`
+// - `conversation_id` as the session id
+// - `cost` is not reported by agy; cost stays unknown instead of being derived.
+function parseAgyUsage(stdout, { model: requestModel } = {}) {
+  const tool = "agy";
+  const events = safeJsonLines(stdout);
+  if (events.length === 0) return emptyUsage(tool);
+  let tokenInput = null;
+  let tokenOutput = null;
+  let cachedInputTokens = null;
+  let reasoningTokens = null;
+  let sessionId = null;
+  let model = asNonEmptyString(requestModel) && requestModel !== "default" ? requestModel : null;
+  let modelCalls = 0;
+  let sawResultUsage = false;
+  for (const event of events) {
+    const sid = asNonEmptyString(event.conversation_id) || asNonEmptyString(event?.result?.conversation_id);
+    if (sid && !sessionId) sessionId = sid;
+    const eventModel = asNonEmptyString(event?.result?.model) || asNonEmptyString(event.model);
+    if (eventModel && (!model || model === "unknown")) model = eventModel;
+    const usage = event?.result?.usage && typeof event.result.usage === "object" ? event.result.usage
+      : event?.step_update?.usage && typeof event.step_update.usage === "object" ? event.step_update.usage
+        : event?.usage && typeof event.usage === "object" ? event.usage : null;
+    if (!usage) continue;
+    const input = pickFirst(asNonNegativeInt(usage.input_tokens), asNonNegativeInt(usage.inputTokens));
+    const output = pickFirst(asNonNegativeInt(usage.output_tokens), asNonNegativeInt(usage.outputTokens));
+    const reasoning = pickFirst(asNonNegativeInt(usage.thinking_tokens), asNonNegativeInt(usage.reasoning_tokens));
+    const cacheRead = pickFirst(asNonNegativeInt(usage.cache_read_tokens), asNonNegativeInt(usage.cache_read_input_tokens));
+    if (input !== null) tokenInput = tokenInput === null ? input : Math.max(tokenInput, input);
+    if (output !== null) tokenOutput = tokenOutput === null ? output : Math.max(tokenOutput, output);
+    if (reasoning !== null) reasoningTokens = reasoningTokens === null ? reasoning : Math.max(reasoningTokens, reasoning);
+    if (cacheRead !== null) cachedInputTokens = cachedInputTokens === null ? cacheRead : Math.max(cachedInputTokens, cacheRead);
+    if (event.event === "result") {
+      modelCalls += 1;
+      sawResultUsage = true;
+    }
+  }
+  return finalize({
+    tool,
+    provider: "unknown",
+    model: model || "unknown",
+    sessionId,
+    tokenInput,
+    tokenOutput,
+    cachedInputTokens,
+    cachedOutputTokens: null,
+    reasoningTokens,
+    modelCalls,
+    toolCalls: null,
+    usageScope: sawResultUsage ? "aggregate" : "unknown",
+    usageComplete: sawResultUsage,
+    costUSD: null,
+    source: "stdout-events"
+  });
+}
+
 function parseProviderUsage({ providerId, stdout, stderr, model } = {}) {
   const id = String(providerId || "").toLowerCase();
   try {
     if (id === "codex") return parseCodexUsage(stdout, { model });
     if (id === "claude") return parseClaudeLikeUsage(stdout, { tool: "claude", model });
-    if (id === "agy") return parseClaudeLikeUsage(stdout, { tool: "agy", model });
+    if (id === "agy") return parseAgyUsage(stdout, { model });
     if (id === "opencode") return parseOpenCodeUsage(stdout, { model });
     // Unknown tool: attempt generic extraction without inventing attribution.
     const events = safeJsonLines(stdout);
