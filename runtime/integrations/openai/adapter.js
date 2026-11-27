@@ -52,7 +52,8 @@ function routePrompt(prompt, cwd, options = {}) {
   const preliminary = classifyComplexity(prompt);
   const routingSignals = collectRoutingSignals(path.resolve(cwd || process.cwd()), {
     intent: prompt,
-    memory: null
+    memory: null,
+    includeWorkspaceChanges: false
   });
   return resolveRouter().resolve(prompt, routingSignals);
 }

@@ -129,12 +129,12 @@ function routingSignalSummary(record, options = {}) {
   });
 }
 
-function estimateContextTokens(records, budget) {
+function estimateContextTokens(records) {
   const total = records.reduce((sum, record) => {
     const cost = record.contract?.costProfile?.context || "unknown";
     return sum + (CONTEXT_COST_ESTIMATES[cost] || CONTEXT_COST_ESTIMATES.unknown);
   }, 0);
-  return Math.min(total, budget.maxContextTokens);
+  return total;
 }
 
 function publicSkill(record, routerDocument) {
@@ -425,7 +425,8 @@ class SkillRouterV3 {
       profile: complexity.profile,
       risk: primarySkill?.safety || "standard",
       confidence,
-      estimatedContextTokens: estimateContextTokens(selectedRecords, complexity.budget),
+      estimatedContextTokens: estimateContextTokens(selectedRecords),
+      estimatedContextOverBudget: estimateContextTokens(selectedRecords) > complexity.budget.maxContextTokens,
       contextBudget: complexity.budget.maxContextTokens,
       matchedEvidence: Object.freeze(primary?.evidence || []),
       whySelected: Object.freeze(primary?.evidence || []),

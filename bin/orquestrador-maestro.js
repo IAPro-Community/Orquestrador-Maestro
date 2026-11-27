@@ -2244,7 +2244,7 @@ function handleRouteCommand(args) {
   if (subcommand !== "explain") {
     throw new Error("Uso: orquestrador-maestro route explain [--json] \"objetivo\"");
   }
-  const options = parseRuntimeArgs(rest, ["--project-path", "--complexity"], ["--json"]);
+  const options = parseRuntimeArgs(rest, ["--project-path", "--complexity"], ["--json", "--compact"]);
   const description = options.values.join(" ").trim();
   if (!description) throw new Error('Informe a intenção: orquestrador-maestro route explain "tarefa"');
 
@@ -2261,14 +2261,18 @@ function handleRouteCommand(args) {
   });
   const routingSignals = collectRoutingSignals(workspacePath, {
     intent: description,
-    memory: ["COMPLEX", "DEEP"].includes(preliminaryComplexity.level) ? new Memory() : null
+    memory: !options.compact && ["COMPLEX", "DEEP"].includes(preliminaryComplexity.level) ? new Memory() : null,
+    includeWorkspaceChanges: !options.compact
   });
   const explained = router.explain(description, {
     ...routingSignals,
     overrideLevel: options.complexity || undefined
   });
 
-  if (options.json) {
+  if (options.compact) {
+    const { compactNativeRoute } = require(path.join(rootDir, "runtime", "integrations", "harness", "routing"));
+    console.log(JSON.stringify(compactNativeRoute(explained.result)));
+  } else if (options.json) {
     console.log(JSON.stringify(explained.result, null, 2));
   } else {
     console.log(explained.text);

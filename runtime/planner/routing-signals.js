@@ -153,9 +153,9 @@ function verifiedMemorySkillHints(memory, gitContext, intent) {
   }
 }
 
-function collectRoutingSignals(workspacePath, { intent, memory } = {}) {
+function collectRoutingSignals(workspacePath, { intent, memory, includeWorkspaceChanges = true } = {}) {
   const gitContext = resolveGitContext(workspacePath);
-  const changedFiles = resolveChangedFiles(gitContext.projectRoot);
+  const changedFiles = includeWorkspaceChanges ? resolveChangedFiles(gitContext.projectRoot) : Object.freeze([]);
   const stack = detectStack(gitContext.projectRoot);
   return Object.freeze({
     gitContext: Object.freeze({
