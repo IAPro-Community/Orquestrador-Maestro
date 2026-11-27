@@ -1,15 +1,5 @@
-# Claude Hooks
+# claude routing guidance
 
-This file is textual routing guidance, not a registered Claude Code executable hook or a skill catalog. Follow it through the global CLAUDE.md; actual hooks require separate explicit configuration and trust.
+This is textual guidance, not a registered executable hook. For non-trivial work needing specialized skills, use `orquestrador-maestro route explain --compact --json "task summary"` in the project directory (or reuse a hook-provided route). Pass the summary as a safely quoted argument, never as shell code. Open only selected skill bodies. Do not load full routing JSON catalogs into model context. If the CLI is unavailable, use native skill discovery or a relevant index excerpt.
 
-1. Read project `AGENTS.md`.
-2. If `DEV/` exists, read `DEV/README.md` or `DEV/INDEX.md`, then only the task-relevant `DEV/` files.
-3. Read `{{USER_HOME}}/.orquestrador/SKILL_EXECUTION_PROFILES.json`.
-4. Read `{{USER_HOME}}/.orquestrador/SKILL_ALIASES.json`.
-5. Read `{{USER_HOME}}/.orquestrador/SKILLS_ROUTER.json`.
-6. Read `{{USER_HOME}}/.orquestrador/SKILL_CHAINS.json` only after selecting the primary skill.
-7. Open only the selected `SKILL.md` files and only the files directly referenced by them.
-8. Do not use this file, `SKILLS_INDEX.md`, or `community-skills/` as a full discovery catalog.
-9. In `fast`, load one skill body. In `standard`, load at most three. Go wider only if the execution profile and the skill chain allow it.
-10. Verify before claiming completion.
-11. For broad global changes, run `orquestrador-maestro doctor --strict`. Linux/macOS can use the portable verifier without PowerShell.
+For substantive or resumed work, follow the nearest project instructions and hydrate relevant DEV control files: `DEV/AGENTS.md` when present, `DEV/README.md` or `DEV/INDEX.md`, `DEV/HANDOFF.md`, `DEV/CONTEXT.md`, `DEV/SPECS/ACTIVE.md`. Reuse still-valid session context; read additional files only as needed. Mechanical tasks need no broad DEV hydration unless required by project instructions.
