@@ -108,7 +108,7 @@ test("installer keeps the user provider block when a managed profile already exi
   const installed = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
     ...installed,
-    instructions: ["~/stale.md"],
+    instructions: ["~/stale.md", "~/.orquestrador/SKILLS_ROUTER.json", "~/.orquestrador/rules.md"],
     provider: userProvider
   }));
 
@@ -117,8 +117,10 @@ test("installer keeps the user provider block when a managed profile already exi
 
   const config = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   assert.deepEqual(config.provider, userProvider, "user provider block survives reinstall");
-  assert.ok(config.instructions.includes("~/.orquestrador/rules.md"), "template instructions are applied");
-  assert.ok(!config.instructions.includes("~/stale.md"), "template arrays replace stale selections");
+  assert.ok(config.instructions.includes("~/AGENTS.md"), "compact contract is applied");
+  assert.ok(config.instructions.includes("~/stale.md"), "user instructions survive");
+  assert.ok(!config.instructions.includes("~/.orquestrador/SKILLS_ROUTER.json"), "eager catalog removed");
+  assert.ok(!config.instructions.includes("~/.orquestrador/rules.md"), "duplicate policy removed");
   assert.equal(
     fs.readFileSync(path.join(configDir, ".maestro-managed"), "utf8"),
     "managed by orquestrador-maestro\ntool: opencode\n",
@@ -178,7 +180,7 @@ test("non-interactive reinstall without --all-targets still merges previously in
   const installed = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
     ...installed,
-    instructions: ["~/stale.md"],
+    instructions: ["~/stale.md", "~/.orquestrador/SKILLS_ROUTER.json", "~/.orquestrador/rules.md"],
     provider: userProvider
   }));
 
@@ -192,6 +194,26 @@ test("non-interactive reinstall without --all-targets still merges previously in
 
   const config = JSON.parse(fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"));
   assert.deepEqual(config.provider, userProvider, "user provider block survives non-interactive reinstall without --all-targets");
-  assert.ok(config.instructions.includes("~/.orquestrador/rules.md"), "template instructions are re-applied on reinstall");
-  assert.ok(!config.instructions.includes("~/stale.md"), "stale instructions are replaced");
+  assert.ok(config.instructions.includes("~/AGENTS.md"), "compact contract is applied");
+  assert.ok(config.instructions.includes("~/stale.md"), "user instructions survive");
+  assert.ok(!config.instructions.includes("~/.orquestrador/SKILLS_ROUTER.json"), "eager catalog removed");
+  assert.ok(!config.instructions.includes("~/.orquestrador/rules.md"), "duplicate policy removed");
+});
+
+test("compact OpenCode migration preserves custom instructions and provider settings", t => {
+  const { root, backup } = fixture(t);
+  const source = path.join(ROOT, "tool-profiles", "opencode-global", "opencode.json");
+  const destination = path.join(root, "opencode.json");
+  const before = { instructions: ["~/.orquestrador/SKILLS_ROUTER.json", "~/my-rules.md", "~/AGENTS.md", "~/.opencode/hooks.md"], provider: { custom: {} }, plugins: ["user"] };
+  fs.writeFileSync(destination, JSON.stringify(before));
+  const first = run(["install", source, destination, backup]);
+  assert.equal(first.status, 0, first.stderr);
+  const after = JSON.parse(fs.readFileSync(destination, "utf8"));
+  assert.deepEqual(after.instructions, ["~/AGENTS.md", "~/my-rules.md"]);
+  assert.deepEqual(after.provider, before.provider);
+  assert.deepEqual(after.plugins, before.plugins);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(backup, "opencode.json"), "utf8")), before);
+  const second = run(["install", source, destination, backup]);
+  assert.equal(second.status, 0, second.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(destination, "utf8")), after);
 });

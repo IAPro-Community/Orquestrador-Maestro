@@ -440,7 +440,7 @@ function Get-HookHealth {
     $exists = Test-Path -LiteralPath $spec.Path
     $text = if ($exists) { Get-Content -LiteralPath $spec.Path -Raw -Encoding UTF8 -ErrorAction SilentlyContinue } else { $null }
     $lineCount = if ([string]::IsNullOrEmpty($text)) { 0 } elseif ($exists) { ([regex]::Matches($text, "(`r`n|`n)")).Count + 1 } else { $null }
-    $containsRouter = if ($exists) { $text -match "SKILLS_ROUTER\.json" } else { $false }
+    $containsRouter = if ($exists) { $text -match "route explain --compact" } else { $false }
     $legacyCatalogMarker = if ($exists) { $text -match "(?i)(GLOBAL SKILLS HOOKS|Complete Skill Reference with Descriptions)" } else { $false }
     $healthy = $exists -and $containsRouter -and (-not $legacyCatalogMarker) -and ($lineCount -le [int]$spec.MaxLines)
 
