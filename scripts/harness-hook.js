@@ -182,7 +182,7 @@ async function main(args, input, output) {
   }
   if (action === "claude" || action === "gemini") {
     // Fail open: hook output never stops a host or requests another turn.
-    try { output.write(JSON.stringify(hookResponse(action, await readInput(input))) + "\n"); }
+    try { output.write(JSON.stringify(hookResponse(action, await readInput(input), { routeNative: process.env.MAESTRO_HARNESS_ROUTING !== "off" })) + "\n"); }
     catch { output.write("{}\n"); }
     return;
   }
