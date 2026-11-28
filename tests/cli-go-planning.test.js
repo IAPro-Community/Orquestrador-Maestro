@@ -142,7 +142,7 @@ test("CLI planning flow: interactive actions handle approve, inspect, refine, an
 });
 
 test("F2 REGRESSION: bin plan-mode branches persist mission as awaiting_approval, never 'planned'", () => {
-  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "cli", "commands", "go.js"), "utf8");
   const planningOnlyBlocks = cliContent.match(/planningOnly\)[\s\S]*?return 0;/g) || [];
 
   assert.ok(planningOnlyBlocks.length >= 2, "both GO branches (auto + interactive) must contain a planningOnly guard");
@@ -197,7 +197,7 @@ test("F2 REGRESSION: post-approval transitions — approve goes to running (exec
 });
 
 test("CLI bin/orquestrador-maestro.js wires SemanticPlanner and PlanApprovalGate in handleGoCommand", () => {
-  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "cli", "commands", "go.js"), "utf8");
 
   // Verify that handleGoCommand uses SemanticPlanner, PlanApprovalGate, and LegacyExecutionProjection
   assert.match(cliContent, /SemanticPlanner/);
@@ -214,7 +214,7 @@ test("CLI bin/orquestrador-maestro.js wires SemanticPlanner and PlanApprovalGate
 
 
 test("CLI go keeps one canonical mission id across planning, graph approval, and execution", () => {
-  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "cli", "commands", "go.js"), "utf8");
   const handleGoStart = cliContent.indexOf("async function handleGoCommand");
   const handleGoEnd = cliContent.indexOf("\nasync function ", handleGoStart + 1);
   const go = cliContent.slice(handleGoStart, handleGoEnd > handleGoStart ? handleGoEnd : undefined);
@@ -227,7 +227,7 @@ test("CLI go keeps one canonical mission id across planning, graph approval, and
 });
 
 test("CLI go finalizes canonical mission on unexpected planning or execution errors", () => {
-  const cliContent = fs.readFileSync(path.join(__dirname, "..", "bin", "orquestrador-maestro.js"), "utf8");
+  const cliContent = fs.readFileSync(path.join(__dirname, "..", "cli", "commands", "go.js"), "utf8");
   assert.match(cliContent, /failureStage: "planning"/u);
   assert.match(cliContent, /failureStage: "approval"/u);
   assert.match(cliContent, /failureStage: "execution"/u);

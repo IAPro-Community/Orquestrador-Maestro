@@ -496,4 +496,4 @@ function parseProviderUsage({ providerId, stdout, stderr, model } = {}) {
   }
 }
 
-module.exports = { parseProviderUsage, parseCodexUsage, parseClaudeLikeUsage, parseOpenCodeUsage, emptyUsage };
+module.exports = { parseProviderUsage, parseCodexUsage, parseClaudeLikeUsage, parseOpenCodeUsage, parseAgyUsage, emptyUsage };

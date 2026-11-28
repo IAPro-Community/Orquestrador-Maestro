@@ -99,7 +99,10 @@ function readStrictConfig(filePath) {
 }
 
 function atomicWriteFile(filePath, content) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  if (process.platform !== "win32") {
+    try { fs.chmodSync(path.dirname(filePath), 0o700); } catch { /* best-effort */ }
+  }
   const temp = `${filePath}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
   fs.writeFileSync(temp, content, { encoding: "utf8", mode: 0o600 });
   fs.renameSync(temp, filePath);

@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.2.0-rc.4 - 2026-11-27
+
+> Release candidate. `1.2.0-rc.3` já está publicado no canal npm `next`; `latest` permanece em `1.1.1`.
+
+### Harness first, routing e contexto (integrado de `origin/v1`)
+
+- Retry corretivo delimitado no planner: iteração rejeitada nunca é devolvida ao provider como instrução.
+- Sessões nativas do OpenCode com identidade de entrega, resolução de localização e isolamento de fila; registro automático do V2 só após resolver o SDK, com fallback V1 e JSONC sem destruir dados do usuário.
+- Permissões nativas preservadas e retenção de contexto reiniciada entre fronteiras; contratos de idioma nativo e compatibilidade de host mantidos.
+- Classificação de tarefas conversacionais e preservação das configurações do OpenCode na primeira instalação; migração das instruções legadas do OpenCode sem descartar configuração do usuário.
+- Hooks de prompt de Claude e Gemini passam a compartilhar o roteamento local; rota nativa compacta exposta ao host e escopo de workspace isolado.
+- Hidratação de projeto proporcional e remoção de leituras eager de catálogo nos espelhos nativos de skills e nos entrypoints compactos.
+
+### Organização da CLI
+
+- O entrypoint `bin/orquestrador-maestro.js` deixa de concentrar toda a CLI: 3520 → 1378 linhas. Os handlers migram verbatim para `cli/commands/{run,runs,project,ops,go,context}.js`, e o contexto compartilhado (requires, parsing de argumentos, fábrica da aplicação) para `cli/shared-context.js`. `dispatch` e `flushStream` permanecem no entrypoint.
+- `package.json` passa a publicar `cli/` no pacote. Sem isso o binário instalado quebrava com `Cannot find module '../cli/shared-context'`, o que quebrava `--version`, `--help` e o round-trip de `mission`.
+- `route explain --compact` do roteador nativo é preservado na nova casa do handler.
+- Testes que liam a fonte do CLI passaram a apontar para os módulos correspondentes, sem mudar o contrato verificado.
+
+### Correções de runtime e privacidade
+
+- `parseAgyUsage` passa a ser exportado pelo módulo de usage, igual aos demais parsers de provider.
+- `atomicWriteFile` cria o diretório destino com modo `0700` e reaplica o modo após a criação, mantendo o conteúdo anterior das configurações do host fora do alcance de outros usuários do sistema.
+- A redação de caminhos POSIX no CLI do harness passa a exigir dois segmentos ou mais: `/goal` continua legível no diagnóstico, enquanto `/home/<user>/.claude/settings.json` é redigido.
+- O validador público passa a excluir `.homologation/`, que é evidência local e gitignored, e por isso derrubava `validate-public.ps1` depois de qualquer homologação.
+
+### Memória do projeto
+
+- `DEV/SPECS/ACTIVE.md` passa a conter apenas a spec vigente; as specs concluídas ou superadas, incluindo o bloco duplicado da issue `#81`, foram movidas para `DEV/SPECS/ARCHIVE.md`.
+- `DEV/CONTEXT.md` e `DEV/HANDOFF.md` foram sincronizados com o estado real (`v1` @ `7425e74`, 13 commits remotos integrados).
+
+### Limites
+
+- Nenhum provider real é certificado por esta versão. macOS arm64, Windows amd64 e um segundo host continuam `NOT_TESTED` até execução real.
+- `route explain` falha com `skill banner-design must implement Skill Contract V2 natively`; o comportamento é idêntico no `origin/v1` puro e não foi introduzido por esta versão.
+- O harness é opt-in e default OFF; habilitar uma flag não altera os contratos de admissão, aprovação ou reconciliação.
+
 ## 1.2.0-rc.3 - 2026-11-27
 
 > Release candidate em preparação. Não publicada; `next` continua apontando para `1.2.0-rc.1` e `latest` para `1.1.1`.

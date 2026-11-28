@@ -45,7 +45,7 @@ function Get-RelativePath {
 function Test-ExcludedScanPath {
   param([string]$RelativePath)
   $rel = $RelativePath.Replace("\", "/")
-  if ($rel -match "(^|/)(\.git|\.local|\.omx|DEV|node_modules|dist|build)(/|$)") { return $true }
+  if ($rel -match "(^|/)(\.git|\.local|\.omx|DEV|node_modules|dist|build|\.homologation)(/|$)") { return $true }
   if ($rel -match "^orquestrador/runtime(/|$)") { return $true }
   if ($rel -match "^\.orquestrador(/|$)") { return $true }
   return $false

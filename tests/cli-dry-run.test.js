@@ -55,12 +55,13 @@ test("update dry-run does not update the global npm CLI", () => {
 });
 
 test("update keeps the wrapper's backup-by-default behavior and rejects no-force", () => {
+  const contextSource = fs.readFileSync(path.join(repoRoot, "cli", "shared-context.js"), "utf8");
   const cliSource = fs.readFileSync(cliPath, "utf8");
 
-  assert.match(cliSource, /"--no-force": \{ ps: "-NoForce", sh: "--no-force" \}/u);
+  assert.match(contextSource, /"--no-force": \{ ps: "-NoForce", sh: "--no-force" \}/u);
   assert.match(cliSource, /if \(args\.includes\("--no-force"\)\) \{\s*throw new Error\("update sempre reaplica o núcleo com backup/u);
   assert.match(cliSource, /const childResult = runCliUpdate\(args\)/u);
-  assert.doesNotMatch(cliSource, /updateArgs|"--force": \{ ps: "-Force"/u);
+  assert.doesNotMatch(contextSource + cliSource, /updateArgs|"--force": \{ ps: "-Force"/u);
 });
 
 test("update --no-force fails before trying to update npm", () => {
@@ -75,11 +76,11 @@ test("update --no-force fails before trying to update npm", () => {
 });
 
 test("Windows npm.cmd execution is routed through cmd.exe", () => {
-  const cliSource = fs.readFileSync(cliPath, "utf8");
+  const contextSource = fs.readFileSync(path.join(repoRoot, "cli", "shared-context.js"), "utf8");
 
-  assert.match(cliSource, /process\.env\.ComSpec \|\| "cmd\.exe"/u);
-  assert.match(cliSource, /"\/d", "\/s", "\/c", getNpmCommand\(\)/u);
-  assert.match(cliSource, /return spawnSync\(getNpmCommand\(\), args, \{ \...options, shell: false \}\)/u);
+  assert.match(contextSource, /process\.env\.ComSpec \|\| "cmd\.exe"/u);
+  assert.match(contextSource, /"\/d", "\/s", "\/c", getNpmCommand\(\)/u);
+  assert.match(contextSource, /return spawnSync\(getNpmCommand\(\), args, \{ \...options, shell: false \}\)/u);
 });
 
 test("version --check exposes the installed and published npm versions", () => {
