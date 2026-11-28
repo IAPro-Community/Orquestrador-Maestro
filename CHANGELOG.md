@@ -27,6 +27,14 @@
 - A redação de caminhos POSIX no CLI do harness passa a exigir dois segmentos ou mais: `/goal` continua legível no diagnóstico, enquanto `/home/<user>/.claude/settings.json` é redigido.
 - O validador público passa a excluir `.homologation/`, que é evidência local e gitignored, e por isso derrubava `validate-public.ps1` depois de qualquer homologação.
 
+### Correções do split detectadas pela CI
+
+- `cli/commands/ops.js` não importava `commandExists`, quebrando `changelog` com `commandExists is not defined`.
+- `cli/commands/context.js` não importava o helper `run`, quebrando `targets sync` com `run is not defined` dentro do bloco `failed`.
+- O bloco `dispatch`/`flushStream` duplicado foi removido de `cli/commands/context.js`; `dispatch` e `flushStream` ficam somente no entrypoint.
+- Novo `tests/cli-command-smoke.test.js` dirige os comandos da CLI que não exigem credenciais e falha em referência não resolvida. O teste foi validado reintroduzindo cada um dos dois defeitos acima.
+- O caminho `targets sync` só alcança o helper compartilhado com um alvo habilitado, e converte falha de helper em item `failed` em vez de lançar; o novo teste cobre essa condição.
+
 ### Memória do projeto
 
 - `DEV/SPECS/ACTIVE.md` passa a conter apenas a spec vigente; as specs concluídas ou superadas, incluindo o bloco duplicado da issue `#81`, foram movidas para `DEV/SPECS/ARCHIVE.md`.

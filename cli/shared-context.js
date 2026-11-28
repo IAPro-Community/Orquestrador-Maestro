@@ -76,6 +76,21 @@ function parseArgEqual(args, name) {
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd || rootDir,
+    env: options.env || process.env,
+    stdio: "inherit",
+    shell: false
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return typeof result.status === "number" ? result.status : 1;
+}
+
 function commandExists(filePath) {
   return fs.existsSync(filePath);
 }
@@ -254,6 +269,7 @@ module.exports = {
   parseRuntimeArgs,
   createRuntimeApplication,
   commandExists,
+  run,
   getNpmCommand,
   runNpm,
   getPublishedNpmVersion,

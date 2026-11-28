@@ -10,7 +10,7 @@ const https = require("node:https");
 const os = require("node:os");
 const {
   path, rootDir, packageJson, parseRuntimeArgs, createRuntimeApplication,
-  createBridge, createStdioServer,
+  createBridge, createStdioServer, commandExists,
   resolveMaestroRoot, hasV3SkillManifest, Memory,
   telemetryTimeoutMs, telemetryConsentVersion, defaultTelemetryProvider,
   defaultTelemetryEndpointUrl, getArg, normalizeArgs,
